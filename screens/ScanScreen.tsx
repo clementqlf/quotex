@@ -1,20 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
+  StyleSheet,
   Animated,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 
-export default function ScanScreen() {
+interface ScanScreenProps {
+  onNavigate: (screen: number) => void;
+  currentScreen: number;
+}
+
+export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProps) {
   const [isScanning, setIsScanning] = useState(false);
-  const scanAnimation = new Animated.Value(0);
+  const [scannedText, setScannedText] = useState('');
+  const scanAnimation = useRef(new Animated.Value(0)).current;
 
-  const handleScan = () => {
+  const simulateScan = () => {
     setIsScanning(true);
-    
-    // Simulate scanning animation
+
+    // Animation de scan
     Animated.loop(
       Animated.sequence([
         Animated.timing(scanAnimation, {
@@ -30,96 +37,129 @@ export default function ScanScreen() {
       ])
     ).start();
 
-    // Simulate scan completion
+    // Simulation du résultat
     setTimeout(() => {
+      setScannedText("The only way to do great work is to love what you do.");
       setIsScanning(false);
       scanAnimation.stopAnimation();
       scanAnimation.setValue(0);
-      console.log('Scan completed!');
-      // TODO: Navigate to quote edit screen
-    }, 4000);
+    }, 2000);
   };
 
   const translateY = scanAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [-200, 200],
+    outputRange: [-100, 100],
   });
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>Quotex</Text>
         <Text style={styles.tagline}>Capture & Share Wisdom</Text>
       </View>
 
+      {/* Scan Frame */}
       <View style={styles.scanArea}>
         <View style={styles.scanFrame}>
+          {/* Corners */}
           <View style={[styles.corner, styles.cornerTopLeft]} />
           <View style={[styles.corner, styles.cornerTopRight]} />
           <View style={[styles.corner, styles.cornerBottomLeft]} />
           <View style={[styles.corner, styles.cornerBottomRight]} />
 
+          {/* Scan Line */}
           {isScanning && (
             <Animated.View
               style={[
                 styles.scanLine,
-                {
-                  transform: [{ translateY }],
-                },
+                { transform: [{ translateY }] },
               ]}
             />
           )}
 
-          <View style={styles.scanPlaceholder}>
-            <Text style={styles.scanPlaceholderIcon}>📖</Text>
-            <Text style={styles.scanPlaceholderText}>
-              {isScanning ? 'Scanning...' : 'Position your book here'}
-            </Text>
+          {/* Instructions / Result */}
+          <View style={styles.content}>
+            {!scannedText ? (
+              <>
+                <Icon name="book-open" size={48} color="#4B5563" />
+                <Text style={styles.instructionText}>
+                  {isScanning ? 'Scan en cours...' : 'Placez une citation dans le cadre'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.scannedText}>{scannedText}</Text>
+            )}
           </View>
         </View>
       </View>
 
+      {/* Navigation Hints */}
+      {currentScreen === 1 && (
+        <>
+          <TouchableOpacity
+            style={[styles.navButton, styles.navButtonLeft]}
+            onPress={() => onNavigate(0)}
+          >
+            <Icon name="chevron-left" size={24} color="#E5E7EB" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.navButton, styles.navButtonRight]}
+            onPress={() => onNavigate(2)}
+          >
+            <Icon name="chevron-right" size={24} color="#E5E7EB" />
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* Bottom Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity
-          style={[styles.scanButton, isScanning && styles.scanButtonActive]}
-          onPress={handleScan}
-          disabled={isScanning}
-        >
-          <View style={styles.scanButtonInner}>
-            <Text style={styles.scanButtonIcon}>
-              {isScanning ? '⏸' : '📷'}
-            </Text>
+        {scannedText && !isScanning ? (
+          // Save/Cancel buttons
+          <View style={styles.controlsRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setScannedText('')}
+            >
+              <Text style={styles.cancelButtonText}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton}>
+              <Text style={styles.saveButtonText}>Enregistrer</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        ) : (
+          // Scan controls
+          <View style={styles.controlsRow}>
+            <TouchableOpacity style={styles.iconButton}>
+              <Icon name="image" size={24} color="#E5E7EB" />
+            </TouchableOpacity>
 
-        <Text style={styles.instruction}>
-          {isScanning ? 'Hold steady...' : 'Tap to scan a quote'}
-        </Text>
+            <TouchableOpacity
+              style={[styles.scanButton, isScanning && styles.scanButtonActive]}
+              onPress={simulateScan}
+              disabled={isScanning}
+            >
+              <Icon
+                name="camera"
+                size={32}
+                color={isScanning ? '#20B8CD' : '#20B8CD'}
+              />
+            </TouchableOpacity>
 
-        <View style={styles.tips}>
-          <Text style={styles.tipText}>💡 Tips:</Text>
-          <Text style={styles.tipItem}>• Good lighting improves accuracy</Text>
-          <Text style={styles.tipItem}>• Center the text in the frame</Text>
-          <Text style={styles.tipItem}>• Keep the camera steady</Text>
-        </View>
+            <TouchableOpacity style={styles.iconButton}>
+              <Icon name="zap" size={24} color="#E5E7EB" />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      <View style={styles.stats}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>47</Text>
-          <Text style={styles.statLabel}>Scanned</Text>
+      {/* Scanning Indicator */}
+      {isScanning && (
+        <View style={styles.scanningIndicator}>
+          <View style={styles.scanningDot} />
+          <Text style={styles.scanningText}>Scan en cours...</Text>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>12</Text>
-          <Text style={styles.statLabel}>This Week</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>98%</Text>
-          <Text style={styles.statLabel}>Accuracy</Text>
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -128,15 +168,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0F0F0F',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
+    position: 'absolute',
+    top: 32,
     alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 24,
   },
   logo: {
     fontSize: 32,
-    fontWeight: 'bold',
     color: '#20B8CD',
     marginBottom: 4,
   },
@@ -148,148 +189,175 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
   },
   scanFrame: {
     width: '100%',
     aspectRatio: 3 / 4,
     maxHeight: 400,
-    position: 'relative',
+    borderWidth: 2,
+    borderColor: 'rgba(32, 184, 205, 0.5)',
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   corner: {
     position: 'absolute',
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     borderColor: '#20B8CD',
   },
   cornerTopLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
+    top: -2,
+    left: -2,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 16,
   },
   cornerTopRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
+    top: -2,
+    right: -2,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 16,
   },
   cornerBottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
+    bottom: -2,
+    left: -2,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 16,
   },
   cornerBottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
+    bottom: -2,
+    right: -2,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 16,
   },
   scanLine: {
     position: 'absolute',
     width: '100%',
-    height: 2,
+    height: 4,
     backgroundColor: '#20B8CD',
-    shadowColor: '#20B8CD',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
   },
-  scanPlaceholder: {
+  content: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  instructionText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  scannedText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  navButton: {
+    position: 'absolute',
+    top: '50%',
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: 'rgba(26, 26, 26, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(42, 42, 42, 0.3)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  scanPlaceholderIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-    opacity: 0.5,
+  navButtonLeft: {
+    left: 16,
   },
-  scanPlaceholderText: {
-    fontSize: 16,
-    color: '#666666',
+  navButtonRight: {
+    right: 16,
   },
   controls: {
+    position: 'absolute',
+    bottom: 80,
+    width: '100%',
+    paddingHorizontal: 16,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 32,
+    gap: 16,
+  },
+  iconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(26, 26, 26, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(42, 42, 42, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scanButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#20B8CD',
+    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    borderWidth: 2,
+    borderColor: '#20B8CD',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#20B8CD',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   scanButtonActive: {
-    backgroundColor: '#FF6B9D',
-    shadowColor: '#FF6B9D',
+    backgroundColor: 'rgba(32, 184, 205, 0.2)',
   },
-  scanButtonInner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#0F0F0F',
-    justifyContent: 'center',
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(26, 26, 26, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(42, 42, 42, 0.3)',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#20B8CD',
   },
-  scanButtonIcon: {
-    fontSize: 32,
-  },
-  instruction: {
-    fontSize: 16,
+  cancelButtonText: {
     color: '#FFFFFF',
-    marginTop: 16,
-    fontWeight: '500',
+    fontSize: 16,
   },
-  tips: {
-    marginTop: 24,
-    paddingHorizontal: 32,
+  saveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: '#20B8CD',
+    alignItems: 'center',
   },
-  tipText: {
+  saveButtonText: {
+    color: '#0F0F0F',
+    fontSize: 16,
+  },
+  scanningIndicator: {
+    position: 'absolute',
+    top: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(32, 184, 205, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(32, 184, 205, 0.3)',
+    borderRadius: 8,
+  },
+  scanningDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#20B8CD',
+  },
+  scanningText: {
     fontSize: 14,
     color: '#20B8CD',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  tipItem: {
-    fontSize: 13,
-    color: '#888888',
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    backgroundColor: '#1A1A1A',
-    borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#20B8CD',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#888888',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#2A2A2A',
   },
 });
