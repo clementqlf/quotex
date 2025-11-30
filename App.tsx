@@ -6,6 +6,7 @@ import {
   StyleSheet,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  SafeAreaView,
 } from 'react-native';
 import MyQuotesScreen from './screens/MyQuotesScreen';
 import ScanScreen from './screens/ScanScreen';
@@ -24,27 +25,30 @@ export default function App() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         horizontal
-        pagingEnabled // ✅ Force la pagination écran par écran
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         onMomentumScrollEnd={handleScroll}
-        contentOffset={{ x: SCREEN_WIDTH, y: 0 }} // ✅ Démarre sur l'écran du milieu (Scan)
-        decelerationRate="fast" // ✅ Snap rapide comme Snapchat
+        contentOffset={{ x: SCREEN_WIDTH, y: 0 }} // démarrage sur l'écran du milieu
+        decelerationRate="fast"
       >
         {/* Écran GAUCHE : My Quotes */}
         <View style={styles.screen}>
           <MyQuotesScreen />
         </View>
 
-        {/* Écran MILIEU : Scan (par défaut) */}
+        {/* Écran MILIEU : Scan */}
         <View style={styles.screen}>
-          <ScanScreen onNavigate={function (screen: number): void {
-            throw new Error('Function not implemented.');
-          } } currentScreen={0} />
+          <ScanScreen
+            onNavigate={function (screen: number): void {
+              throw new Error('Function not implemented.');
+            }}
+            currentScreen={0}
+          />
         </View>
 
         {/* Écran DROITE : Social Feed */}
@@ -53,7 +57,7 @@ export default function App() {
         </View>
       </ScrollView>
 
-      {/* Indicateur de page (optionnel, style Snapchat) */}
+      {/* Indicateur de page en bas */}
       <View style={styles.pageIndicator}>
         {[0, 1, 2].map((index) => (
           <View
@@ -65,7 +69,7 @@ export default function App() {
           />
         ))}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -80,7 +84,7 @@ const styles = StyleSheet.create({
   },
   pageIndicator: {
     position: 'absolute',
-    top: 60,
+    bottom: 20, // indicateur en bas
     alignSelf: 'center',
     flexDirection: 'row',
     gap: 6,
