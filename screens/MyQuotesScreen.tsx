@@ -1,36 +1,135 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import QuoteCard from '../components/QuoteCard';
-import { mockQuotes } from '../data/mockData';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
+
+const myQuotes = [
+  {
+    id: 1,
+    text: "The only way to do great work is to love what you do.",
+    book: "Steve Jobs",
+    author: "Walter Isaacson",
+    date: "Il y a 2h",
+    likes: 12,
+    isLiked: true,
+  },
+  {
+    id: 2,
+    text: "In the middle of difficulty lies opportunity.",
+    book: "Einstein: His Life and Universe",
+    author: "Walter Isaacson",
+    date: "Il y a 5h",
+    likes: 8,
+    isLiked: false,
+  },
+  {
+    id: 3,
+    text: "It is our choices that show what we truly are, far more than our abilities.",
+    book: "Harry Potter and the Chamber of Secrets",
+    author: "J.K. Rowling",
+    date: "Hier",
+    likes: 24,
+    isLiked: true,
+  },
+];
 
 export default function MyQuotesScreen() {
-  const insets = useSafeAreaInsets();
+  const [quotes, setQuotes] = useState(myQuotes);
+
+  const toggleLike = (id: number) => {
+    setQuotes(quotes.map(q =>
+      q.id === id
+        ? { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }
+        : q
+    ));
+  };
 
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: 16 }]}>
-        <Text style={styles.headerTitle}>Mes Citations</Text>
-        <Text style={styles.headerSubtitle}>{mockQuotes.length} citations sauvegardées</Text>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.iconContainer}>
+            <Icon name="book-open" size={16} color="#20B8CD" />
+          </View>
+          <Text style={styles.headerTitle}>Mes Citations</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerButton}>
+            <Icon name="search" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton}>
+            <Icon name="filter" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Feed */}
-      <ScrollView 
-        style={styles.feed}
-        contentContainerStyle={[
-          styles.feedContent,
-          { paddingBottom: insets.bottom + 20 }
-        ]}
+      {/* Stats */}
+      <View style={styles.stats}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{quotes.length}</Text>
+          <Text style={styles.statLabel}>Citations</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{quotes.reduce((acc, q) => acc + q.likes, 0)}</Text>
+          <Text style={styles.statLabel}>J'aime</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>8</Text>
+          <Text style={styles.statLabel}>Livres</Text>
+        </View>
+      </View>
+
+      {/* Quotes Feed */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {mockQuotes.map((quote) => (
-          <QuoteCard
-            key={quote.id}
-            quote={quote}
-            onBookPress={(bookId) => console.log('Book:', bookId)}
-            onAuthorPress={(authorId) => console.log('Author:', authorId)}
-          />
+        {quotes.map((quote) => (
+          <View key={quote.id} style={styles.quoteCard}>
+            {/* Quote Icon */}
+            <Text style={styles.quoteIcon}>"</Text>
+
+            {/* Quote Text */}
+            <Text style={styles.quoteText}>{quote.text}</Text>
+
+            {/* Book Info */}
+            <View style={styles.bookInfo}>
+              <View style={styles.bookInfoLeft}>
+                <Text style={styles.bookTitle}>{quote.book}</Text>
+                <Text style={styles.authorName}>{quote.author}</Text>
+              </View>
+              <Text style={styles.dateText}>{quote.date}</Text>
+            </View>
+
+            {/* Actions */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => toggleLike(quote.id)}
+              >
+                <Icon
+                  name="heart"
+                  size={20}
+                  color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                  style={quote.isLiked ? styles.iconFilled : {}}
+                />
+                <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
+                  {quote.likes}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Icon name="share-2" size={20} color="#6B7280" />
+                <Text style={styles.actionText}>Partager</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         ))}
       </ScrollView>
     </View>
@@ -43,200 +142,138 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F0F0F',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1F1F1F',
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(32, 184, 205, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
+    fontSize: 20,
     color: '#FFFFFF',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stats: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+  },
+  statItem: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    color: '#20B8CD',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 80,
+  },
+  quoteCard: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  quoteIcon: {
     fontSize: 32,
+    color: 'rgba(32, 184, 205, 0.2)',
+    marginBottom: 8,
+  },
+  quoteText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#E5E7EB',
+    marginBottom: 16,
+  },
+  bookInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  bookInfoLeft: {
+    flex: 1,
+  },
+  bookTitle: {
+    fontSize: 14,
+    color: '#20B8CD',
     marginBottom: 4,
   },
-  headerSubtitle: {
-    color: '#6A6A6A',
-    fontSize: 14,
+  authorName: {
+    fontSize: 12,
+    color: '#6B7280',
   },
-  feed: {
-    flex: 1,
+  dateText: {
+    fontSize: 12,
+    color: '#6B7280',
   },
-  feedContent: {
-    padding: 20,
-  },
-});
-```
-
----
-
-📄 8. src/screens/ScanScreen.tsx
-
-```tsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Feather';
-
-export default function ScanScreen() {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: 16 }]}>
-        <Text style={styles.headerTitle}>Scanner</Text>
-      </View>
-
-      {/* Scan Area */}
-      <View style={styles.scanArea}>
-        <View style={styles.scanFrame}>
-          <View style={[styles.corner, styles.cornerTopLeft]} />
-          <View style={[styles.corner, styles.cornerTopRight]} />
-          <View style={[styles.corner, styles.cornerBottomLeft]} />
-          <View style={[styles.corner, styles.cornerBottomRight]} />
-          
-          <Icon name="camera" size={64} color="#20B8CD" />
-          <Text style={styles.scanText}>Placez la citation dans le cadre</Text>
-          <Text style={styles.scanSubtext}>L'OCR détectera automatiquement le texte</Text>
-        </View>
-      </View>
-
-      {/* Bottom Actions */}
-      <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 20 }]}>
-        <TouchableOpacity style={styles.galleryButton}>
-          <Icon name="image" size={24} color="#FFFFFF" />
-          <Text style={styles.galleryButtonText}>Galerie</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.captureButton}>
-          <View style={styles.captureButtonInner} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.flashButton}>
-          <Icon name="zap" size={24} color="#FFFFFF" />
-          <Text style={styles.flashButtonText}>Flash</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F0F0F',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    textAlign: 'center',
-  },
-  scanArea: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  scanFrame: {
-    width: '100%',
-    aspectRatio: 3 / 4,
-    maxHeight: 500,
-    borderWidth: 2,
-    borderColor: '#20B8CD',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    backgroundColor: 'rgba(32, 184, 205, 0.05)',
-  },
-  corner: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderColor: '#20B8CD',
-  },
-  cornerTopLeft: {
-    top: -2,
-    left: -2,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 20,
-  },
-  cornerTopRight: {
-    top: -2,
-    right: -2,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderTopRightRadius: 20,
-  },
-  cornerBottomLeft: {
-    bottom: -2,
-    left: -2,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderBottomLeftRadius: 20,
-  },
-  cornerBottomRight: {
-    bottom: -2,
-    right: -2,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderBottomRightRadius: 20,
-  },
-  scanText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  scanSubtext: {
-    color: '#6A6A6A',
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  bottomActions: {
+  actions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    gap: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    gap: 8,
   },
-  galleryButton: {
-    alignItems: 'center',
-    gap: 4,
+  actionText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
-  galleryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  actionTextActive: {
+    color: '#20B8CD',
   },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#20B8CD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-  },
-  captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FFFFFF',
-  },
-  flashButton: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  flashButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  iconFilled: {
+    // Pour simuler le fill, vous devrez utiliser une icône différente
   },
 });

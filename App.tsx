@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import {
   View,
+  ScrollView,
   Dimensions,
-  PanResponder,
-  Animated,
   StyleSheet,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
 } from 'react-native';
 import MyQuotesScreen from './screens/MyQuotesScreen';
 import ScanScreen from './screens/ScanScreen';
@@ -13,74 +14,53 @@ import SocialFeedScreen from './screens/SocialFeedScreen';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState(1); // 0: Mes Citations, 1: Scanner, 2: Feed Social
-  const translateX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [currentPage, setCurrentPage] = useState(1); // 0=MyQuotes, 1=Scan, 2=Social
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        translateX.setValue(-SCREEN_WIDTH * currentScreen + gestureState.dx);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const swipeThreshold = SCREEN_WIDTH / 4;
-        
-        if (gestureState.dx > swipeThreshold && currentScreen > 0) {
-          // Swipe right
-          goToScreen(currentScreen - 1);
-        } else if (gestureState.dx < -swipeThreshold && currentScreen < 2) {
-          // Swipe left
-          goToScreen(currentScreen + 1);
-        } else {
-          // Snap back
-          goToScreen(currentScreen);
-        }
-      },
-    })
-  ).current;
-
-  const goToScreen = (screen: number) => {
-    setCurrentScreen(screen);
-    Animated.spring(translateX, {
-      toValue: -SCREEN_WIDTH * screen,
-      useNativeDriver: true,
-      speed: 20,
-      bounciness: 0,
-    }).start();
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const page = Math.round(offsetX / SCREEN_WIDTH);
+    setCurrentPage(page);
   };
 
   return (
     <View style={styles.container}>
-      <Animated.View
-        {...panResponder.panHandlers}
-        style={[
-          styles.screensContainer,
-          {
-            transform: [{ translateX }],
-          },
-        ]}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled // ✅ Force la pagination écran par écran
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={handleScroll}
+        contentOffset={{ x: SCREEN_WIDTH, y: 0 }} // ✅ Démarre sur l'écran du milieu (Scan)
+        decelerationRate="fast" // ✅ Snap rapide comme Snapchat
       >
-        <View style={[styles.screen, { width: SCREEN_WIDTH }]}>
+        {/* Écran GAUCHE : My Quotes */}
+        <View style={styles.screen}>
           <MyQuotesScreen />
         </View>
-        <View style={[styles.screen, { width: SCREEN_WIDTH }]}>
-          <ScanScreen onNavigate={goToScreen} currentScreen={currentScreen} />
+
+        {/* Écran MILIEU : Scan (par défaut) */}
+        <View style={styles.screen}>
+          <ScanScreen onNavigate={function (screen: number): void {
+            throw new Error('Function not implemented.');
+          } } currentScreen={0} />
         </View>
-        <View style={[styles.screen, { width: SCREEN_WIDTH }]}>
+
+        {/* Écran DROITE : Social Feed */}
+        <View style={styles.screen}>
           <SocialFeedScreen />
         </View>
-      </Animated.View>
+      </ScrollView>
 
-      {/* Navigation Indicators */}
-      <View style={styles.indicators}>
+      {/* Indicateur de page (optionnel, style Snapchat) */}
+      <View style={styles.pageIndicator}>
         {[0, 1, 2].map((index) => (
           <View
             key={index}
             style={[
-              styles.indicator,
-              currentScreen === index ? styles.indicatorActive : styles.indicatorInactive,
+              styles.dot,
+              currentPage === index && styles.activeDot,
             ]}
           />
         ))}
@@ -94,30 +74,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F0F0F',
   },
-  screensContainer: {
-    flex: 1,
-    flexDirection: 'row',
-  },
   screen: {
-    flex: 1,
+    width: SCREEN_WIDTH,
+    height: '100%',
   },
-  indicators: {
+  pageIndicator: {
     position: 'absolute',
-    bottom: 32,
+    top: 60,
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
-  indicator: {
+  dot: {
+    width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: '#333',
   },
-  indicatorActive: {
-    width: 32,
+  activeDot: {
     backgroundColor: '#20B8CD',
-  },
-  indicatorInactive: {
-    width: 6,
-    backgroundColor: '#4B5563',
+    width: 20,
   },
 });
