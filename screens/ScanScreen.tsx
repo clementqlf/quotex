@@ -1,12 +1,17 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Animated,
+  Easing,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+
+// --- CORRECTION DU CHEMIN ICI ---
+const quotexLogo = require('../assets/images/quotex_logo.png'); 
 
 interface ScanScreenProps {
   onNavigate: (screen: number) => void;
@@ -16,17 +21,45 @@ interface ScanScreenProps {
 export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [scannedText, setScannedText] = useState('');
+  
   const scanAnimation = useRef(new Animated.Value(0)).current;
+  const pulseAnimation = useRef(new Animated.Value(1)).current; 
+
+  // Animation de pulsation du bouton de scan (inchangée)
+  useEffect(() => {
+    if (!isScanning) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnimation, {
+            toValue: 1.1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnimation, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          })
+        ])
+      ).start();
+    } else {
+      pulseAnimation.setValue(1);
+    }
+  }, [isScanning]);
+
+  const pulseWide = pulseAnimation.interpolate({
+    inputRange: [1, 1.1],
+    outputRange: [1, 1.4], 
+  });
 
   const simulateScan = () => {
     setIsScanning(true);
-
-    // Animation de scan
     Animated.loop(
       Animated.sequence([
         Animated.timing(scanAnimation, {
           toValue: 1,
           duration: 2000,
+          easing: Easing.linear,
           useNativeDriver: true,
         }),
         Animated.timing(scanAnimation, {
@@ -37,7 +70,6 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
       ])
     ).start();
 
-    // Simulation du résultat
     setTimeout(() => {
       setScannedText("The only way to do great work is to love what you do.");
       setIsScanning(false);
@@ -48,27 +80,36 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
 
   const translateY = scanAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [-100, 100],
+    outputRange: [-140, 140],
   });
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>Quotex</Text>
-        <Text style={styles.tagline}>Capture & Share Wisdom</Text>
+        <View style={styles.logoContainer}>
+            {/* 💡 Calque Extérieur STATIQUE : lueur large et très subtile */}
+            {/* Utilisation d'une View standard car il n'y a plus d'animation ici */}
+
+            
+            {/* --- LE LOGO RESTE AU-DESSUS (zIndex: 10) --- */}
+            <Image 
+              source={quotexLogo}
+              style={styles.logoImage}
+              resizeMode="contain"
+              tintColor="#FFFFFF" 
+            />
+
+            <Text style={styles.tagline}>Capture & Share Wisdom</Text>
+        </View>
       </View>
 
-      {/* Scan Frame */}
       <View style={styles.scanArea}>
         <View style={styles.scanFrame}>
-          {/* Corners */}
           <View style={[styles.corner, styles.cornerTopLeft]} />
           <View style={[styles.corner, styles.cornerTopRight]} />
           <View style={[styles.corner, styles.cornerBottomLeft]} />
           <View style={[styles.corner, styles.cornerBottomRight]} />
 
-          {/* Scan Line */}
           {isScanning && (
             <Animated.View
               style={[
@@ -78,7 +119,6 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
             />
           )}
 
-          {/* Instructions / Result */}
           <View style={styles.content}>
             {!scannedText ? (
               <>
@@ -88,13 +128,15 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
                 </Text>
               </>
             ) : (
-              <Text style={styles.scannedText}>{scannedText}</Text>
+              <View style={styles.resultContainer}>
+                <Text style={styles.scannedText}>{scannedText}</Text>
+              </View>
             )}
           </View>
         </View>
       </View>
 
-      {/* Navigation Hints */}
+      {/* Navigation Buttons */}
       {currentScreen === 1 && (
         <>
           <TouchableOpacity
@@ -112,10 +154,9 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
         </>
       )}
 
-      {/* Bottom Controls */}
+      {/* Controls */}
       <View style={styles.controls}>
         {scannedText && !isScanning ? (
-          // Save/Cancel buttons
           <View style={styles.controlsRow}>
             <TouchableOpacity
               style={styles.cancelButton}
@@ -128,23 +169,36 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
             </TouchableOpacity>
           </View>
         ) : (
-          // Scan controls
           <View style={styles.controlsRow}>
             <TouchableOpacity style={styles.iconButton}>
               <Icon name="image" size={24} color="#E5E7EB" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.scanButton, isScanning && styles.scanButtonActive]}
-              onPress={simulateScan}
-              disabled={isScanning}
-            >
-              <Icon
-                name="camera"
-                size={32}
-                color={isScanning ? '#20B8CD' : '#20B8CD'}
-              />
-            </TouchableOpacity>
+            <View style={styles.scanButtonContainer}>
+                <Animated.View 
+                    style={[
+                        styles.glowLayer,
+                        styles.glowLayerOuter,
+                        { transform: [{ scale: pulseWide }] }
+                    ]} 
+                />
+                 <Animated.View 
+                    style={[
+                        styles.glowLayer,
+                        styles.glowLayerInner,
+                        { transform: [{ scale: pulseAnimation }] }
+                    ]} 
+                />
+                
+                <TouchableOpacity
+                  style={[styles.scanButton, isScanning && styles.scanButtonActive]}
+                  onPress={simulateScan}
+                  disabled={isScanning}
+                  activeOpacity={0.9}
+                >
+                  <Icon name="camera" size={28} color={'#FFFFFF'} />
+                </TouchableOpacity>
+            </View>
 
             <TouchableOpacity style={styles.iconButton}>
               <Icon name="zap" size={24} color="#E5E7EB" />
@@ -153,7 +207,6 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
         )}
       </View>
 
-      {/* Scanning Indicator */}
       {isScanning && (
         <View style={styles.scanningIndicator}>
           <View style={styles.scanningDot} />
@@ -173,20 +226,44 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 32,
+    top: 60,
     alignItems: 'center',
+    zIndex: 10,
+    width: '100%',
   },
-  logo: {
-    fontSize: 32,
-    color: '#20B8CD',
-    marginBottom: 4,
+  logoContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
+  
+  // ------------------------------------------
+
+// Style pour l'image
+  logoImage: {
+    width: 170,  
+    height: 50,  
+    marginBottom: 6,
+    // --- NOUVELLE OMBRE PLUS SUBTILE ET DIFFUSE ---
+    shadowColor: '#20B8CD', // Toujours votre couleur
+    shadowOffset: { width: 0, height: 4 }, // Décalage léger vers le bas
+    shadowOpacity: 0.4, // Opacité plus faible pour moins de "lueur"
+    shadowRadius: 15, // Rayon de flou modéré
+    elevation: 10,   // Élévation modérée pour Android
+    // ---------------------------------------------
+    zIndex: 10, 
+    tintColor: '#FFFFFF', 
+  },
+
   tagline: {
     fontSize: 14,
-    color: '#888888',
+    color: '#666',
+    marginTop: 0,
+    fontWeight: '500',
   },
   scanArea: {
     flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -194,170 +271,221 @@ const styles = StyleSheet.create({
   scanFrame: {
     width: '100%',
     aspectRatio: 3 / 4,
-    maxHeight: 400,
-    borderWidth: 2,
-    borderColor: 'rgba(32, 184, 205, 0.5)',
-    borderRadius: 16,
+    maxHeight: 450,
+    borderWidth: 1, 
+    borderColor: 'rgba(32, 184, 205, 0.2)', 
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    backgroundColor: 'rgba(20, 20, 20, 0.3)', 
+    overflow: 'hidden',
   },
   corner: {
     position: 'absolute',
-    width: 32,
+    width: 32, 
     height: 32,
     borderColor: '#20B8CD',
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
   },
   cornerTopLeft: {
-    top: -2,
-    left: -2,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderTopLeftRadius: 16,
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 24,
   },
   cornerTopRight: {
-    top: -2,
-    right: -2,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderTopRightRadius: 16,
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 24,
   },
   cornerBottomLeft: {
-    bottom: -2,
-    left: -2,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderBottomLeftRadius: 16,
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 24,
   },
   cornerBottomRight: {
-    bottom: -2,
-    right: -2,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderBottomRightRadius: 16,
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 24,
   },
   scanLine: {
     position: 'absolute',
     width: '100%',
-    height: 4,
+    height: 2,
     backgroundColor: '#20B8CD',
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
   },
   content: {
     alignItems: 'center',
-    padding: 16,
+    padding: 24,
+    width: '100%',
   },
   instructionText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 16,
+    fontSize: 15,
+    color: '#555',
+    marginTop: 20,
     textAlign: 'center',
   },
+  resultContainer: {
+    backgroundColor: 'rgba(10, 10, 10, 0.9)',
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(32, 184, 205, 0.3)',
+  },
   scannedText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 28,
   },
   navButton: {
     position: 'absolute',
     top: '50%',
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: 'rgba(26, 26, 26, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(42, 42, 42, 0.3)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
   },
   navButtonLeft: {
-    left: 16,
+    left: 20,
   },
   navButtonRight: {
-    right: 16,
+    right: 20,
   },
   controls: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 60,
     width: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between', 
     alignItems: 'center',
-    gap: 16,
   },
   iconButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: 'rgba(26, 26, 26, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(42, 42, 42, 0.3)',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scanButton: {
+  scanButtonContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
-    borderWidth: 2,
-    borderColor: '#20B8CD',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  glowLayer: {
+    position: 'absolute',
+    width: 70, 
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#20B8CD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glowLayerOuter: {
+    opacity: 0.1, 
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 40, 
+  },
+  glowLayerInner: {
+    opacity: 0.15,
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20, 
+  },
+  scanButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#0F0F0F', 
+    borderWidth: 2,
+    borderColor: '#20B8CD', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+    elevation: 8,
+    zIndex: 10,
   },
   scanButtonActive: {
     backgroundColor: 'rgba(32, 184, 205, 0.2)',
+    borderColor: '#FFFFFF',
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(26, 26, 26, 0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(42, 42, 42, 0.3)',
+    paddingVertical: 14,
+    marginRight: 12,
+    borderRadius: 14,
+    backgroundColor: '#1a1a1a',
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#FFFFFF',
+    color: '#ccc',
     fontSize: 16,
+    fontWeight: '600',
   },
   saveButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    paddingVertical: 14,
+    marginLeft: 12,
+    borderRadius: 14,
     backgroundColor: '#20B8CD',
     alignItems: 'center',
   },
   saveButtonText: {
     color: '#0F0F0F',
     fontSize: 16,
+    fontWeight: 'bold',
   },
   scanningIndicator: {
     position: 'absolute',
-    top: 96,
+    top: 120,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(32, 184, 205, 0.2)',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.8)',
     borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.3)',
-    borderRadius: 8,
+    borderColor: '#20B8CD',
+    borderRadius: 20,
+    zIndex: 20,
   },
   scanningDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#20B8CD',
   },
   scanningText: {
     fontSize: 14,
-    color: '#20B8CD',
+    color: '#ffffff',
+    fontWeight: '600',
   },
 });
