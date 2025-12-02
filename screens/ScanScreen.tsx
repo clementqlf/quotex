@@ -8,9 +8,7 @@ import {
   Easing,
   Image,
 } from 'react-native';
-import FeatherIcon from 'react-native-vector-icons/Feather';
-import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Zap, Book } from 'lucide-react-native';
+import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Book } from 'lucide-react-native';
 
 // --- CORRECTION DU CHEMIN ICI ---
 const quotexLogo = require('../assets/images/quotex_logo.png'); 
@@ -25,34 +23,8 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
   const [scannedText, setScannedText] = useState('');
   
   const scanAnimation = useRef(new Animated.Value(0)).current;
-  const pulseAnimation = useRef(new Animated.Value(1)).current; 
 
-  // Animation de pulsation du bouton de scan (inchangée)
-  useEffect(() => {
-    if (!isScanning) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnimation, {
-            toValue: 1.1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnimation, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          })
-        ])
-      ).start();
-    } else {
-      pulseAnimation.setValue(1);
-    }
-  }, [isScanning]);
-
-  const pulseWide = pulseAnimation.interpolate({
-    inputRange: [1, 1.1],
-    outputRange: [1, 1.4], 
-  });
+  // Pulsation removed: glow layers are now static
 
   const simulateScan = () => {
     setIsScanning(true);
@@ -101,8 +73,6 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
               resizeMode="contain"
               tintColor="#FFFFFF"
             />
-
-            <Text style={styles.tagline}>Capture & Share Wisdom</Text>
         </View>
       </View>
 
@@ -125,7 +95,7 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
           <View style={styles.content}>
             {!scannedText ? (
               <>
-                <Book size={48} color="#4B5563" />
+                <BookOpen size={48} color="#4B5563" />
                 <Text style={styles.instructionText}>
                   {isScanning ? 'Scan en cours...' : 'Placez une citation dans le cadre'}
                 </Text>
@@ -178,20 +148,7 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
             </TouchableOpacity>
 
             <View style={styles.scanButtonContainer}>
-                <Animated.View 
-                    style={[
-                        styles.glowLayer,
-                        styles.glowLayerOuter,
-                        { transform: [{ scale: pulseWide }] }
-                    ]} 
-                />
-                 <Animated.View 
-                    style={[
-                        styles.glowLayer,
-                        styles.glowLayerInner,
-                        { transform: [{ scale: pulseAnimation }] }
-                    ]} 
-                />
+
                 
                 <TouchableOpacity
                   style={[styles.scanButton, isScanning && styles.scanButtonActive]}
@@ -199,12 +156,15 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
                   disabled={isScanning}
                   activeOpacity={0.9}
                 >
-                  <ScanLine size={28} color={'#20B8CD'} />
+                  <View>
+                    <View style={styles.scanInnerShadow} />
+                    <ScanLine size={28} color={'#20B8CD'} />
+                  </View>
                 </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.iconButton}>
-              <Zap size={24} color="#E5E7EB" />
+              <Sparkles size={24} color="#E5E7EB" />
             </TouchableOpacity>
           </View>
         )}
@@ -229,7 +189,7 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 60,
+    top: 24,
     alignItems: 'center',
     zIndex: 10,
     width: '100%',
@@ -246,8 +206,8 @@ const styles = StyleSheet.create({
 
 // Style pour l'image
   logoImage: {
-    width: 170,  
-    height: 50,  
+    width: 170*0.8,  
+    height: 50.8,  
     marginBottom: 6,
     shadowColor: '#20B8CD',
     shadowOffset: { width: 0, height: 0 },
@@ -271,6 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    marginTop: -95,
   },
   scanFrame: {
     width: '100%',
@@ -282,7 +243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(20, 20, 20, 0.3)', 
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   corner: {
     position: 'absolute',
@@ -295,29 +256,29 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   cornerTopLeft: {
-    top: 0,
-    left: 0,
+    top: -3,
+    left: -3,
     borderTopWidth: 3,
     borderLeftWidth: 3,
     borderTopLeftRadius: 24,
   },
   cornerTopRight: {
-    top: 0,
-    right: 0,
+    top: -3,
+    right: -3,
     borderTopWidth: 3,
     borderRightWidth: 3,
     borderTopRightRadius: 24,
   },
   cornerBottomLeft: {
-    bottom: 0,
-    left: 0,
+    bottom: -3,
+    left: -3,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
     borderBottomLeftRadius: 24,
   },
   cornerBottomRight: {
-    bottom: 0,
-    right: 0,
+    bottom: -3,
+    right: -3,
     borderBottomWidth: 3,
     borderRightWidth: 3,
     borderBottomRightRadius: 24,
@@ -384,59 +345,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 45,
+    height: 45,
+    borderRadius: 12,
     backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
   },
   scanButtonContainer: {
-    width: 80,
-    height: 80,
+    width: 110,
+    height: 110,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  glowLayer: {
-    position: 'absolute',
-    width: 70, 
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#20B8CD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  glowLayerOuter: {
-    opacity: 0.1, 
-    shadowColor: '#20B8CD',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 40, 
-  },
-  glowLayerInner: {
-    opacity: 0.15,
-    shadowColor: '#20B8CD',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 20, 
-  },
   scanButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#0F0F0F', 
-    borderWidth: 2,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'transparent', 
+    borderWidth: 3,
     borderColor: '#20B8CD', 
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#20B8CD',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 1,
     shadowRadius: 15,
     elevation: 8,
     zIndex: 10,
   },
+
+  // inner filled circle inside the bordered ring
+
+
+  // pseudo inner shadow to simulate inset depth
+  scanInnerShadow: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: 6,
+    bottom: 6,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0,0,0,0.28)'
+  },
+
   scanButtonActive: {
     backgroundColor: 'rgba(32, 184, 205, 0.2)',
     borderColor: '#FFFFFF',
