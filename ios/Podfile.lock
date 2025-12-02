@@ -1475,6 +1475,8 @@ PODS:
     - React-logger (= 0.75.4)
     - React-perflogger (= 0.75.4)
     - React-utils (= 0.75.4)
+  - RNSVG (15.15.1):
+    - React-Core
   - RNVectorIcons (10.3.0):
     - DoubleConversion
     - glog
@@ -1563,6 +1565,7 @@ DEPENDENCIES:
   - React-utils (from `../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - RNSVG (from `../node_modules/react-native-svg`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -1693,6 +1696,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNSVG:
+    :path: "../node_modules/react-native-svg"
   RNVectorIcons:
     :path: "../node_modules/react-native-vector-icons"
   Yoga:
@@ -1760,6 +1765,7 @@ SPEC CHECKSUMS:
   React-utils: 546831c4f1be57fac614f68de34ac8763e67db55
   ReactCodegen: 5d297fcaf283fac32424f6bed10aa8d733fd2e5a
   ReactCommon: 8377a2a5504f72e284ce1b1cd207d8455bdbfdf3
+  RNSVG: dc7227619497ef44af38b6500e5be8aa1db50dfe
   RNVectorIcons: 7324ae798dc06485a69ce34a1cde5b1540b2c1f1
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
   Yoga: aa3df615739504eebb91925fc9c58b4922ea9a08
