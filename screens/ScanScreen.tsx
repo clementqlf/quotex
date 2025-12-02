@@ -8,7 +8,9 @@ import {
   Easing,
   Image,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
+import FeatherIcon from 'react-native-vector-icons/Feather';
+import MaterialIcon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Zap, Book } from 'lucide-react-native';
 
 // --- CORRECTION DU CHEMIN ICI ---
 const quotexLogo = require('../assets/images/quotex_logo.png'); 
@@ -90,13 +92,14 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
             {/* 💡 Calque Extérieur STATIQUE : lueur large et très subtile */}
             {/* Utilisation d'une View standard car il n'y a plus d'animation ici */}
 
-            
+            {/* --- CALQUE D'OMBRE / LUEUR DERRIÈRE LE LOGO --- */}
+
             {/* --- LE LOGO RESTE AU-DESSUS (zIndex: 10) --- */}
-            <Image 
+            <Image
               source={quotexLogo}
               style={styles.logoImage}
               resizeMode="contain"
-              tintColor="#FFFFFF" 
+              tintColor="#FFFFFF"
             />
 
             <Text style={styles.tagline}>Capture & Share Wisdom</Text>
@@ -122,7 +125,7 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
           <View style={styles.content}>
             {!scannedText ? (
               <>
-                <Icon name="book-open" size={48} color="#4B5563" />
+                <Book size={48} color="#4B5563" />
                 <Text style={styles.instructionText}>
                   {isScanning ? 'Scan en cours...' : 'Placez une citation dans le cadre'}
                 </Text>
@@ -143,13 +146,13 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
             style={[styles.navButton, styles.navButtonLeft]}
             onPress={() => onNavigate(0)}
           >
-            <Icon name="chevron-left" size={24} color="#E5E7EB" />
+            <ChevronLeft size={24} color="#E5E7EB" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.navButton, styles.navButtonRight]}
             onPress={() => onNavigate(2)}
           >
-            <Icon name="chevron-right" size={24} color="#E5E7EB" />
+            <ChevronRight size={24} color="#E5E7EB" />
           </TouchableOpacity>
         </>
       )}
@@ -171,7 +174,7 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
         ) : (
           <View style={styles.controlsRow}>
             <TouchableOpacity style={styles.iconButton}>
-              <Icon name="image" size={24} color="#E5E7EB" />
+              <ImageIcon size={24} color="#E5E7EB" />
             </TouchableOpacity>
 
             <View style={styles.scanButtonContainer}>
@@ -196,12 +199,12 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
                   disabled={isScanning}
                   activeOpacity={0.9}
                 >
-                  <Icon name="camera" size={28} color={'#FFFFFF'} />
+                  <ScanLine size={28} color={'#20B8CD'} />
                 </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.iconButton}>
-              <Icon name="zap" size={24} color="#E5E7EB" />
+              <Zap size={24} color="#E5E7EB" />
             </TouchableOpacity>
           </View>
         )}
@@ -235,6 +238,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    paddingVertical: 8, // espace supplémentaire pour laisser respirer l'ombre
+    overflow: 'visible', // permettre à l'ombre de dépasser du container
   },
   
   // ------------------------------------------
@@ -244,16 +249,15 @@ const styles = StyleSheet.create({
     width: 170,  
     height: 50,  
     marginBottom: 6,
-    // --- NOUVELLE OMBRE PLUS SUBTILE ET DIFFUSE ---
-    shadowColor: '#20B8CD', // Toujours votre couleur
-    shadowOffset: { width: 0, height: 4 }, // Décalage léger vers le bas
-    shadowOpacity: 0.4, // Opacité plus faible pour moins de "lueur"
-    shadowRadius: 15, // Rayon de flou modéré
-    elevation: 10,   // Élévation modérée pour Android
-    // ---------------------------------------------
-    zIndex: 10, 
-    tintColor: '#FFFFFF', 
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 8,
+    zIndex: 10,
+    overflow: 'visible',
   },
+
 
   tagline: {
     fontSize: 14,
