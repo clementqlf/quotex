@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Animated,
   Easing,
   Image,
+  SafeAreaView,
+  View,
 } from 'react-native';
 import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Book } from 'lucide-react-native';
 
@@ -58,7 +59,7 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
   });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.logoContainer}>
             {/* 💡 Calque Extérieur STATIQUE : lueur large et très subtile */}
@@ -176,7 +177,7 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
           <Text style={styles.scanningText}>Scan en cours...</Text>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -188,8 +189,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    position: 'absolute',
-    top: 24,
+    position: 'relative',
+    top: 0,
     alignItems: 'center',
     zIndex: 10,
     width: '100%',
