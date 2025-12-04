@@ -12,7 +12,7 @@ import { BookOpen, Search, Filter, Heart, Share2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 
 import { localQuotesDB } from '../data/staticData';
 import { Quote } from '../types';
-import { useTabIndex } from '../TabNavigator';
+import { useTabIndex } from '../TabContext';
  
 export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();

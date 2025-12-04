@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-import { useTabIndex } from '../TabNavigator'; // Le chemin est déjà correct, mais je confirme la vérification.
+import Svg, { Path } from 'react-native-svg'; // Le chemin est déjà correct, mais je confirme la vérification.
+import { useTabIndex } from '../TabContext';
 import { socialQuotes as initialSocialQuotes, SocialQuote } from '../data/staticData';
 import { AnyQuote } from '../types';
 
