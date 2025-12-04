@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,50 +7,41 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/Feather';
-
-const socialQuotes = [
-  {
-    id: 1,
-    user: {
-      name: "Sophie Martin",
-      username: "@sophiereads",
-    },
-    text: "The only impossible journey is the one you never begin.",
-    book: "The Alchemist",
-    author: "Paulo Coelho",
-    time: "Il y a 5min",
-    likes: 142,
-    comments: 12,
-    isLiked: false,
-    isSaved: false,
-  },
-  {
-    id: 2,
-    user: {
-      name: "Lucas Bernard",
-      username: "@lucas_books",
-    },
-    text: "It is never too late to be what you might have been.",
-    book: "Middlemarch",
-    author: "George Eliot",
-    time: "Il y a 15min",
-    likes: 89,
-    comments: 5,
-    isLiked: true,
-    isSaved: false,
-  },
-];
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
+import { useTabIndex } from '../TabNavigator';
+import { globalQuotesDB, Quote } from '../data/staticData';
 
 export default function SocialFeedScreen() {
-  const [quotes, setQuotes] = useState(socialQuotes);
+  const navigation = useNavigation<any>();
+  const [quotes, setQuotes] = useState(globalQuotesDB);
+  const { setTabIndex } = useTabIndex();
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) setTabIndex(2);
+  }, [isFocused]);
+
+  // Rafraîchit les données lorsque l'écran est focus pour voir les nouvelles citations globales
+  useEffect(() => {
+    if (isFocused) {
+      setQuotes([...globalQuotesDB]);
+    }
+  }, [isFocused]);
 
   const toggleLike = (id: number) => {
-    setQuotes(quotes.map(q =>
-      q.id === id
-        ? { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }
-        : q
-    ));
+    const newQuotes = quotes.map(q => {
+      if (q.id === id) {
+        const updatedQuote = { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 };
+        // Mettre à jour la "base de données" pour la persistance de la démo
+        const dbIndex = globalQuotesDB.findIndex(dbq => dbq.id === id);
+        if (dbIndex > -1) globalQuotesDB[dbIndex] = updatedQuote;
+        return updatedQuote;
+      }
+      return q;
+    });
+    setQuotes(newQuotes);
   };
 
   const toggleSave = (id: number) => {
@@ -69,11 +60,11 @@ export default function SocialFeedScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
-            <Icon name="trending-up" size={24} color="#20B8CD" />
+            <TrendingUp size={24} color="#20B8CD" />
             <Text style={styles.headerTitle}>Feed</Text>
           </View>
           <TouchableOpacity style={styles.headerButton}>
-            <Icon name="zap" size={20} color="#9CA3AF" />
+            <Zap size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
 
@@ -94,81 +85,104 @@ export default function SocialFeedScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {quotes.map((quote) => (
-          <View key={quote.id} style={styles.quoteCard}>
-            {/* User Info */}
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials(quote.user.name)}</Text>
-              </View>
-              <View style={styles.userDetails}>
-                <Text style={styles.userName}>{quote.user.name}</Text>
-                <Text style={styles.userMeta}>
-                  {quote.user.username} · {quote.time}
-                </Text>
-              </View>
-            </View>
+        {quotes.map((quote) => {
+          // On s'assure que l'objet passé à QuoteDetail contient toutes les informations nécessaires,
+          // y compris l'objet `user` complet avec son `id`.
+          // On mappe aussi `time` vers `date` pour la cohérence.
+          const quoteForDetail = { ...quote, date: quote.time, user: quote.user };
 
-            {/* Quote */}
-            <View style={styles.quoteContent}>
-              <Text style={styles.quoteIcon}>"</Text>
-              <Text style={styles.quoteText}>{quote.text}</Text>
-
-              {/* Book Tag */}
-              <View style={styles.bookTag}>
-                <Text style={styles.bookName}>{quote.book}</Text>
-                <Text style={styles.separator}>·</Text>
-                <Text style={styles.authorName}>{quote.author}</Text>
-              </View>
-            </View>
-
-            {/* Actions */}
-            <View style={styles.actions}>
-              <View style={styles.actionsLeft}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => toggleLike(quote.id)}
-                >
-                  <Icon
-                    name="heart"
-                    size={20}
-                    color={quote.isLiked ? '#20B8CD' : '#6B7280'}
-                  />
-                  <Text
-                    style={[
-                      styles.actionText,
-                      quote.isLiked && styles.actionTextActive,
-                    ]}
-                  >
-                    {quote.likes}
+          return (
+            <TouchableOpacity key={quote.id} style={styles.quoteCard} activeOpacity={0.8} onPress={() => {
+              // On trouve la dernière version de la citation pour la passer au modal
+              const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+              navigation.navigate('QuoteDetail', { quote: { ...currentQuote, date: currentQuote.time }, onToggleLike: () => toggleLike(quote.id) });
+            }}>
+              {/* User Info - Cliquable */}
+              <TouchableOpacity 
+                style={styles.userInfo} 
+                onPress={(e) => {
+                  e.stopPropagation(); // Empêche le clic de se propager à la carte parente
+                  navigation.navigate('UserProfile', { user: quote.user });
+                }}
+              >
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{getInitials(quote.user.name)}</Text>
+                </View>
+                <View style={styles.userDetails}>
+                  <Text style={styles.userName}>{quote.user.name}</Text>
+                  <Text style={styles.userMeta}>
+                    {quote.user.username} · {quote.time}
                   </Text>
-                </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="message-circle" size={20} color="#6B7280" />
-                  <Text style={styles.actionText}>{quote.comments}</Text>
-                </TouchableOpacity>
+              {/* Quote */}
+              <View style={styles.quoteContent}>
+                <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                    fill="#20B8CD"
+                    opacity={0.2}
+                  />
+                </Svg>
+                <Text style={styles.quoteText}>{quote.text}</Text>
 
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="share-2" size={20} color="#6B7280" />
-                </TouchableOpacity>
+                {/* Book Tag */}
+                <View style={styles.bookTag}>
+                  <Text style={styles.bookName}>{quote.book}</Text>
+                  <Text style={styles.separator}>·</Text>
+                  <Text style={styles.authorName}>{quote.author}</Text>
+                </View>
               </View>
 
-              <TouchableOpacity onPress={() => toggleSave(quote.id)}>
-                <Icon
-                  name="bookmark"
-                  size={20}
-                  color={quote.isSaved ? '#20B8CD' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+              {/* Actions */}
+              <View style={styles.actions}>
+                <View style={styles.actionsLeft}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => toggleLike(quote.id)}
+                  >
+                    <Heart
+                      size={20}
+                      fill={quote.isLiked ? '#20B8CD' : 'transparent'}
+                      color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                    />
+                    <Text
+                      style={[
+                        styles.actionText,
+                        quote.isLiked && styles.actionTextActive,
+                      ]}
+                    >
+                      {quote.likes}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.actionButton}>
+                    <MessageCircle size={20} color="#6B7280" />
+                    <Text style={styles.actionText}>{quote.comments}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.actionButton}>
+                    <Share2 size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity onPress={() => toggleSave(quote.id)}>
+                  <Bookmark
+                    fill={quote.isSaved ? '#20B8CD' : 'transparent'}
+                    size={20}
+                    color={quote.isSaved ? '#20B8CD' : '#6B7280'}
+                  />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          )
+        })}
       </ScrollView>
 
       {/* Floating Refresh Button */}
       <TouchableOpacity style={styles.fab}>
-        <Icon name="trending-up" size={24} color="#FFFFFF" />
+        <TrendingUp size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react'; 
 import {
   Text,
   TouchableOpacity,
@@ -9,19 +9,27 @@ import {
   SafeAreaView,
   View,
 } from 'react-native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Book } from 'lucide-react-native';
-
+import { useTabIndex } from '../TabNavigator';
+import { addQuote, aiInterpretations, bookDescriptions, localQuotesDB } from '../data/staticData';
 // --- CORRECTION DU CHEMIN ICI ---
 const quotexLogo = require('../assets/images/quotex_logo.png'); 
 
 interface ScanScreenProps {
-  onNavigate: (screen: number) => void;
-  currentScreen: number;
+  // onNavigate et currentScreen ne sont plus nécessaires ici
 }
 
-export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProps) {
+export default function ScanScreen({}: ScanScreenProps) {
+  const navigation = useNavigation<any>();
   const [isScanning, setIsScanning] = useState(false);
   const [scannedText, setScannedText] = useState('');
+  const { tabIndex, setTabIndex } = useTabIndex();
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) setTabIndex(1);
+  }, [isFocused]);
   
   const scanAnimation = useRef(new Animated.Value(0)).current;
 
@@ -51,6 +59,24 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
       scanAnimation.stopAnimation();
       scanAnimation.setValue(0);
     }, 2000);
+  };
+
+  const handleSaveQuote = () => {
+    if (!scannedText) return;
+
+    // Trouver le livre et l'auteur associés au texte scanné
+    // NOTE: C'est une logique simplifiée pour la démo.
+    // Dans une vraie app, l'IA ou l'utilisateur confirmerait ces informations.
+    const bookTitle = Object.keys(bookDescriptions).find(title => 
+      localQuotesDB.some(q => q.text === scannedText && q.book === title)
+    ) || "Livre inconnu";
+
+    const authorName = bookDescriptions[bookTitle]?.author || "Auteur inconnu";
+
+    // Appelle la fonction qui simule l'ajout aux deux bases de données
+    addQuote({ text: scannedText, book: bookTitle, author: authorName });
+    setScannedText(''); // Réinitialise l'écran de scan
+    navigation.navigate('MyQuotes'); // Navigue vers l'écran des citations locales
   };
 
   const translateY = scanAnimation.interpolate({
@@ -111,17 +137,17 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
       </View>
 
       {/* Navigation Buttons */}
-      {currentScreen === 1 && (
+      {isFocused && (
         <>
           <TouchableOpacity
             style={[styles.navButton, styles.navButtonLeft]}
-            onPress={() => onNavigate(0)}
+            onPress={() => navigation.navigate('MyQuotes')}
           >
             <ChevronLeft size={24} color="#E5E7EB" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.navButton, styles.navButtonRight]}
-            onPress={() => onNavigate(2)}
+            onPress={() => navigation.navigate('Social')}
           >
             <ChevronRight size={24} color="#E5E7EB" />
           </TouchableOpacity>
@@ -138,7 +164,10 @@ export default function ScanScreen({ onNavigate, currentScreen }: ScanScreenProp
             >
               <Text style={styles.cancelButtonText}>Annuler</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.saveButton}>
+            <TouchableOpacity 
+              style={styles.saveButton}
+              onPress={handleSaveQuote}
+            >
               <Text style={styles.saveButtonText}>Enregistrer</Text>
             </TouchableOpacity>
           </View>

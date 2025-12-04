@@ -4,11 +4,45 @@ export const aiInterpretations: { [key: string]: string } = {
     "It is our choices that show what we truly are, far more than our abilities.": "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
 };
 
-export const authorDescriptions: { [key: string]: string } = {
-    "Walter Isaacson": "Walter Isaacson est un journaliste et écrivain américain, ancien PDG de CNN. Il est connu pour ses biographies de figures emblématiques comme Steve Jobs et Albert Einstein.",
-    "J.K. Rowling": "J.K. Rowling est une écrivaine britannique mondialement connue pour la série Harry Potter, l'une des sagas littéraires les plus vendues de l'histoire.",
-    "Ryan Holiday": "Ryan Holiday est un auteur américain qui écrit sur la philosophie stoïcienne et le marketing. Ses livres ont connu un grand succès auprès d'un large public.",
+export const authorDetails: { [key: string]: { description: string, image: string, birthDate: string, nationality: string } } = {
+    "Walter Isaacson": {
+        description: "Walter Isaacson est un journaliste et écrivain américain, ancien PDG de CNN. Il est connu pour ses biographies de figures emblématiques comme Steve Jobs et Albert Einstein.",
+        image: "https://images.unsplash.com/photo-1613287393999-d3913027a1a6?w=400&h=400&fit=crop",
+        birthDate: "20 mai 1952",
+        nationality: "Américain",
+    },
+    "J.K. Rowling": {
+        description: "J.K. Rowling est une écrivaine britannique mondialement connue pour la série Harry Potter, l'une des sagas littéraires les plus vendues de l'histoire.",
+        image: "https://images.unsplash.com/photo-1611601322175-8759d8e33441?w=400&h=400&fit=crop",
+        birthDate: "31 juillet 1965",
+        nationality: "Britannique",
+    },
+    "Ryan Holiday": {
+        description: "Ryan Holiday est un auteur américain qui écrit sur la philosophie stoïcienne et le marketing. Ses livres ont connu un grand succès auprès d'un large public.",
+        image: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=400&h=400&fit=crop",
+        birthDate: "16 juin 1987",
+        nationality: "Américain",
+    },
+    "Paulo Coelho": {
+        description: "Paulo Coelho est un romancier et interprète lyrique brésilien. Il est célèbre pour son roman L'Alchimiste, vendu à des millions d'exemplaires.",
+        image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=400&h=400&fit=crop",
+        birthDate: "24 août 1947",
+        nationality: "Brésilien",
+    },
+    "George Eliot": {
+        description: "Mary Ann Evans, connue sous son nom de plume George Eliot, était une romancière, poétesse, journaliste et traductrice anglaise de l'époque victorienne.",
+        image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop",
+        birthDate: "22 novembre 1819",
+        nationality: "Anglaise",
+    },
+    "Steve Jobs": {
+        description: "Steve Jobs était un entrepreneur et inventeur américain, souvent considéré comme un visionnaire. Il est le cofondateur d'Apple Inc.",
+        image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
+        birthDate: "24 février 1955",
+        nationality: "Américain",
+    }
 };
+// J'ai supprimé authorDescriptions qui est maintenant remplacé par authorDetails
 
 export const bookDescriptions: { [key: string]: { description: string; author: string; year: number; pages: number; rating: number; genre: string; cover: string } } = {
     "Steve Jobs": {
@@ -47,16 +81,137 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
         genre: "Philosophie",
         cover: "https://images.unsplash.com/photo-1524995767962-b624634ad030?w=400&h=600&fit=crop",
     },
+    "The Alchemist": {
+        description: "L'Alchimiste raconte l'histoire de Santiago, un jeune berger andalou qui part à la recherche d'un trésor enfoui au pied des pyramides égyptiennes.",
+        year: 1988,
+        pages: 163,
+        author: "Paulo Coelho",
+        rating: 4.6,
+        genre: "Philosophie",
+        cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop",
+    },
+    "Middlemarch": {
+        description: "Middlemarch, une étude de la vie de province, est un roman de George Eliot. Il est considéré comme l'un des plus grands romans en langue anglaise.",
+        year: 1871,
+        pages: 880,
+        author: "George Eliot",
+        rating: 4.2,
+        genre: "Classique",
+        cover: "https://images.unsplash.com/photo-1588666307646-86b1d359a381?w=400&h=600&fit=crop",
+    },
 };
 
 export const similarBooks: { [key: string]: string[] } = {
     "The only way to do great work is to love what you do.": ["Einstein: His Life and Universe"],
     "In the middle of difficulty lies opportunity.": ["The Obstacle Is the Way", "Steve Jobs"],
     "It is our choices that show what we truly are, far more than our abilities.": [],
+    "The only impossible journey is the one you never begin.": ["The Obstacle Is the Way"],
+    "It is never too late to be what you might have been.": [],
 };
 
 export const similarAuthors: { [key: string]: string[] } = {
     "Walter Isaacson": ["Ryan Holiday"],
     "J.K. Rowling": [],
     "Ryan Holiday": ["Walter Isaacson"],
+    "Paulo Coelho": ["Ryan Holiday"],
+    "George Eliot": ["J.K. Rowling"],
+};
+
+export let localQuotesDB = [
+    {
+      id: 1,
+      text: "The only way to do great work is to love what you do.",
+      book: "Steve Jobs",
+      author: "Steve Jobs",
+      date: "Il y a 2h",
+      likes: 12,
+      isLiked: true,
+    },
+    {
+      id: 2,
+      text: "In the middle of difficulty lies opportunity.",
+      book: "Einstein: His Life and Universe",
+      author: "Walter Isaacson",
+      date: "Il y a 5h",
+      likes: 8,
+      isLiked: false,
+    },
+    {
+      id: 3,
+      text: "It is our choices that show what we truly are, far more than our abilities.",
+      book: "Harry Potter and the Chamber of Secrets",
+      author: "J.K. Rowling",
+      date: "Hier",
+      likes: 24,
+      isLiked: true,
+    },
+  ];
+
+export let globalQuotesDB = [
+  {
+    id: 4, // Changed ID to avoid conflict
+    user: {
+      id: "2", // ID correspondant à Sophie dans user-profiles.json
+      name: "Sophie Martin",
+      username: "@sophiereads",
+    },
+    text: "The only impossible journey is the one you never begin.",
+    book: "The Alchemist",
+    author: "Paulo Coelho",
+    time: "Il y a 5min",
+    likes: 142,
+    comments: 12,
+    isLiked: false,
+    isSaved: false,
+  },
+  {
+    id: 5, // Changed ID to avoid conflict
+    user: {
+      id: "1", // ID correspondant à Clément (par exemple)
+      name: "Lucas Bernard",
+      username: "@lucas_books",
+    },
+    text: "It is never too late to be what you might have been.",
+    book: "Middlemarch",
+    author: "George Eliot",
+    time: "Il y a 15min",
+    likes: 89,
+    comments: 5,
+    isLiked: true,
+    isSaved: false,
+  },
+];
+
+// --- Simulation de la base de données ---
+
+/**
+ * Simule l'ajout d'une citation à la base de données locale et globale.
+ * Dans une vraie application, cette fonction ferait des appels API.
+ * @param quoteData Les données de la citation à ajouter.
+ */
+export const addQuote = (quoteData: { text: string; book: string; author: string }) => {
+  // Simule l'ajout à la base de données locale (ex: AsyncStorage)
+  const newLocalQuote = {
+    id: Date.now(), // Utilise un timestamp pour un ID unique
+    ...quoteData,
+    date: "À l'instant",
+    likes: 0,
+    isLiked: false,
+  };
+  localQuotesDB.unshift(newLocalQuote); // Ajoute au début du tableau
+
+  // Simule l'envoi à la base de données globale (ex: Firestore)
+  const newGlobalQuote = {
+    id: Date.now() + 1, // ID légèrement différent pour éviter les conflits de clés
+    user: { id: "1", name: "Clément QLF", username: "@clementqlf" }, // Utilisateur actuel (à dynamiser)
+    ...quoteData,
+    time: "À l'instant",
+    likes: 0,
+    comments: 0,
+    isLiked: false,
+    isSaved: false,
+  };
+  globalQuotesDB.unshift(newGlobalQuote);
+
+  console.log("Citation ajoutée aux DBs:", { newLocalQuote, newGlobalQuote });
 };

@@ -5,77 +5,21 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Modal,
   Dimensions,
   Image,
 } from 'react-native';
-import { X, Calendar, User, Sparkles, BookOpen, Heart, Share2, Star } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
+import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Star } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg'; 
+import {
+  aiInterpretations,
+  authorDetails,
+  bookDescriptions,
+  similarBooks,
+  similarAuthors,
+} from '../data/staticData';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 
-const aiInterpretations: { [key: string]: string } = {
-  "The only way to do great work is to love what you do.": "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
-  "In the middle of difficulty lies opportunity.": "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
-  "It is our choices that show what we truly are, far more than our abilities.": "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
-};
-
-const authorDescriptions: { [key: string]: string } = {
-  "Walter Isaacson": "Walter Isaacson est un journaliste et écrivain américain, ancien PDG de CNN. Il est connu pour ses biographies de figures emblématiques comme Steve Jobs et Albert Einstein.",
-  "J.K. Rowling": "J.K. Rowling est une écrivaine britannique mondialement connue pour la série Harry Potter, l'une des sagas littéraires les plus vendues de l'histoire.",
-  "Ryan Holiday": "Ryan Holiday est un auteur américain qui écrit sur la philosophie stoïcienne et le marketing. Ses livres ont connu un grand succès auprès d'un large public.",
-};
-
-const bookDescriptions: { [key: string]: { description: string; author: string; year: number; pages: number; rating: number; genre: string; cover: string } } = {
-  "Steve Jobs": {
-    description: "La biographie définitive de Steve Jobs révèle l'homme derrière le mythe : un perfectionniste obsessionnel qui a révolutionné six industries.",
-    year: 2011,
-    pages: 656,
-    author: "Walter Isaacson",
-    rating: 4.7,
-    genre: "Biographie",
-    cover: "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=400&h=600&fit=crop",
-  },
-  "Einstein: His Life and Universe": {
-    description: "Walter Isaacson explore comment l'imagination scientifique d'Einstein a émergé de sa nature rebelle et de son esprit indépendant.",
-    year: 2007,
-    pages: 704,
-    author: "Walter Isaacson",
-    rating: 4.6,
-    genre: "Biographie",
-    cover: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=600&fit=crop",
-  },
-  "Harry Potter and the Chamber of Secrets": {
-    description: "La deuxième année de Harry à Poudlard s'annonce périlleuse quand une mystérieuse créature commence à pétrifier les élèves.",
-    year: 1998,
-    pages: 341,
-    author: "J.K. Rowling",
-    rating: 4.8,
-    genre: "Fantasy",
-    cover: "https://images.unsplash.com/photo-1551029506-0807df4e2031?w=400&h=600&fit=crop",
-  },
-  "The Obstacle Is the Way": {
-    description: "Ryan Holiday nous enseigne comment transformer nos obstacles en avantages en s'inspirant de la philosophie stoïcienne.",
-    year: 2014,
-    pages: 224,
-    author: "Ryan Holiday",
-    rating: 4.7,
-    genre: "Philosophie",
-    cover: "https://images.unsplash.com/photo-1524995767962-b624634ad030?w=400&h=600&fit=crop",
-  },
-};
-
-const similarBooks: { [key: string]: string[] } = {
-  "The only way to do great work is to love what you do.": ["Einstein: His Life and Universe"],
-  "In the middle of difficulty lies opportunity.": ["The Obstacle Is the Way", "Steve Jobs"],
-  "It is our choices that show what we truly are, far more than our abilities.": [],
-};
-
-const similarAuthors: { [key: string]: string[] } = {
-  "Walter Isaacson": ["Ryan Holiday"],
-  "J.K. Rowling": [],
-  "Ryan Holiday": ["Walter Isaacson"],
-};
-
-interface Quote {
+export interface Quote {
   id: number;
   text: string;
   book: string;
@@ -83,30 +27,39 @@ interface Quote {
   date?: string;
   likes: number;
   isLiked: boolean;
+  user?: User; // Ajout de l'utilisateur optionnel
 }
 
-interface QuoteDetailModalProps {
-  visible: boolean;
-  quote: Quote | null;
-  onClose: () => void;
-  onToggleLike: (id: number) => void;
-  onAuthorPress: (authorName: string) => void;
+export interface User {
+  id: string;
+  name: string;
+  username: string;
 }
 
-export function QuoteDetailModal({
-  visible,
-  quote,
-  onClose,
-  onToggleLike,
-  onAuthorPress,
-}: QuoteDetailModalProps) {
+// Le composant n'a plus besoin de props, il va tout chercher dans la route.
+export function QuoteDetailModal() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<{ params: { quote: Quote, onToggleLike: (id: number) => void } }, 'params'>>();
+  const { quote, onToggleLike } = route.params;
+
   if (!quote) return null;
 
+  const onClose = () => navigation.goBack();
+
+  const onAuthorPress = (authorName: string) => {
+    navigation.navigate('AuthorDetail', { authorName });
+  };
+
+  const onBookPress = (bookTitle: string) => {
+    navigation.navigate('BookDetail', { bookTitle });
+  };
+
+  // Logique pour les données (précédemment dans le composant)
   const aiInterpretation =
     aiInterpretations[quote.text] ||
     "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
-  const authorDesc =
-    authorDescriptions[quote.author] || `${quote.author} est un auteur reconnu.`;
+  const authorInfo = authorDetails[quote.author];
+  const authorDesc = authorInfo?.description || `${quote.author} est un auteur reconnu.`;
   const similarBookList =
     similarBooks[quote.text] || [];
   const similarAuthorList =
@@ -114,35 +67,29 @@ export function QuoteDetailModal({
   const bookInfo = bookDescriptions[quote.book];
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <TouchableOpacity
-          style={styles.backdropTouchable}
-          onPress={onClose}
-          activeOpacity={1}
-        />
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Détails de la citation</Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-            >
-              <X size={24} color="#9CA3AF" />
-            </TouchableOpacity>
-          </View>
+    <View style={styles.screenContainer}>
+      {/* Arrière-plan semi-transparent qui ferme le modal au clic */}
+      <TouchableOpacity
+        style={styles.backdrop}
+        activeOpacity={1}
+        onPress={onClose}
+      />
+      <View style={styles.modalContainer}>
+        {/* Poignée pour indiquer qu'on peut slider */}
+        <View style={styles.handleBar} />
 
           <ScrollView
             style={styles.content}
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
           >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Détails de la citation</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <X size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
             {/* Quote Section */}
             <View style={styles.section}>
               <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
@@ -156,12 +103,12 @@ export function QuoteDetailModal({
 
               {/* Book & Author */}
               <View style={styles.metadata}>
-                <TouchableOpacity style={styles.metaRow}>
+                <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quote.book)}>
                   <BookOpen size={16} color="#6B7280" />
                   <Text style={styles.metaTextBook}>{quote.book}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quote.author)}>
-                  <User size={16} color="#6B7280" />
+                  <UserIcon size={16} color="#6B7280" />
                   <Text style={styles.metaTextAuthor}>{quote.author}</Text>
                 </TouchableOpacity>
                 {quote.date && (
@@ -217,12 +164,11 @@ export function QuoteDetailModal({
                   <BookOpen size={16} color="#20B8CD" />
                   <Text style={styles.sectionTitle}>À propos du livre</Text>
                 </View>
-                <View style={styles.bookContainer}>
-                  <Image source={{ uri: bookDescriptions[quote.book].cover }} style={styles.bookCover} />
+                <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quote.book)}>
+                  <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
                   <View style={styles.bookInfo}>
-                    <Text style={styles.bookName} onPress={() => {}}>{quote.book}</Text>
-                    <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
-                      <Text style={styles.bookAuthor}>{quote.author}</Text>
+                    <TouchableOpacity onPress={() => onBookPress(quote.book)}>
+                      <Text style={styles.bookName}>{quote.book}</Text>
                     </TouchableOpacity>
 
                     {/* Book Meta Info */}
@@ -246,7 +192,7 @@ export function QuoteDetailModal({
                       <Text style={styles.genreText}>{bookInfo.genre}</Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* Book Description */}
                 <Text style={styles.bookDesc}>{bookInfo.description}</Text>
@@ -256,13 +202,13 @@ export function QuoteDetailModal({
             {/* About Author */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <User size={16} color="#20B8CD" />
+                <UserIcon size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
               </View>
               <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
                 <Text style={styles.authorName}>{quote.author}</Text>
+                <Text style={styles.authorDesc}>{authorDesc}</Text>
               </TouchableOpacity>
-              <Text style={styles.authorDesc}>{authorDesc}</Text>
             </View>
 
             {/* Similar Books */}
@@ -276,8 +222,8 @@ export function QuoteDetailModal({
                   {similarBookList.map((bookTitle) => {
                     const similarBookInfo = bookDescriptions[bookTitle];
                     if (!similarBookInfo) return null;
-                    return (
-                      <TouchableOpacity key={bookTitle} style={styles.similarBookItem}>
+                    return ( // Utilisation de `push` pour permettre la navigation vers un livre similaire du même type
+                      <TouchableOpacity key={bookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle })}>
                         <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
                         <Text numberOfLines={2} style={styles.similarBookTitle}>{bookTitle}</Text>
                       </TouchableOpacity>
@@ -291,7 +237,7 @@ export function QuoteDetailModal({
             {similarAuthorList.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <User size={16} color="#20B8CD" />
+                  <UserIcon size={16} color="#20B8CD" />
                   <Text style={styles.sectionTitle}>Auteurs similaires</Text>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
@@ -299,8 +245,8 @@ export function QuoteDetailModal({
                     // We need a representative book cover for the author. Let's find one.
                     const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
                     const authorCover = authorBook ? authorBook.cover : 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop';
-                    return (
-                      <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => onAuthorPress(authorName)}>
+                    return ( // Utilisation de `push` pour la même raison
+                      <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName })}>
                         <Image source={{ uri: authorCover }} style={styles.similarBookCover} />
                         <Text numberOfLines={2} style={styles.similarBookTitle}>{authorName}</Text>
                       </TouchableOpacity>
@@ -311,44 +257,42 @@ export function QuoteDetailModal({
             )}
 
           </ScrollView>
-        </View>
-        <TouchableOpacity
-          style={styles.backdropTouchable}
-          onPress={onClose}
-          activeOpacity={1}
-        />
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'flex-end',
+  screenContainer: { 
+    flex: 1, 
+    justifyContent: 'flex-end' 
   },
-  backdropTouchable: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-  container: {
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.7)' },
+  modalContainer: {
     backgroundColor: '#0F0F0F',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: Dimensions.get('window').height * 0.85,
+    height: Dimensions.get('window').height * 0.9, // Occupe 90% de l'écran
     borderTopWidth: 1,
     borderTopColor: '#1F1F1F',
+    paddingTop: 12, // Espace pour la poignée
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#2A2A2A',
+    alignSelf: 'center',
+    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1F1F1F',
-    backgroundColor: '#0F0F0F',
   },
   headerTitle: {
     fontSize: 18,
@@ -356,14 +300,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 4,
   },
   content: {
     flex: 1,
@@ -382,11 +319,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   quoteText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 24, // Encore plus grand pour un impact visuel fort
+    lineHeight: 36, // Ajusté pour la nouvelle taille
     color: '#E5E7EB',
     marginVertical: 12,
+    fontFamily: 'Times New Roman', // Police encore plus classique et formelle
     fontStyle: 'italic',
+    fontWeight: '100'
   },
   metadata: {
     paddingTop: 12,

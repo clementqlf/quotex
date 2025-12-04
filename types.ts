@@ -1,16 +1,16 @@
-// Ce fichier centralise les types pour la navigation et les données
+import { NavigatorScreenParams } from '@react-navigation/native';
+import { TabParamList } from './TabNavigator';
+import { Quote } from './components/QuoteDetailModal';
 
-export type RootStackParamList = {
-  Main: undefined;
-  AuthorDetail: { authorName: string };
+export type User = {
+  name: string;
+  username: string;
 };
 
-export interface Quote {
-  id: number;
-  text: string;
-  book: string;
-  author: string;
-  date?: string;
-  likes: number;
-  isLiked: boolean;
-}
+export type RootStackParamList = {
+  Main: NavigatorScreenParams<TabParamList>;
+  AuthorDetail: { authorName: string };
+  BookDetail: { bookTitle: string };
+  QuoteDetail: { quoteId?: number; quote?: Quote };
+  UserProfile: { user: User };
+};
