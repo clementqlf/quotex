@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,57 +6,43 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+} from 'react-native'; 
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2 } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-import { QuoteDetailModal } from '../components/QuoteDetailModal';
-
-const myQuotes = [
-  {
-    id: 1,
-    text: "The only way to do great work is to love what you do.",
-    book: "Steve Jobs",
-    author: "Walter Isaacson",
-    date: "Il y a 2h",
-    likes: 12,
-    isLiked: true,
-  },
-  {
-    id: 2,
-    text: "In the middle of difficulty lies opportunity.",
-    book: "Einstein: His Life and Universe",
-    author: "Walter Isaacson",
-    date: "Il y a 5h",
-    likes: 8,
-    isLiked: false,
-  },
-  {
-    id: 3,
-    text: "It is our choices that show what we truly are, far more than our abilities.",
-    book: "Harry Potter and the Chamber of Secrets",
-    author: "J.K. Rowling",
-    date: "Hier",
-    likes: 24,
-    isLiked: true,
-  },
-];
-
+import Svg, { Path } from 'react-native-svg'; 
+import { localQuotesDB } from '../data/staticData';
+import { Quote } from '../types';
+import { useTabIndex } from '../TabNavigator';
+ 
 export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
-  const [quotes, setQuotes] = useState(myQuotes);
-  const [selectedQuote, setSelectedQuote] = useState<any>(null);
+  const [quotes, setQuotes] = useState(localQuotesDB);
+  const { setTabIndex } = useTabIndex();
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) setTabIndex(0);
+  }, [isFocused]);
+
+  // Rafraîchit les données lorsque l'écran est focus (après un scan par exemple)
+  useEffect(() => {
+    if (isFocused) {
+      setQuotes([...localQuotesDB]);
+    }
+  }, [isFocused]);
 
   const toggleLike = (id: number) => {
-    setQuotes(quotes.map(q =>
-      q.id === id
-        ? { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }
-        : q
-    ));
-    // Update selected quote if it's open
-    if (selectedQuote?.id === id) {
-      setSelectedQuote((q: any) => ({ ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }));
-    }
+    const newQuotes = quotes.map(q => {
+      if (q.id === id) {
+        const updatedQuote = { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 };
+        // Mettre à jour la "base de données" pour la persistance de la démo
+        const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
+        if (dbIndex > -1) localQuotesDB[dbIndex] = updatedQuote;
+        return updatedQuote;
+      }
+      return q;
+    });
+    setQuotes(newQuotes);
   };
 
   return (
@@ -90,7 +76,7 @@ export default function MyQuotesScreen() {
           <Text style={styles.statLabel}>J'aime</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>8</Text>
+          <Text style={styles.statValue}>{new Set(quotes.map(q => q.book)).size}</Text>
           <Text style={styles.statLabel}>Livres</Text>
         </View>
       </View>
@@ -105,7 +91,11 @@ export default function MyQuotesScreen() {
           <TouchableOpacity
             key={quote.id}
             style={styles.quoteCard}
-            onPress={() => setSelectedQuote(quote)}
+            onPress={() => {
+              // On trouve la dernière version de la citation pour la passer au modal
+              const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+              navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: toggleLike });
+            }}
             activeOpacity={0.7}
           >
             {/* Quote Icon (custom SVG) */}
@@ -136,7 +126,7 @@ export default function MyQuotesScreen() {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.actionButton}
-                onPress={() => toggleLike(quote.id)}
+                onPress={(e) => { e.stopPropagation(); toggleLike(quote.id); }}
               >
                 <Heart
                   size={20}
@@ -155,18 +145,6 @@ export default function MyQuotesScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      {/* Quote Detail Modal */}
-      <QuoteDetailModal
-        visible={!!selectedQuote}
-        quote={selectedQuote}
-        onClose={() => setSelectedQuote(null)}
-        onToggleLike={toggleLike}
-        onAuthorPress={(authorName:string) => {
-          setSelectedQuote(null); // Ferme la modale
-          navigation.getParent()?.navigate('AuthorDetail', { authorName });
-        }}
-      />
     </SafeAreaView>
   );
 }

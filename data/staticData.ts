@@ -1,3 +1,42 @@
+export interface Quote {
+  id: number;
+  text: string;
+  book: string;
+  author: string;
+  date: string;
+  likes: number;
+  isLiked: boolean;
+}
+
+export interface SocialQuote {
+  id: number;
+  user: {
+    id: string;
+    name: string;
+    username: string;
+  };
+  text: string;
+  book: string;
+  author: string;
+  time: string;
+  likes: number;
+  comments: number;
+  isLiked: boolean;
+  isSaved: boolean;
+}
+
+export interface UserProfile {
+  id: string;
+  bio: string;
+  website: string;
+  stats: {
+    citations: number;
+    followers: number;
+    following: number;
+  };
+}
+
+
 export const aiInterpretations: { [key: string]: string } = {
     "The only way to do great work is to love what you do.": "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
     "In the middle of difficulty lies opportunity.": "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
@@ -60,3 +99,110 @@ export const similarAuthors: { [key: string]: string[] } = {
     "J.K. Rowling": [],
     "Ryan Holiday": ["Walter Isaacson"],
 };
+
+export let localQuotesDB: Quote[] = [
+  {
+    id: 1,
+    text: "The only way to do great work is to love what you do.",
+    book: "Steve Jobs",
+    author: "Walter Isaacson",
+    date: "24/05/24",
+    likes: 12,
+    isLiked: true,
+  },
+  {
+    id: 2,
+    text: "In the middle of difficulty lies opportunity.",
+    book: "Einstein: His Life and Universe",
+    author: "Walter Isaacson",
+    date: "12/01/24",
+    likes: 5,
+    isLiked: false,
+  },
+];
+
+export let socialQuotes: SocialQuote[] = [
+  {
+    id: 101,
+    user: { id: '1', name: 'Clément QLF', username: '@clementqlf' },
+    text: "It is our choices that show what we truly are, far more than our abilities.",
+    book: "Harry Potter and the Chamber of Secrets",
+    author: "J.K. Rowling",
+    time: "2h",
+    likes: 15,
+    comments: 3,
+    isLiked: false,
+    isSaved: true,
+  },
+  {
+    id: 102,
+    user: { id: '2', name: 'Sophie B.', username: '@sophie_books' },
+    text: "In the middle of difficulty lies opportunity.",
+    book: "The Obstacle Is the Way",
+    author: "Ryan Holiday",
+    time: "18h",
+    likes: 42,
+    comments: 8,
+    isLiked: true,
+    isSaved: false,
+  },
+];
+
+export const userProfilesDB: { [key: string]: UserProfile } = {
+  '1': {
+    id: "1",
+    bio: "Passionné par la littérature classique et la philosophie. Je partage ici les citations qui façonnent ma pensée.",
+    website: "clement-lectures.com",
+    stats: {
+      citations: 42,
+      followers: 512,
+      following: 89
+    },
+  },
+  '2': {
+    id: "2",
+    bio: "Exploratrice de la science-fiction et des mondes imaginaires. Chaque citation est une porte vers un autre univers.",
+    website: "sophies-books.com",
+    stats: {
+      citations: 15,
+      followers: 234,
+      following: 102
+    },
+  },
+  '0': {
+    id: "0",
+    bio: "Profil local pour les citations sauvegardées sur l'appareil.",
+    website: "",
+    stats: {
+      citations: 0, // Sera recalculé
+      followers: 0,
+      following: 0
+    },
+  }
+};
+
+export const globalQuotesDB = [
+  // Quotes from local DB
+  ...localQuotesDB.map(q => ({
+    ...q,
+    user: { id: '0', name: 'Local User', username: '@local' }, // Placeholder user
+    time: q.date,
+    comments: 0,
+    isSaved: false,
+  })),
+  // Quotes from social feed
+  ...socialQuotes,
+  // Additional quotes not in feeds
+  {
+    id: 201,
+    user: { id: '1', name: 'Clément QLF', username: '@clementqlf' },
+    text: "L'imagination est plus importante que le savoir.",
+    book: "Einstein: His Life and Universe",
+    author: "Albert Einstein",
+    time: "3d",
+    likes: 7,
+    comments: 1,
+    isLiked: false,
+    isSaved: false,
+  },
+];
