@@ -15,7 +15,7 @@ import Svg, { Path } from 'react-native-svg';
 import { localQuotesDB, bookDescriptions } from '../data/staticData';
 import { useTabIndex } from '../TabNavigator';
  
-type FilterType = { type: 'author' | 'book' | 'year'; value: string | number } | null;
+type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
   const [quotes, setQuotes] = useState(localQuotesDB);
@@ -46,7 +46,7 @@ export default function MyQuotesScreen() {
     if (isFocused) {
       let quotesToDisplay = [...localQuotesDB];
       if (activeFilters.length > 0) {
-        const filtersByType = activeFilters.reduce((acc, filter) => {
+        const filtersByType = activeFilters.reduce((acc, filter) => { 
           if (!acc[filter.type]) {
             acc[filter.type] = [];
           }
