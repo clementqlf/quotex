@@ -239,10 +239,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   quoteText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 28,
     color: '#E5E7EB',
     marginBottom: 16,
+    fontFamily: 'Times New Roman',
+    fontStyle: 'italic',
+    fontWeight: '100',
   },
   bookInfo: {
     flexDirection: 'row',
