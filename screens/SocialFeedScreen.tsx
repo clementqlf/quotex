@@ -11,7 +11,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTabIndex } from '../TabNavigator';
-import { globalQuotesDB, Quote } from '../data/staticData';
+import { globalQuotesDB } from '../data/staticData';
 
 export default function SocialFeedScreen() {
   const navigation = useNavigation<any>();

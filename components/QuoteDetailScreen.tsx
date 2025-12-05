@@ -12,7 +12,7 @@ export function QuoteDetailScreen() {
   const route = useRoute<QuoteDetailScreenRouteProp>();
   // On récupère la citation et la fonction pour gérer le "like" directement
   // depuis les paramètres de navigation. Le composant ne gère plus d'état.
-  const { quote, onToggleLike } = route.params;
+  const { quote } = route.params;
 
   return (
     <View style={styles.container}>
@@ -22,17 +22,9 @@ export function QuoteDetailScreen() {
         activeOpacity={1}
         onPress={() => navigation.goBack()}
       />
-      <QuoteDetailModal
-        quote={quote}
-        onClose={() => navigation.goBack()}
-        onAuthorPress={(authorName: string) => { 
-          navigation.navigate('AuthorDetail', { authorName });
-        }}
-        onBookPress={(bookTitle: string) => { 
-          navigation.navigate('BookDetail', { bookTitle });
-        }}
-        onToggleLike={onToggleLike}
-      />
+      {/* Le composant QuoteDetailModal n'a plus besoin de props, il utilise useRoute */}
+      {/* On s'assure que la citation est définie avant de rendre le modal. */}
+      {quote && <QuoteDetailModal />}
     </View>
   );
 }
