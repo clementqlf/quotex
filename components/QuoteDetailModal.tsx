@@ -16,7 +16,7 @@ import {
   bookDescriptions,
   similarBooks,
   similarAuthors,
-} from '../data/staticData';
+} from '../data/staticData'; 
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 
 export interface Quote {
@@ -40,22 +40,31 @@ export interface User {
 export function QuoteDetailModal() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: { quote: Quote, onToggleLike?: (id: number) => void } }, 'params'>>();
-  const { quote, onToggleLike } = route.params ?? {};
+  const { quote: initialQuote, onToggleLike: onToggleLikeProp } = route.params ?? {};
+
+  // On utilise un état local pour la citation afin de pouvoir la mettre à jour
+  const [quote, setQuote] = React.useState(initialQuote);
 
   if (!quote) return null;
 
   const onClose = () => navigation.goBack();
 
-  const onAuthorPress = (authorName: string) => {
-    navigation.navigate('AuthorDetail', { authorName });
+  // Cette fonction met à jour l'état local ET appelle la fonction du parent
+  const handleToggleLike = () => {
+    // 1. Mettre à jour l'état de la modale pour un retour visuel immédiat
+    setQuote(currentQuote => {
+      if (!currentQuote) return currentQuote;
+      return { ...currentQuote, isLiked: !currentQuote.isLiked, likes: currentQuote.isLiked ? currentQuote.likes - 1 : currentQuote.likes + 1 };
+    });
+    // 2. Appeler la fonction passée en paramètre pour mettre à jour l'écran parent
+    onToggleLikeProp?.(quote.id);
   };
 
-  const onBookPress = (bookTitle: string) => {
-    navigation.navigate('BookDetail', { bookTitle });
-  };
+  const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });
+  const onBookPress = (bookTitle: string) => navigation.navigate('BookDetail', { bookTitle });
 
-  // Logique pour les données (précédemment dans le composant)
-  const aiInterpretation =
+  // Data logic
+  const aiInterpretation = 
     aiInterpretations[quote.text] ||
     "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
   const authorInfo = authorDetails[quote.author];
@@ -67,14 +76,14 @@ export function QuoteDetailModal() {
   const bookInfo = bookDescriptions[quote.book];
 
   return (
-    <View style={styles.screenContainer}>
+    <View style={styles.container}>
       {/* Arrière-plan semi-transparent qui ferme le modal au clic */}
       <TouchableOpacity
         style={styles.backdrop}
         activeOpacity={1}
         onPress={onClose}
       />
-      <View style={styles.modalContainer}>
+      <View style={styles.modalView}>
         {/* Poignée pour indiquer qu'on peut slider */}
         <View style={styles.handleBar} />
 
@@ -124,9 +133,7 @@ export function QuoteDetailModal() {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.actionButton}
-                onPress={() => {
-                  onToggleLike?.(quote.id);
-                }}
+                onPress={handleToggleLike}
               >
                 <Heart
                   size={20}
@@ -263,12 +270,12 @@ export function QuoteDetailModal() {
 }
 
 const styles = StyleSheet.create({
-  screenContainer: { 
+  container: { 
     flex: 1, 
     justifyContent: 'flex-end' 
   },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.7)' },
-  modalContainer: {
+  modalView: {
     backgroundColor: '#0F0F0F',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

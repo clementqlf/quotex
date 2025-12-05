@@ -40,6 +40,12 @@ export const authorDetails: { [key: string]: { description: string, image: strin
         image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
         birthDate: "24 février 1955",
         nationality: "Américain",
+    },
+    "Albert Einstein": {
+        description: "Albert Einstein était un physicien théoricien d'origine allemande. Il a développé la théorie de la relativité, l'un des deux piliers de la physique moderne.",
+        image: "https://images.unsplash.com/photo-1541560052-77ec1bbc09f7?w=400&h=400&fit=crop",
+        birthDate: "14 mars 1879",
+        nationality: "Américain",
     }
 };
 // J'ai supprimé authorDescriptions qui est maintenant remplacé par authorDetails
@@ -131,7 +137,7 @@ export let localQuotesDB = [
       id: 2,
       text: "In the middle of difficulty lies opportunity.",
       book: "Einstein: His Life and Universe",
-      author: "Walter Isaacson",
+      author: "Albert Einstein",
       date: "Il y a 5h",
       likes: 8,
       isLiked: false,
@@ -180,6 +186,38 @@ export let globalQuotesDB = [
     isLiked: true,
     isSaved: false,
   },
+  {
+    id: 6,
+    user: {
+      id: "2",
+      name: "Sophie Martin",
+      username: "@sophiereads",
+    },
+    text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
+    book: "Einstein: His Life and Universe",
+    author: "Albert Einstein",
+    time: "Il y a 22min",
+    likes: 256,
+    comments: 28,
+    isLiked: false,
+    isSaved: true,
+  },
+  {
+    id: 7,
+    user: {
+      id: "1",
+      name: "Lucas Bernard",
+      username: "@lucas_books",
+    },
+    text: "The man who does not read has no advantage over the man who cannot read.",
+    book: "The Obstacle Is the Way", // Just for demo purposes, not the real book
+    author: "Ryan Holiday",
+    time: "Il y a 1h",
+    likes: 112,
+    comments: 9,
+    isLiked: true,
+    isSaved: true,
+  }
 ];
 
 // --- Simulation de la base de données ---
