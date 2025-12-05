@@ -10,7 +10,7 @@ import {
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 
-import { localQuotesDB, Quote } from '../data/staticData';
+import { localQuotesDB} from '../data/staticData';
 import { useTabIndex } from '../TabNavigator';
  
 export default function MyQuotesScreen() {

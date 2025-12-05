@@ -39,8 +39,8 @@ export interface User {
 // Le composant n'a plus besoin de props, il va tout chercher dans la route.
 export function QuoteDetailModal() {
   const navigation = useNavigation<any>();
-  const route = useRoute<RouteProp<{ params: { quote: Quote, onToggleLike: (id: number) => void } }, 'params'>>();
-  const { quote, onToggleLike } = route.params;
+  const route = useRoute<RouteProp<{ params: { quote: Quote, onToggleLike?: (id: number) => void } }, 'params'>>();
+  const { quote, onToggleLike } = route.params ?? {};
 
   if (!quote) return null;
 
@@ -125,7 +125,7 @@ export function QuoteDetailModal() {
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => {
-                  onToggleLike(quote.id);
+                  onToggleLike?.(quote.id);
                 }}
               >
                 <Heart
