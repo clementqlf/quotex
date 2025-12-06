@@ -1,102 +1,16 @@
-import React, { useRef, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  Dimensions,
-  StyleSheet,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  SafeAreaView,
-} from 'react-native';
-import MyQuotesScreen from './screens/MyQuotesScreen';
-import ScanScreen from './screens/ScanScreen';
-import SocialFeedScreen from './screens/SocialFeedScreen';
+import React from 'react';
+import 'react-native-gesture-handler';
+import { NavigationContainer } from '@react-navigation/native';
+import { AppNavigator } from './AppNavigator';
+import { StatusBar } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-export default function App() {
-  const scrollViewRef = useRef<ScrollView>(null);
-  const [currentPage, setCurrentPage] = useState(1); // 0=MyQuotes, 1=Scan, 2=Social
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const page = Math.round(offsetX / SCREEN_WIDTH);
-    setCurrentPage(page);
-  };
-
+function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        ref={scrollViewRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={handleScroll}
-        contentOffset={{ x: SCREEN_WIDTH, y: 0 }} // démarrage sur l'écran du milieu
-        decelerationRate="fast"
-      >
-        {/* Écran GAUCHE : My Quotes */}
-        <View style={styles.screen}>
-          <MyQuotesScreen />
-        </View>
-
-        {/* Écran MILIEU : Scan */}
-        <View style={styles.screen}>
-          <ScanScreen
-            onNavigate={function (screen: number): void {
-              throw new Error('Function not implemented.');
-            }}
-            currentScreen={0}
-          />
-        </View>
-
-        {/* Écran DROITE : Social Feed */}
-        <View style={styles.screen}>
-          <SocialFeedScreen />
-        </View>
-      </ScrollView>
-
-      {/* Indicateur de page en bas */}
-      <View style={styles.pageIndicator}>
-        {[0, 1, 2].map((index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              currentPage === index && styles.activeDot,
-            ]}
-          />
-        ))}
-      </View>
-    </SafeAreaView>
+    <NavigationContainer>
+      <StatusBar barStyle="light-content" />
+      <AppNavigator />
+    </NavigationContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F0F0F',
-  },
-  screen: {
-    width: SCREEN_WIDTH,
-    height: '100%',
-  },
-  pageIndicator: {
-    position: 'absolute',
-    bottom: 20, // indicateur en bas
-    alignSelf: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#333',
-  },
-  activeDot: {
-    backgroundColor: '#20B8CD',
-    width: 20,
-  },
-});
+export default App;
