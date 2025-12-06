@@ -67,8 +67,10 @@ export default function ScanScreen() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isEditingBook, setIsEditingBook] = useState(false);
   const [isEditingAuthor, setIsEditingAuthor] = useState(false);
+  const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [editedBook, setEditedBook] = useState("");
   const [editedAuthor, setEditedAuthor] = useState("");
+  const [editedQuote, setEditedQuote] = useState("");
   const [showDebugAngles, setShowDebugAngles] = useState(false); // Toggle pour debug
 
   // Calculer l'angle de rotation du texte à partir des cornerPoints
@@ -703,13 +705,15 @@ export default function ScanScreen() {
   };
 
   const handleConfirmSave = () => {
-    if (!scannedText) return;
+    // Utiliser le texte édité si disponible, sinon le texte scanné
+    const finalText = editedQuote.trim() || scannedText;
+    if (!finalText) return;
     // Utilise la saisie utilisateur si présente, sinon la détection automatique
     const bookTitle = editedBook.trim() || Object.keys(bookDescriptions).find(title => 
       localQuotesDB.some(q => q.text === scannedText && q.book === title)
     ) || "Livre inconnu";
     const authorName = editedAuthor.trim() || bookDescriptions[bookTitle]?.author || "Auteur inconnu";
-    addQuote({ text: scannedText, book: bookTitle, author: authorName });
+    addQuote({ text: finalText, book: bookTitle, author: authorName });
     setShowPreviewModal(false);
     setScannedText("");
     setPhoto(null);
@@ -717,8 +721,10 @@ export default function ScanScreen() {
     setOcrResult(null);
     setEditedBook("");
     setEditedAuthor("");
+    setEditedQuote("");
     setIsEditingBook(false);
     setIsEditingAuthor(false);
+    setIsEditingQuote(false);
     navigation.navigate('MyQuotes');
   };
 
@@ -1049,7 +1055,26 @@ export default function ScanScreen() {
                 </Svg>
 
                 {/* Quote Text */}
-                <Text style={styles.previewQuoteText}>{scannedText}</Text>
+                {isEditingQuote ? (
+                  <TextInput
+                    style={[styles.previewQuoteText, {backgroundColor: '#222', color: '#FFF', borderRadius: 6, padding: 10}]}
+                    value={editedQuote}
+                    autoFocus
+                    multiline
+                    onChangeText={setEditedQuote}
+                    onBlur={() => setIsEditingQuote(false)}
+                    placeholder="Modifier la citation"
+                    placeholderTextColor="#6B7280"
+                    returnKeyType="done"
+                  />
+                ) : (
+                  <TouchableOpacity onPress={() => {
+                    setIsEditingQuote(true);
+                    setEditedQuote(scannedText);
+                  }}>
+                    <Text style={styles.previewQuoteText}>{scannedText}</Text>
+                  </TouchableOpacity>
+                )}
 
                 {/* Book Info - édition interactive */}
                 <View style={styles.previewBookInfo}>
