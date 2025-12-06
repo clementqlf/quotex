@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Pressable,
   Image,
 } from 'react-native'; 
-import { Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 
@@ -23,7 +22,7 @@ export default function MyQuotesScreen() {
   const [quotes, setQuotes] = useState(localQuotesDB);
   const { setTabIndex } = useTabIndex();
   const isFocused = useIsFocused();
-  const [isSwiping, setIsSwiping] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (isFocused) {
@@ -86,20 +85,12 @@ export default function MyQuotesScreen() {
   };
 
   const handleDeleteQuote = (id: number) => {
-    setIsSwiping(false);
     setQuotes(currentQuotes => currentQuotes.filter(q => q.id !== id));
     const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
     if (dbIndex > -1) {
       localQuotesDB.splice(dbIndex, 1);
     }
   };
-
-  const renderDeleteAction = () => (
-    <View style={styles.deleteAction}>
-      <Trash2 size={20} color="#FFFFFF" />
-      <Text style={styles.deleteActionText}>Supprimer</Text>
-    </View>
-  );
 
   const toggleTempFilter = (type: 'author' | 'book' | 'year', value: string | number) => {
     setTempFilters(currentFilters => {
@@ -210,9 +201,11 @@ export default function MyQuotesScreen() {
 
       {/* Quotes Feed */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
       >
         {activeFilters.length > 0 && (
           <View style={styles.filterContainer}>
@@ -258,27 +251,14 @@ export default function MyQuotesScreen() {
         ) : (
           quotes.map((quote) => (
             <View key={quote.id} style={styles.cardWrapper}>
-              <Swipeable
-                renderLeftActions={renderDeleteAction}
-                overshootLeft={false}
-                onSwipeableWillOpen={() => setIsSwiping(true)}
-                onSwipeableClose={() => setIsSwiping(false)}
-                onSwipeableOpen={(direction) => {
-                  if (direction === 'left') {
-                    handleDeleteQuote(quote.id);
-                  }
+              <TouchableOpacity
+                style={styles.quoteCard}
+                onPress={() => {
+                  const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+                  navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
                 }}
+                activeOpacity={0.7}
               >
-                <TouchableOpacity
-                  style={styles.quoteCard}
-                  onPress={() => {
-                    if (isSwiping) return; // évite d'ouvrir le modal après un swipe
-                    // On trouve la dernière version de la citation pour la passer au modal
-                    const currentQuote = quotes.find(q => q.id === quote.id) || quote;
-                    navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
-                  }}
-                  activeOpacity={0.7}
-                >
                   {/* Quote Icon (custom SVG) */}
                   <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
                     <Path
@@ -322,9 +302,15 @@ export default function MyQuotesScreen() {
                       <Share2 size={20} color="#6B7280" />
                       <Text style={styles.actionText}>Partager</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.deleteButton]}
+                      onPress={() => handleDeleteQuote(quote.id)}
+                    >
+                      <Trash2 size={20} color="#F87171" />
+                      <Text style={[styles.actionText, styles.deleteActionText]}>Supprimer</Text>
+                    </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
-              </Swipeable>
             </View>
           ))
         )}
@@ -528,6 +514,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  deleteButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(248, 113, 113, 0.3)',
+    backgroundColor: 'rgba(248, 113, 113, 0.08)',
+  },
   actionText: {
     fontSize: 14,
     color: '#6B7280',
@@ -642,18 +636,8 @@ const styles = StyleSheet.create({
     color: '#20B8CD',
     fontSize: 12,
   },
-  deleteAction: {
-    width: 140,
-    height: '100%',
-    backgroundColor: '#DC2626',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    gap: 6,
-  },
   deleteActionText: {
-    color: '#FFFFFF',
+    color: '#F87171',
     fontSize: 14,
     fontWeight: '600',
   },

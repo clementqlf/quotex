@@ -42,6 +42,7 @@ export function TabNavigator() {
           tabBar={() => null} // Cacher la barre d'onglets
           screenOptions={{
             swipeEnabled: swipeEnabled,
+            gestureResponseDistance: 20,
           }}
           // onStateChange est déplacé vers les écrans individuels avec useIsFocused
         >

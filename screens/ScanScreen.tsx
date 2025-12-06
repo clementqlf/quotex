@@ -37,7 +37,7 @@ export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = useRef<Camera>(null);
-  const scanAnimation = useRef(new Animated.Value(0)).current;
+  // const scanAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!hasPermission) {
@@ -55,36 +55,34 @@ export default function ScanScreen() {
     setSwipeEnabled(!(photo && ocrResult));
   }, [photo, ocrResult, setSwipeEnabled]);
 
-  useEffect(() => {
-    if (photo) {
-      scanAnimation.stopAnimation();
-      scanAnimation.setValue(0);
-      return;
-    }
+  // useEffect(() => {
+  //   if (photo) {
+  //     scanAnimation.stopAnimation();
+  //     scanAnimation.setValue(0);
+  //     return;
+  //   }
+  //   const animation = Animated.loop(
+  //     Animated.sequence([
+  //       Animated.timing(scanAnimation, {
+  //         toValue: 1,
+  //         duration: 2000,
+  //         useNativeDriver: true,
+  //       }),
+  //       Animated.timing(scanAnimation, {
+  //         toValue: 0,
+  //         duration: 2000,
+  //         useNativeDriver: true,
+  //       }),
+  //     ]),
+  //   );
+  //   animation.start();
+  //   return () => animation.stop();
+  // }, [photo, scanAnimation]);
 
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scanAnimation, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanAnimation, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    animation.start();
-    return () => animation.stop();
-  }, [photo, scanAnimation]);
-
-  const translateY = scanAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-140, 140],
-  });
+  // const translateY = scanAnimation.interpolate({
+  //   inputRange: [0, 1],
+  //   outputRange: [-140, 140],
+  // });
 
   const handleTakePhoto = async () => {
     if (!cameraRef.current || isLoading) return;
@@ -184,11 +182,13 @@ export default function ScanScreen() {
               <View style={[styles.corner, styles.cornerBottomLeft]} />
               <View style={[styles.corner, styles.cornerBottomRight]} />
 
-              <Animated.View style={[styles.scanLine, { transform: [{ translateY }] }]} />
+              {/* Ligne de scan animée supprimée */}
 
               <View style={styles.content}>
-                <BookOpen size={48} color="#4B5563" />
-                <Text style={styles.instructionText}>
+                <View style={styles.iconShadowWrapper}>
+                  <BookOpen size={48} color="#FFFFFF" style={styles.iconShadow} />
+                </View>
+                <Text style={styles.instructionTextShadow}>
                   {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
                 </Text>
               </View>
@@ -365,12 +365,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     width: '100%',
+    overflow: 'visible',
   },
   instructionText: {
     fontSize: 15,
     color: '#555',
     marginTop: 20,
     textAlign: 'center',
+  },
+  iconShadowWrapper: {
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconShadow: {
+    // Pour compatibilité, mais l'ombre est sur le wrapper
+  },
+  instructionTextShadow: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    marginTop: 20,
+    textAlign: 'center',
+    textShadowColor: '#20B8CD',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
+    overflow: 'visible',
   },
   darkOverlay: {
     ...StyleSheet.absoluteFillObject,
