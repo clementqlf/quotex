@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Trash2, Heart, Share2, X } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition, {
   TextRecognitionResult,
@@ -72,6 +72,7 @@ export default function ScanScreen() {
   const [editedAuthor, setEditedAuthor] = useState("");
   const [editedQuote, setEditedQuote] = useState("");
   const [showDebugAngles, setShowDebugAngles] = useState(false); // Toggle pour debug
+  const [scanFrameLayout, setScanFrameLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // Calculer l'angle de rotation du texte à partir des cornerPoints
   const calculateTextRotation = (cornerPoints: Array<{ x: number; y: number }>): number => {
@@ -752,7 +753,13 @@ export default function ScanScreen() {
     );
   }
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView 
+      style={styles.container}
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        setContainerSize({ width, height });
+      }}
+    >
       {!photo && (
         <View style={styles.header}>
           <View style={styles.logoContainer}>
@@ -926,30 +933,74 @@ export default function ScanScreen() {
       )}
 
       {!photo && (
-        <View style={styles.scanArea}>
-          <View style={styles.scanFrame}>
-            <View style={[styles.corner, styles.cornerTopLeft]} />
-            <View style={[styles.corner, styles.cornerTopRight]} />
-            <View style={[styles.corner, styles.cornerBottomLeft]} />
-            <View style={[styles.corner, styles.cornerBottomRight]} />
-            
-            {isScanning && (
-              <Animated.View
-                style={[
-                  styles.scanLine,
-                  { transform: [{ translateY }] },
-                ]}
-              />
-            )}
+        <>
+          <View style={styles.scanArea}>
+            <View 
+              style={styles.scanFrame}
+              onLayout={(e) => {
+                const { x, y, width, height } = e.nativeEvent.layout;
+                setScanFrameLayout({ x, y, width, height });
+              }}
+            >
+              <View style={[styles.corner, styles.cornerTopLeft]} />
+              <View style={[styles.corner, styles.cornerTopRight]} />
+              <View style={[styles.corner, styles.cornerBottomLeft]} />
+              <View style={[styles.corner, styles.cornerBottomRight]} />
+              
+              {isScanning && (
+                <Animated.View
+                  style={[
+                    styles.scanLine,
+                    { transform: [{ translateY }] },
+                  ]}
+                />
+              )}
 
-            <View style={styles.content}>
-              <BookOpen size={48} color="#4B5563" />
-              <Text style={styles.instructionText}>
-                {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
-              </Text>
+              <View style={styles.content}>
+                <BookOpen size={48} color="#4B5563" />
+                <Text style={styles.instructionText}>
+                  {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
+          
+          {/* Overlay sombre avec trou arrondi */}
+          {scanFrameLayout && containerSize.width > 0 && (
+            <Svg 
+              width={containerSize.width} 
+              height={containerSize.height} 
+              style={styles.darkOverlay}
+              viewBox={`0 0 ${containerSize.width} ${containerSize.height}`}
+            >
+              <Defs>
+                <Mask id="scanMask">
+                  <Rect 
+                    width={containerSize.width} 
+                    height={containerSize.height} 
+                    fill="white" 
+                  />
+                  {/* Trou arrondi qui correspond exactement au scanFrame */}
+                  <Rect
+                    x={scanFrameLayout.x }
+                    y={scanFrameLayout.y + 22}
+                    width={scanFrameLayout.width}
+                    height={scanFrameLayout.height}
+                    rx="24"
+                    ry="24"
+                    fill="black"
+                  />
+                </Mask>
+              </Defs>
+              <Rect
+                width={containerSize.width}
+                height={containerSize.height}
+                fill="rgba(0, 0, 0, 0.6)"
+                mask="url(#scanMask)"
+              />
+            </Svg>
+          )}
+        </>
       )}
 
       {/* Controls */}
@@ -1015,11 +1066,6 @@ export default function ScanScreen() {
 
       {!photo && (
         <View style={styles.overlayContainer} pointerEvents="none">
-          <View style={styles.overlayTop} />
-          <View style={styles.overlayMiddle}>
-            <View style={styles.overlaySide} />
-          </View>
-          <View style={styles.overlayBottom} />
         </View>
       )}
 
@@ -1228,7 +1274,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     position: 'relative',
-    zIndex: 1,
+    zIndex: 3,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -1245,6 +1291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent', // Le fond est maintenant la caméra
     overflow: 'visible',
+    zIndex: 3,
   },
   corner: {
     position: 'absolute',
@@ -1255,6 +1302,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 8,
+    zIndex: 10,
   },
   cornerTopLeft: {
     top: -3,
@@ -1293,6 +1341,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 10,
+  },
+  darkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+    pointerEvents: 'none',
   },
   content: {
     alignItems: 'center',
