@@ -307,7 +307,26 @@ export default function ScanScreen() {
     });
 
     if (touchedBlocksMap.size === 0) return;
-    updateSelectionForBlocks(Array.from(touchedBlocksMap.values()), panModeRef.current);
+    
+    // Trier les blocs par position (haut → bas, puis gauche → droite) avant de les ajouter
+    const blocksToUpdate = Array.from(touchedBlocksMap.values()).sort((a, b) => {
+      const rectA = getBlockRectOnScreen(a);
+      const rectB = getBlockRectOnScreen(b);
+      if (!rectA || !rectB) return 0;
+      
+      // Tolérance pour considérer deux blocs sur la même ligne
+      const tolerance = Math.max(rectA.height, rectB.height) * 0.3;
+      const centerYDiff = Math.abs((rectA.top + rectA.height / 2) - (rectB.top + rectB.height / 2));
+      
+      if (centerYDiff < tolerance) {
+        // Même ligne : trier par position horizontale (gauche → droite)
+        return rectA.left - rectB.left;
+      }
+      // Lignes différentes : trier par position verticale (haut → bas)
+      return (rectA.top + rectA.height / 2) - (rectB.top + rectB.height / 2);
+    });
+    
+    updateSelectionForBlocks(blocksToUpdate, panModeRef.current);
   };
 
   const selectionPanResponder = useRef(
@@ -434,9 +453,10 @@ export default function ScanScreen() {
     });
 
     lines.sort((a, b) => a.center - b.center);
-    const sortedWords = lines.flatMap(line =>
-      line.words.sort((a, b) => a.rect.left - b.rect.left)
-    );
+    const sortedWords = lines.flatMap(line => {
+      const sortedLineWords = line.words.sort((a, b) => a.rect.left - b.rect.left);
+      return sortedLineWords;
+    });
     const newText = sortedWords.map(item => item.block.text).join(' ');
     setScannedText(newText);
   }, [selectedBlocks]);
