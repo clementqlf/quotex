@@ -13,9 +13,16 @@ const TabIndexContext = createContext({
   setTabIndex: (index: number) => {},
 });
 export const useTabIndex = () => useContext(TabIndexContext);
+
+// 2. Créer un contexte pour contrôler le swipe
+const SwipeEnabledContext = createContext({
+  swipeEnabled: true,
+  setSwipeEnabled: (enabled: boolean) => {},
+});
+export const useSwipeEnabled = () => useContext(SwipeEnabledContext);
 export type TabParamList = {
   MyQuotes: undefined;
-  Scan: { currentScreen: number };
+  Scan: undefined;
   Social: undefined;
 };
 
@@ -24,36 +31,36 @@ const Tab = createMaterialTopTabNavigator<TabParamList>();
 export function TabNavigator() {
   // We need a nested navigation state to get the tab index
   const [tabIndex, setTabIndex] = useState(1); // Start with Scan screen
+  const [swipeEnabled, setSwipeEnabled] = useState(true);
 
   return (
     <TabIndexContext.Provider value={{ tabIndex, setTabIndex }}>
+    <SwipeEnabledContext.Provider value={{ swipeEnabled, setSwipeEnabled }}>
       <View style={{ flex: 1 }}>
         <Tab.Navigator
           initialRouteName="Scan" // Démarrer sur l'écran du milieu
           tabBar={() => null} // Cacher la barre d'onglets
           screenOptions={{
-            swipeEnabled: true,
+            swipeEnabled: swipeEnabled,
           }}
           // onStateChange est déplacé vers les écrans individuels avec useIsFocused
         >
           <Tab.Screen
             name="MyQuotes"
             component={MyQuotesScreen}
-            initialParams={{ index: 0 }}
           />
           <Tab.Screen 
             name="Scan" 
             component={ScanScreen}
-            initialParams={{ index: 1 }}
           />
           <Tab.Screen
             name="Social"
             component={SocialFeedScreen}
-            initialParams={{ index: 2 }}
           />
         </Tab.Navigator>
         <PageIndicator count={3} activeIndex={tabIndex} />
       </View>
+    </SwipeEnabledContext.Provider>
     </TabIndexContext.Provider>
   );
 }

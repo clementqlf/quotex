@@ -1,32 +1,29 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react'; 
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Text,
   TouchableOpacity,
   StyleSheet,
   Animated,
-  Easing,
   Image,
   SafeAreaView,
   View,
   ActivityIndicator,
-  Pressable,
   PanResponder,
-  Dimensions,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Book } from 'lucide-react-native';
+import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles } from 'lucide-react-native';
 import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition, {
   TextRecognitionResult,
 } from '@react-native-ml-kit/text-recognition';
-
 // Type pour les blocs de texte ML Kit
 type MLKitText = {
   text: string;
   frame?: { left: number; top: number; width: number; height: number };
 };
 import { useTabIndex } from '../TabNavigator';
-import { addQuote, aiInterpretations, bookDescriptions, localQuotesDB } from '../data/staticData';
+import { useSwipeEnabled } from '../TabNavigator';
+import { addQuote, bookDescriptions, localQuotesDB } from '../data/staticData';
 
 const quotexLogo = require('../assets/images/quotex_logo.png'); 
 
@@ -39,6 +36,7 @@ export default function ScanScreen() {
   const [photoDimensions, setPhotoDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [ocrResult, setOcrResult] = useState<TextRecognitionResult | null>(null);
   const [selectedBlocks, setSelectedBlocks] = useState<MLKitText[]>([]);
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [imageSize, setImageSize] = useState<{ 
     width: number; 
     height: number; 
@@ -62,11 +60,228 @@ export default function ScanScreen() {
   }, [ocrResult]);
 
   const { tabIndex, setTabIndex } = useTabIndex();
+  const { setSwipeEnabled } = useSwipeEnabled();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const camera = useRef<Camera>(null);
-  const selectionPanResponder = useRef(PanResponder.create({ onStartShouldSetPanResponder: () => true })).current;
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartBlocks = useRef<Set<string>>(new Set());
+  const imageInfoRef = useRef({ photo, photoDimensions, imageSize, wordBlocks, containerSize });
+
+  // Mettre à jour la ref à chaque render
+  useEffect(() => {
+    imageInfoRef.current = { photo, photoDimensions, imageSize, wordBlocks, containerSize };
+  }, [photo, photoDimensions, imageSize, wordBlocks, containerSize]);
+
+  const getPhotoDimensions = () => {
+    const photoW = imageInfoRef.current.photo?.width || imageInfoRef.current.photoDimensions.width || 1;
+    const photoH = imageInfoRef.current.photo?.height || imageInfoRef.current.photoDimensions.height || 1;
+    return { photoW, photoH };
+  };
+
+  const getPhotoOrientation = () => {
+    const rawOrientation =
+      (imageInfoRef.current.photo as any)?.metadata?.Orientation ||
+      (imageInfoRef.current.photo as any)?.metadata?.orientation ||
+      (imageInfoRef.current.photo as any)?.metadata?.Exif?.Orientation ||
+      1;
+
+    switch (rawOrientation) {
+      case 3:
+        return 180;
+      case 6:
+        return 90;
+      case 8:
+        return 270;
+      default:
+        return 0;
+    }
+  };
+
+  const rotateFrameToUpright = (
+    frame: NonNullable<MLKitText['frame']>,
+    orientation: number,
+    baseWidth: number,
+    baseHeight: number,
+  ) => {
+    if (orientation === 0) return frame;
+
+    const { left, top, width, height } = frame;
+
+    if (orientation === 90) {
+      return {
+        left: baseHeight - (top + height),
+        top: left,
+        width: height,
+        height: width,
+      };
+    }
+
+    if (orientation === 180) {
+      return {
+        left: baseWidth - (left + width),
+        top: baseHeight - (top + height),
+        width,
+        height,
+      };
+    }
+
+    return {
+      left: top,
+      top: baseWidth - (left + width),
+      width: height,
+      height: width,
+    };
+  };
+
+  // Helper pour créer une clé unique pour chaque bloc
+  const getBlockKey = (block: MLKitText): string => {
+    return `${block.text}-${block.frame?.left}-${block.frame?.top}`;
+  };
+
+  // Helper pour vérifier si un point touche un bloc
+  const isPointInBlock = (x: number, y: number, block: MLKitText): boolean => {
+    if (!block.frame) return false;
+    const { imageSize } = imageInfoRef.current;
+    if (imageSize.width === 0) return false;
+
+    const orientation = getPhotoOrientation();
+    const isNormalized =
+      block.frame.left <= 1 && block.frame.top <= 1 &&
+      block.frame.width <= 1 && block.frame.height <= 1;
+
+    const { photoW, photoH } = getPhotoDimensions();
+    const baseWidth = isNormalized ? 1 : photoW;
+    const baseHeight = isNormalized ? 1 : photoH;
+
+    const rotatedFrame = rotateFrameToUpright({
+      left: block.frame.left ?? 0,
+      top: block.frame.top ?? 0,
+      width: block.frame.width ?? 0,
+      height: block.frame.height ?? 0,
+    }, orientation, baseWidth, baseHeight);
+
+    const orientedBaseWidth = orientation === 90 || orientation === 270 ? baseHeight : baseWidth;
+    const orientedBaseHeight = orientation === 90 || orientation === 270 ? baseWidth : baseHeight;
+
+    const scaleX = imageSize.width / orientedBaseWidth;
+    const scaleY = imageSize.height / orientedBaseHeight;
+
+    const blockLeft = (rotatedFrame.left * scaleX) + imageSize.offsetX;
+    const blockTop = (rotatedFrame.top * scaleY) + imageSize.offsetY;
+    const blockWidth = rotatedFrame.width * scaleX;
+    const blockHeight = rotatedFrame.height * scaleY;
+
+    return x >= blockLeft && x <= blockLeft + blockWidth && 
+           y >= blockTop && y <= blockTop + blockHeight;
+  };
+
+  const handlePanMove = (x: number, y: number, isFirst: boolean) => {
+    const { imageSize, wordBlocks } = imageInfoRef.current;
+    if (imageSize.width === 0) return;
+
+    // Trouver tous les blocs sous le doigt
+    const touchedBlocks = wordBlocks.filter(block => 
+      isPointInBlock(x, y, block)
+    );
+
+    if (touchedBlocks.length === 0) return;
+
+    setSelectedBlocks(prev => {
+      const newSelection = [...prev];
+      const currentKeys = new Set(newSelection.map(getBlockKey));
+
+      touchedBlocks.forEach(block => {
+        const key = getBlockKey(block);
+        const wasInitiallySelected = panStartBlocks.current.has(key);
+        const isCurrentlySelected = currentKeys.has(key);
+
+        if (isFirst) {
+          // Premier touch : toggle le bloc
+          if (wasInitiallySelected) {
+            // Si déjà sélectionné, on désélectionne
+            const index = newSelection.findIndex(b => getBlockKey(b) === key);
+            if (index > -1) newSelection.splice(index, 1);
+            currentKeys.delete(key);
+          } else {
+            // Sinon on sélectionne
+            if (!isCurrentlySelected) {
+              newSelection.push(block);
+              currentKeys.add(key);
+            }
+          }
+        } else {
+          // Pendant le glissement
+          if (wasInitiallySelected) {
+            // Si le bloc était initialement sélectionné, on le désélectionne
+            if (isCurrentlySelected) {
+              const index = newSelection.findIndex(b => getBlockKey(b) === key);
+              if (index > -1) newSelection.splice(index, 1);
+              currentKeys.delete(key);
+            }
+          } else {
+            // Si le bloc n'était pas initialement sélectionné, on le sélectionne
+            if (!isCurrentlySelected) {
+              newSelection.push(block);
+              currentKeys.add(key);
+            }
+          }
+        }
+      });
+
+      return newSelection;
+    });
+  };
+
+  const selectionPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        if (!evt || !evt.nativeEvent) return;
+        
+        const { photo, imageSize } = imageInfoRef.current;
+        if (!photo || imageSize.width === 0) return;
+        
+        // Capturer les valeurs immédiatement
+        const locationX = evt.nativeEvent.locationX;
+        const locationY = evt.nativeEvent.locationY;
+        
+        if (locationX === undefined || locationY === undefined) return;
+        
+        setIsPanning(true);
+        // Sauvegarder l'état actuel de la sélection au début du pan
+        setSelectedBlocks(prev => {
+          panStartBlocks.current = new Set(prev.map(getBlockKey));
+          
+          // Traiter le premier touch avec les valeurs capturées - coordonnées normales
+          handlePanMove(locationX, locationY, true);
+          
+          return prev;
+        });
+      },
+      onPanResponderMove: (evt) => {
+        if (!evt || !evt.nativeEvent) return;
+        
+        const locationX = evt.nativeEvent.locationX;
+        const locationY = evt.nativeEvent.locationY;
+        
+        if (locationX !== undefined && locationY !== undefined) {
+          // Coordonnées normales
+          handlePanMove(locationX, locationY, false);
+        }
+      },
+      onPanResponderRelease: () => {
+        setIsPanning(false);
+        panStartBlocks.current.clear();
+      },
+      onPanResponderTerminate: () => {
+        setIsPanning(false);
+        panStartBlocks.current.clear();
+      },
+    })
+  ).current;
 
   useEffect(() => {
     if (!hasPermission) {
@@ -88,60 +303,20 @@ export default function ScanScreen() {
     );
   }, [photo]);
 
-  // Orientation helper: normalize EXIF orientation to degrees
-  const getPhotoOrientation = () => {
-    const raw =
-      (photo as any)?.metadata?.Orientation ||
-      (photo as any)?.metadata?.orientation ||
-      (photo as any)?.metadata?.Exif?.Orientation ||
-      1;
-
-    switch (raw) {
-      case 3:
-        return 180;
-      case 6:
-        return 90; // rotate right
-      case 8:
-        return 270; // rotate left
-      default:
-        return 0;
-    }
-  };
-
-  const rotateFrameToUpright = (frame: NonNullable<MLKitText['frame']>, orientation: number, baseW: number, baseH: number) => {
-    if (orientation === 0) return frame;
-    const { left, top, width, height } = frame;
-
-    if (orientation === 90) {
-      return {
-        left: baseH - (top + height),
-        top: left,
-        width: height,
-        height: width,
-      };
-    }
-
-    if (orientation === 180) {
-      return {
-        left: baseW - (left + width),
-        top: baseH - (top + height),
-        width,
-        height,
-      };
-    }
-
-    // 270
-    return {
-      left: top,
-      top: baseW - (left + width),
-      width: height,
-      height: width,
-    };
-  };
+  // Suppression de la gestion de l'orientation : la photo est toujours affichée en portrait
 
   useEffect(() => {
     if (isFocused) setTabIndex(1);
   }, [isFocused]);
+  
+  // Désactiver le swipe quand on est en mode sélection de blocs
+  useEffect(() => {
+    if (photo && ocrResult) {
+      setSwipeEnabled(false);
+    } else {
+      setSwipeEnabled(true);
+    }
+  }, [photo, ocrResult, setSwipeEnabled]);
   
   useEffect(() => {
     // Mettre à jour le texte scanné lorsque la sélection de blocs change
@@ -151,22 +326,6 @@ export default function ScanScreen() {
       .join(' ');
     setScannedText(newText);
   }, [selectedBlocks]);
-
-  const handleBlockPress = (block: MLKitText) => {
-    if (!block.frame) return;
-    
-    const isSelected = selectedBlocks.some(b => 
-      b.text === block.text && b.frame?.left === block.frame?.left
-    );
-    
-    if (isSelected) {
-      setSelectedBlocks(prev => prev.filter(b => 
-        !(b.text === block.text && b.frame?.left === block.frame?.left)
-      ));
-    } else {
-      setSelectedBlocks(prev => [...prev, block]);
-    }
-  };
 
   const scanAnimation = useRef(new Animated.Value(0)).current;
 
@@ -282,13 +441,14 @@ export default function ScanScreen() {
               console.log('=== LAYOUT DEBUG ===');
               console.log('Container:', { containerWidth, containerHeight });
               console.log('Photo:', { width: photoDimensions.width || photo.width, height: photoDimensions.height || photo.height });
+              const orientation = getPhotoOrientation();
+              const { photoW, photoH } = getPhotoDimensions();
+              const orientedWidth = orientation === 90 || orientation === 270 ? photoH : photoW;
+              const orientedHeight = orientation === 90 || orientation === 270 ? photoW : photoH;
               
               // Calculer la taille réelle de l'image affichée avec resizeMode="contain"
-              const rawWidth = photo.width || photoDimensions.width || 1;
-              const rawHeight = photo.height || photoDimensions.height || 1;
-              const orientation = getPhotoOrientation();
-              const orientedWidth = orientation === 90 || orientation === 270 ? rawHeight : rawWidth;
-              const orientedHeight = orientation === 90 || orientation === 270 ? rawWidth : rawHeight;
+              setContainerSize({ width: containerWidth, height: containerHeight });
+
               const imageAspectRatio = orientedWidth / orientedHeight;
               const containerAspectRatio = containerWidth / containerHeight;
               
@@ -306,7 +466,7 @@ export default function ScanScreen() {
                 offsetX = (containerWidth - displayedWidth) / 2;
               }
               
-              console.log('Displayed:', { displayedWidth, displayedHeight, offsetX, offsetY });
+              console.log('Displayed:', { displayedWidth, displayedHeight, offsetX, offsetY, orientation });
               console.log('======================');
               
               setImageSize({
@@ -319,12 +479,17 @@ export default function ScanScreen() {
           >
             <Image 
               source={{ uri: `file://${photo.path}` }} 
-              style={styles.photo} 
+              style={[
+                styles.photo,
+              ]} 
               resizeMode="contain"
             />
             
             {/* Overlay avec les blocs */}
-            <View style={styles.blocksOverlay}>
+            <View 
+              style={styles.blocksOverlay}
+              {...selectionPanResponder.panHandlers}
+            >
               {imageSize.width > 0 && wordBlocks.map((block, index) => {
                 const { frame } = block;
                 if (!frame) return null;
@@ -332,21 +497,22 @@ export default function ScanScreen() {
                 const orientation = getPhotoOrientation();
 
                 const isNormalized =
-                  frame.left <= 1 && frame.top <= 1 && frame.width <= 1 && frame.height <= 1;
+                  frame.left <= 1 && frame.top <= 1 &&
+                  frame.width <= 1 && frame.height <= 1;
 
-                const rawBaseW = photo.width || photoDimensions.width || 1;
-                const rawBaseH = photo.height || photoDimensions.height || 1;
+                const rawBaseWidth = photo.width || photoDimensions.width || 1;
+                const rawBaseHeight = photo.height || photoDimensions.height || 1;
 
-                const normBaseW = isNormalized ? 1 : rawBaseW;
-                const normBaseH = isNormalized ? 1 : rawBaseH;
+                const baseWidth = isNormalized ? 1 : rawBaseWidth;
+                const baseHeight = isNormalized ? 1 : rawBaseHeight;
 
-                const rotatedFrame = rotateFrameToUpright(frame, orientation, normBaseW, normBaseH);
+                const rotatedFrame = rotateFrameToUpright(frame, orientation, baseWidth, baseHeight);
 
-                const orientedBaseW = orientation === 90 || orientation === 270 ? normBaseH : normBaseW;
-                const orientedBaseH = orientation === 90 || orientation === 270 ? normBaseW : normBaseH;
+                const orientedBaseWidth = orientation === 90 || orientation === 270 ? baseHeight : baseWidth;
+                const orientedBaseHeight = orientation === 90 || orientation === 270 ? baseWidth : baseHeight;
 
-                const scaleX = imageSize.width / orientedBaseW;
-                const scaleY = imageSize.height / orientedBaseH;
+                const scaleX = imageSize.width / orientedBaseWidth;
+                const scaleY = imageSize.height / orientedBaseHeight;
 
                 const blockLeft = (rotatedFrame.left * scaleX) + imageSize.offsetX;
                 const blockTop = (rotatedFrame.top * scaleY) + imageSize.offsetY;
@@ -360,18 +526,18 @@ export default function ScanScreen() {
                   console.log('Orientation:', orientation);
                   console.log('ImageSize:', imageSize);
                   console.log('isNormalized:', isNormalized);
-                  console.log('Raw base photo:', { width: rawBaseW, height: rawBaseH });
-                  console.log('Oriented base:', { width: orientedBaseW, height: orientedBaseH });
+                  console.log('Raw base photo:', { width: rawBaseWidth, height: rawBaseHeight });
+                  console.log('Oriented base:', { width: orientedBaseWidth, height: orientedBaseHeight });
                   console.log('Calculated:', { blockLeft, blockTop, blockWidth, blockHeight });
                   console.log('======================');
                 }
 
                 const isSelected = selectedBlocks.some(b => 
-                  b.text === block.text && b.frame?.left === frame.left
+                  getBlockKey(b) === getBlockKey(block)
                 );
 
                 return (
-                  <Pressable
+                  <View
                     key={index}
                     style={[
                       styles.textBlock,
@@ -380,10 +546,11 @@ export default function ScanScreen() {
                         top: blockTop,
                         width: blockWidth,
                         height: blockHeight,
+                        borderRadius: 4,
                       },
                       isSelected && styles.textBlockSelected,
                     ]}
-                    onPress={() => handleBlockPress(block as MLKitText)}
+                    pointerEvents="none"
                   />
                 );
               })}
@@ -399,7 +566,7 @@ export default function ScanScreen() {
                   <Text style={styles.instructionText}>
                     {selectedBlocks.length > 0
                       ? 'Sélection prête, enregistrez la citation'
-                      : 'Appuyez sur les blocs pour sélectionner la citation'}
+                      : 'Glissez votre doigt pour sélectionner la citation'}
                   </Text>
                 </View>
               )}
@@ -805,23 +972,19 @@ const styles = StyleSheet.create({
   },
   blocksOverlay: {
     ...StyleSheet.absoluteFillObject,
-    pointerEvents: 'box-none',
+    pointerEvents: 'box-only',
   },
   textBlock: {
     position: 'absolute',
-    backgroundColor: 'rgba(32, 184, 205, 0.6)',
-    borderWidth: 3,
-    borderColor: '#20B8CD',
+    backgroundColor: 'rgba(32, 184, 205, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
     elevation: 1000,
-    pointerEvents: 'auto',
+    pointerEvents: 'none',
   },
   textBlockSelected: {
-    backgroundColor: 'rgba(0, 255, 0, 0.4)',
-    borderColor: '#00FF00',
-    borderWidth: 4,
+    backgroundColor: 'rgba(0, 255, 0, 0.5)',
   },
   blockDebugText: {
     color: '#FFFFFF',
