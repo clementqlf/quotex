@@ -43,6 +43,8 @@ export default function ScanScreen() {
     offsetX: number; 
     offsetY: number;
   }>({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
+  const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
+  const panModeRef = useRef<'add' | 'remove'>('add');
 
   const wordBlocks = useMemo<MLKitText[]>(() => {
     if (!ocrResult) return [];
@@ -66,13 +68,19 @@ export default function ScanScreen() {
   const device = useCameraDevice('back');
   const camera = useRef<Camera>(null);
   const [isPanning, setIsPanning] = useState(false);
-  const panStartBlocks = useRef<Set<string>>(new Set());
   const imageInfoRef = useRef({ photo, photoDimensions, imageSize, wordBlocks, containerSize });
+  const selectedBlocksRef = useRef<MLKitText[]>([]);
+  const HIGHLIGHT_PADDING = 14; // hitbox padding so the stroke feels like a marker
+  const PATH_SAMPLE_STEP = 10; // px spacing between sampled points during a swipe
 
   // Mettre à jour la ref à chaque render
   useEffect(() => {
     imageInfoRef.current = { photo, photoDimensions, imageSize, wordBlocks, containerSize };
   }, [photo, photoDimensions, imageSize, wordBlocks, containerSize]);
+
+  useEffect(() => {
+    selectedBlocksRef.current = selectedBlocks;
+  }, [selectedBlocks]);
 
   const getPhotoDimensions = () => {
     const photoW = imageInfoRef.current.photo?.width || imageInfoRef.current.photoDimensions.width || 1;
@@ -111,8 +119,9 @@ export default function ScanScreen() {
 
     if (orientation === 90) {
       return {
-        left: baseHeight - (top + height),
-        top: left,
+        // Orientation 90° : on remet l'axe X sur l'ancien Y et l'axe Y sur (largeur - X)
+        left: top,
+        top: baseWidth - (left + width),
         width: height,
         height: width,
       };
@@ -128,8 +137,9 @@ export default function ScanScreen() {
     }
 
     return {
-      left: top,
-      top: baseWidth - (left + width),
+      // Orientation 270° : inverse du cas 90°
+      left: baseHeight - (top + height),
+      top: left,
       width: height,
       height: width,
     };
@@ -140,11 +150,9 @@ export default function ScanScreen() {
     return `${block.text}-${block.frame?.left}-${block.frame?.top}`;
   };
 
-  // Helper pour vérifier si un point touche un bloc
-  const isPointInBlock = (x: number, y: number, block: MLKitText): boolean => {
-    if (!block.frame) return false;
+  const getBlockRectOnScreen = (block: MLKitText) => {
     const { imageSize } = imageInfoRef.current;
-    if (imageSize.width === 0) return false;
+    if (!block.frame || imageSize.width === 0) return null;
 
     const orientation = getPhotoOrientation();
     const isNormalized =
@@ -155,12 +163,17 @@ export default function ScanScreen() {
     const baseWidth = isNormalized ? 1 : photoW;
     const baseHeight = isNormalized ? 1 : photoH;
 
-    const rotatedFrame = rotateFrameToUpright({
-      left: block.frame.left ?? 0,
-      top: block.frame.top ?? 0,
-      width: block.frame.width ?? 0,
-      height: block.frame.height ?? 0,
-    }, orientation, baseWidth, baseHeight);
+    const rotatedFrame = rotateFrameToUpright(
+      {
+        left: block.frame.left ?? 0,
+        top: block.frame.top ?? 0,
+        width: block.frame.width ?? 0,
+        height: block.frame.height ?? 0,
+      },
+      orientation,
+      baseWidth,
+      baseHeight,
+    );
 
     const orientedBaseWidth = orientation === 90 || orientation === 270 ? baseHeight : baseWidth;
     const orientedBaseHeight = orientation === 90 || orientation === 270 ? baseWidth : baseHeight;
@@ -168,70 +181,94 @@ export default function ScanScreen() {
     const scaleX = imageSize.width / orientedBaseWidth;
     const scaleY = imageSize.height / orientedBaseHeight;
 
-    const blockLeft = (rotatedFrame.left * scaleX) + imageSize.offsetX;
-    const blockTop = (rotatedFrame.top * scaleY) + imageSize.offsetY;
-    const blockWidth = rotatedFrame.width * scaleX;
-    const blockHeight = rotatedFrame.height * scaleY;
+    const left = (orientation === 90 || orientation === 270)
+      ? ((orientedBaseWidth - (rotatedFrame.left + rotatedFrame.width)) * scaleX) + imageSize.offsetX
+      : (rotatedFrame.left * scaleX) + imageSize.offsetX;
 
-    return x >= blockLeft && x <= blockLeft + blockWidth && 
-           y >= blockTop && y <= blockTop + blockHeight;
+    const top = (orientation === 90 || orientation === 270)
+      ? ((orientedBaseHeight - (rotatedFrame.top + rotatedFrame.height)) * scaleY) + imageSize.offsetY
+      : (rotatedFrame.top * scaleY) + imageSize.offsetY;
+
+    return {
+      left,
+      top,
+      width: rotatedFrame.width * scaleX,
+      height: rotatedFrame.height * scaleY,
+    };
   };
 
-  const handlePanMove = (x: number, y: number, isFirst: boolean) => {
-    const { imageSize, wordBlocks } = imageInfoRef.current;
-    if (imageSize.width === 0) return;
+  // Helper pour vérifier si un point touche un bloc
+  const isPointInBlock = (x: number, y: number, block: MLKitText, padding = 0): boolean => {
+    const rect = getBlockRectOnScreen(block);
+    if (!rect) return false;
 
-    // Trouver tous les blocs sous le doigt
-    const touchedBlocks = wordBlocks.filter(block => 
-      isPointInBlock(x, y, block)
+    return (
+      x >= rect.left - padding &&
+      x <= rect.left + rect.width + padding &&
+      y >= rect.top - padding &&
+      y <= rect.top + rect.height + padding
     );
+  };
 
-    if (touchedBlocks.length === 0) return;
+  const getBlocksNearPoint = (x: number, y: number, padding = HIGHLIGHT_PADDING) => {
+    const { wordBlocks, imageSize } = imageInfoRef.current;
+    if (imageSize.width === 0) return [] as MLKitText[];
+    return wordBlocks.filter(block => isPointInBlock(x, y, block, padding));
+  };
+
+  const sampleLinePoints = (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.max(Math.abs(dx), Math.abs(dy));
+    const steps = Math.max(1, Math.floor(distance / PATH_SAMPLE_STEP));
+
+    const points = [] as { x: number; y: number }[];
+    for (let i = 0; i <= steps; i += 1) {
+      const t = i / steps;
+      points.push({ x: from.x + dx * t, y: from.y + dy * t });
+    }
+    return points;
+  };
+
+  const updateSelectionForBlocks = (blocks: MLKitText[], mode: 'add' | 'remove') => {
+    if (blocks.length === 0) return;
 
     setSelectedBlocks(prev => {
-      const newSelection = [...prev];
-      const currentKeys = new Set(newSelection.map(getBlockKey));
+      const next = [...prev];
+      const currentKeys = new Set(next.map(getBlockKey));
 
-      touchedBlocks.forEach(block => {
+      blocks.forEach(block => {
         const key = getBlockKey(block);
-        const wasInitiallySelected = panStartBlocks.current.has(key);
-        const isCurrentlySelected = currentKeys.has(key);
-
-        if (isFirst) {
-          // Premier touch : toggle le bloc
-          if (wasInitiallySelected) {
-            // Si déjà sélectionné, on désélectionne
-            const index = newSelection.findIndex(b => getBlockKey(b) === key);
-            if (index > -1) newSelection.splice(index, 1);
-            currentKeys.delete(key);
-          } else {
-            // Sinon on sélectionne
-            if (!isCurrentlySelected) {
-              newSelection.push(block);
-              currentKeys.add(key);
-            }
+        if (mode === 'add') {
+          if (!currentKeys.has(key)) {
+            next.push(block);
+            currentKeys.add(key);
           }
         } else {
-          // Pendant le glissement
-          if (wasInitiallySelected) {
-            // Si le bloc était initialement sélectionné, on le désélectionne
-            if (isCurrentlySelected) {
-              const index = newSelection.findIndex(b => getBlockKey(b) === key);
-              if (index > -1) newSelection.splice(index, 1);
+          if (currentKeys.has(key)) {
+            const index = next.findIndex(b => getBlockKey(b) === key);
+            if (index > -1) {
+              next.splice(index, 1);
               currentKeys.delete(key);
-            }
-          } else {
-            // Si le bloc n'était pas initialement sélectionné, on le sélectionne
-            if (!isCurrentlySelected) {
-              newSelection.push(block);
-              currentKeys.add(key);
             }
           }
         }
       });
 
-      return newSelection;
+      return next;
     });
+  };
+
+  const applyHighlightStroke = (points: { x: number; y: number }[]) => {
+    const touchedBlocksMap = new Map<string, MLKitText>();
+    points.forEach(point => {
+      getBlocksNearPoint(point.x, point.y).forEach(block => {
+        touchedBlocksMap.set(getBlockKey(block), block);
+      });
+    });
+
+    if (touchedBlocksMap.size === 0) return;
+    updateSelectionForBlocks(Array.from(touchedBlocksMap.values()), panModeRef.current);
   };
 
   const selectionPanResponder = useRef(
@@ -251,15 +288,14 @@ export default function ScanScreen() {
         if (locationX === undefined || locationY === undefined) return;
         
         setIsPanning(true);
-        // Sauvegarder l'état actuel de la sélection au début du pan
-        setSelectedBlocks(prev => {
-          panStartBlocks.current = new Set(prev.map(getBlockKey));
-          
-          // Traiter le premier touch avec les valeurs capturées - coordonnées normales
-          handlePanMove(locationX, locationY, true);
-          
-          return prev;
-        });
+        lastTouchRef.current = { x: locationX, y: locationY };
+
+        const initialBlocks = getBlocksNearPoint(locationX, locationY);
+        const selectedKeys = new Set(selectedBlocksRef.current.map(getBlockKey));
+        const shouldErase = initialBlocks.some(block => selectedKeys.has(getBlockKey(block)));
+        panModeRef.current = shouldErase ? 'remove' : 'add';
+
+        applyHighlightStroke([{ x: locationX, y: locationY }]);
       },
       onPanResponderMove: (evt) => {
         if (!evt || !evt.nativeEvent) return;
@@ -268,17 +304,20 @@ export default function ScanScreen() {
         const locationY = evt.nativeEvent.locationY;
         
         if (locationX !== undefined && locationY !== undefined) {
-          // Coordonnées normales
-          handlePanMove(locationX, locationY, false);
+          const currentPoint = { x: locationX, y: locationY };
+          const lastPoint = lastTouchRef.current;
+          const points = lastPoint ? sampleLinePoints(lastPoint, currentPoint) : [currentPoint];
+          applyHighlightStroke(points);
+          lastTouchRef.current = currentPoint;
         }
       },
       onPanResponderRelease: () => {
         setIsPanning(false);
-        panStartBlocks.current.clear();
+        lastTouchRef.current = null;
       },
       onPanResponderTerminate: () => {
         setIsPanning(false);
-        panStartBlocks.current.clear();
+        lastTouchRef.current = null;
       },
     })
   ).current;
@@ -491,46 +530,8 @@ export default function ScanScreen() {
               {...selectionPanResponder.panHandlers}
             >
               {imageSize.width > 0 && wordBlocks.map((block, index) => {
-                const { frame } = block;
-                if (!frame) return null;
-
-                const orientation = getPhotoOrientation();
-
-                const isNormalized =
-                  frame.left <= 1 && frame.top <= 1 &&
-                  frame.width <= 1 && frame.height <= 1;
-
-                const rawBaseWidth = photo.width || photoDimensions.width || 1;
-                const rawBaseHeight = photo.height || photoDimensions.height || 1;
-
-                const baseWidth = isNormalized ? 1 : rawBaseWidth;
-                const baseHeight = isNormalized ? 1 : rawBaseHeight;
-
-                const rotatedFrame = rotateFrameToUpright(frame, orientation, baseWidth, baseHeight);
-
-                const orientedBaseWidth = orientation === 90 || orientation === 270 ? baseHeight : baseWidth;
-                const orientedBaseHeight = orientation === 90 || orientation === 270 ? baseWidth : baseHeight;
-
-                const scaleX = imageSize.width / orientedBaseWidth;
-                const scaleY = imageSize.height / orientedBaseHeight;
-
-                const blockLeft = (rotatedFrame.left * scaleX) + imageSize.offsetX;
-                const blockTop = (rotatedFrame.top * scaleY) + imageSize.offsetY;
-                const blockWidth = rotatedFrame.width * scaleX;
-                const blockHeight = rotatedFrame.height * scaleY;
-
-                if (index === 0) {
-                  console.log('=== FIRST BLOCK DEBUG ===');
-                  console.log('Frame:', frame);
-                  console.log('Rotated frame:', rotatedFrame);
-                  console.log('Orientation:', orientation);
-                  console.log('ImageSize:', imageSize);
-                  console.log('isNormalized:', isNormalized);
-                  console.log('Raw base photo:', { width: rawBaseWidth, height: rawBaseHeight });
-                  console.log('Oriented base:', { width: orientedBaseWidth, height: orientedBaseHeight });
-                  console.log('Calculated:', { blockLeft, blockTop, blockWidth, blockHeight });
-                  console.log('======================');
-                }
+                const rect = getBlockRectOnScreen(block);
+                if (!rect) return null;
 
                 const isSelected = selectedBlocks.some(b => 
                   getBlockKey(b) === getBlockKey(block)
@@ -542,10 +543,10 @@ export default function ScanScreen() {
                     style={[
                       styles.textBlock,
                       {
-                        left: blockLeft,
-                        top: blockTop,
-                        width: blockWidth,
-                        height: blockHeight,
+                        left: rect.left,
+                        top: rect.top,
+                        width: rect.width,
+                        height: rect.height,
                         borderRadius: 4,
                       },
                       isSelected && styles.textBlockSelected,
