@@ -9,9 +9,14 @@ import {
   View,
   ActivityIndicator,
   PanResponder,
+  Modal,
+  Pressable,
+  ScrollView,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Trash2 } from 'lucide-react-native';
+import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Trash2, Heart, Share2, X } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition, {
   TextRecognitionResult,
@@ -55,7 +60,13 @@ export default function ScanScreen() {
   const selectedBlocksRef = useRef<MLKitText[]>([]);
   const HIGHLIGHT_PADDING = 1; // narrower hitbox so finger selection is tighter
   const PATH_SAMPLE_STEP = 1; // px spacing between sampled points during a swipe
+  const COLUMN_TOLERANCE = 6; // px threshold to consider words in the same column
   const previewScale = useRef(new Animated.Value(1)).current;
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [isEditingBook, setIsEditingBook] = useState(false);
+  const [isEditingAuthor, setIsEditingAuthor] = useState(false);
+  const [editedBook, setEditedBook] = useState("");
+  const [editedAuthor, setEditedAuthor] = useState("");
 
   const wordBlocks = useMemo<MLKitText[]>(() => {
     if (!ocrResult) return [];
@@ -195,6 +206,34 @@ export default function ScanScreen() {
       width: rotatedFrame.width * scaleX,
       height: rotatedFrame.height * scaleY,
     };
+  };
+
+  // Frame orienté en portrait (non mis à l'échelle écran) pour ordonner les mots
+  const getOrientedFrame = (block: MLKitText) => {
+    const frame = block.frame;
+    if (!frame) return null;
+
+    const orientation = getPhotoOrientation();
+    const isNormalized =
+      frame.left <= 1 && frame.top <= 1 && frame.width <= 1 && frame.height <= 1;
+
+    const { photoW, photoH } = getPhotoDimensions();
+    const baseWidth = isNormalized ? 1 : photoW;
+    const baseHeight = isNormalized ? 1 : photoH;
+
+    const rotatedFrame = rotateFrameToUpright(
+      {
+        left: frame.left ?? 0,
+        top: frame.top ?? 0,
+        width: frame.width ?? 0,
+        height: frame.height ?? 0,
+      },
+      orientation,
+      baseWidth,
+      baseHeight,
+    );
+
+    return { frame: rotatedFrame, isNormalized };
   };
 
   // Helper pour vérifier si un point touche un bloc
@@ -368,10 +407,37 @@ export default function ScanScreen() {
   
   useEffect(() => {
     // Mettre à jour le texte scanné lorsque la sélection de blocs change
-    const newText = selectedBlocks
-      .sort((a, b) => (a.frame?.top || 0) - (b.frame?.top || 0))
-      .map(block => block.text)
-      .join(' ');
+    // Utilise les positions écran pour reconstituer l'ordre de lecture haut → bas puis gauche → droite
+    type PositionedBlock = { block: MLKitText; rect: { left: number; top: number; width: number; height: number } };
+    const oriented: PositionedBlock[] = selectedBlocks
+      .map(block => {
+        const rect = getBlockRectOnScreen(block);
+        return rect ? { block, rect } : null;
+      })
+      .filter((item): item is PositionedBlock => item !== null);
+
+    // Tolérance basée sur la hauteur médiane pour éviter qu'un mot légèrement plus haut se retrouve avant la ligne
+    const heights = oriented.map(item => item.rect.height).sort((a, b) => a - b);
+    const medianHeight = heights.length ? heights[Math.floor(heights.length / 2)] : 0;
+    const LINE_TOLERANCE = Math.max(6, medianHeight * 0.5);
+
+    const lines: Array<{ center: number; words: PositionedBlock[] }> = [];
+    oriented.forEach(item => {
+      const { rect } = item;
+      const centerY = rect.top + rect.height / 2;
+      let line = lines.find(l => Math.abs(l.center - centerY) < LINE_TOLERANCE);
+      if (!line) {
+        line = { center: centerY, words: [] };
+        lines.push(line);
+      }
+      line.words.push(item);
+    });
+
+    lines.sort((a, b) => a.center - b.center);
+    const sortedWords = lines.flatMap(line =>
+      line.words.sort((a, b) => a.rect.left - b.rect.left)
+    );
+    const newText = sortedWords.map(item => item.block.text).join(' ');
     setScannedText(newText);
   }, [selectedBlocks]);
 
@@ -416,23 +482,28 @@ export default function ScanScreen() {
 
   const handleSaveQuote = () => {
     if (!scannedText) return;
+    // Ouvrir la modal de preview au lieu de sauvegarder directement
+    setShowPreviewModal(true);
+  };
 
-    // Trouver le livre et l'auteur associés au texte scanné
-    // NOTE: C'est une logique simplifiée pour la démo.
-    // Dans une vraie app, l'IA ou l'utilisateur confirmerait ces informations.
-    const bookTitle = Object.keys(bookDescriptions).find(title => 
+  const handleConfirmSave = () => {
+    if (!scannedText) return;
+    // Utilise la saisie utilisateur si présente, sinon la détection automatique
+    const bookTitle = editedBook.trim() || Object.keys(bookDescriptions).find(title => 
       localQuotesDB.some(q => q.text === scannedText && q.book === title)
     ) || "Livre inconnu";
-
-    const authorName = bookDescriptions[bookTitle]?.author || "Auteur inconnu";
-
-    // Appelle la fonction qui simule l'ajout aux deux bases de données
+    const authorName = editedAuthor.trim() || bookDescriptions[bookTitle]?.author || "Auteur inconnu";
     addQuote({ text: scannedText, book: bookTitle, author: authorName });
-    setScannedText(''); // Réinitialise l'écran de scan
+    setShowPreviewModal(false);
+    setScannedText("");
     setPhoto(null);
     setSelectedBlocks([]);
     setOcrResult(null);
-    navigation.navigate('MyQuotes'); // Navigue vers l'écran des citations locales
+    setEditedBook("");
+    setEditedAuthor("");
+    setIsEditingBook(false);
+    setIsEditingAuthor(false);
+    navigation.navigate('MyQuotes');
   };
 
   const translateY = scanAnimation.interpolate({
@@ -694,6 +765,139 @@ export default function ScanScreen() {
           <View style={styles.overlayBottom} />
         </View>
       )}
+
+      {/* Modal de preview de la citation */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPreviewModal}
+        onRequestClose={() => setShowPreviewModal(false)}
+      >
+        <Pressable 
+          style={styles.previewBackdrop} 
+          onPress={() => setShowPreviewModal(false)}
+        >
+          <Pressable style={styles.previewContainer}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewTitle}>Aperçu de la citation</Text>
+              <TouchableOpacity onPress={() => setShowPreviewModal(false)}>
+                <X size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.previewScrollView}>
+              {/* Carte de citation avec le même style que MyQuotesScreen */}
+              <View style={styles.previewQuoteCard}>
+                {/* Quote Icon (custom SVG) */}
+                <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
+                  <Path
+                    d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                    fill="#20B8CD"
+                    opacity={0.12}
+                  />
+                </Svg>
+
+                {/* Quote Text */}
+                <Text style={styles.previewQuoteText}>{scannedText}</Text>
+
+                {/* Book Info - édition interactive */}
+                <View style={styles.previewBookInfo}>
+                  <View style={styles.bookInfoLeft}>
+                    {isEditingBook ? (
+                      <TextInput
+                        style={[styles.bookTitle, {backgroundColor: '#222', color: '#20B8CD', borderRadius: 6, paddingHorizontal: 6}]}
+                        value={editedBook}
+                        autoFocus
+                        onChangeText={setEditedBook}
+                        onBlur={() => setIsEditingBook(false)}
+                        placeholder="Titre du livre"
+                        placeholderTextColor="#6B7280"
+                        returnKeyType="done"
+                        onSubmitEditing={() => setIsEditingBook(false)}
+                      />
+                    ) : (
+                      <TouchableOpacity onPress={() => {
+                        setIsEditingBook(true);
+                        setEditedBook(
+                          Object.keys(bookDescriptions).find(title => 
+                            localQuotesDB.some(q => q.text === scannedText && q.book === title)
+                          ) || "Livre inconnu"
+                        );
+                      }}>
+                        <Text style={styles.bookTitle}>
+                          {editedBook || Object.keys(bookDescriptions).find(title => 
+                            localQuotesDB.some(q => q.text === scannedText && q.book === title)
+                          ) || "Livre inconnu"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {isEditingAuthor ? (
+                      <TextInput
+                        style={[styles.authorName, {backgroundColor: '#222', color: '#6B7280', borderRadius: 6, paddingHorizontal: 6}]}
+                        value={editedAuthor}
+                        autoFocus
+                        onChangeText={setEditedAuthor}
+                        onBlur={() => setIsEditingAuthor(false)}
+                        placeholder="Nom de l'auteur"
+                        placeholderTextColor="#6B7280"
+                        returnKeyType="done"
+                        onSubmitEditing={() => setIsEditingAuthor(false)}
+                      />
+                    ) : (
+                      <TouchableOpacity onPress={() => {
+                        setIsEditingAuthor(true);
+                        const bookTitle = editedBook || Object.keys(bookDescriptions).find(title => 
+                          localQuotesDB.some(q => q.text === scannedText && q.book === title)
+                        ) || "Livre inconnu";
+                        setEditedAuthor(bookDescriptions[bookTitle]?.author || "Auteur inconnu");
+                      }}>
+                        <Text style={styles.authorName}>
+                          {editedAuthor || (() => {
+                            const bookTitle = editedBook || Object.keys(bookDescriptions).find(title => 
+                              localQuotesDB.some(q => q.text === scannedText && q.book === title)
+                            ) || "Livre inconnu";
+                            return bookDescriptions[bookTitle]?.author || "Auteur inconnu";
+                          })()}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={styles.dateText}>
+                    {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                  </Text>
+                </View>
+
+                {/* Actions */}
+                <View style={styles.actions}>
+                  <View style={styles.actionButton}>
+                    <Heart size={20} color="#6B7280" fill="none" />
+                    <Text style={styles.actionText}>0</Text>
+                  </View>
+                  <View style={styles.actionButton}>
+                    <Share2 size={20} color="#6B7280" />
+                    <Text style={styles.actionText}>Partager</Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.previewActions}>
+              <TouchableOpacity
+                style={styles.previewCancelButton}
+                onPress={() => setShowPreviewModal(false)}
+              >
+                <Text style={styles.previewCancelButtonText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.previewConfirmButton}
+                onPress={handleConfirmSave}
+              >
+                <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
     </SafeAreaView>
   );
@@ -1064,5 +1268,131 @@ const styles = StyleSheet.create({
   overlayBottom: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  // Styles pour la modal de preview
+  previewBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: '#0F0F0F',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    overflow: 'hidden',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1F1F1F',
+  },
+  previewTitle: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  previewScrollView: {
+    maxHeight: 400,
+  },
+  previewQuoteCard: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 16,
+    padding: 20,
+    margin: 16,
+  },
+  quoteIcon: {
+    fontSize: 32,
+    color: 'rgba(32, 184, 205, 0.2)',
+    marginBottom: 8,
+  },
+  previewQuoteText: {
+    fontSize: 18,
+    lineHeight: 28,
+    color: '#E5E7EB',
+    marginBottom: 16,
+    fontFamily: 'Times New Roman',
+    fontStyle: 'italic',
+    fontWeight: '100',
+  },
+  previewBookInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  bookInfoLeft: {
+    flex: 1,
+  },
+  bookTitle: {
+    fontSize: 14,
+    color: '#20B8CD',
+    marginBottom: 4,
+  },
+  authorName: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#1F1F1F',
+  },
+  previewCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    alignItems: 'center',
+  },
+  previewCancelButtonText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  previewConfirmButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#20B8CD',
+    alignItems: 'center',
+  },
+  previewConfirmButtonText: {
+    color: '#0F0F0F',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
