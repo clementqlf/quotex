@@ -21,10 +21,12 @@ import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-n
 import TextRecognition, {
   TextRecognitionResult,
 } from '@react-native-ml-kit/text-recognition';
-// Type pour les blocs de texte ML Kit
+// Type pour les blocs de texte ML Kit avec support de rotation
 type MLKitText = {
   text: string;
   frame?: { left: number; top: number; width: number; height: number };
+  cornerPoints?: Array<{ x: number; y: number }>; // Points pour détecter l'angle
+  rotation?: number; // Angle de rotation en degrés
 };
 import { useTabIndex } from '../TabNavigator';
 import { useSwipeEnabled } from '../TabNavigator';
@@ -67,6 +69,115 @@ export default function ScanScreen() {
   const [isEditingAuthor, setIsEditingAuthor] = useState(false);
   const [editedBook, setEditedBook] = useState("");
   const [editedAuthor, setEditedAuthor] = useState("");
+  const [showDebugAngles, setShowDebugAngles] = useState(false); // Toggle pour debug
+
+  // Calculer l'angle de rotation du texte à partir des cornerPoints
+  const calculateTextRotation = (cornerPoints: Array<{ x: number; y: number }>): number => {
+    if (!cornerPoints || cornerPoints.length < 4) return 0;
+
+    // ML Kit retourne les 4 coins. On cherche le segment le plus horizontal (la baseline du texte)
+    // Essayer tous les pairs de points adjacents pour trouver la baseline
+    let minVerticalVariance = Infinity;
+    let bestAngle = 0;
+
+    for (let i = 0; i < 4; i++) {
+      const p1 = cornerPoints[i];
+      const p2 = cornerPoints[(i + 1) % 4];
+
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+
+      // Si c'est un segment quasi-horizontal (peu de variation en Y), c'est probablement la baseline
+      const verticalVariance = Math.abs(dy);
+      
+      if (verticalVariance < minVerticalVariance) {
+        minVerticalVariance = verticalVariance;
+        const angleRad = Math.atan2(dy, dx);
+        let angleDeg = (angleRad * 180) / Math.PI;
+
+        // Normaliser entre -180 et 180
+        while (angleDeg > 180) angleDeg -= 360;
+        while (angleDeg < -180) angleDeg += 360;
+
+        // Si l'angle est proche de ±90, le ramener à 0 (texte horizontal)
+        if (Math.abs(angleDeg) > 85 && Math.abs(angleDeg) < 95) {
+          bestAngle = 0;
+        } else {
+          bestAngle = angleDeg;
+        }
+      }
+    }
+
+    return bestAngle;
+  };
+
+  // Transformer les coordonnées pour aligner le repère X avec les lignes du texte
+  const transformCoordinatesToTextAlignment = (
+    block: MLKitText,
+    containerWidth: number,
+    containerHeight: number
+  ) => {
+    if (!block.rotation || block.rotation === 0 || !block.frame) {
+      return block.frame;
+    }
+
+    const frame = block.frame;
+    const centerX = frame.left + frame.width / 2;
+    const centerY = frame.top + frame.height / 2;
+
+    // Angle en radians (négatif pour la rotation standard)
+    const angleRad = -(block.rotation * Math.PI) / 180;
+
+    // Nouvelle largeur et hauteur après rotation
+    const cosA = Math.cos(angleRad);
+    const sinA = Math.sin(angleRad);
+
+    const newWidth = Math.abs(frame.width * cosA) + Math.abs(frame.height * sinA);
+    const newHeight = Math.abs(frame.width * sinA) + Math.abs(frame.height * cosA);
+
+    return {
+      left: centerX - newWidth / 2,
+      top: centerY - newHeight / 2,
+      width: newWidth,
+      height: newHeight,
+      rotation: block.rotation, // Stocker l'angle pour référence
+    };
+  };
+
+  // Transformer un point de coordonnées écran vers le repère aligné au texte
+  const rotatePointToTextFrame = (
+    point: { x: number; y: number },
+    block: MLKitText
+  ): { x: number; y: number } | null => {
+    if (!block.rotation || !block.frame) return point;
+
+    // Centre du bloc
+    const centerX = block.frame.left + block.frame.width / 2;
+    const centerY = block.frame.top + block.frame.height / 2;
+
+    // Translator le point au centre
+    const dx = point.x - centerX;
+    const dy = point.y - centerY;
+
+    // Appliquer la rotation inverse pour passer du repère standard au repère texte
+    const angleRad = (block.rotation * Math.PI) / 180;
+    const cosA = Math.cos(angleRad);
+    const sinA = Math.sin(angleRad);
+
+    const newX = dx * cosA + dy * sinA;
+    const newY = -dx * sinA + dy * cosA;
+
+    return {
+      x: centerX + newX,
+      y: centerY + newY,
+    };
+  };
+
+  // Obtenir le repère aligné avec le texte (optionnel, pour affichage)
+  const getAlignedCoordinates = (block: MLKitText) => {
+    const { imageSize } = imageInfoRef.current;
+    return transformCoordinatesToTextAlignment(block, imageSize.width, imageSize.height);
+  };
 
   const wordBlocks = useMemo<MLKitText[]>(() => {
     if (!ocrResult) return [];
@@ -75,7 +186,16 @@ export default function ScanScreen() {
       block.lines?.forEach(line => {
         line.elements?.forEach(element => {
           if (element.frame) {
-            words.push({ text: element.text, frame: element.frame });
+            // Récupérer les cornerPoints si disponibles et calculer l'angle
+            const cornerPoints = (element as any)?.cornerPoints;
+            const rotation = cornerPoints ? calculateTextRotation(cornerPoints) : undefined;
+            
+            words.push({ 
+              text: element.text, 
+              frame: element.frame,
+              cornerPoints: cornerPoints,
+              rotation: rotation
+            });
           }
         });
       });
@@ -200,11 +320,15 @@ export default function ScanScreen() {
       ? ((orientedBaseHeight - (rotatedFrame.top + rotatedFrame.height)) * scaleY) + imageSize.offsetY
       : (rotatedFrame.top * scaleY) + imageSize.offsetY;
 
+    const width = rotatedFrame.width * scaleX;
+    const height = rotatedFrame.height * scaleY;
+
     return {
       left,
       top,
-      width: rotatedFrame.width * scaleX,
-      height: rotatedFrame.height * scaleY,
+      width,
+      height,
+      rotation: block.rotation, // Inclure l'angle de rotation
     };
   };
 
@@ -236,16 +360,47 @@ export default function ScanScreen() {
     return { frame: rotatedFrame, isNormalized };
   };
 
-  // Helper pour vérifier si un point touche un bloc
+  // Helper pour vérifier si un point touche un bloc (avec support de la rotation)
   const isPointInBlock = (x: number, y: number, block: MLKitText, padding = 0): boolean => {
     const rect = getBlockRectOnScreen(block);
     if (!rect) return false;
 
+    // Si le bloc n'a pas de rotation, utiliser la vérification simple
+    if (!rect.rotation || rect.rotation === 0) {
+      return (
+        x >= rect.left - padding &&
+        x <= rect.left + rect.width + padding &&
+        y >= rect.top - padding &&
+        y <= rect.top + rect.height + padding
+      );
+    }
+
+    // Avec rotation : transformer le point dans le repère du bloc
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    // Translater le point au centre du bloc
+    const dx = x - centerX;
+    const dy = y - centerY;
+
+    // Appliquer la rotation inverse pour passer au repère du bloc
+    const angleRad = (rect.rotation * Math.PI) / 180;
+    const cosA = Math.cos(angleRad);
+    const sinA = Math.sin(angleRad);
+
+    // Rotation inverse
+    const localX = dx * cosA + dy * sinA;
+    const localY = -dx * sinA + dy * cosA;
+
+    // Vérifier si le point est dans le rectangle roté
+    const halfWidth = rect.width / 2;
+    const halfHeight = rect.height / 2;
+
     return (
-      x >= rect.left - padding &&
-      x <= rect.left + rect.width + padding &&
-      y >= rect.top - padding &&
-      y <= rect.top + rect.height + padding
+      localX >= -halfWidth - padding &&
+      localX <= halfWidth + padding &&
+      localY >= -halfHeight - padding &&
+      localY <= halfHeight + padding
     );
   };
 
@@ -426,12 +581,41 @@ export default function ScanScreen() {
   
   useEffect(() => {
     // Mettre à jour le texte scanné lorsque la sélection de blocs change
-    // Utilise les positions écran pour reconstituer l'ordre de lecture haut → bas puis gauche → droite
-    type PositionedBlock = { block: MLKitText; rect: { left: number; top: number; width: number; height: number } };
+    // Utilise les coordonnées dans le repère aligné au texte pour le tri (pas les coordonnées écran rotées)
+    type PositionedBlock = { 
+      block: MLKitText; 
+      rect: { left: number; top: number; width: number; height: number; rotation?: number };
+      alignedX: number; // Coordonnée X dans le repère aligné
+      alignedY: number; // Coordonnée Y dans le repère aligné
+    };
+    
     const oriented: PositionedBlock[] = selectedBlocks
-      .map(block => {
+      .map<PositionedBlock | null>(block => {
         const rect = getBlockRectOnScreen(block);
-        return rect ? { block, rect } : null;
+        if (!rect) return null;
+        
+        // Calculer les coordonnées dans le repère aligné au texte
+        let alignedX = rect.left + rect.width / 2;
+        let alignedY = rect.top + rect.height / 2;
+        
+        // Si le bloc a une rotation, transformer les coordonnées au repère aligné
+        if (rect.rotation && rect.rotation !== 0) {
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          
+          const dx = alignedX - centerX;
+          const dy = alignedY - centerY;
+          
+          const angleRad = (rect.rotation * Math.PI) / 180;
+          const cosA = Math.cos(angleRad);
+          const sinA = Math.sin(angleRad);
+          
+          // Rotation inverse pour passer au repère du texte
+          alignedX = centerX + (dx * cosA + dy * sinA);
+          alignedY = centerY + (-dx * sinA + dy * cosA);
+        }
+        
+        return { block, rect, alignedX, alignedY };
       })
       .filter((item): item is PositionedBlock => item !== null);
 
@@ -440,21 +624,22 @@ export default function ScanScreen() {
     const medianHeight = heights.length ? heights[Math.floor(heights.length / 2)] : 0;
     const LINE_TOLERANCE = Math.max(6, medianHeight * 0.5);
 
-    const lines: Array<{ center: number; words: PositionedBlock[] }> = [];
+    // Trier d'abord par Y aligné (lignes), puis par X aligné (position horizontale)
+    const lines: Array<{ centerY: number; words: PositionedBlock[] }> = [];
     oriented.forEach(item => {
-      const { rect } = item;
-      const centerY = rect.top + rect.height / 2;
-      let line = lines.find(l => Math.abs(l.center - centerY) < LINE_TOLERANCE);
+      const centerY = item.alignedY;
+      let line = lines.find(l => Math.abs(l.centerY - centerY) < LINE_TOLERANCE);
       if (!line) {
-        line = { center: centerY, words: [] };
+        line = { centerY, words: [] };
         lines.push(line);
       }
       line.words.push(item);
     });
 
-    lines.sort((a, b) => a.center - b.center);
+    lines.sort((a, b) => a.centerY - b.centerY);
     const sortedWords = lines.flatMap(line => {
-      const sortedLineWords = line.words.sort((a, b) => a.rect.left - b.rect.left);
+      // Trier par X aligné (horizontal)
+      const sortedLineWords = line.words.sort((a, b) => a.alignedX - b.alignedX);
       return sortedLineWords;
     });
     const newText = sortedWords.map(item => item.block.text).join(' ');
@@ -647,11 +832,22 @@ export default function ScanScreen() {
                           width: rect.width,
                           height: rect.height,
                           borderRadius: 4,
+                          // Appliquer la rotation autour du centre du bloc si l'angle est détecté
+                          transform: rect.rotation !== undefined && rect.rotation !== 0 
+                            ? [{ rotate: `${rect.rotation}deg` }]
+                            : undefined,
                         },
                         isSelected && styles.textBlockSelected,
                       ]}
                       pointerEvents="none"
-                    />
+                    >
+                      {/* Affichage de l'angle détecté (debug) */}
+                      {showDebugAngles && block.rotation !== undefined && block.rotation !== 0 && (
+                        <Text style={styles.blockDebugText}>
+                          {block.rotation.toFixed(1)}°
+                        </Text>
+                      )}
+                    </View>
                   );
                 })}
               </View>
@@ -660,10 +856,34 @@ export default function ScanScreen() {
 
               {photo && ocrResult && (
                 <View style={styles.resultInfoContainer}>
-                  <Text style={styles.blocksInfo}>
-                    {wordBlocks.length} bloc(s) détecté(s)
-                    {selectedBlocks.length > 0 && ` • ${selectedBlocks.length} sélectionné(s)`}
-                  </Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.blocksInfo}>
+                        {wordBlocks.length} bloc(s) détecté(s)
+                        {selectedBlocks.length > 0 && ` • ${selectedBlocks.length} sélectionné(s)`}
+                      </Text>
+                      {showDebugAngles && selectedBlocks.length > 0 && selectedBlocks.some(b => b.rotation !== undefined && b.rotation !== 0) && (
+                        <Text style={styles.blocksInfo}>
+                          Angles: {selectedBlocks
+                            .filter(b => b.rotation !== undefined)
+                            .map((b, i) => `${b.rotation?.toFixed(1)}°`)
+                            .join(', ')}
+                        </Text>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        { 
+                          padding: 8, 
+                          borderRadius: 6, 
+                          backgroundColor: showDebugAngles ? 'rgba(32, 184, 205, 0.3)' : 'rgba(107, 114, 128, 0.3)'
+                        }
+                      ]}
+                      onPress={() => setShowDebugAngles(!showDebugAngles)}
+                    >
+                      <Text style={{ fontSize: 14 }}>🐛</Text>
+                    </TouchableOpacity>
+                  </View>
                   <Text style={styles.instructionText}>
                     {selectedBlocks.length > 0
                       ? 'Sélection prête, enregistrez la citation'
