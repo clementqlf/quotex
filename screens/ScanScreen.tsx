@@ -11,7 +11,7 @@ import {
   PanResponder,
 } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles } from 'lucide-react-native';
+import { BookOpen, ChevronLeft, ChevronRight, ScanLine, ImageIcon, Sparkles, Trash2 } from 'lucide-react-native';
 import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition, {
   TextRecognitionResult,
@@ -45,6 +45,17 @@ export default function ScanScreen() {
   }>({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
   const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
   const panModeRef = useRef<'add' | 'remove'>('add');
+  const { tabIndex, setTabIndex } = useTabIndex();
+  const { setSwipeEnabled } = useSwipeEnabled();
+  const isFocused = useIsFocused();
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
+  const camera = useRef<Camera>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const selectedBlocksRef = useRef<MLKitText[]>([]);
+  const HIGHLIGHT_PADDING = 1; // narrower hitbox so finger selection is tighter
+  const PATH_SAMPLE_STEP = 1; // px spacing between sampled points during a swipe
+  const previewScale = useRef(new Animated.Value(1)).current;
 
   const wordBlocks = useMemo<MLKitText[]>(() => {
     if (!ocrResult) return [];
@@ -61,26 +72,7 @@ export default function ScanScreen() {
     return words;
   }, [ocrResult]);
 
-  const { tabIndex, setTabIndex } = useTabIndex();
-  const { setSwipeEnabled } = useSwipeEnabled();
-  const isFocused = useIsFocused();
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
-  const camera = useRef<Camera>(null);
-  const [isPanning, setIsPanning] = useState(false);
   const imageInfoRef = useRef({ photo, photoDimensions, imageSize, wordBlocks, containerSize });
-  const selectedBlocksRef = useRef<MLKitText[]>([]);
-  const HIGHLIGHT_PADDING = 14; // hitbox padding so the stroke feels like a marker
-  const PATH_SAMPLE_STEP = 10; // px spacing between sampled points during a swipe
-
-  // Mettre à jour la ref à chaque render
-  useEffect(() => {
-    imageInfoRef.current = { photo, photoDimensions, imageSize, wordBlocks, containerSize };
-  }, [photo, photoDimensions, imageSize, wordBlocks, containerSize]);
-
-  useEffect(() => {
-    selectedBlocksRef.current = selectedBlocks;
-  }, [selectedBlocks]);
 
   const getPhotoDimensions = () => {
     const photoW = imageInfoRef.current.photo?.width || imageInfoRef.current.photoDimensions.width || 1;
@@ -144,6 +136,14 @@ export default function ScanScreen() {
       height: width,
     };
   };
+
+  useEffect(() => {
+    imageInfoRef.current = { photo, photoDimensions, imageSize, wordBlocks, containerSize };
+  }, [photo, photoDimensions, imageSize, wordBlocks, containerSize]);
+
+  useEffect(() => {
+    selectedBlocksRef.current = selectedBlocks;
+  }, [selectedBlocks]);
 
   // Helper pour créer une clé unique pour chaque bloc
   const getBlockKey = (block: MLKitText): string => {
@@ -347,6 +347,15 @@ export default function ScanScreen() {
   useEffect(() => {
     if (isFocused) setTabIndex(1);
   }, [isFocused]);
+
+  useEffect(() => {
+    Animated.spring(previewScale, {
+      toValue: photo && ocrResult ? 1.4 : 1,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 50,
+    }).start();
+  }, [photo, ocrResult, previewScale]);
   
   // Désactiver le swipe quand on est en mode sélection de blocs
   useEffect(() => {
@@ -516,46 +525,46 @@ export default function ScanScreen() {
               });
             }}
           >
-            <Image 
-              source={{ uri: `file://${photo.path}` }} 
-              style={[
-                styles.photo,
-              ]} 
-              resizeMode="contain"
-            />
-            
-            {/* Overlay avec les blocs */}
-            <View 
-              style={styles.blocksOverlay}
-              {...selectionPanResponder.panHandlers}
-            >
-              {imageSize.width > 0 && wordBlocks.map((block, index) => {
-                const rect = getBlockRectOnScreen(block);
-                if (!rect) return null;
+            <Animated.View style={[styles.photoContent, { transform: [{ scale: previewScale }] }]}>
+              <Image 
+                source={{ uri: `file://${photo.path}` }} 
+                style={styles.photo}
+                resizeMode="contain"
+              />
+              
+              {/* Overlay avec les blocs */}
+              <View 
+                style={styles.blocksOverlay}
+                {...selectionPanResponder.panHandlers}
+              >
+                {imageSize.width > 0 && wordBlocks.map((block, index) => {
+                  const rect = getBlockRectOnScreen(block);
+                  if (!rect) return null;
 
-                const isSelected = selectedBlocks.some(b => 
-                  getBlockKey(b) === getBlockKey(block)
-                );
+                  const isSelected = selectedBlocks.some(b => 
+                    getBlockKey(b) === getBlockKey(block)
+                  );
 
-                return (
-                  <View
-                    key={index}
-                    style={[
-                      styles.textBlock,
-                      {
-                        left: rect.left,
-                        top: rect.top,
-                        width: rect.width,
-                        height: rect.height,
-                        borderRadius: 4,
-                      },
-                      isSelected && styles.textBlockSelected,
-                    ]}
-                    pointerEvents="none"
-                  />
-                );
-              })}
-            </View>
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.textBlock,
+                        {
+                          left: rect.left,
+                          top: rect.top,
+                          width: rect.width,
+                          height: rect.height,
+                          borderRadius: 4,
+                        },
+                        isSelected && styles.textBlockSelected,
+                      ]}
+                      pointerEvents="none"
+                    />
+                  );
+                })}
+              </View>
+            </Animated.View>
           </View>
 
               {photo && ocrResult && (
@@ -629,6 +638,15 @@ export default function ScanScreen() {
               }}
             >
               <Text style={styles.cancelButtonText}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.trashButton}
+              onPress={() => {
+                setSelectedBlocks([]);
+                setScannedText('');
+              }}
+            >
+              <Trash2 size={20} color="#E5E7EB" />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.saveButton}
@@ -913,7 +931,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     paddingVertical: 16,
-    marginRight: 12,
+    marginRight: 8,
     borderRadius: 14,
     backgroundColor: '#1a1a1a',
     alignItems: 'center',
@@ -923,10 +941,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  trashButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
   saveButton: {
     flex: 1,
     paddingVertical: 16,
-    marginLeft: 12,
+    marginLeft: 8,
     borderRadius: 14,
     backgroundColor: '#20B8CD',
     alignItems: 'center',
@@ -965,6 +992,13 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
+  },
+  photoContent: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   photo: {
     width: '100%',
