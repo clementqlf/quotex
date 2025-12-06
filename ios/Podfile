@@ -8,6 +8,10 @@ prepare_react_native_project!
 target 'Quotex' do
   config = use_native_modules!
 
+  use_frameworks! :linkage => :static
+  pod 'RNScreens', :path => '../node_modules/react-native-screens'
+  pod 'RNGestureHandler', :path => '../node_modules/react-native-gesture-handler'
+
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => false,
@@ -15,7 +19,6 @@ target 'Quotex' do
   )
 
   # Pods additionnels éventuels (exemple)
-  # pod 'react-native-safe-area-context', :path => '../node_modules/react-native-safe-area-context'
 
 end
 

@@ -1,0 +1,27 @@
+require_relative '../node_modules/react-native/scripts/react_native_pods'
+require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
+
+platform :ios, '13.4'
+
+prepare_react_native_project!
+
+target 'Quotex' do
+  config = use_native_modules!
+
+  use_frameworks! :linkage => :static
+  pod 'RNScreens', :path => '../node_modules/react-native-screens'
+  pod 'RNGestureHandler', :path => '../node_modules/react-native-gesture-handler'
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    :hermes_enabled => false,
+    :fabric_enabled => false
+  )
+
+  # Pods additionnels éventuels (exemple)
+
+end
+
+post_install do |installer|
+  react_native_post_install(installer)
+end

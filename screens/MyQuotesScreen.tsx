@@ -1,104 +1,126 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
-} from 'react-native';
-import { BookOpen, Search, Filter, Heart, Share2, Quote, QuoteIcon} from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-
-const myQuotes = [
-  {
-    id: 1,
-    text: "The only way to do great work is to love what you do.",
-    book: "Steve Jobs",
-    author: "Walter Isaacson",
-    date: "Il y a 2h",
-    likes: 12,
-    isLiked: true,
-  },
-  {
-    id: 2,
-    text: "In the middle of difficulty lies opportunity.",
-    book: "Einstein: His Life and Universe",
-    author: "Walter Isaacson",
-    date: "Il y a 5h",
-    likes: 8,
-    isLiked: false,
-  },
-  {
-    id: 3,
-    text: "It is our choices that show what we truly are, far more than our abilities.",
-    book: "Harry Potter and the Chamber of Secrets",
-    author: "J.K. Rowling",
-    date: "Hier",
-    likes: 24,
-    isLiked: true,
-  },
-];
-
+  SafeAreaView, 
+  Modal,
+  Pressable,
+} from 'react-native'; 
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg'; 
+import { localQuotesDB, bookDescriptions } from '../data/staticData';
+import { useTabIndex } from '../TabNavigator';
+ 
+type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 export default function MyQuotesScreen() {
-  const [quotes, setQuotes] = useState(myQuotes);
-  const [searchVisible, setSearchVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [likedOnly, setLikedOnly] = useState(false);
-  const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
-  const [selectedQuote, setSelectedQuote] = useState<number | null>(null);
-  const [selectedBook, setSelectedBook] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const navigation = useNavigation<any>();
+  const [quotes, setQuotes] = useState(localQuotesDB);
+  const { setTabIndex } = useTabIndex();
+  const isFocused = useIsFocused();
 
-  // Filter states
-  const [filterAuthor, setFilterAuthor] = useState<string | null>(null);
-  const [filterBook, setFilterBook] = useState<string | null>(null);
-  const [filterPublicationYear, setFilterPublicationYear] = useState<number | null>(null);
-  const [filterScanYear, setFilterScanYear] = useState<number | null>(null);
+  useEffect(() => {
+    if (isFocused) {
+      setTabIndex(0);
+    }
+  }, [isFocused]);
+
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
+  const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
+  const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
+
+  const authors = [...new Set(localQuotesDB.map(q => q.author))];
+  const books = [...new Set(localQuotesDB.map(q => q.book))];
+  const years = [...new Set(
+    localQuotesDB
+        .map(q => bookDescriptions[q.book]?.year)
+        .filter((year): year is number => !!year)
+  )].sort((a, b) => b - a);
+
+  // Rafraîchit les données lorsque l'écran est focus (après un scan par exemple)
+  useEffect(() => {
+    if (isFocused) {
+      let quotesToDisplay = [...localQuotesDB];
+      if (activeFilters.length > 0) {
+        const filtersByType = activeFilters.reduce((acc, filter) => { 
+          if (!acc[filter.type]) {
+            acc[filter.type] = [];
+          }
+          acc[filter.type].push(filter.value);
+          return acc;
+        }, {} as Record<'author' | 'book' | 'year', (string | number)[]>);
+
+        quotesToDisplay = quotesToDisplay.filter(q => {
+          const authorMatch = !filtersByType.author || filtersByType.author.includes(q.author);
+          const bookMatch = !filtersByType.book || filtersByType.book.includes(q.book);
+          const yearMatch = !filtersByType.year || (bookDescriptions[q.book] && filtersByType.year.includes(bookDescriptions[q.book].year));
+          return authorMatch && bookMatch && yearMatch;
+        });
+      }
+      setQuotes(quotesToDisplay);
+    }
+    // On met à jour les filtres temporaires quand les filtres actifs changent
+    setTempFilters([...activeFilters]);
+  }, [isFocused, activeFilters]);
 
   const toggleLike = (id: number) => {
-    setQuotes(quotes.map(q =>
-      q.id === id
-        ? { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }
-        : q
-    ));
+    const newQuotes = quotes.map(q => {
+      if (q.id === id) {
+        const updatedQuote = { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 };
+        // Mettre à jour la "base de données" pour la persistance de la démo
+        const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
+        if (dbIndex > -1) localQuotesDB[dbIndex] = updatedQuote;
+        return updatedQuote;
+      }
+      return q;
+    });
+    setQuotes(newQuotes);
   };
 
-  // Get unique values for filters
-  const uniqueAuthors = useMemo(() => Array.from(new Set(myQuotes.map(q => q.author))).sort(), []);
-  const uniqueBooks = useMemo(() => Array.from(new Set(myQuotes.map(q => q.book))).sort(), []);
-  const uniquePublicationYears = useMemo(() => Array.from(new Set(myQuotes.map(q => (q as any).publicationYear).filter(Boolean))).sort((a: number, b: number) => b - a), []);
-  const uniqueScanYears = useMemo(() => Array.from(new Set(myQuotes.map(q => (q as any).scanYear).filter(Boolean))).sort((a: number, b: number) => b - a), []);
-
-  // Filter quotes
-  const filteredQuotes = useMemo(() => {
-    return quotes.filter(q => {
-      if (likedOnly && !q.isLiked) return false;
-      if (filterAuthor && q.author !== filterAuthor) return false;
-      if (filterBook && q.book !== filterBook) return false;
-      if (filterPublicationYear && (q as any).publicationYear !== filterPublicationYear) return false;
-      if (filterScanYear && (q as any).scanYear !== filterScanYear) return false;
-      if (!searchQuery) return true;
-      const ql = searchQuery.toLowerCase();
-      return (
-        q.text.toLowerCase().includes(ql) ||
-        q.book.toLowerCase().includes(ql) ||
-        q.author.toLowerCase().includes(ql)
-      );
+  const toggleTempFilter = (type: 'author' | 'book' | 'year', value: string | number) => {
+    setTempFilters(currentFilters => {
+      const existingFilterIndex = currentFilters.findIndex(f => f.type === type && f.value === value);
+      if (existingFilterIndex > -1) {
+        return currentFilters.filter((_, index) => index !== existingFilterIndex);
+      } else {
+        return [...currentFilters, { type, value }];
+      }
     });
-  }, [quotes, likedOnly, filterAuthor, filterBook, filterPublicationYear, filterScanYear, searchQuery]);
+  };
 
-  const activeFiltersCount = [filterAuthor, filterBook, filterPublicationYear, filterScanYear].filter(Boolean).length;
+  const applyFilters = () => {
+    setActiveFilters([...tempFilters]);
+    setFilterModalVisible(false);
+    setExpandedSection(null);
+  };
+
+  const removeFilter = (filterToRemove: FilterType) => {
+    setActiveFilters(currentFilters =>
+      currentFilters.filter(
+        f => !(f.type === filterToRemove.type && f.value === filterToRemove.value)
+      )
+    );
+  };
 
   const resetFilters = () => {
-    setFilterAuthor(null);
-    setFilterBook(null);
-    setFilterPublicationYear(null);
-    setFilterScanYear(null);
+    setActiveFilters([]);
+    setTempFilters([]);
+    if (filterModalVisible) {
+      // Si la modale est ouverte, on la ferme
+      setFilterModalVisible(false);
+      setExpandedSection(null);
+    }
   };
 
+  const toggleSection = (section: 'author' | 'book' | 'year' | null) => {
+    setExpandedSection(current => (current === section ? null : section));
+  };
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -108,131 +130,14 @@ export default function MyQuotesScreen() {
           <Text style={styles.headerTitle}>Mes Citations</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setSearchVisible(v => !v)}>
-            <Search size={20} color={searchVisible ? '#20B8CD' : '#9CA3AF'} />
+          <TouchableOpacity style={styles.headerButton}>
+            <Search size={20} color="#9CA3AF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setShowFilters(v => !v)}>
-            <Filter size={20} color={(showFilters || activeFiltersCount > 0 || likedOnly) ? '#20B8CD' : '#9CA3AF'} />
-            {activeFiltersCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
-              </View>
-            )}
+          <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>
+            <Filter size={20} color={activeFilters.length > 0 ? "#20B8CD" : "#9CA3AF"} />
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Search bar (toggle) */}
-      {searchVisible && (
-        <View style={styles.searchBarWrap}>
-          <TextInput
-            placeholder="Rechercher citations, livre, auteur..."
-            placeholderTextColor="#888"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchBar}
-            clearButtonMode="while-editing"
-          />
-        </View>
-      )}
-
-      {/* Filters panel */}
-      {showFilters && (
-        <View style={styles.filterPanel}>
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Auteur</Text>
-            <View style={styles.chipsContainer}>
-              <TouchableOpacity
-                style={[styles.chip, !filterAuthor && styles.chipActive]}
-                onPress={() => setFilterAuthor(null)}
-              >
-                <Text style={[styles.chipText, !filterAuthor && styles.chipTextActive]}>Tous</Text>
-              </TouchableOpacity>
-              {uniqueAuthors.map(a => (
-                <TouchableOpacity
-                  key={a}
-                  style={[styles.chip, filterAuthor === a && styles.chipActive]}
-                  onPress={() => setFilterAuthor(filterAuthor === a ? null : a)}
-                >
-                  <Text style={[styles.chipText, filterAuthor === a && styles.chipTextActive]}>{a}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Livre</Text>
-            <View style={styles.chipsContainer}>
-              <TouchableOpacity
-                style={[styles.chip, !filterBook && styles.chipActive]}
-                onPress={() => setFilterBook(null)}
-              >
-                <Text style={[styles.chipText, !filterBook && styles.chipTextActive]}>Tous</Text>
-              </TouchableOpacity>
-              {uniqueBooks.map(b => (
-                <TouchableOpacity
-                  key={b}
-                  style={[styles.chip, filterBook === b && styles.chipActive]}
-                  onPress={() => setFilterBook(filterBook === b ? null : b)}
-                >
-                  <Text style={[styles.chipText, filterBook === b && styles.chipTextActive]}>{b}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Année publication</Text>
-            <View style={styles.chipsContainer}>
-              <TouchableOpacity
-                style={[styles.chip, !filterPublicationYear && styles.chipActive]}
-                onPress={() => setFilterPublicationYear(null)}
-              >
-                <Text style={[styles.chipText, !filterPublicationYear && styles.chipTextActive]}>Tous</Text>
-              </TouchableOpacity>
-              {uniquePublicationYears.map(y => (
-                <TouchableOpacity
-                  key={String(y)}
-                  style={[styles.chip, filterPublicationYear === y && styles.chipActive]}
-                  onPress={() => setFilterPublicationYear(filterPublicationYear === y ? null : Number(y))}
-                >
-                  <Text style={[styles.chipText, filterPublicationYear === y && styles.chipTextActive]}>{String(y)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.filterRow}>
-            <Text style={styles.filterLabel}>Année scan</Text>
-            <View style={styles.chipsContainer}>
-              <TouchableOpacity
-                style={[styles.chip, !filterScanYear && styles.chipActive]}
-                onPress={() => setFilterScanYear(null)}
-              >
-                <Text style={[styles.chipText, !filterScanYear && styles.chipTextActive]}>Tous</Text>
-              </TouchableOpacity>
-              {uniqueScanYears.map(y => (
-                <TouchableOpacity
-                  key={String(y)}
-                  style={[styles.chip, filterScanYear === y && styles.chipActive]}
-                  onPress={() => setFilterScanYear(filterScanYear === y ? null : Number(y))}
-                >
-                  <Text style={[styles.chipText, filterScanYear === y && styles.chipTextActive]}>{String(y)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.filterActions}>
-            <TouchableOpacity style={styles.resetButton} onPress={resetFilters}>
-              <Text style={styles.resetButtonText}>Réinitialiser</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setShowFilters(false)}>
-              <Text style={styles.closeButtonText}>Fermer</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
 
       {/* Stats */}
       <View style={styles.stats}>
@@ -245,7 +150,7 @@ export default function MyQuotesScreen() {
           <Text style={styles.statLabel}>J'aime</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>8</Text>
+          <Text style={styles.statValue}>{new Set(quotes.map(q => q.book)).size}</Text>
           <Text style={styles.statLabel}>Livres</Text>
         </View>
       </View>
@@ -256,8 +161,28 @@ export default function MyQuotesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredQuotes.map((quote) => (
-          <View key={quote.id} style={styles.quoteCard}>
+        {activeFilters.length > 0 && (
+          <View style={styles.filterContainer}>
+            {activeFilters.map((filter, index) => (
+              <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
+                <Text style={styles.filterBadgeText}>{filter.type === 'author' ? 'Auteur' : filter.type === 'book' ? 'Livre' : 'Année'}: {filter.value}</Text>
+                <X size={12} color="#20B8CD" />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
+          </View>
+        )}
+        {quotes.map((quote) => (
+          <TouchableOpacity
+            key={quote.id}
+            style={styles.quoteCard}
+            onPress={() => {
+              // On trouve la dernière version de la citation pour la passer au modal
+              const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+              navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
+            }}
+            activeOpacity={0.7}
+          >
             {/* Quote Icon (custom SVG) */}
             <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
               <Path
@@ -274,7 +199,10 @@ export default function MyQuotesScreen() {
             <View style={styles.bookInfo}>
               <View style={styles.bookInfoLeft}>
                 <Text style={styles.bookTitle}>{quote.book}</Text>
-                <Text style={styles.authorName}>{quote.author}</Text>
+                {/* Le nom de l'auteur n'est plus cliquable ici */}
+                <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
+                  {quote.author}
+                </Text>
               </View>
               <Text style={styles.dateText}>{quote.date}</Text>
             </View>
@@ -299,10 +227,69 @@ export default function MyQuotesScreen() {
                 <Text style={styles.actionText}>Partager</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
-    </View>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={filterModalVisible}
+        onRequestClose={() => { setFilterModalVisible(false); setExpandedSection(null); }}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => { setFilterModalVisible(false); setExpandedSection(null); }}>
+          <Pressable style={styles.modalView}>
+            <Text style={styles.modalTitle}>Filtrer par</Text>
+            <ScrollView style={{ maxHeight: '80%' }}>
+              {/* Section Auteur */}
+              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('author')}>
+                <Text style={styles.filterSectionTitle}>Auteur</Text>
+                <ChevronDown size={20} color="#9CA3AF" style={{ transform: [{ rotate: expandedSection === 'author' ? '180deg' : '0deg' }] }} />
+              </TouchableOpacity>
+              {expandedSection === 'author' && authors.map(author => (
+                  <TouchableOpacity key={author} style={styles.filterOption} onPress={() => toggleTempFilter('author', author)}>
+                    <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'author' && f.value === author) && styles.filterOptionTextSelected]}>{author}</Text>
+                  </TouchableOpacity>
+              ))}
+
+              {/* Section Livre */}
+              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('book')}>
+                <Text style={styles.filterSectionTitle}>Livre</Text>
+                <ChevronDown size={20} color="#9CA3AF" style={{ transform: [{ rotate: expandedSection === 'book' ? '180deg' : '0deg' }] }} />
+              </TouchableOpacity>
+              {expandedSection === 'book' && books.map(book => (
+                  <TouchableOpacity key={book} style={styles.filterOption} onPress={() => toggleTempFilter('book', book)}>
+                    <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'book' && f.value === book) && styles.filterOptionTextSelected]}>{book}</Text>
+                  </TouchableOpacity>
+              ))}
+
+              {/* Section Année */}
+              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('year')}>
+                <Text style={styles.filterSectionTitle}>Année</Text>
+                <ChevronDown size={20} color="#9CA3AF" style={{ transform: [{ rotate: expandedSection === 'year' ? '180deg' : '0deg' }] }} />
+              </TouchableOpacity>
+              {expandedSection === 'year' && years.map(year => (
+                  <TouchableOpacity key={year} style={styles.filterOption} onPress={() => toggleTempFilter('year', year)}>
+                    <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'year' && f.value === year) && styles.filterOptionTextSelected]}>{year}</Text>
+                  </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              {tempFilters.length > 0 && (
+                <TouchableOpacity
+                  style={styles.resetButton}
+                  onPress={() => setTempFilters([])}
+                >
+                  <Text style={styles.resetButtonText}>Réinitialiser</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
+                <Text style={styles.applyButtonText}>Appliquer</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
@@ -397,10 +384,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   quoteText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 18,
+    lineHeight: 28,
     color: '#E5E7EB',
     marginBottom: 16,
+    fontFamily: 'Times New Roman',
+    fontStyle: 'italic',
+    fontWeight: '100',
   },
   bookInfo: {
     flexDirection: 'row',
@@ -446,87 +436,119 @@ const styles = StyleSheet.create({
   iconFilled: {
     // Pour simuler le fill, vous devrez utiliser une icône différente
   },
-  filterBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: '#20B8CD',
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterBadgeText: {
-    color: '#0F0F0F',
-    fontSize: 10,
-    fontWeight: '600',
+  modalView: {
+    margin: 20,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 20,
+    padding: 25,
+    width: '80%',
+    maxHeight: '60%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  filterPanel: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#0F0F0F',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 15,
+    textAlign: 'center',
   },
-  filterRow: {
-    marginBottom: 12,
-  },
-  filterLabel: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  chipsContainer: {
+  filterSectionHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
   },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: '#151515',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    marginRight: 8,
-  },
-  chipActive: {
-    backgroundColor: '#052024',
-    borderColor: '#20B8CD',
-  },
-  chipText: {
-    color: '#9CA3AF',
-    fontSize: 13,
-  },
-  chipTextActive: {
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#20B8CD',
   },
-  filterActions: {
+  filterOption: {
+    paddingVertical: 10,
+    paddingLeft: 10,
+  },
+  filterOptionText: {
+    color: '#E5E7EB',
+    fontSize: 14,
+  },
+  filterOptionTextSelected: {
+    color: '#20B8CD',
+    fontWeight: 'bold',
+  },
+  modalActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
   },
   resetButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    marginRight: 8,
+    flex: 1,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 10,
+    padding: 10,
   },
   resetButtonText: {
     color: '#9CA3AF',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
-  closeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  applyButton: {
+    flex: 1,
     backgroundColor: '#20B8CD',
+    borderRadius: 10,
+    padding: 10,
   },
-  closeButtonText: {
+  applyButtonText: {
     color: '#0F0F0F',
-    fontWeight: '600',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    borderColor: 'rgba(32, 184, 205, 0.2)',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  filterBadgeText: {
+    color: '#20B8CD',
+    fontSize: 12,
+  },
+  clearFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  clearFilterButtonText: {
+    color: '#6B7280',
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
 });
