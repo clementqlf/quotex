@@ -10,8 +10,9 @@ import {
   Pressable,
   Image,
 } from 'react-native'; 
+import { Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown } from 'lucide-react-native';
+import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 
 import { localQuotesDB, bookDescriptions } from '../data/staticData';
 import { useTabIndex } from '../TabNavigator';
@@ -22,6 +23,7 @@ export default function MyQuotesScreen() {
   const [quotes, setQuotes] = useState(localQuotesDB);
   const { setTabIndex } = useTabIndex();
   const isFocused = useIsFocused();
+  const [isSwiping, setIsSwiping] = useState(false);
 
   useEffect(() => {
     if (isFocused) {
@@ -82,6 +84,22 @@ export default function MyQuotesScreen() {
     });
     setQuotes(newQuotes);
   };
+
+  const handleDeleteQuote = (id: number) => {
+    setIsSwiping(false);
+    setQuotes(currentQuotes => currentQuotes.filter(q => q.id !== id));
+    const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
+    if (dbIndex > -1) {
+      localQuotesDB.splice(dbIndex, 1);
+    }
+  };
+
+  const renderDeleteAction = () => (
+    <View style={styles.deleteAction}>
+      <Trash2 size={20} color="#FFFFFF" />
+      <Text style={styles.deleteActionText}>Supprimer</Text>
+    </View>
+  );
 
   const toggleTempFilter = (type: 'author' | 'book' | 'year', value: string | number) => {
     setTempFilters(currentFilters => {
@@ -239,61 +257,75 @@ export default function MyQuotesScreen() {
           )
         ) : (
           quotes.map((quote) => (
-            <TouchableOpacity
-              key={quote.id}
-              style={styles.quoteCard}
-              onPress={() => {
-                // On trouve la dernière version de la citation pour la passer au modal
-                const currentQuote = quotes.find(q => q.id === quote.id) || quote;
-                navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
-              }}
-              activeOpacity={0.7}
-            >
-              {/* Quote Icon (custom SVG) */}
-              <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
-                <Path
-                  d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                  fill="#20B8CD"
-                  opacity={0.12}
-                />
-              </Svg>
-
-              {/* Quote Text */}
-              <Text style={styles.quoteText}>{quote.text}</Text>
-
-              {/* Book Info */}
-              <View style={styles.bookInfo}>
-                <View style={styles.bookInfoLeft}>
-                  <Text style={styles.bookTitle}>{quote.book}</Text>
-                  {/* Le nom de l'auteur n'est plus cliquable ici */}
-                  <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
-                    {quote.author}
-                  </Text>
-                </View>
-                <Text style={styles.dateText}>{quote.date}</Text>
-              </View>
-
-              {/* Actions */}
-              <View style={styles.actions}>
+            <View key={quote.id} style={styles.cardWrapper}>
+              <Swipeable
+                renderLeftActions={renderDeleteAction}
+                overshootLeft={false}
+                onSwipeableWillOpen={() => setIsSwiping(true)}
+                onSwipeableClose={() => setIsSwiping(false)}
+                onSwipeableOpen={(direction) => {
+                  if (direction === 'left') {
+                    handleDeleteQuote(quote.id);
+                  }
+                }}
+              >
                 <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => toggleLike(quote.id)}
+                  style={styles.quoteCard}
+                  onPress={() => {
+                    if (isSwiping) return; // évite d'ouvrir le modal après un swipe
+                    // On trouve la dernière version de la citation pour la passer au modal
+                    const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+                    navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
+                  }}
+                  activeOpacity={0.7}
                 >
-                  <Heart
-                    size={20}
-                    color={quote.isLiked ? '#20B8CD' : '#6B7280'}
-                    fill={quote.isLiked ? '#20B8CD' : 'none'}
-                  />
-                  <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
-                    {quote.likes}
-                  </Text>
+                  {/* Quote Icon (custom SVG) */}
+                  <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
+                    <Path
+                      d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                      fill="#20B8CD"
+                      opacity={0.12}
+                    />
+                  </Svg>
+
+                  {/* Quote Text */}
+                  <Text style={styles.quoteText}>{quote.text}</Text>
+
+                  {/* Book Info */}
+                  <View style={styles.bookInfo}>
+                    <View style={styles.bookInfoLeft}>
+                      <Text style={styles.bookTitle}>{quote.book}</Text>
+                      {/* Le nom de l'auteur n'est plus cliquable ici */}
+                      <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
+                        {quote.author}
+                      </Text>
+                    </View>
+                    <Text style={styles.dateText}>{quote.date}</Text>
+                  </View>
+
+                  {/* Actions */}
+                  <View style={styles.actions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => toggleLike(quote.id)}
+                    >
+                      <Heart
+                        size={20}
+                        color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                        fill={quote.isLiked ? '#20B8CD' : 'none'}
+                      />
+                      <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
+                        {quote.likes}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionButton}>
+                      <Share2 size={20} color="#6B7280" />
+                      <Text style={styles.actionText}>Partager</Text>
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Share2 size={20} color="#6B7280" />
-                  <Text style={styles.actionText}>Partager</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+              </Swipeable>
+            </View>
           ))
         )}
       </ScrollView>
@@ -447,7 +479,6 @@ const styles = StyleSheet.create({
     borderColor: '#2A2A2A',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
   },
   quoteIcon: {
     fontSize: 32,
@@ -610,6 +641,24 @@ const styles = StyleSheet.create({
   filterBadgeText: {
     color: '#20B8CD',
     fontSize: 12,
+  },
+  deleteAction: {
+    width: 140,
+    height: '100%',
+    backgroundColor: '#DC2626',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    gap: 6,
+  },
+  deleteActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cardWrapper: {
+    marginBottom: 16,
   },
   bookCard: {
     backgroundColor: '#1A1A1A',

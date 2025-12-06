@@ -354,9 +354,15 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
     );
   };
 
-  const getBlockRectOnScreen = (block: MLKitText) => {
-    const { imageSize } = imageInfoRef.current;
-    if (!block.frame || imageSize.width === 0) return null;
+  const getBlockRectOnScreen = (
+    block: MLKitText,
+    sizeOverride?: { width: number; height: number; offsetX: number; offsetY: number },
+  ) => {
+    // Prefer the latest measured size stored in the ref; fall back to state if needed
+    const refSize = imageInfoRef.current?.imageSize;
+    const currentImageSize =
+      sizeOverride ?? (refSize?.width ? refSize : imageSize);
+    if (!block.frame || !currentImageSize || currentImageSize.width === 0) return null;
 
     const orientation = getPhotoOrientation();
     const isNormalized =
@@ -382,16 +388,16 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
     const orientedBaseWidth = orientation === 90 || orientation === 270 ? baseHeight : baseWidth;
     const orientedBaseHeight = orientation === 90 || orientation === 270 ? baseWidth : baseHeight;
 
-    const scaleX = imageSize.width / orientedBaseWidth;
-    const scaleY = imageSize.height / orientedBaseHeight;
+    const scaleX = currentImageSize.width / orientedBaseWidth;
+    const scaleY = currentImageSize.height / orientedBaseHeight;
 
     const left = (orientation === 90 || orientation === 270)
-      ? ((orientedBaseWidth - (rotatedFrame.left + rotatedFrame.width)) * scaleX) + imageSize.offsetX
-      : (rotatedFrame.left * scaleX) + imageSize.offsetX;
+      ? ((orientedBaseWidth - (rotatedFrame.left + rotatedFrame.width)) * scaleX) + currentImageSize.offsetX
+      : (rotatedFrame.left * scaleX) + currentImageSize.offsetX;
 
     const top = (orientation === 90 || orientation === 270)
-      ? ((orientedBaseHeight - (rotatedFrame.top + rotatedFrame.height)) * scaleY) + imageSize.offsetY
-      : (rotatedFrame.top * scaleY) + imageSize.offsetY;
+      ? ((orientedBaseHeight - (rotatedFrame.top + rotatedFrame.height)) * scaleY) + currentImageSize.offsetY
+      : (rotatedFrame.top * scaleY) + currentImageSize.offsetY;
 
     const width = rotatedFrame.width * scaleX;
     const height = rotatedFrame.height * scaleY;
@@ -442,8 +448,9 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
   };
 
   const getPhotoDimensions = () => {
-    const photoW = imageInfoRef.current.photo?.width || imageInfoRef.current.photoDimensions.width || 1;
-    const photoH = imageInfoRef.current.photo?.height || imageInfoRef.current.photoDimensions.height || 1;
+    // Use freshest values to avoid a blank overlay on first render
+    const photoW = photo?.width || photoDimensions.width || 1;
+    const photoH = photo?.height || photoDimensions.height || 1;
     return { photoW, photoH };
   };
 
@@ -534,6 +541,19 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
             offsetX,
             offsetY,
           });
+
+          imageInfoRef.current = {
+            photo,
+            photoDimensions,
+            imageSize: {
+              width: displayedWidth,
+              height: displayedHeight,
+              offsetX,
+              offsetY,
+            },
+            wordBlocks,
+            viewportSize: { width: containerWidth, height: containerHeight },
+          };
         }}
       >
         <Animated.View style={[styles.photoContent, { transform: [{ scale: previewScale }] }]}> 

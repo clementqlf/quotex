@@ -8,7 +8,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Star } from 'lucide-react-native';
+import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Star, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 
 import {
   aiInterpretations,
@@ -263,6 +263,12 @@ export function QuoteDetailModal() {
               </View>
             )}
 
+            {/* Placeholder block */}
+            <View style={styles.placeholderSection}>
+              <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
+              <Text style={styles.placeholderText}>Ajouter un bloc</Text>
+            </View>
+
           </ScrollView>
       </View>
     </View>
@@ -504,5 +510,24 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  placeholderSection: {
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 24,
+    minHeight: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F0F0F',
+  },
+  placeholderIcon: {
+    marginBottom: 8,
+  },
+  placeholderText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
