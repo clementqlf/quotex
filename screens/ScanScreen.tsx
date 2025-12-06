@@ -589,24 +589,35 @@ export default function ScanScreen() {
       alignedY: number; // Coordonnée Y dans le repère aligné
     };
     
+    // Calculer l'angle moyen de tous les blocs pour avoir un repère global cohérent
+    const angles = selectedBlocks
+      .map(block => block.rotation || 0)
+      .filter(angle => angle !== 0);
+    
+    const globalAngle = angles.length > 0 
+      ? angles.reduce((a, b) => a + b, 0) / angles.length 
+      : 0;
+    
     const oriented: PositionedBlock[] = selectedBlocks
       .map<PositionedBlock | null>(block => {
         const rect = getBlockRectOnScreen(block);
         if (!rect) return null;
         
-        // Calculer les coordonnées dans le repère aligné au texte
+        // Utiliser l'angle global pour transformer toutes les coordonnées dans le même repère
         let alignedX = rect.left + rect.width / 2;
         let alignedY = rect.top + rect.height / 2;
         
-        // Si le bloc a une rotation, transformer les coordonnées au repère aligné
-        if (rect.rotation && rect.rotation !== 0) {
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
+        // Si il y a une rotation (globale), transformer les coordonnées
+        if (globalAngle !== 0) {
+          // Centre de l'image pour la transformation globale
+          const { imageSize } = imageInfoRef.current;
+          const centerX = imageSize.offsetX + imageSize.width / 2;
+          const centerY = imageSize.offsetY + imageSize.height / 2;
           
           const dx = alignedX - centerX;
           const dy = alignedY - centerY;
           
-          const angleRad = (rect.rotation * Math.PI) / 180;
+          const angleRad = (globalAngle * Math.PI) / 180;
           const cosA = Math.cos(angleRad);
           const sinA = Math.sin(angleRad);
           
