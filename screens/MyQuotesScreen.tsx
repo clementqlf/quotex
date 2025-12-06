@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView, 
+  SafeAreaView,
   Modal,
   Pressable,
+  Image,
 } from 'react-native'; 
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown } from 'lucide-react-native';
@@ -32,6 +33,7 @@ export default function MyQuotesScreen() {
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
+  const [viewMode, setViewMode] = useState<'quotes' | 'books'>('quotes');
 
   const authors = [...new Set(localQuotesDB.map(q => q.author))];
   const books = [...new Set(localQuotesDB.map(q => q.book))];
@@ -119,6 +121,31 @@ export default function MyQuotesScreen() {
   const toggleSection = (section: 'author' | 'book' | 'year' | null) => {
     setExpandedSection(current => (current === section ? null : section));
   };
+
+  const booksData = useMemo(() => {
+    const grouped = quotes.reduce<Record<string, { authors: Set<string>; quoteCount: number }>>((acc, quote) => {
+      if (!acc[quote.book]) {
+        acc[quote.book] = { authors: new Set(), quoteCount: 0 };
+      }
+      acc[quote.book].authors.add(quote.author);
+      acc[quote.book].quoteCount += 1;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([bookTitle, data]) => {
+        const meta = bookDescriptions[bookTitle];
+        return {
+          title: bookTitle,
+          authors: Array.from(data.authors),
+          quoteCount: data.quoteCount,
+          year: meta?.year,
+          description: meta?.description,
+          cover: meta?.cover,
+        };
+      })
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [quotes]);
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -141,18 +168,26 @@ export default function MyQuotesScreen() {
 
       {/* Stats */}
       <View style={styles.stats}>
-        <View style={styles.statItem}>
+        <TouchableOpacity
+          style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
+          onPress={() => setViewMode('quotes')}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statValue}>{quotes.length}</Text>
           <Text style={styles.statLabel}>Citations</Text>
-        </View>
+        </TouchableOpacity>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{quotes.reduce((acc, q) => acc + q.likes, 0)}</Text>
           <Text style={styles.statLabel}>J'aime</Text>
         </View>
-        <View style={styles.statItem}>
+        <TouchableOpacity
+          style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
+          onPress={() => setViewMode('books')}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statValue}>{new Set(quotes.map(q => q.book)).size}</Text>
           <Text style={styles.statLabel}>Livres</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Quotes Feed */}
@@ -172,63 +207,95 @@ export default function MyQuotesScreen() {
             <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
           </View>
         )}
-        {quotes.map((quote) => (
-          <TouchableOpacity
-            key={quote.id}
-            style={styles.quoteCard}
-            onPress={() => {
-              // On trouve la dernière version de la citation pour la passer au modal
-              const currentQuote = quotes.find(q => q.id === quote.id) || quote;
-              navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
-            }}
-            activeOpacity={0.7}
-          >
-            {/* Quote Icon (custom SVG) */}
-            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
-              <Path
-                d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                fill="#20B8CD"
-                opacity={0.12}
-              />
-            </Svg>
-
-            {/* Quote Text */}
-            <Text style={styles.quoteText}>{quote.text}</Text>
-
-            {/* Book Info */}
-            <View style={styles.bookInfo}>
-              <View style={styles.bookInfoLeft}>
-                <Text style={styles.bookTitle}>{quote.book}</Text>
-                {/* Le nom de l'auteur n'est plus cliquable ici */}
-                <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
-                  {quote.author}
-                </Text>
-              </View>
-              <Text style={styles.dateText}>{quote.date}</Text>
-            </View>
-
-            {/* Actions */}
-            <View style={styles.actions}>
+        {viewMode === 'books' ? (
+          booksData.length > 0 ? (
+            booksData.map(book => (
               <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleLike(quote.id)}
+                key={book.title}
+                style={styles.bookCard}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title })}
               >
-                <Heart
-                  size={20}
-                  color={quote.isLiked ? '#20B8CD' : '#6B7280'}
-                  fill={quote.isLiked ? '#20B8CD' : 'none'}
+                <View style={styles.bookCardContent}>
+                  {book.cover ? (
+                    <Image source={{ uri: book.cover }} style={styles.bookCardCover} />
+                  ) : (
+                    <View style={styles.bookCardCoverPlaceholder} />
+                  )}
+                  <View style={styles.bookCardInfo}>
+                    <View style={styles.bookCardHeader}>
+                      <Text style={styles.bookCardTitle}>{book.title}</Text>
+                      {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
+                    </View>
+                    <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
+                    {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
+                    <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''} sauvegardée{book.quoteCount > 1 ? 's' : ''}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>
+          )
+        ) : (
+          quotes.map((quote) => (
+            <TouchableOpacity
+              key={quote.id}
+              style={styles.quoteCard}
+              onPress={() => {
+                // On trouve la dernière version de la citation pour la passer au modal
+                const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+                navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
+              }}
+              activeOpacity={0.7}
+            >
+              {/* Quote Icon (custom SVG) */}
+              <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
+                <Path
+                  d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                  fill="#20B8CD"
+                  opacity={0.12}
                 />
-                <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
-                  {quote.likes}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Share2 size={20} color="#6B7280" />
-                <Text style={styles.actionText}>Partager</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))}
+              </Svg>
+
+              {/* Quote Text */}
+              <Text style={styles.quoteText}>{quote.text}</Text>
+
+              {/* Book Info */}
+              <View style={styles.bookInfo}>
+                <View style={styles.bookInfoLeft}>
+                  <Text style={styles.bookTitle}>{quote.book}</Text>
+                  {/* Le nom de l'auteur n'est plus cliquable ici */}
+                  <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
+                    {quote.author}
+                  </Text>
+                </View>
+                <Text style={styles.dateText}>{quote.date}</Text>
+              </View>
+
+              {/* Actions */}
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => toggleLike(quote.id)}
+                >
+                  <Heart
+                    size={20}
+                    color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                    fill={quote.isLiked ? '#20B8CD' : 'none'}
+                  />
+                  <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
+                    {quote.likes}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton}>
+                  <Share2 size={20} color="#6B7280" />
+                  <Text style={styles.actionText}>Partager</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
       <Modal
         animationType="slide"
@@ -353,6 +420,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
+  },
+  statItemActive: {
+    borderColor: '#20B8CD',
+    backgroundColor: 'rgba(32, 184, 205, 0.08)',
   },
   statValue: {
     fontSize: 18,
@@ -539,6 +610,74 @@ const styles = StyleSheet.create({
   filterBadgeText: {
     color: '#20B8CD',
     fontSize: 12,
+  },
+  bookCard: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  bookCardContent: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  bookCardCover: {
+    width: 72,
+    height: 108,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    backgroundColor: '#0F0F0F',
+  },
+  bookCardCoverPlaceholder: {
+    width: 72,
+    height: 108,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    backgroundColor: '#131313',
+  },
+  bookCardInfo: {
+    flex: 1,
+  },
+  bookCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    gap: 12,
+  },
+  bookCardTitle: {
+    flex: 1,
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  bookCardYear: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  bookCardAuthor: {
+    fontSize: 14,
+    color: '#20B8CD',
+    marginBottom: 8,
+  },
+  bookCardDescription: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  bookCardCount: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  emptyStateText: {
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 40,
   },
   clearFilterButton: {
     paddingHorizontal: 12,

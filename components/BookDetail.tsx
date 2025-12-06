@@ -9,7 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen } from 'lucide-react-native';
+import { ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote } from 'lucide-react-native';
 import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '../data/staticData';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
@@ -33,11 +33,9 @@ export function BookDetailScreen() {
     );
   }
 
-  // Logique pour trouver les livres similaires
-  // 1. Trouver les citations qui appartiennent au livre actuel.
-  const currentBookQuotes = localQuotesDB
-    .filter(mq => mq.book === bookTitle)
-    .map(mq => mq.text);
+  const savedQuotes = localQuotesDB.filter(mq => mq.book === bookTitle);
+  // Logique pour trouver les livres similaires à partir des citations sauvegardées
+  const currentBookQuotes = savedQuotes.map(mq => mq.text);
   // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
   const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
   const uniqueSimilarBooks = [...new Set(similarBookList)];
@@ -108,6 +106,31 @@ export function BookDetailScreen() {
                 <Text style={styles.authorName}>{bookInfo.author}</Text>
               </TouchableOpacity>
               <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
+            </View>
+          )}
+
+          {savedQuotes.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Quote size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
+              </View>
+              <View style={styles.savedQuotesList}>
+                {savedQuotes.map(quote => (
+                  <TouchableOpacity
+                    key={quote.id}
+                    style={styles.savedQuoteCard}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                  >
+                    <Text style={styles.savedQuoteText}>{quote.text}</Text>
+                    <View style={styles.savedQuoteMeta}>
+                      <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
+                      <Text style={styles.savedQuoteDate}>{quote.date}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
@@ -242,6 +265,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     color: '#9CA3AF',
+  },
+  savedQuotesList: {
+    gap: 12,
+  },
+  savedQuoteCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    padding: 12,
+  },
+  savedQuoteText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#E5E7EB',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  savedQuoteMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  savedQuoteAuthor: {
+    fontSize: 12,
+    color: '#20B8CD',
+  },
+  savedQuoteDate: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   similarBooksContainer: {
     marginHorizontal: -8,
