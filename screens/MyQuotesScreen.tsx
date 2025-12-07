@@ -38,7 +38,7 @@ export default function MyQuotesScreen() {
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
-  const [viewMode, setViewMode] = useState<'quotes' | 'books'>('quotes');
+  const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes'>('quotes');
 
   const authors = [...new Set(localQuotesDB.map(q => q.author))];
   const books = [...new Set(localQuotesDB.map(q => q.book))];
@@ -47,6 +47,25 @@ export default function MyQuotesScreen() {
         .map(q => bookDescriptions[q.book]?.year)
         .filter((year): year is number => !!year)
   )].sort((a, b) => b - a);
+
+  // Liste des thèmes (notion abordée)
+  const themes = useMemo(() => {
+    // Regroupe les citations par thème (champ theme de la citation)
+    const grouped: Record<string, { books: Set<string>; quoteCount: number }> = {};
+    for (const q of quotes) {
+      const theme = q.theme || 'Thème non renseigné';
+      if (!grouped[theme]) grouped[theme] = { books: new Set(), quoteCount: 0 };
+      grouped[theme].books.add(q.book);
+      grouped[theme].quoteCount += 1;
+    }
+    return Object.entries(grouped)
+      .map(([theme, data]) => ({
+        theme,
+        books: Array.from(data.books),
+        quoteCount: data.quoteCount,
+      }))
+      .sort((a, b) => a.theme.localeCompare(b.theme));
+  }, [quotes]);
 
   // Rafraîchit les données lorsque l'écran est focus (après un scan par exemple)
   useEffect(() => {
@@ -454,6 +473,14 @@ export default function MyQuotesScreen() {
           <Text style={styles.statValue}>{new Set(quotes.map(q => q.book)).size}</Text>
           <Text style={styles.statLabel}>Livres</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
+          onPress={() => setViewMode('themes')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.statValue}>{themes.length}</Text>
+          <Text style={styles.statLabel}>Thèmes</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Quotes Feed */}
@@ -510,6 +537,31 @@ export default function MyQuotesScreen() {
             ))
           ) : (
             <Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>
+          )
+        ) : viewMode === 'themes' ? (
+          themes.length > 0 ? (
+            themes.map(theme => (
+              <View key={theme.theme} style={styles.bookCard}>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center' }}
+                  activeOpacity={0.85}
+                  // TODO: Naviguer vers une vue détaillée du thème si besoin
+                >
+                  <View style={{
+                    width: 48, height: 48, borderRadius: 24, backgroundColor: '#20B8CD22',
+                    justifyContent: 'center', alignItems: 'center', marginRight: 16,
+                  }}>
+                    <Text style={{ color: '#20B8CD', fontWeight: 'bold', fontSize: 18 }}>{theme.theme[0]}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16 }}>{theme.theme}</Text>
+                    <Text style={{ color: '#6B7280', fontSize: 13 }}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>
           )
         ) : (
           quotes.map((quote) => (

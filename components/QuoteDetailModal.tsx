@@ -24,6 +24,7 @@ export interface Quote {
   text: string;
   book: string;
   author: string;
+  theme?: string;
   date?: string;
   likes: number;
   isLiked: boolean;
@@ -74,6 +75,7 @@ export function QuoteDetailModal() {
   const similarAuthorList =
     similarAuthors[quote.author] || [];
   const bookInfo = bookDescriptions[quote.book];
+  const quoteTheme = quote.theme || 'Thème non renseigné';
 
   return (
     <View style={styles.container}>
@@ -110,22 +112,27 @@ export function QuoteDetailModal() {
               </Svg>
               <Text style={styles.quoteText}>{quote.text}</Text>
 
-              {/* Book & Author */}
-              <View style={styles.metadata}>
-                <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quote.book)}>
-                  <BookOpen size={16} color="#6B7280" />
-                  <Text style={styles.metaTextBook}>{quote.book}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quote.author)}>
-                  <UserIcon size={16} color="#6B7280" />
-                  <Text style={styles.metaTextAuthor}>{quote.author}</Text>
-                </TouchableOpacity>
-                {quote.date && (
-                  <View style={styles.metaRow}>
-                    <Calendar size={16} color="#6B7280" />
-                    <Text style={styles.metaTextDate}>{quote.date}</Text>
-                  </View>
-                )}
+              {/* Book & Author + Theme badge à droite */}
+              <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A2A2A', gap: 8}}>
+                <View style={{flex: 1}}>
+                  <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quote.book)}>
+                    <BookOpen size={16} color="#6B7280" />
+                    <Text style={styles.metaTextBook}>{quote.book}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quote.author)}>
+                    <UserIcon size={16} color="#6B7280" />
+                    <Text style={styles.metaTextAuthor}>{quote.author}</Text>
+                  </TouchableOpacity>
+                  {quote.date && (
+                    <View style={styles.metaRow}>
+                      <Calendar size={16} color="#6B7280" />
+                      <Text style={styles.metaTextDate}>{quote.date}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.themeBadgeIA}>
+                  <Text style={styles.themeBadgeValue}>{quoteTheme}</Text>
+                </View>
               </View>
             </View>
 
@@ -330,6 +337,30 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+  },
+  themeBadgeIA: {
+    backgroundColor: 'rgba(32, 184, 205, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(32, 184, 205, 0.2)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 90,
+    marginLeft: 12,
+  },
+  themeBadgeLabel: {
+    fontSize: 10,
+    color: '#05252C',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+  },
+  themeBadgeValue: {
+    fontSize: 14,
+    color: '#20B8CD',
+    fontWeight: '600',
   },
   quoteText: {
     fontSize: 24, // Encore plus grand pour un impact visuel fort
