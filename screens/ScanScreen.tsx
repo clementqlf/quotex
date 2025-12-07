@@ -39,31 +39,61 @@ export default function ScanScreen() {
   const frameAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const ocrLiveInterval = useRef<NodeJS.Timeout | null>(null);
+  // Ajout d'un flag pour éviter les captures concurrentes
+  const isCapturing = useRef(false);
 
   // Pseudo OCR live : prend une photo temporaire toutes les 1s et détecte du texte
   useEffect(() => {
-    if (!photo && cameraRef.current) {
+    let isMounted = true;
+    
+    if (!photo && cameraRef.current && isFocused) {
       ocrLiveInterval.current = setInterval(async () => {
+        // Vérifier immédiatement avant la capture
+        if (!isMounted || !isFocused || isCapturing.current) return;
+        
+        isCapturing.current = true;
         try {
           if (!cameraRef.current) return;
+          
           const tempPhoto = await cameraRef.current.takePhoto({
             flash: 'off',
             enableShutterSound: false,
           });
+          
+          // Vérifier l'état du composant après la photo
+          if (!isMounted || !isFocused) {
+            isCapturing.current = false;
+            return;
+          }
+          
           const result = await TextRecognition.recognize(tempPhoto.path);
+          
+          // Vérifier avant le setState
+          if (!isMounted || !isFocused) {
+            isCapturing.current = false;
+            return;
+          }
+          
           setIsTextDetectedLive(!!result && result.blocks.length > 0);
         } catch (e) {
           // ignore errors (ex: camera not ready)
+        } finally {
+          if (isMounted) {
+            isCapturing.current = false;
+          }
         }
       }, 1000);
-      return () => {
-        if (ocrLiveInterval.current) clearInterval(ocrLiveInterval.current);
-      };
     }
+    
     return () => {
-      if (ocrLiveInterval.current) clearInterval(ocrLiveInterval.current);
+      isMounted = false;
+      isCapturing.current = false;
+      if (ocrLiveInterval.current) {
+        clearInterval(ocrLiveInterval.current);
+        ocrLiveInterval.current = null;
+      }
     };
-  }, [photo]);
+  }, [photo, isFocused]);
 
   // Animation des coins vers cadre complet (live)
   useEffect(() => {
@@ -102,7 +132,17 @@ export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = useRef<Camera>(null);
-  // const scanAnimation = useRef(new Animated.Value(0)).current;
+
+  // Cleanup au unmount du composant
+  useEffect(() => {
+    return () => {
+      if (ocrLiveInterval.current) {
+        clearInterval(ocrLiveInterval.current);
+        ocrLiveInterval.current = null;
+      }
+      isCapturing.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasPermission) {
@@ -113,6 +153,18 @@ export default function ScanScreen() {
   useEffect(() => {
     if (isFocused) {
       setTabIndex(1);
+    } else {
+      // Arrêter immédiatement tous les intervalles et captures
+      if (ocrLiveInterval.current) {
+        clearInterval(ocrLiveInterval.current);
+        ocrLiveInterval.current = null;
+      }
+      isCapturing.current = false;
+      
+      // Réinitialiser les états
+      setPhoto(null);
+      setOcrResult(null);
+      setIsTextDetectedLive(false);
     }
   }, [isFocused, setTabIndex]);
 
@@ -150,13 +202,23 @@ export default function ScanScreen() {
   // });
 
   const handleTakePhoto = async () => {
-    if (!cameraRef.current || isLoading) return;
+    if (!cameraRef.current || isLoading || isCapturing.current || !isFocused) return;
+    
     setIsLoading(true);
+    isCapturing.current = true;
+    
+    // Arrête l'OCR live pendant la capture manuelle
+    if (ocrLiveInterval.current) {
+      clearInterval(ocrLiveInterval.current);
+      ocrLiveInterval.current = null;
+    }
+    
     try {
       const photoFile = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
       });
+      
       const result = await TextRecognition.recognize(photoFile.path);
 
       if (!result || result.blocks.length === 0) {
@@ -167,11 +229,13 @@ export default function ScanScreen() {
 
       setPhoto(photoFile);
       setOcrResult(result);
-      // Simule la netteté (à remplacer par une vraie détection)
     } catch (error) {
       console.error('Failed to take photo or recognize text:', error);
+      setPhoto(null);
+      setOcrResult(null);
     } finally {
       setIsLoading(false);
+      isCapturing.current = false;
     }
   };
 
@@ -218,15 +282,18 @@ export default function ScanScreen() {
 
       {photo && ocrResult ? (
         <ScanWorkflow photo={photo} ocrResult={ocrResult} onReset={handleResetCapture} />
-      ) : (
+      ) : isFocused && !photo ? (
         <Camera
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           device={device}
-          isActive={isFocused && !photo}
+          isActive={true}
           photo
+          onError={(error) => {
+            console.log('Camera error:', error);
+          }}
         />
-      )}
+      ) : null}
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
