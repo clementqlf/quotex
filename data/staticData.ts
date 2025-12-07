@@ -236,6 +236,7 @@ export const addQuote = (quoteData: { text: string; book: string; author: string
     id: Date.now(), // Utilise un timestamp pour un ID unique
     ...quoteData,
     date: "À l'instant",
+    theme: "Général", // Ajout d'un thème par défaut
     likes: 0,
     isLiked: false,
   };

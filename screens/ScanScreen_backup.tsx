@@ -36,7 +36,6 @@ export default function ScanScreen() {
   // Pseudo OCR live : texte détecté en live
   const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
   const frameAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const ocrLiveInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Pseudo OCR live : prend une photo temporaire toutes les 1s et détecte du texte
@@ -68,33 +67,19 @@ export default function ScanScreen() {
   // Animation des coins vers cadre complet (live)
   useEffect(() => {
     if (isTextDetectedLive) {
-      Animated.parallel([
-        Animated.timing(frameAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(frameAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: false,
+      }).start();
     } else {
-      Animated.parallel([
-        Animated.timing(frameAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(frameAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: false,
+      }).start();
     }
-  }, [isTextDetectedLive, frameAnim, fadeAnim]);
+  }, [isTextDetectedLive, frameAnim]);
 
   const { setTabIndex } = useTabIndex();
   const { setSwipeEnabled } = useSwipeEnabled();
@@ -168,6 +153,7 @@ export default function ScanScreen() {
       setPhoto(photoFile);
       setOcrResult(result);
       // Simule la netteté (à remplacer par une vraie détection)
+      setIsPhotoSharp(true); // true si la photo est nette
     } catch (error) {
       console.error('Failed to take photo or recognize text:', error);
     } finally {
@@ -249,75 +235,59 @@ export default function ScanScreen() {
               {/* Correction : outputRange numériques, largeur réelle du cadre, animation live OCR */}
               {scanFrameLayout && (
                 <>
-                  {/* Coin supérieur gauche (s'étend vers le bas et la droite) */}
                   <Animated.View
                     style={[
                       styles.corner,
+                      styles.cornerTopLeft,
                       {
-                        left: -3,
-                        top: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width-32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height-32] }),
+                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width] }),
+                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, 3] }),
                         borderTopWidth: 3,
                         borderLeftWidth: 3,
-                        borderTopLeftRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
-                        borderRightWidth: 0,
-                        borderBottomWidth: 0,
-                        zIndex: 10,
+                        borderTopLeftRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
                       },
                     ]}
                   />
-                  {/* Coin supérieur droit (s'étend vers le bas et la gauche) */}
                   <Animated.View
                     style={[
                       styles.corner,
+                      styles.cornerTopRight,
                       {
-                        right: -3,
-                        top: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width-32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height-32] }),
+                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width] }),
+                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, 3] }),
                         borderTopWidth: 3,
                         borderRightWidth: 3,
-                        borderTopRightRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
-                        borderLeftWidth: 0,
-                        borderBottomWidth: 0,
-                        zIndex: 10,
+                        borderTopRightRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
+                        right: 0,
                       },
                     ]}
                   />
-                  {/* Coin inférieur gauche (s'étend vers le haut et la droite) */}
                   <Animated.View
                     style={[
                       styles.corner,
+                      styles.cornerBottomLeft,
                       {
-                        left: -3,
-                        bottom: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
+                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width] }),
+                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, 3] }),
                         borderBottomWidth: 3,
                         borderLeftWidth: 3,
-                        borderBottomLeftRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
-                        borderTopWidth: 0,
-                        borderRightWidth: 0,
-                        zIndex: 10,
+                        borderBottomLeftRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
+                        bottom: 0,
                       },
                     ]}
                   />
-                  {/* Coin inférieur droit (s'étend vers le haut et la gauche) */}
                   <Animated.View
                     style={[
                       styles.corner,
+                      styles.cornerBottomRight,
                       {
-                        right: -3,
-                        bottom: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
+                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width] }),
+                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, 3] }),
                         borderBottomWidth: 3,
                         borderRightWidth: 3,
-                        borderBottomRightRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
-                        borderTopWidth: 0,
-                        borderLeftWidth: 0,
-                        zIndex: 10,
+                        borderBottomRightRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }),
+                        right: 0,
+                        bottom: 0,
                       },
                     ]}
                   />
@@ -327,14 +297,12 @@ export default function ScanScreen() {
               {/* Ligne de scan animée supprimée */}
 
               <View style={styles.content}>
-                <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }} pointerEvents="none">
-                  <View style={styles.iconShadowWrapper}>
-                    <BookOpen size={48} color="#FFFFFF" style={styles.iconShadow} />
-                  </View>
-                  <Text style={styles.instructionTextShadow}>
-                    {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
-                  </Text>
-                </Animated.View>
+                <View style={styles.iconShadowWrapper}>
+                  <BookOpen size={48} color="#FFFFFF" style={styles.iconShadow} />
+                </View>
+                <Text style={styles.instructionTextShadow}>
+                  {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
+                </Text>
               </View>
             </View>
           </View>
@@ -353,7 +321,7 @@ export default function ScanScreen() {
                     x={scanFrameLayout.x}
                     y={scanFrameLayout.y + 22}
                     width={scanFrameLayout.width}
-                    height={scanFrameLayout.height}
+                    height={scanFrameLayout.height-1}
                     rx="24"
                     ry="24"
                     fill="black"
