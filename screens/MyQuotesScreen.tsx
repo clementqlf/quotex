@@ -545,7 +545,7 @@ export default function MyQuotesScreen() {
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center' }}
                   activeOpacity={0.85}
-                  // TODO: Naviguer vers une vue détaillée du thème si besoin
+                  onPress={() => navigation.navigate('ThemeDetail', { themeName: theme.theme })}
                 >
                   <View style={{
                     width: 48, height: 48, borderRadius: 24, backgroundColor: '#20B8CD22',

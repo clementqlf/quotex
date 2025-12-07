@@ -5,6 +5,7 @@ import { BookDetailScreen } from './components/BookDetail';
 import { UserProfileScreen } from './components/UserProfileScreen';
 import { RootStackParamList } from './types'; // Assurez-vous que ce fichier existe et exporte le type
 import { QuoteDetailModal } from './components/QuoteDetailModal';
+import { ThemeDetailScreen } from './components/ThemeDetailScreen';
 import { TabNavigator } from './TabNavigator'; // Importer le TabNavigator
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,6 +27,7 @@ export function AppNavigator() {
         <Stack.Screen name="BookDetail" component={BookDetailScreen} /> 
         <Stack.Screen name="UserProfile" component={UserProfileScreen} />
         <Stack.Screen name="QuoteDetail" component={QuoteDetailModal} options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
+        <Stack.Screen name="ThemeDetail" component={ThemeDetailScreen} />
       </Stack.Group>
     </Stack.Navigator>
   );

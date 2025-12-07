@@ -13,4 +13,5 @@ export type RootStackParamList = {
   BookDetail: { bookTitle: string };
   QuoteDetail: { quoteId?: number; quote?: Quote };
   UserProfile: { user: User };
+  ThemeDetail: { themeName: string };
 };
