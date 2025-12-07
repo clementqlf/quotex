@@ -9,6 +9,8 @@ import {
   Modal,
   Pressable,
   Image,
+  PanResponder,
+  Animated,
 } from 'react-native'; 
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2 } from 'lucide-react-native';
@@ -125,6 +127,196 @@ export default function MyQuotesScreen() {
       setFilterModalVisible(false);
       setExpandedSection(null);
     }
+  };
+
+  // Composant de carte de citation avec support du swipe et animation
+  const QuoteCardSwipeable = ({ quote }: { quote: typeof localQuotesDB[0] }) => {
+    const [isDragging, setIsDragging] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const dragStartX = useRef(0);
+    const currentDragX = useRef(0);
+    const lastUpdateX = useRef(0);
+    const translateX = useRef(new Animated.Value(0)).current;
+    const verticalScrollDisabled = useRef(false);
+
+    // Empêche le scroll vertical du parent pendant le swipe
+    const disableParentScroll = (disable: boolean) => {
+      if (scrollViewRef.current && scrollViewRef.current.setNativeProps) {
+        scrollViewRef.current.setNativeProps({ scrollEnabled: !disable });
+      }
+    };
+
+    const handleTouchStart = (e: any) => {
+      dragStartX.current = e.nativeEvent.locationX;
+      currentDragX.current = 0;
+      lastUpdateX.current = 0;
+      setIsDragging(false);
+      verticalScrollDisabled.current = false;
+    };
+
+    const handleTouchMove = (e: any) => {
+      const currentX = e.nativeEvent.locationX;
+      const deltaX = currentX - dragStartX.current;
+
+      // Si c'est depuis le bord gauche et on swipe vers la droite (deltaX positif)
+      if (dragStartX.current < 50 && deltaX > 10) {
+        if (!verticalScrollDisabled.current) {
+          disableParentScroll(true);
+          verticalScrollDisabled.current = true;
+        }
+        setIsDragging(true);
+        currentDragX.current = deltaX;
+        // Limiter à 120px et suivre le doigt en temps réel
+        const newValue = Math.min(Math.max(deltaX, 0), 120);
+        translateX.setValue(newValue);
+        lastUpdateX.current = newValue;
+      }
+    };
+
+    const handleTouchEnd = (e: any) => {
+      disableParentScroll(false);
+      if (!isDragging) {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 12,
+          bounciness: 0,
+        }).start();
+        setIsOpen(false);
+        return;
+      }
+      if (dragStartX.current < 50 && currentDragX.current > 50) {
+        Animated.spring(translateX, {
+          toValue: 120,
+          useNativeDriver: true,
+          speed: 12,
+          bounciness: 2,
+        }).start();
+        setIsOpen(true);
+      } else {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          speed: 12,
+          bounciness: 0,
+        }).start();
+        setIsOpen(false);
+      }
+      setIsDragging(false);
+      verticalScrollDisabled.current = false;
+    };
+
+    return (
+      <View 
+        key={quote.id} 
+        style={styles.cardWrapper}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Conteneur avec overflow:hidden pour masquer le bouton rouge */}
+        <View style={{ position: 'relative', overflow: 'hidden', borderRadius: 16 }}>
+          {/* Bouton de suppression rouge en arrière-plan */}
+          <View style={styles.deleteButtonBackground}>
+            <TouchableOpacity 
+              style={styles.deleteButtonTouchable}
+              onPress={() => {
+                // Fermer la carte avec animation puis supprimer
+                Animated.timing(translateX, {
+                  toValue: 300,
+                  duration: 300,
+                  useNativeDriver: true,
+                }).start(() => {
+                  handleDeleteQuote(quote.id);
+                });
+              }}
+              activeOpacity={0.8}
+            >
+              <Trash2 size={20} color="#FFFFFF" />
+              <Text style={styles.deleteButtonText}>Supprimer</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Carte animée au-dessus */}
+          <Animated.View style={[{ transform: [{ translateX }] }]}>
+            <TouchableOpacity
+              style={styles.quoteCard}
+              onPress={() => {
+              if (!isDragging) {
+                // Si la carte est ouverte (glissée), on la ferme au lieu de naviguer
+                if (isOpen) {
+                  Animated.spring(translateX, {
+                    toValue: 0,
+                    useNativeDriver: false,
+                    speed: 12,
+                    bounciness: 0,
+                  }).start();
+                  setIsOpen(false);
+                } else {
+                  // Sinon, naviguer vers les détails
+                  const currentQuote = quotes.find(q => q.id === quote.id) || quote;
+                  navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
+                }
+              }
+            }}
+            activeOpacity={0.7}
+          >
+          {/* Quote Icon (custom SVG) */}
+          <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
+            <Path
+              d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+              fill="#20B8CD"
+              opacity={0.12}
+            />
+          </Svg>
+
+          {/* Quote Text */}
+          <Text style={styles.quoteText}>{quote.text}</Text>
+
+          {/* Book Info */}
+          <View style={styles.bookInfo}>
+            <View style={styles.bookInfoLeft}>
+              <Text style={styles.bookTitle}>{quote.book}</Text>
+              {/* Le nom de l'auteur n'est plus cliquable ici */}
+              <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
+                {quote.author}
+              </Text>
+            </View>
+            <Text style={styles.dateText}>{quote.date}</Text>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => toggleLike(quote.id)}
+            >
+              <Heart
+                size={20}
+                color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                fill={quote.isLiked ? '#20B8CD' : 'none'}
+              />
+              <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
+                {quote.likes}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton}>
+              <Share2 size={20} color="#6B7280" />
+              <Text style={styles.actionText}>Partager</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => handleDeleteQuote(quote.id)}
+            >
+              <Trash2 size={20} color="#F87171" />
+              <Text style={[styles.actionText, styles.deleteActionText]}>Supprimer</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+            </Animated.View>
+          </View>
+      </View>
+    );
   };
 
   const toggleSection = (section: 'author' | 'book' | 'year' | null) => {
@@ -250,68 +442,7 @@ export default function MyQuotesScreen() {
           )
         ) : (
           quotes.map((quote) => (
-            <View key={quote.id} style={styles.cardWrapper}>
-              <TouchableOpacity
-                style={styles.quoteCard}
-                onPress={() => {
-                  const currentQuote = quotes.find(q => q.id === quote.id) || quote;
-                  navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
-                }}
-                activeOpacity={0.7}
-              >
-                  {/* Quote Icon (custom SVG) */}
-                  <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
-                    <Path
-                      d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                      fill="#20B8CD"
-                      opacity={0.12}
-                    />
-                  </Svg>
-
-                  {/* Quote Text */}
-                  <Text style={styles.quoteText}>{quote.text}</Text>
-
-                  {/* Book Info */}
-                  <View style={styles.bookInfo}>
-                    <View style={styles.bookInfoLeft}>
-                      <Text style={styles.bookTitle}>{quote.book}</Text>
-                      {/* Le nom de l'auteur n'est plus cliquable ici */}
-                      <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
-                        {quote.author}
-                      </Text>
-                    </View>
-                    <Text style={styles.dateText}>{quote.date}</Text>
-                  </View>
-
-                  {/* Actions */}
-                  <View style={styles.actions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => toggleLike(quote.id)}
-                    >
-                      <Heart
-                        size={20}
-                        color={quote.isLiked ? '#20B8CD' : '#6B7280'}
-                        fill={quote.isLiked ? '#20B8CD' : 'none'}
-                      />
-                      <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
-                        {quote.likes}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionButton}>
-                      <Share2 size={20} color="#6B7280" />
-                      <Text style={styles.actionText}>Partager</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.deleteButton]}
-                      onPress={() => handleDeleteQuote(quote.id)}
-                    >
-                      <Trash2 size={20} color="#F87171" />
-                      <Text style={[styles.actionText, styles.deleteActionText]}>Supprimer</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-            </View>
+            <QuoteCardSwipeable key={quote.id} quote={quote} />
           ))
         )}
       </ScrollView>
@@ -465,6 +596,31 @@ const styles = StyleSheet.create({
     borderColor: '#2A2A2A',
     borderRadius: 16,
     padding: 20,
+  },
+  deleteButtonBackground: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 120,
+    backgroundColor: '#EF4444',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 0,
+  },
+  deleteButtonTouchable: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   quoteIcon: {
     fontSize: 32,
@@ -643,6 +799,8 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     marginBottom: 16,
+    overflow: 'hidden',
+    borderRadius: 16,
   },
   bookCard: {
     backgroundColor: '#1A1A1A',
