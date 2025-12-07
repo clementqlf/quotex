@@ -383,7 +383,6 @@ export default function ScanScreen() {
                   activeOpacity={0.9}
                 >
                   <View>
-                    <View style={styles.scanInnerShadow} />
                     <ScanLine size={28} color="#20B8CD" />
                   </View>
                 </TouchableOpacity>
