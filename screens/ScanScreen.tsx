@@ -38,6 +38,7 @@ export default function ScanScreen() {
   const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
   const frameAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const isFocused = useIsFocused();
   const ocrLiveInterval = useRef<NodeJS.Timeout | null>(null);
   // Ajout d'un flag pour éviter les captures concurrentes
   const isCapturing = useRef(false);
@@ -128,7 +129,6 @@ export default function ScanScreen() {
 
   const { setTabIndex } = useTabIndex();
   const { setSwipeEnabled } = useSwipeEnabled();
-  const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = useRef<Camera>(null);
