@@ -16,11 +16,13 @@ import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
 import { useTabIndex, useSwipeEnabled } from '../TabNavigator';
+
 import ScanWorkflow from './ScanWorkflow';
 
 const quotexLogo = require('../assets/images/quotex_logo.png');
 
 export default function ScanScreen() {
+  // cameraRef déjà déclaré plus haut
   const [photo, setPhoto] = useState<PhotoFile | null>(null);
   const [ocrResult, setOcrResult] = useState<TextRecognitionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +33,6 @@ export default function ScanScreen() {
     width: number;
     height: number;
   } | null>(null);
-
 
   // Pseudo OCR live : texte détecté en live
   const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
@@ -44,11 +45,10 @@ export default function ScanScreen() {
     if (!photo && cameraRef.current) {
       ocrLiveInterval.current = setInterval(async () => {
         try {
+          if (!cameraRef.current) return;
           const tempPhoto = await cameraRef.current.takePhoto({
             flash: 'off',
             enableShutterSound: false,
-            qualityPrioritization: 'speed',
-            skipMetadata: true,
           });
           const result = await TextRecognition.recognize(tempPhoto.path);
           setIsTextDetectedLive(!!result && result.blocks.length > 0);
@@ -63,7 +63,7 @@ export default function ScanScreen() {
     return () => {
       if (ocrLiveInterval.current) clearInterval(ocrLiveInterval.current);
     };
-  }, [photo, cameraRef]);
+  }, [photo]);
 
   // Animation des coins vers cadre complet (live)
   useEffect(() => {
