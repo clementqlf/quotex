@@ -7,6 +7,10 @@ import {
   StyleSheet,
   Dimensions,
   Image,
+  PanResponder,
+  Animated,
+  GestureResponderEvent,
+  PanResponderGestureState,
 } from 'react-native';
 import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Star, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 
@@ -38,6 +42,45 @@ export interface User {
   username: string;
 }
 
+// Composant wrapper pour rendre les blocs draggables
+interface DraggableBlockProps {
+  blockId: string;
+  isDragging: boolean;
+  offset: { x: number; y: number };
+  onLongPress: () => void;
+  onRelease: () => void;
+  onPan: (dx: number, dy: number) => void;
+  children: React.ReactNode;
+}
+
+function DraggableBlock({
+  blockId,
+  isDragging,
+  offset,
+  onLongPress,
+  onRelease,
+  onPan,
+  children,
+}: DraggableBlockProps) {
+  return (
+    <TouchableOpacity
+      onLongPress={onLongPress}
+      delayLongPress={500}
+      activeOpacity={1}
+      style={[
+        isDragging && {
+          opacity: 0.7,
+          backgroundColor: 'rgba(32, 184, 205, 0.1)',
+          borderWidth: 2,
+          borderColor: '#20B8CD',
+        },
+      ]}
+    >
+      {children}
+    </TouchableOpacity>
+  );
+}
+
 // Le composant n'a plus besoin de props, il va tout chercher dans la route.
 export function QuoteDetailModal() {
   const navigation = useNavigation<any>();
@@ -46,10 +89,34 @@ export function QuoteDetailModal() {
 
   // On utilise un état local pour la citation afin de pouvoir la mettre à jour
   const [quote, setQuote] = React.useState(initialQuote);
+  const [draggingBlockId, setDraggingBlockId] = React.useState<string | null>(null);
+  const [blockPositions, setBlockPositions] = React.useState<{ [key: string]: { x: number; y: number } }>({});
+  const [dragStartPos, setDragStartPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   if (!quote) return null;
 
   const onClose = () => navigation.goBack();
+
+  const handleLongPressBlock = (blockId: string) => {
+    setDraggingBlockId(blockId);
+    setDragStartPos({ x: blockPositions[blockId]?.x || 0, y: blockPositions[blockId]?.y || 0 });
+  };
+
+  const handlePanBlock = (blockId: string, dx: number, dy: number) => {
+    if (draggingBlockId === blockId) {
+      setBlockPositions(prev => ({
+        ...prev,
+        [blockId]: {
+          x: dragStartPos.x + dx,
+          y: dragStartPos.y + dy,
+        },
+      }));
+    }
+  };
+
+  const handleReleaseBlock = () => {
+    setDraggingBlockId(null);
+  };
 
   // Cette fonction met à jour l'état local ET appelle la fonction du parent
   const handleToggleLike = () => {
@@ -174,112 +241,167 @@ export function QuoteDetailModal() {
 
             {/* Definition Block */}
             {definitions[quote.text] && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <BookOpen size={16} color="#20B8CD" />
-                  <Text style={styles.sectionTitle}>Définition</Text>
+              <DraggableBlock
+                blockId="definition"
+                isDragging={draggingBlockId === 'definition'}
+                offset={blockPositions['definition'] || { x: 0, y: 0 }}
+                onLongPress={() => handleLongPressBlock('definition')}
+                onRelease={handleReleaseBlock}
+                onPan={(dx, dy) => handlePanBlock('definition', dx, dy)}
+              >
+                <View style={styles.definitionSection}>
+                  <View style={styles.sectionHeader}>
+                    <BookOpen size={16} color="#20B8CD" />
+                    <Text style={styles.sectionTitle}>Définition</Text>
+                  </View>
+                  <View style={styles.definitionContent}>
+                    {definitions[quote.text].map((item, index) => (
+                      <View key={index}>
+                        <Text style={styles.definitionTerm}>{item.term}</Text>
+                        <Text style={styles.definitionGenre}>{item.genre}</Text>
+                        <Text style={styles.definitionDesc}>{item.definition}</Text>
+                        <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{item.example}</Text>
+                        {index !== definitions[quote.text].length - 1 && <View style={styles.definitionDivider} />}
+                      </View>
+                    ))}
+                  </View>
                 </View>
-                <Text style={styles.definitionText}>{definitions[quote.text]}</Text>
-              </View>
+              </DraggableBlock>
             )}
 
             {/* Book Information */}
             {bookInfo && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <BookOpen size={16} color="#20B8CD" />
-                  <Text style={styles.sectionTitle}>À propos du livre</Text>
-                </View>
-                <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quote.book)}>
-                  <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
-                  <View style={styles.bookInfo}>
-                    <TouchableOpacity onPress={() => onBookPress(quote.book)}>
-                      <Text style={styles.bookName}>{quote.book}</Text>
-                    </TouchableOpacity>
-
-                    {/* Book Meta Info */}
-                    <View style={styles.bookMeta}>
-                      <View style={styles.metaItem}>
-                        <Calendar size={14} color="#6B7280" />
-                        <Text style={styles.metaText}>{bookInfo.year}</Text>
-                      </View>
-                      <View style={styles.metaItem}>
-                        <BookOpen size={14} color="#6B7280" />
-                        <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
-                      </View>
-                      <View style={styles.metaItem}>
-                        <Star size={14} color="#20B8CD" fill="#20B8CD" />
-                        <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
-                      </View>
-                    </View>
-
-                    {/* Genre Badge */}
-                    <View style={styles.genreBadge}>
-                      <Text style={styles.genreText}>{bookInfo.genre}</Text>
-                    </View>
+              <DraggableBlock
+                blockId="bookInfo"
+                isDragging={draggingBlockId === 'bookInfo'}
+                offset={blockPositions['bookInfo'] || { x: 0, y: 0 }}
+                onLongPress={() => handleLongPressBlock('bookInfo')}
+                onRelease={handleReleaseBlock}
+                onPan={(dx, dy) => handlePanBlock('bookInfo', dx, dy)}
+              >
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <BookOpen size={16} color="#20B8CD" />
+                    <Text style={styles.sectionTitle}>À propos du livre</Text>
                   </View>
-                </TouchableOpacity>
+                  <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quote.book)}>
+                    <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
+                    <View style={styles.bookInfo}>
+                      <TouchableOpacity onPress={() => onBookPress(quote.book)}>
+                        <Text style={styles.bookName}>{quote.book}</Text>
+                      </TouchableOpacity>
 
-                {/* Book Description */}
-                <Text style={styles.bookDesc}>{bookInfo.description}</Text>
-              </View>
+                      {/* Book Meta Info */}
+                      <View style={styles.bookMeta}>
+                        <View style={styles.metaItem}>
+                          <Calendar size={14} color="#6B7280" />
+                          <Text style={styles.metaText}>{bookInfo.year}</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                          <BookOpen size={14} color="#6B7280" />
+                          <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                          <Star size={14} color="#20B8CD" fill="#20B8CD" />
+                          <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
+                        </View>
+                      </View>
+
+                      {/* Genre Badge */}
+                      <View style={styles.genreBadge}>
+                        <Text style={styles.genreText}>{bookInfo.genre}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Book Description */}
+                  <Text style={styles.bookDesc}>{bookInfo.description}</Text>
+                </View>
+              </DraggableBlock>
             )}
 
             {/* About Author */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <UserIcon size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+            <DraggableBlock
+              blockId="author"
+              isDragging={draggingBlockId === 'author'}
+              offset={blockPositions['author'] || { x: 0, y: 0 }}
+              onLongPress={() => handleLongPressBlock('author')}
+              onRelease={handleReleaseBlock}
+              onPan={(dx, dy) => handlePanBlock('author', dx, dy)}
+            >
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <UserIcon size={16} color="#20B8CD" />
+                  <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+                </View>
+                <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
+                  <Text style={styles.authorName}>{quote.author}</Text>
+                  <Text style={styles.authorDesc}>{authorDesc}</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
-                <Text style={styles.authorName}>{quote.author}</Text>
-                <Text style={styles.authorDesc}>{authorDesc}</Text>
-              </TouchableOpacity>
-            </View>
+            </DraggableBlock>
 
             {/* Similar Books */}
             {similarBookList.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <BookOpen size={16} color="#20B8CD" />
-                  <Text style={styles.sectionTitle}>Livres similaires</Text>
+              <DraggableBlock
+                blockId="similarBooks"
+                isDragging={draggingBlockId === 'similarBooks'}
+                offset={blockPositions['similarBooks'] || { x: 0, y: 0 }}
+                onLongPress={() => handleLongPressBlock('similarBooks')}
+                onRelease={handleReleaseBlock}
+                onPan={(dx, dy) => handlePanBlock('similarBooks', dx, dy)}
+              >
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <BookOpen size={16} color="#20B8CD" />
+                    <Text style={styles.sectionTitle}>Livres similaires</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+                    {similarBookList.map((bookTitle) => {
+                      const similarBookInfo = bookDescriptions[bookTitle];
+                      if (!similarBookInfo) return null;
+                      return ( // Utilisation de `push` pour permettre la navigation vers un livre similaire du même type
+                        <TouchableOpacity key={bookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle })}>
+                          <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
+                          <Text numberOfLines={2} style={styles.similarBookTitle}>{bookTitle}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                  {similarBookList.map((bookTitle) => {
-                    const similarBookInfo = bookDescriptions[bookTitle];
-                    if (!similarBookInfo) return null;
-                    return ( // Utilisation de `push` pour permettre la navigation vers un livre similaire du même type
-                      <TouchableOpacity key={bookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle })}>
-                        <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
-                        <Text numberOfLines={2} style={styles.similarBookTitle}>{bookTitle}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              </DraggableBlock>
             )}
 
             {/* Similar Authors */}
             {similarAuthorList.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <UserIcon size={16} color="#20B8CD" />
-                  <Text style={styles.sectionTitle}>Auteurs similaires</Text>
+              <DraggableBlock
+                blockId="similarAuthors"
+                isDragging={draggingBlockId === 'similarAuthors'}
+                offset={blockPositions['similarAuthors'] || { x: 0, y: 0 }}
+                onLongPress={() => handleLongPressBlock('similarAuthors')}
+                onRelease={handleReleaseBlock}
+                onPan={(dx, dy) => handlePanBlock('similarAuthors', dx, dy)}
+              >
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <UserIcon size={16} color="#20B8CD" />
+                    <Text style={styles.sectionTitle}>Auteurs similaires</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+                    {similarAuthorList.map((authorName) => {
+                      // We need a representative book cover for the author. Let's find one.
+                      const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
+                      const authorCover = authorBook ? authorBook.cover : 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop';
+                      return ( // Utilisation de `push` pour la même raison
+                        <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName })}>
+                          <Image source={{ uri: authorCover }} style={styles.similarBookCover} />
+                          <Text numberOfLines={2} style={styles.similarBookTitle}>{authorName}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                  {similarAuthorList.map((authorName) => {
-                    // We need a representative book cover for the author. Let's find one.
-                    const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
-                    const authorCover = authorBook ? authorBook.cover : 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop';
-                    return ( // Utilisation de `push` pour la même raison
-                      <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName })}>
-                        <Image source={{ uri: authorCover }} style={styles.similarBookCover} />
-                        <Text numberOfLines={2} style={styles.similarBookTitle}>{authorName}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+              </DraggableBlock>
             )}
 
             {/* Placeholder block */}
@@ -558,6 +680,53 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  definitionSection: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  definitionContent: {
+    gap: 0,
+  },
+  definitionTerm: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#20B8CD',
+    marginBottom: 4,
+    fontFamily: 'Times New Roman',
+    fontStyle: 'italic',
+  },
+  definitionGenre: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  definitionDesc: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#E5E7EB',
+    marginBottom: 8,
+  },
+  definitionExample: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  exampleLabel: {
+    fontStyle: 'italic',
+    color: '#6B7280',
+  },
+  definitionDivider: {
+    height: 1,
+    backgroundColor: '#2A2A2A',
+    marginVertical: 12,
   },
   placeholderSection: {
     borderWidth: 1,

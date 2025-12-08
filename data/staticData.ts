@@ -4,10 +4,49 @@ export const aiInterpretations: { [key: string]: string } = {
     "It is our choices that show what we truly are, far more than our abilities.": "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
 };
 
-export const definitions: { [key: string]: string } = {
-    "The only way to do great work is to love what you do.": "Passion : Un sentiment intense d'enthousiasme et d'intérêt pour une activité, souvent associé à la motivation intrinsèque. Amour du travail : État de bien-être et de satisfaction professionnelle.",
-    "In the middle of difficulty lies opportunity.": "Défi : Situation difficile qui demande des efforts et de la persévérance pour être surmontée. Opportunité : Circonstance favorable qui se présente et peut être exploitée à son avantage.",
-    "It is our choices that show what we truly are, far more than our abilities.": "Choix : Acte volontaire de sélection entre plusieurs options. Caractère : Ensemble des qualités et défauts qui définissent la personnalité d'une personne.",
+export const definitions: { [key: string]: Array<{ term: string; genre: string; definition: string; example: string }> } = {
+    "The only way to do great work is to love what you do.": [
+        { 
+            term: "Passion", 
+            genre: "nom féminin",
+            definition: "Un sentiment intense d'enthousiasme et d'intérêt pour une activité, souvent associé à la motivation intrinsèque.",
+            example: "Sa passion pour la peinture l'a menée à devenir une artiste reconnue."
+        },
+        { 
+            term: "Amour du travail", 
+            genre: "nom masculin",
+            definition: "État de bien-être et de satisfaction professionnelle.",
+            example: "L'amour du travail bien fait est la clé du succès personnel."
+        }
+    ],
+    "In the middle of difficulty lies opportunity.": [
+        { 
+            term: "Défi", 
+            genre: "nom masculin",
+            definition: "Situation difficile qui demande des efforts et de la persévérance pour être surmontée.",
+            example: "Relever un défi stimule notre créativité et renforce notre confiance."
+        },
+        { 
+            term: "Opportunité", 
+            genre: "nom féminin",
+            definition: "Circonstance favorable qui se présente et peut être exploitée à son avantage.",
+            example: "Une opportunité de carrière s'est présentée à lui au moment opportun."
+        }
+    ],
+    "It is our choices that show what we truly are, far more than our abilities.": [
+        { 
+            term: "Choix", 
+            genre: "nom masculin",
+            definition: "Acte volontaire de sélection entre plusieurs options.",
+            example: "Chaque choix que nous faisons façonne notre futur."
+        },
+        { 
+            term: "Caractère", 
+            genre: "nom masculin",
+            definition: "Ensemble des qualités et défauts qui définissent la personnalité d'une personne.",
+            example: "Le caractère d'une personne se révèle dans ses actions difficiles."
+        }
+    ],
 };
 
 export const authorDetails: { [key: string]: { description: string, image: string, birthDate: string, nationality: string } } = {
