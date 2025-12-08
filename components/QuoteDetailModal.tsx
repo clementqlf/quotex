@@ -14,6 +14,7 @@ import {
   aiInterpretations,
   authorDetails,
   bookDescriptions,
+  definitions,
   similarBooks,
   similarAuthors,
 } from '../data/staticData'; 
@@ -170,6 +171,17 @@ export function QuoteDetailModal() {
               </View>
               <Text style={styles.aiText}>{aiInterpretation}</Text>
             </View>
+
+            {/* Definition Block */}
+            {definitions[quote.text] && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <BookOpen size={16} color="#20B8CD" />
+                  <Text style={styles.sectionTitle}>Définition</Text>
+                </View>
+                <Text style={styles.definitionText}>{definitions[quote.text]}</Text>
+              </View>
+            )}
 
             {/* Book Information */}
             {bookInfo && (
@@ -441,6 +453,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     color: '#E5E7EB',
+  },
+  definitionText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#9CA3AF',
   },
   sectionHeader: {
     flexDirection: 'row',

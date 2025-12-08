@@ -4,6 +4,12 @@ export const aiInterpretations: { [key: string]: string } = {
     "It is our choices that show what we truly are, far more than our abilities.": "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
 };
 
+export const definitions: { [key: string]: string } = {
+    "The only way to do great work is to love what you do.": "Passion : Un sentiment intense d'enthousiasme et d'intérêt pour une activité, souvent associé à la motivation intrinsèque. Amour du travail : État de bien-être et de satisfaction professionnelle.",
+    "In the middle of difficulty lies opportunity.": "Défi : Situation difficile qui demande des efforts et de la persévérance pour être surmontée. Opportunité : Circonstance favorable qui se présente et peut être exploitée à son avantage.",
+    "It is our choices that show what we truly are, far more than our abilities.": "Choix : Acte volontaire de sélection entre plusieurs options. Caractère : Ensemble des qualités et défauts qui définissent la personnalité d'une personne.",
+};
+
 export const authorDetails: { [key: string]: { description: string, image: string, birthDate: string, nationality: string } } = {
     "Walter Isaacson": {
         description: "Walter Isaacson est un journaliste et écrivain américain, ancien PDG de CNN. Il est connu pour ses biographies de figures emblématiques comme Steve Jobs et Albert Einstein.",
