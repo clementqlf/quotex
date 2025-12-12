@@ -7,10 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  FlatList,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, Mail, Link } from 'lucide-react-native';
+import { ChevronLeft, Mail, Link, Quote } from 'lucide-react-native';
 import { RootStackParamList } from '../types';
 import UserProfiles from '../mock/user-profiles.json'; // Gardé pour la bio, stats, etc.
 import { globalQuotesDB } from '../data/staticData'; // Import de la DB globale
@@ -171,16 +170,30 @@ export function UserProfileScreen() {
 
           {/* User's quotes */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Citations de {user.name.split(' ')[0]}</Text>
+            <View style={styles.sectionHeader}>
+              <Quote size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Citations de {user.name.split(' ')[0]}</Text>
+            </View>
             {userQuotes.length > 0 ? (
-              <FlatList
-                data={userQuotes}
-                keyExtractor={(item) => String(item.id)}
-                renderItem={({ item }) => (
-                  <View style={styles.quoteItem}><Text style={styles.quoteText}>"{item.text}" - {item.author}</Text></View>
-                )}
-                scrollEnabled={false}
-              />
+              <View style={styles.savedQuotesList}>
+                {userQuotes.map((quote) => (
+                  <TouchableOpacity
+                    key={quote.id}
+                    style={styles.savedQuoteCard}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                  >
+                    <Text style={styles.savedQuoteText}>{quote.text}</Text>
+                    <View style={styles.savedQuoteMeta}>
+                      <View>
+                        <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
+                        <Text style={styles.savedQuoteBook}>{quote.book}</Text>
+                      </View>
+                      <Text style={styles.savedQuoteDate}>{quote.time}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             ) : (
               <Text style={styles.placeholderText}>Cet utilisateur n'a pas encore partagé de citations.</Text>
             )}
@@ -326,20 +339,50 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 12,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
   placeholderText: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
     paddingVertical: 24,
   },
-  quoteItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+  savedQuotesList: {
+    gap: 12,
   },
-  quoteText: {
-    color: '#E5E7EB',
+  savedQuoteCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    padding: 12,
+  },
+  savedQuoteText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
+    color: '#E5E7EB',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  savedQuoteMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  savedQuoteAuthor: {
+    fontSize: 12,
+    color: '#20B8CD',
+  },
+  savedQuoteBook: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  savedQuoteDate: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });
