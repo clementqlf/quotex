@@ -1,1 +1,8 @@
 Pods/
+.cxx/	.cxx/
+*.keystore	*.keystore
+!debug.keystore	!debug.keystore
+.kotlin/
+ 	 
+# node.js	# node.js
+#	#

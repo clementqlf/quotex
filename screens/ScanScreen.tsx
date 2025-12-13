@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 
 import {
   ActivityIndicator,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { BookOpen, ImageIcon, ScanLine, Sparkles } from 'lucide-react-native';
+import { BookOpen, Image as ImageIcon, ScanLine, Sparkles } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
@@ -22,12 +22,11 @@ import ScanWorkflow from './ScanWorkflow';
 const quotexLogo = require('../assets/images/quotex_logo.png');
 
 export default function ScanScreen() {
-  // cameraRef déjà déclaré plus haut
-  const [photo, setPhoto] = useState<PhotoFile | null>(null);
-  const [ocrResult, setOcrResult] = useState<TextRecognitionResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [scanFrameLayout, setScanFrameLayout] = useState<{
+  const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
+  const [ocrResult, setOcrResult] = React.useState<TextRecognitionResult | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
+  const [scanFrameLayout, setScanFrameLayout] = React.useState<{
     x: number;
     y: number;
     width: number;
@@ -35,16 +34,22 @@ export default function ScanScreen() {
   } | null>(null);
 
   // Pseudo OCR live : texte détecté en live
-  const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
-  const frameAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [isTextDetectedLive, setIsTextDetectedLive] = React.useState(false);
+  const frameAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
   const isFocused = useIsFocused();
-  const ocrLiveInterval = useRef<NodeJS.Timeout | null>(null);
+  const ocrLiveInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
   // Ajout d'un flag pour éviter les captures concurrentes
-  const isCapturing = useRef(false);
+  const isCapturing = React.useRef(false);
+  
+  const { setTabIndex } = useTabIndex();
+  const { setSwipeEnabled } = useSwipeEnabled();
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
+  const cameraRef = React.useRef<Camera | null>(null);
 
   // Pseudo OCR live : prend une photo temporaire toutes les 1s et détecte du texte
-  useEffect(() => {
+  React.useEffect(() => {
     let isMounted = true;
     
     if (!photo && cameraRef.current && isFocused) {
@@ -97,7 +102,7 @@ export default function ScanScreen() {
   }, [photo, isFocused]);
 
   // Animation des coins vers cadre complet (live)
-  useEffect(() => {
+  React.useEffect(() => {
     if (isTextDetectedLive) {
       Animated.parallel([
         Animated.timing(frameAnim, {
@@ -127,14 +132,8 @@ export default function ScanScreen() {
     }
   }, [isTextDetectedLive, frameAnim, fadeAnim]);
 
-  const { setTabIndex } = useTabIndex();
-  const { setSwipeEnabled } = useSwipeEnabled();
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
-  const cameraRef = useRef<Camera>(null);
-
   // Cleanup au unmount du composant
-  useEffect(() => {
+  React.useEffect(() => {
     return () => {
       if (ocrLiveInterval.current) {
         clearInterval(ocrLiveInterval.current);
@@ -144,13 +143,13 @@ export default function ScanScreen() {
     };
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!hasPermission) {
       requestPermission();
     }
   }, [hasPermission, requestPermission]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isFocused) {
       setTabIndex(1);
     } else {
@@ -168,7 +167,7 @@ export default function ScanScreen() {
     }
   }, [isFocused, setTabIndex]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setSwipeEnabled(!(photo && ocrResult));
   }, [photo, ocrResult, setSwipeEnabled]);
 
@@ -267,7 +266,7 @@ export default function ScanScreen() {
   return (
     <SafeAreaView
       style={styles.container}
-      onLayout={event => {
+      onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
         setContainerSize({ width, height });
       }}
@@ -284,11 +283,11 @@ export default function ScanScreen() {
         <ScanWorkflow photo={photo} ocrResult={ocrResult} onReset={handleResetCapture} />
       ) : isFocused && !photo ? (
         <Camera
-          ref={cameraRef}
           style={StyleSheet.absoluteFill}
           device={device}
           isActive={true}
           photo
+          ref={cameraRef}
           onError={(error) => {
             console.log('Camera error:', error);
           }}
@@ -306,7 +305,7 @@ export default function ScanScreen() {
           <View style={styles.scanArea}>
             <View
               style={styles.scanFrame}
-              onLayout={event => {
+              onLayout={(event) => {
                 const { x, y, width, height } = event.nativeEvent.layout;
                 setScanFrameLayout({ x, y, width, height });
               }}
@@ -327,7 +326,7 @@ export default function ScanScreen() {
                         height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height-32] }),
                         borderTopWidth: 3,
                         borderLeftWidth: 3,
-                        borderTopLeftRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
+                        borderTopLeftRadius: 24,
                         borderRightWidth: 0,
                         borderBottomWidth: 0,
                         zIndex: 10,
@@ -345,7 +344,7 @@ export default function ScanScreen() {
                         height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height-32] }),
                         borderTopWidth: 3,
                         borderRightWidth: 3,
-                        borderTopRightRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
+                        borderTopRightRadius: 24,
                         borderLeftWidth: 0,
                         borderBottomWidth: 0,
                         zIndex: 10,
@@ -363,7 +362,7 @@ export default function ScanScreen() {
                         height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderBottomWidth: 3,
                         borderLeftWidth: 3,
-                        borderBottomLeftRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
+                        borderBottomLeftRadius: 24,
                         borderTopWidth: 0,
                         borderRightWidth: 0,
                         zIndex: 10,
@@ -381,7 +380,7 @@ export default function ScanScreen() {
                         height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderBottomWidth: 3,
                         borderRightWidth: 3,
-                        borderBottomRightRadius: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 24] }),
+                        borderBottomRightRadius: 24,
                         borderTopWidth: 0,
                         borderLeftWidth: 0,
                         zIndex: 10,
@@ -394,9 +393,12 @@ export default function ScanScreen() {
               {/* Ligne de scan animée supprimée */}
 
               <View style={styles.content}>
-                <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }} pointerEvents="none">
+                <Animated.View 
+                  style={[styles.fadeContainer, { opacity: fadeAnim }]} 
+                  pointerEvents="none"
+                >
                   <View style={styles.iconShadowWrapper}>
-                    <BookOpen size={48} color="#FFFFFF" style={styles.iconShadow} />
+                    <BookOpen size={48} color="#FFFFFF" />
                   </View>
                   <Text style={styles.instructionTextShadow}>
                     {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
@@ -576,6 +578,10 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     overflow: 'visible',
+  },
+  fadeContainer: {
+    alignItems: 'center',
+    width: '100%',
   },
   instructionText: {
     fontSize: 15,

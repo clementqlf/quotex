@@ -8,19 +8,14 @@
 #pragma once
 
 #include "HostTarget.h"
-#include "SessionState.h"
 
 #include <jsinspector-modern/InspectorInterfaces.h>
 #include <jsinspector-modern/InstanceAgent.h>
-
-#include <functional>
-#include <string_view>
+#include <jsinspector-modern/cdp/CdpJson.h>
 
 namespace facebook::react::jsinspector_modern {
 
-class HostTarget;
 class InstanceAgent;
-class InstanceTarget;
 
 /**
  * An Agent that handles requests from the Chrome DevTools Protocol for the
@@ -39,12 +34,14 @@ class HostAgent final {
    * HostTargetDelegate and underlying HostTarget both outlive the agent.
    * \param hostMetadata Metadata about the host that created this agent.
    * \param sessionState The state of the session that created this agent.
+   * \param executor A void executor to be used by async-aware handlers.
    */
   HostAgent(
-      FrontendChannel frontendChannel,
+      const FrontendChannel& frontendChannel,
       HostTargetController& targetController,
       HostTargetMetadata hostMetadata,
-      SessionState& sessionState);
+      SessionState& sessionState,
+      VoidExecutor executor);
 
   HostAgent(const HostAgent&) = delete;
   HostAgent(HostAgent&&) = delete;
@@ -69,41 +66,13 @@ class HostAgent final {
   void setCurrentInstanceAgent(std::shared_ptr<InstanceAgent> agent);
 
  private:
-  enum class FuseboxClientType { Unknown, Fusebox, NonFusebox };
+  // We use the private implementation idiom to ensure this class has the same
+  // layout regardless of whether REACT_NATIVE_DEBUGGER_ENABLED is defined. The
+  // net effect is that callers can include HostAgent.h without setting
+  // HERMES_ENABLE_DEBUGGER one way or the other.
+  class Impl;
 
-  /**
-   * Send a simple Log.entryAdded notification with the given
-   * \param text. You must ensure that the frontend has enabled Log
-   * notifications (using Log.enable) prior to calling this function. In Chrome
-   * DevTools, the message will appear in the Console tab along with regular
-   * console messages. The difference between Log.entryAdded and
-   * Runtime.consoleAPICalled is that the latter requires an execution context
-   * ID, which does not exist at the Host level.
-   */
-  void sendInfoLogEntry(
-      std::string_view text,
-      std::initializer_list<std::string_view> args = {});
-
-  void sendFuseboxNotice();
-  void sendNonFuseboxNotice();
-
-  /**
-   * Send a console message to the frontend, or buffer it to be sent later.
-   */
-  void sendConsoleMessage(SimpleConsoleMessage message);
-
-  FrontendChannel frontendChannel_;
-  HostTargetController& targetController_;
-  const HostTargetMetadata hostMetadata_;
-  std::shared_ptr<InstanceAgent> instanceAgent_;
-  FuseboxClientType fuseboxClientType_{FuseboxClientType::Unknown};
-  bool isPausedInDebuggerOverlayVisible_{false};
-
-  /**
-   * A shared reference to the session's state. This is only safe to access
-   * during handleRequest and other method calls on the same thread.
-   */
-  SessionState& sessionState_;
+  std::unique_ptr<Impl> impl_;
 };
 
 } // namespace facebook::react::jsinspector_modern

@@ -23,6 +23,19 @@ struct RNSVGSvgViewAndroidNativeBackgroundAndroidStruct {
   Float color{0.0};
   bool borderless{false};
   Float rippleRadius{0.0};
+
+#ifdef RN_SERIALIZABLE_STATE
+  bool operator==(const RNSVGSvgViewAndroidNativeBackgroundAndroidStruct&) const = default;
+
+  folly::dynamic toDynamic() const {
+    folly::dynamic result = folly::dynamic::object();
+    result["type"] = type;
+    result["color"] = color;
+    result["borderless"] = borderless;
+    result["rippleRadius"] = rippleRadius;
+    return result;
+  }
+#endif
 };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSVGSvgViewAndroidNativeBackgroundAndroidStruct &result) {
@@ -50,11 +63,30 @@ static inline std::string toString(const RNSVGSvgViewAndroidNativeBackgroundAndr
   return "[Object RNSVGSvgViewAndroidNativeBackgroundAndroidStruct]";
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGSvgViewAndroidNativeBackgroundAndroidStruct &value) {
+  return value.toDynamic();
+}
+#endif
+
 struct RNSVGSvgViewAndroidNativeForegroundAndroidStruct {
   std::string type{};
   Float color{0.0};
   bool borderless{false};
   Float rippleRadius{0.0};
+
+#ifdef RN_SERIALIZABLE_STATE
+  bool operator==(const RNSVGSvgViewAndroidNativeForegroundAndroidStruct&) const = default;
+
+  folly::dynamic toDynamic() const {
+    folly::dynamic result = folly::dynamic::object();
+    result["type"] = type;
+    result["color"] = color;
+    result["borderless"] = borderless;
+    result["rippleRadius"] = rippleRadius;
+    return result;
+  }
+#endif
 };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSVGSvgViewAndroidNativeForegroundAndroidStruct &result) {
@@ -81,6 +113,12 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
 static inline std::string toString(const RNSVGSvgViewAndroidNativeForegroundAndroidStruct &value) {
   return "[Object RNSVGSvgViewAndroidNativeForegroundAndroidStruct]";
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGSvgViewAndroidNativeForegroundAndroidStruct &value) {
+  return value.toDynamic();
+}
+#endif
 class RNSVGSvgViewAndroidProps final : public ViewProps {
  public:
   RNSVGSvgViewAndroidProps() = default;
@@ -136,6 +174,12 @@ class RNSVGSvgViewAndroidProps final : public ViewProps {
   folly::dynamic borderEndStartRadius{};
   folly::dynamic borderStartEndRadius{};
   folly::dynamic borderStartStartRadius{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGCircleProps final : public ViewProps {
@@ -175,6 +219,12 @@ class RNSVGCircleProps final : public ViewProps {
   folly::dynamic cx{};
   folly::dynamic cy{};
   folly::dynamic r{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGClipPathProps final : public ViewProps {
@@ -214,6 +264,12 @@ class RNSVGClipPathProps final : public ViewProps {
   folly::dynamic fontSize{};
   folly::dynamic fontWeight{};
   folly::dynamic font{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGDefsProps final : public ViewProps {
@@ -235,6 +291,12 @@ class RNSVGDefsProps final : public ViewProps {
   bool responsible{false};
   std::string display{};
   std::string pointerEvents{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGEllipseProps final : public ViewProps {
@@ -275,6 +337,12 @@ class RNSVGEllipseProps final : public ViewProps {
   folly::dynamic cy{};
   folly::dynamic rx{};
   folly::dynamic ry{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSVGFeBlendMode { Unknown, Normal, Multiply, Screen, Darken, Lighten };
@@ -301,6 +369,12 @@ static inline std::string toString(const RNSVGFeBlendMode &value) {
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGFeBlendMode &value) {
+  return toString(value);
+}
+#endif
+
 class RNSVGFeBlendProps final : public ViewProps {
  public:
   RNSVGFeBlendProps() = default;
@@ -316,6 +390,12 @@ class RNSVGFeBlendProps final : public ViewProps {
   std::string in1{};
   std::string in2{};
   RNSVGFeBlendMode mode{RNSVGFeBlendMode::Normal};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSVGFeColorMatrixType { Matrix, Saturate, HueRotate, LuminanceToAlpha };
@@ -338,6 +418,12 @@ static inline std::string toString(const RNSVGFeColorMatrixType &value) {
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGFeColorMatrixType &value) {
+  return toString(value);
+}
+#endif
+
 class RNSVGFeColorMatrixProps final : public ViewProps {
  public:
   RNSVGFeColorMatrixProps() = default;
@@ -353,6 +439,12 @@ class RNSVGFeColorMatrixProps final : public ViewProps {
   std::string in1{};
   RNSVGFeColorMatrixType type{RNSVGFeColorMatrixType::Matrix};
   std::vector<Float> values{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSVGFeCompositeOperator1 { Over, In, Out, Atop, Xor, Arithmetic };
@@ -379,6 +471,12 @@ static inline std::string toString(const RNSVGFeCompositeOperator1 &value) {
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGFeCompositeOperator1 &value) {
+  return toString(value);
+}
+#endif
+
 class RNSVGFeCompositeProps final : public ViewProps {
  public:
   RNSVGFeCompositeProps() = default;
@@ -398,6 +496,12 @@ class RNSVGFeCompositeProps final : public ViewProps {
   Float k2{0.0};
   Float k3{0.0};
   Float k4{0.0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGFeFloodProps final : public ViewProps {
@@ -414,6 +518,12 @@ class RNSVGFeFloodProps final : public ViewProps {
   std::string result{};
   folly::dynamic floodColor{};
   Float floodOpacity{1.0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSVGFeGaussianBlurEdgeMode { Duplicate, Wrap, None };
@@ -434,6 +544,12 @@ static inline std::string toString(const RNSVGFeGaussianBlurEdgeMode &value) {
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGFeGaussianBlurEdgeMode &value) {
+  return toString(value);
+}
+#endif
+
 class RNSVGFeGaussianBlurProps final : public ViewProps {
  public:
   RNSVGFeGaussianBlurProps() = default;
@@ -450,6 +566,12 @@ class RNSVGFeGaussianBlurProps final : public ViewProps {
   Float stdDeviationX{0.0};
   Float stdDeviationY{0.0};
   RNSVGFeGaussianBlurEdgeMode edgeMode{RNSVGFeGaussianBlurEdgeMode::None};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGFeMergeProps final : public ViewProps {
@@ -465,6 +587,12 @@ class RNSVGFeMergeProps final : public ViewProps {
   folly::dynamic height{};
   std::string result{};
   std::vector<std::string> nodes{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGFeOffsetProps final : public ViewProps {
@@ -482,6 +610,12 @@ class RNSVGFeOffsetProps final : public ViewProps {
   std::string in1{};
   folly::dynamic dx{};
   folly::dynamic dy{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSVGFilterFilterUnits { UserSpaceOnUse, ObjectBoundingBox };
@@ -499,6 +633,12 @@ static inline std::string toString(const RNSVGFilterFilterUnits &value) {
     case RNSVGFilterFilterUnits::ObjectBoundingBox: return "objectBoundingBox";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGFilterFilterUnits &value) {
+  return toString(value);
+}
+#endif
 enum class RNSVGFilterPrimitiveUnits { UserSpaceOnUse, ObjectBoundingBox };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSVGFilterPrimitiveUnits &result) {
@@ -515,6 +655,12 @@ static inline std::string toString(const RNSVGFilterPrimitiveUnits &value) {
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSVGFilterPrimitiveUnits &value) {
+  return toString(value);
+}
+#endif
+
 class RNSVGFilterProps final : public ViewProps {
  public:
   RNSVGFilterProps() = default;
@@ -529,6 +675,12 @@ class RNSVGFilterProps final : public ViewProps {
   folly::dynamic width{};
   RNSVGFilterFilterUnits filterUnits{RNSVGFilterFilterUnits::ObjectBoundingBox};
   RNSVGFilterPrimitiveUnits primitiveUnits{RNSVGFilterPrimitiveUnits::UserSpaceOnUse};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGForeignObjectProps final : public ViewProps {
@@ -572,6 +724,12 @@ class RNSVGForeignObjectProps final : public ViewProps {
   folly::dynamic y{};
   folly::dynamic height{};
   folly::dynamic width{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGGroupProps final : public ViewProps {
@@ -611,6 +769,12 @@ class RNSVGGroupProps final : public ViewProps {
   folly::dynamic fontSize{};
   folly::dynamic fontWeight{};
   folly::dynamic font{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGImageProps final : public ViewProps {
@@ -654,6 +818,12 @@ class RNSVGImageProps final : public ViewProps {
   ImageSource src{};
   std::string align{};
   int meetOrSlice{0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGSvgViewProps final : public ViewProps {
@@ -674,6 +844,12 @@ class RNSVGSvgViewProps final : public ViewProps {
   SharedColor color{};
   std::string pointerEvents{};
   folly::dynamic hitSlop{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGLinearGradientProps final : public ViewProps {
@@ -702,6 +878,12 @@ class RNSVGLinearGradientProps final : public ViewProps {
   std::vector<Float> gradient{};
   int gradientUnits{0};
   std::vector<Float> gradientTransform{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGLineProps final : public ViewProps {
@@ -742,6 +924,12 @@ class RNSVGLineProps final : public ViewProps {
   folly::dynamic y1{};
   folly::dynamic x2{};
   folly::dynamic y2{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGMarkerProps final : public ViewProps {
@@ -793,6 +981,12 @@ class RNSVGMarkerProps final : public ViewProps {
   Float vbHeight{0.0};
   std::string align{};
   int meetOrSlice{0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGMaskProps final : public ViewProps {
@@ -839,6 +1033,12 @@ class RNSVGMaskProps final : public ViewProps {
   int maskUnits{0};
   int maskContentUnits{0};
   int maskType{0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGPathProps final : public ViewProps {
@@ -876,6 +1076,12 @@ class RNSVGPathProps final : public ViewProps {
   std::vector<std::string> propList{};
   std::string filter{};
   std::string d{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGPatternProps final : public ViewProps {
@@ -928,6 +1134,12 @@ class RNSVGPatternProps final : public ViewProps {
   Float vbHeight{0.0};
   std::string align{};
   int meetOrSlice{0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGRadialGradientProps final : public ViewProps {
@@ -958,6 +1170,12 @@ class RNSVGRadialGradientProps final : public ViewProps {
   std::vector<Float> gradient{};
   int gradientUnits{0};
   std::vector<Float> gradientTransform{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGRectProps final : public ViewProps {
@@ -1000,6 +1218,12 @@ class RNSVGRectProps final : public ViewProps {
   folly::dynamic width{};
   folly::dynamic rx{};
   folly::dynamic ry{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGSymbolProps final : public ViewProps {
@@ -1045,6 +1269,12 @@ class RNSVGSymbolProps final : public ViewProps {
   Float vbHeight{0.0};
   std::string align{};
   int meetOrSlice{0};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGTextProps final : public ViewProps {
@@ -1095,6 +1325,12 @@ class RNSVGTextProps final : public ViewProps {
   std::string lengthAdjust{};
   std::string alignmentBaseline{};
   folly::dynamic verticalAlign{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGTextPathProps final : public ViewProps {
@@ -1151,6 +1387,12 @@ class RNSVGTextPathProps final : public ViewProps {
   std::string midLine{};
   std::string spacing{};
   folly::dynamic startOffset{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGTSpanProps final : public ViewProps {
@@ -1202,6 +1444,12 @@ class RNSVGTSpanProps final : public ViewProps {
   std::string alignmentBaseline{};
   folly::dynamic verticalAlign{};
   std::string content{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSVGUseProps final : public ViewProps {
@@ -1243,6 +1491,12 @@ class RNSVGUseProps final : public ViewProps {
   folly::dynamic y{};
   folly::dynamic height{};
   folly::dynamic width{};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 } // namespace facebook::react

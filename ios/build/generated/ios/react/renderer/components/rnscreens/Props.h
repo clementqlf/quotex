@@ -24,6 +24,12 @@ class RNSFullWindowOverlayProps final : public ViewProps {
 #pragma mark - Props
 
   
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSModalScreenSheetAllowedDetents { Large, Medium, All };
@@ -43,6 +49,12 @@ static inline std::string toString(const RNSModalScreenSheetAllowedDetents &valu
     case RNSModalScreenSheetAllowedDetents::All: return "all";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenSheetAllowedDetents &value) {
+  return toString(value);
+}
+#endif
 enum class RNSModalScreenSheetLargestUndimmedDetent { Large, Medium, All };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSModalScreenSheetLargestUndimmedDetent &result) {
@@ -60,6 +72,12 @@ static inline std::string toString(const RNSModalScreenSheetLargestUndimmedDeten
     case RNSModalScreenSheetLargestUndimmedDetent::All: return "all";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenSheetLargestUndimmedDetent &value) {
+  return toString(value);
+}
+#endif
 enum class RNSModalScreenStackPresentation { Push, Modal, TransparentModal, FullScreenModal, FormSheet, ContainedModal, ContainedTransparentModal };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSModalScreenStackPresentation &result) {
@@ -85,6 +103,12 @@ static inline std::string toString(const RNSModalScreenStackPresentation &value)
     case RNSModalScreenStackPresentation::ContainedTransparentModal: return "containedTransparentModal";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenStackPresentation &value) {
+  return toString(value);
+}
+#endif
 enum class RNSModalScreenStackAnimation { Default, Flip, Simple_push, None, Fade, Slide_from_right, Slide_from_left, Slide_from_bottom, Fade_from_bottom, Ios };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSModalScreenStackAnimation &result) {
@@ -116,6 +140,12 @@ static inline std::string toString(const RNSModalScreenStackAnimation &value) {
     case RNSModalScreenStackAnimation::Ios: return "ios";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenStackAnimation &value) {
+  return toString(value);
+}
+#endif
 enum class RNSModalScreenReplaceAnimation { Pop, Push };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSModalScreenReplaceAnimation &result) {
@@ -131,6 +161,12 @@ static inline std::string toString(const RNSModalScreenReplaceAnimation &value) 
     case RNSModalScreenReplaceAnimation::Push: return "push";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenReplaceAnimation &value) {
+  return toString(value);
+}
+#endif
 enum class RNSModalScreenSwipeDirection { Vertical, Horizontal };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSModalScreenSwipeDirection &result) {
@@ -146,11 +182,30 @@ static inline std::string toString(const RNSModalScreenSwipeDirection &value) {
     case RNSModalScreenSwipeDirection::Horizontal: return "horizontal";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenSwipeDirection &value) {
+  return toString(value);
+}
+#endif
 struct RNSModalScreenGestureResponseDistanceStruct {
   Float start{0.0};
   Float end{0.0};
   Float top{0.0};
   Float bottom{0.0};
+
+#ifdef RN_SERIALIZABLE_STATE
+  bool operator==(const RNSModalScreenGestureResponseDistanceStruct&) const = default;
+
+  folly::dynamic toDynamic() const {
+    folly::dynamic result = folly::dynamic::object();
+    result["start"] = start;
+    result["end"] = end;
+    result["top"] = top;
+    result["bottom"] = bottom;
+    return result;
+  }
+#endif
 };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSModalScreenGestureResponseDistanceStruct &result) {
@@ -177,6 +232,12 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
 static inline std::string toString(const RNSModalScreenGestureResponseDistanceStruct &value) {
   return "[Object RNSModalScreenGestureResponseDistanceStruct]";
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSModalScreenGestureResponseDistanceStruct &value) {
+  return value.toDynamic();
+}
+#endif
 class RNSModalScreenProps final : public ViewProps {
  public:
   RNSModalScreenProps() = default;
@@ -213,6 +274,12 @@ class RNSModalScreenProps final : public ViewProps {
   bool navigationBarTranslucent{false};
   bool navigationBarHidden{false};
   bool nativeBackButtonDismissalEnabled{false};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSScreenContainerProps final : public ViewProps {
@@ -223,6 +290,12 @@ class RNSScreenContainerProps final : public ViewProps {
 #pragma mark - Props
 
   
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSScreenSheetAllowedDetents { Large, Medium, All };
@@ -242,6 +315,12 @@ static inline std::string toString(const RNSScreenSheetAllowedDetents &value) {
     case RNSScreenSheetAllowedDetents::All: return "all";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenSheetAllowedDetents &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenSheetLargestUndimmedDetent { Large, Medium, All };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenSheetLargestUndimmedDetent &result) {
@@ -259,6 +338,12 @@ static inline std::string toString(const RNSScreenSheetLargestUndimmedDetent &va
     case RNSScreenSheetLargestUndimmedDetent::All: return "all";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenSheetLargestUndimmedDetent &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenStackPresentation { Push, Modal, TransparentModal, FullScreenModal, FormSheet, ContainedModal, ContainedTransparentModal };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenStackPresentation &result) {
@@ -284,6 +369,12 @@ static inline std::string toString(const RNSScreenStackPresentation &value) {
     case RNSScreenStackPresentation::ContainedTransparentModal: return "containedTransparentModal";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenStackPresentation &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenStackAnimation { Default, Flip, Simple_push, None, Fade, Slide_from_right, Slide_from_left, Slide_from_bottom, Fade_from_bottom, Ios, Ios_from_right, Ios_from_left };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenStackAnimation &result) {
@@ -319,6 +410,12 @@ static inline std::string toString(const RNSScreenStackAnimation &value) {
     case RNSScreenStackAnimation::Ios_from_left: return "ios_from_left";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenStackAnimation &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenReplaceAnimation { Pop, Push };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenReplaceAnimation &result) {
@@ -334,6 +431,12 @@ static inline std::string toString(const RNSScreenReplaceAnimation &value) {
     case RNSScreenReplaceAnimation::Push: return "push";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenReplaceAnimation &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenSwipeDirection { Vertical, Horizontal };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenSwipeDirection &result) {
@@ -349,11 +452,30 @@ static inline std::string toString(const RNSScreenSwipeDirection &value) {
     case RNSScreenSwipeDirection::Horizontal: return "horizontal";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenSwipeDirection &value) {
+  return toString(value);
+}
+#endif
 struct RNSScreenGestureResponseDistanceStruct {
   Float start{0.0};
   Float end{0.0};
   Float top{0.0};
   Float bottom{0.0};
+
+#ifdef RN_SERIALIZABLE_STATE
+  bool operator==(const RNSScreenGestureResponseDistanceStruct&) const = default;
+
+  folly::dynamic toDynamic() const {
+    folly::dynamic result = folly::dynamic::object();
+    result["start"] = start;
+    result["end"] = end;
+    result["top"] = top;
+    result["bottom"] = bottom;
+    return result;
+  }
+#endif
 };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenGestureResponseDistanceStruct &result) {
@@ -380,6 +502,12 @@ static inline void fromRawValue(const PropsParserContext& context, const RawValu
 static inline std::string toString(const RNSScreenGestureResponseDistanceStruct &value) {
   return "[Object RNSScreenGestureResponseDistanceStruct]";
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenGestureResponseDistanceStruct &value) {
+  return value.toDynamic();
+}
+#endif
 class RNSScreenProps final : public ViewProps {
  public:
   RNSScreenProps() = default;
@@ -416,6 +544,12 @@ class RNSScreenProps final : public ViewProps {
   bool navigationBarTranslucent{false};
   bool navigationBarHidden{false};
   bool nativeBackButtonDismissalEnabled{false};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSScreenNavigationContainerProps final : public ViewProps {
@@ -426,6 +560,12 @@ class RNSScreenNavigationContainerProps final : public ViewProps {
 #pragma mark - Props
 
   
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSScreenStackHeaderConfigDirection { Rtl, Ltr };
@@ -443,6 +583,12 @@ static inline std::string toString(const RNSScreenStackHeaderConfigDirection &va
     case RNSScreenStackHeaderConfigDirection::Ltr: return "ltr";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenStackHeaderConfigDirection &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenStackHeaderConfigBackButtonDisplayMode { Minimal, Default, Generic };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenStackHeaderConfigBackButtonDisplayMode &result) {
@@ -460,6 +606,12 @@ static inline std::string toString(const RNSScreenStackHeaderConfigBackButtonDis
     case RNSScreenStackHeaderConfigBackButtonDisplayMode::Generic: return "generic";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenStackHeaderConfigBackButtonDisplayMode &value) {
+  return toString(value);
+}
+#endif
 enum class RNSScreenStackHeaderConfigBlurEffect { None, ExtraLight, Light, Dark, Regular, Prominent, SystemUltraThinMaterial, SystemThinMaterial, SystemMaterial, SystemThickMaterial, SystemChromeMaterial, SystemUltraThinMaterialLight, SystemThinMaterialLight, SystemMaterialLight, SystemThickMaterialLight, SystemChromeMaterialLight, SystemUltraThinMaterialDark, SystemThinMaterialDark, SystemMaterialDark, SystemThickMaterialDark, SystemChromeMaterialDark };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSScreenStackHeaderConfigBlurEffect &result) {
@@ -514,6 +666,12 @@ static inline std::string toString(const RNSScreenStackHeaderConfigBlurEffect &v
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenStackHeaderConfigBlurEffect &value) {
+  return toString(value);
+}
+#endif
+
 class RNSScreenStackHeaderConfigProps final : public ViewProps {
  public:
   RNSScreenStackHeaderConfigProps() = default;
@@ -549,6 +707,12 @@ class RNSScreenStackHeaderConfigProps final : public ViewProps {
   bool backButtonInCustomView{false};
   RNSScreenStackHeaderConfigBlurEffect blurEffect{RNSScreenStackHeaderConfigBlurEffect::None};
   bool topInsetEnabled{false};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSScreenStackHeaderSubviewType { Back, Right, Left, Title, Center, SearchBar };
@@ -575,6 +739,12 @@ static inline std::string toString(const RNSScreenStackHeaderSubviewType &value)
   }
 }
 
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSScreenStackHeaderSubviewType &value) {
+  return toString(value);
+}
+#endif
+
 class RNSScreenStackHeaderSubviewProps final : public ViewProps {
  public:
   RNSScreenStackHeaderSubviewProps() = default;
@@ -583,6 +753,12 @@ class RNSScreenStackHeaderSubviewProps final : public ViewProps {
 #pragma mark - Props
 
   RNSScreenStackHeaderSubviewType type{RNSScreenStackHeaderSubviewType::Left};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 class RNSScreenStackProps final : public ViewProps {
@@ -593,6 +769,12 @@ class RNSScreenStackProps final : public ViewProps {
 #pragma mark - Props
 
   
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 enum class RNSSearchBarAutoCapitalize { None, Words, Sentences, Characters };
@@ -614,6 +796,12 @@ static inline std::string toString(const RNSSearchBarAutoCapitalize &value) {
     case RNSSearchBarAutoCapitalize::Characters: return "characters";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSSearchBarAutoCapitalize &value) {
+  return toString(value);
+}
+#endif
 enum class RNSSearchBarPlacement { Automatic, Inline, Stacked };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNSSearchBarPlacement &result) {
@@ -631,6 +819,12 @@ static inline std::string toString(const RNSSearchBarPlacement &value) {
     case RNSSearchBarPlacement::Stacked: return "stacked";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNSSearchBarPlacement &value) {
+  return toString(value);
+}
+#endif
 
 class RNSSearchBarProps final : public ViewProps {
  public:
@@ -654,6 +848,12 @@ class RNSSearchBarProps final : public ViewProps {
   SharedColor hintTextColor{};
   SharedColor headerIconColor{};
   bool shouldShowHintSearchIcon{true};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 } // namespace facebook::react

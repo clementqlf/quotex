@@ -582,7 +582,9 @@ export default function MyQuotesScreen() {
               {/* Section Auteur */}
               <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('author')}>
                 <Text style={styles.filterSectionTitle}>Auteur</Text>
-                <ChevronDown size={20} color="#9CA3AF" style={{ transform: [{ rotate: expandedSection === 'author' ? '180deg' : '0deg' }] }} />
+                <View style={{ transform: [{ rotate: expandedSection === 'author' ? '180deg' : '0deg' }] }}>
+                  <ChevronDown size={20} color="#9CA3AF" />
+                </View>
               </TouchableOpacity>
               {expandedSection === 'author' && authors.map(author => (
                   <TouchableOpacity key={author} style={styles.filterOption} onPress={() => toggleTempFilter('author', author)}>
@@ -593,7 +595,9 @@ export default function MyQuotesScreen() {
               {/* Section Livre */}
               <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('book')}>
                 <Text style={styles.filterSectionTitle}>Livre</Text>
-                <ChevronDown size={20} color="#9CA3AF" style={{ transform: [{ rotate: expandedSection === 'book' ? '180deg' : '0deg' }] }} />
+                <View style={{ transform: [{ rotate: expandedSection === 'book' ? '180deg' : '0deg' }] }}>
+                  <ChevronDown size={20} color="#9CA3AF" />
+                </View>
               </TouchableOpacity>
               {expandedSection === 'book' && books.map(book => (
                   <TouchableOpacity key={book} style={styles.filterOption} onPress={() => toggleTempFilter('book', book)}>
@@ -604,7 +608,9 @@ export default function MyQuotesScreen() {
               {/* Section Année */}
               <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('year')}>
                 <Text style={styles.filterSectionTitle}>Année</Text>
-                <ChevronDown size={20} color="#9CA3AF" style={{ transform: [{ rotate: expandedSection === 'year' ? '180deg' : '0deg' }] }} />
+                <View style={{ transform: [{ rotate: expandedSection === 'year' ? '180deg' : '0deg' }] }}>
+                  <ChevronDown size={20} color="#9CA3AF" />
+                </View>
               </TouchableOpacity>
               {expandedSection === 'year' && years.map(year => (
                   <TouchableOpacity key={year} style={styles.filterOption} onPress={() => toggleTempFilter('year', year)}>

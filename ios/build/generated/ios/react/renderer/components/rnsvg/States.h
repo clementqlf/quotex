@@ -8,34 +8,15 @@
  */
 #pragma once
 
-#ifdef ANDROID
+#include <react/renderer/core/StateData.h>
+#ifdef RN_SERIALIZABLE_STATE
 #include <folly/dynamic.h>
 #endif
 
 namespace facebook::react {
 
-class RNSVGSvgViewAndroidState {
-public:
-  RNSVGSvgViewAndroidState() = default;
+using RNSVGSvgViewAndroidState = StateData;
 
-#ifdef ANDROID
-  RNSVGSvgViewAndroidState(RNSVGSvgViewAndroidState const &previousState, folly::dynamic data){};
-  folly::dynamic getDynamic() const {
-    return {};
-  };
-#endif
-};
-
-class RNSVGSvgViewState {
-public:
-  RNSVGSvgViewState() = default;
-
-#ifdef ANDROID
-  RNSVGSvgViewState(RNSVGSvgViewState const &previousState, folly::dynamic data){};
-  folly::dynamic getDynamic() const {
-    return {};
-  };
-#endif
-};
+using RNSVGSvgViewState = StateData;
 
 } // namespace facebook::react

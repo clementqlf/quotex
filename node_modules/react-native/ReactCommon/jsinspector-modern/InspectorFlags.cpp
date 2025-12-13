@@ -18,24 +18,47 @@ InspectorFlags& InspectorFlags::getInstance() {
 }
 
 bool InspectorFlags::getFuseboxEnabled() const {
-  return loadFlagsAndAssertUnchanged().fuseboxEnabledDebug;
+  if (fuseboxDisabledForTest_) {
+    return false;
+  }
+
+  return loadFlagsAndAssertUnchanged().fuseboxEnabled;
+}
+
+bool InspectorFlags::getIsProfilingBuild() const {
+  return loadFlagsAndAssertUnchanged().isProfilingBuild;
+}
+
+bool InspectorFlags::getNetworkInspectionEnabled() const {
+  return loadFlagsAndAssertUnchanged().networkInspectionEnabled;
 }
 
 void InspectorFlags::dangerouslyResetFlags() {
   *this = InspectorFlags{};
 }
 
+void InspectorFlags::dangerouslyDisableFuseboxForTest() {
+  fuseboxDisabledForTest_ = true;
+}
+
 const InspectorFlags::Values& InspectorFlags::loadFlagsAndAssertUnchanged()
     const {
   InspectorFlags::Values newValues = {
-      .fuseboxEnabledDebug =
-#ifdef REACT_NATIVE_FORCE_ENABLE_FUSEBOX
+      .fuseboxEnabled =
+#if defined(REACT_NATIVE_DEBUGGER_ENABLED)
           true,
-#elif defined(HERMES_ENABLE_DEBUGGER)
-          ReactNativeFeatureFlags::fuseboxEnabledDebug(),
 #else
           ReactNativeFeatureFlags::fuseboxEnabledRelease(),
 #endif
+      .isProfilingBuild =
+#if defined(REACT_NATIVE_DEBUGGER_MODE_PROD)
+          true,
+#else
+          false,
+#endif
+      .networkInspectionEnabled =
+          ReactNativeFeatureFlags::enableBridgelessArchitecture() &&
+          ReactNativeFeatureFlags::fuseboxNetworkInspectionEnabled(),
   };
 
   if (cachedValues_.has_value() && !inconsistentFlagsStateLogged_) {

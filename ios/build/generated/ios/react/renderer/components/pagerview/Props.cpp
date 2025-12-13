@@ -27,7 +27,61 @@ RNCViewPagerProps::RNCViewPagerProps(
     pageMargin(convertRawProp(context, rawProps, "pageMargin", sourceProps.pageMargin, {0})),
     overScrollMode(convertRawProp(context, rawProps, "overScrollMode", sourceProps.overScrollMode, {RNCViewPagerOverScrollMode::Auto})),
     overdrag(convertRawProp(context, rawProps, "overdrag", sourceProps.overdrag, {false})),
-    keyboardDismissMode(convertRawProp(context, rawProps, "keyboardDismissMode", sourceProps.keyboardDismissMode, {RNCViewPagerKeyboardDismissMode::None}))
-      {}
+    keyboardDismissMode(convertRawProp(context, rawProps, "keyboardDismissMode", sourceProps.keyboardDismissMode, {RNCViewPagerKeyboardDismissMode::None})) {}
+    
+#ifdef RN_SERIALIZABLE_STATE
+ComponentName RNCViewPagerProps::getDiffPropsImplementationTarget() const {
+  return "RNCViewPager";
+}
+
+folly::dynamic RNCViewPagerProps::getDiffProps(
+    const Props* prevProps) const {
+  static const auto defaultProps = RNCViewPagerProps();
+  const RNCViewPagerProps* oldProps = prevProps == nullptr
+      ? &defaultProps
+      : static_cast<const RNCViewPagerProps*>(prevProps);
+  if (this == oldProps) {
+    return folly::dynamic::object();
+  }
+  folly::dynamic result = HostPlatformViewProps::getDiffProps(prevProps);
+  
+  if (scrollEnabled != oldProps->scrollEnabled) {
+    result["scrollEnabled"] = scrollEnabled;
+  }
+    
+  if (layoutDirection != oldProps->layoutDirection) {
+    result["layoutDirection"] = toDynamic(layoutDirection);
+  }
+    
+  if (initialPage != oldProps->initialPage) {
+    result["initialPage"] = initialPage;
+  }
+    
+  if (orientation != oldProps->orientation) {
+    result["orientation"] = toDynamic(orientation);
+  }
+    
+  if (offscreenPageLimit != oldProps->offscreenPageLimit) {
+    result["offscreenPageLimit"] = offscreenPageLimit;
+  }
+    
+  if (pageMargin != oldProps->pageMargin) {
+    result["pageMargin"] = pageMargin;
+  }
+    
+  if (overScrollMode != oldProps->overScrollMode) {
+    result["overScrollMode"] = toDynamic(overScrollMode);
+  }
+    
+  if (overdrag != oldProps->overdrag) {
+    result["overdrag"] = overdrag;
+  }
+    
+  if (keyboardDismissMode != oldProps->keyboardDismissMode) {
+    result["keyboardDismissMode"] = toDynamic(keyboardDismissMode);
+  }
+  return result;
+}
+#endif
 
 } // namespace facebook::react

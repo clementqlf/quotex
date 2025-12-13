@@ -8,8 +8,10 @@
  * @format
  */
 
-import type {ImageStyle, ImageStyleProp} from '../StyleSheet/StyleSheet';
+import type {HostInstance} from '../../src/private/types/HostInstance';
+import type {ImageStyleProp} from '../StyleSheet/StyleSheet';
 import type {RootTag} from '../Types/RootTagTypes';
+import type {ImageProps} from './ImageProps';
 import type {AbstractImageIOS, ImageIOS} from './ImageTypes.flow';
 import type {ImageSize} from './NativeImageLoaderAndroid';
 
@@ -105,45 +107,40 @@ async function queryCache(
  *
  * See https://reactnative.dev/docs/image
  */
-let BaseImage: AbstractImageIOS = React.forwardRef((props, forwardedRef) => {
+let BaseImage: AbstractImageIOS = ({
+  ref: forwardedRef,
+  ...props
+}: {
+  ref?: React.RefSetter<HostInstance>,
+  ...ImageProps,
+}) => {
   const source = getImageSourcesFromImageProps(props) || {
     uri: undefined,
     width: undefined,
     height: undefined,
   };
 
+  let style: ImageStyleProp;
   let sources;
-  let style: ImageStyle;
-
   if (Array.isArray(source)) {
-    style =
-      flattenStyle<ImageStyleProp>([styles.base, props.style]) ||
-      ({}: ImageStyle);
+    style = [styles.base, props.style];
     sources = source;
   } else {
     const {uri} = source;
-    const width = source.width ?? props.width;
-    const height = source.height ?? props.height;
-    style =
-      flattenStyle<ImageStyleProp>([
-        {width, height},
-        styles.base,
-        props.style,
-      ]) || ({}: ImageStyle);
-    sources = [source];
-
     if (uri === '') {
       console.warn('source.uri should not be an empty string');
     }
+    const width = source.width ?? props.width;
+    const height = source.height ?? props.height;
+    style = [{width, height}, styles.base, props.style];
+    sources = [source];
   }
 
-  const objectFit =
-    style.objectFit != null
-      ? convertObjectFitToResizeMode(style.objectFit)
-      : null;
+  const flattenedStyle = flattenStyle<ImageStyleProp>(style);
+  const objectFit = convertObjectFitToResizeMode(flattenedStyle?.objectFit);
   const resizeMode =
-    objectFit || props.resizeMode || style.resizeMode || 'cover';
-  const tintColor = props.tintColor ?? style.tintColor;
+    objectFit || props.resizeMode || flattenedStyle?.resizeMode || 'cover';
+  const tintColor = props.tintColor ?? flattenedStyle?.tintColor;
 
   if (props.children != null) {
     throw new Error(
@@ -156,9 +153,7 @@ let BaseImage: AbstractImageIOS = React.forwardRef((props, forwardedRef) => {
     'aria-disabled': ariaDisabled,
     'aria-expanded': ariaExpanded,
     'aria-selected': ariaSelected,
-    height,
     src,
-    width,
     ...restProps
   } = props;
 
@@ -193,7 +188,7 @@ let BaseImage: AbstractImageIOS = React.forwardRef((props, forwardedRef) => {
       }}
     </ImageAnalyticsTagContext.Consumer>
   );
-});
+};
 
 const imageComponentDecorator = unstable_getImageComponentDecorator();
 if (imageComponentDecorator != null) {
@@ -262,4 +257,4 @@ const styles = StyleSheet.create({
   },
 });
 
-module.exports = Image;
+export default Image;

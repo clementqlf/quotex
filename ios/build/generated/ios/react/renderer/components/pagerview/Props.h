@@ -29,6 +29,12 @@ static inline std::string toString(const RNCViewPagerLayoutDirection &value) {
     case RNCViewPagerLayoutDirection::Rtl: return "rtl";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNCViewPagerLayoutDirection &value) {
+  return toString(value);
+}
+#endif
 enum class RNCViewPagerOrientation { Horizontal, Vertical };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNCViewPagerOrientation &result) {
@@ -44,6 +50,12 @@ static inline std::string toString(const RNCViewPagerOrientation &value) {
     case RNCViewPagerOrientation::Vertical: return "vertical";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNCViewPagerOrientation &value) {
+  return toString(value);
+}
+#endif
 enum class RNCViewPagerOverScrollMode { Auto, Always, Never };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNCViewPagerOverScrollMode &result) {
@@ -61,6 +73,12 @@ static inline std::string toString(const RNCViewPagerOverScrollMode &value) {
     case RNCViewPagerOverScrollMode::Never: return "never";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNCViewPagerOverScrollMode &value) {
+  return toString(value);
+}
+#endif
 enum class RNCViewPagerKeyboardDismissMode { None, OnDrag };
 
 static inline void fromRawValue(const PropsParserContext& context, const RawValue &value, RNCViewPagerKeyboardDismissMode &result) {
@@ -76,6 +94,12 @@ static inline std::string toString(const RNCViewPagerKeyboardDismissMode &value)
     case RNCViewPagerKeyboardDismissMode::OnDrag: return "on-drag";
   }
 }
+
+#ifdef RN_SERIALIZABLE_STATE
+static inline folly::dynamic toDynamic(const RNCViewPagerKeyboardDismissMode &value) {
+  return toString(value);
+}
+#endif
 
 class RNCViewPagerProps final : public ViewProps {
  public:
@@ -93,6 +117,12 @@ class RNCViewPagerProps final : public ViewProps {
   RNCViewPagerOverScrollMode overScrollMode{RNCViewPagerOverScrollMode::Auto};
   bool overdrag{false};
   RNCViewPagerKeyboardDismissMode keyboardDismissMode{RNCViewPagerKeyboardDismissMode::None};
+
+  #ifdef RN_SERIALIZABLE_STATE
+  ComponentName getDiffPropsImplementationTarget() const override;
+
+  folly::dynamic getDiffProps(const Props* prevProps) const override;
+  #endif
 };
 
 } // namespace facebook::react

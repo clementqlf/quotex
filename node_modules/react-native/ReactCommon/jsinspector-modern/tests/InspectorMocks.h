@@ -127,6 +127,12 @@ class MockHostTargetDelegate : public HostTargetDelegate {
       onSetPausedInDebuggerMessage,
       (const OverlaySetPausedInDebuggerMessageRequest& request),
       (override));
+  MOCK_METHOD(
+      void,
+      loadNetworkResource,
+      (const LoadNetworkResourceRequest& params,
+       ScopedExecutor<NetworkRequestListener> executor),
+      (override));
 };
 
 class MockInstanceTargetDelegate : public InstanceTargetDelegate {};
@@ -154,6 +160,13 @@ class MockRuntimeTargetDelegate : public RuntimeTargetDelegate {
       std::unique_ptr<StackTrace>,
       captureStackTrace,
       (jsi::Runtime & runtime, size_t framesToSkip),
+      (override));
+  MOCK_METHOD(void, enableSamplingProfiler, (), (override));
+  MOCK_METHOD(void, disableSamplingProfiler, (), (override));
+  MOCK_METHOD(
+      tracing::RuntimeSamplingProfile,
+      collectSamplingProfile,
+      (),
       (override));
 };
 

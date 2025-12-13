@@ -13,30 +13,30 @@
 
 namespace facebook::react {
 
-void RNCViewPagerEventEmitter::onPageScroll(OnPageScroll $event) const {
-  dispatchEvent("pageScroll", [$event=std::move($event)](jsi::Runtime &runtime) {
-    auto $payload = jsi::Object(runtime);
-    $payload.setProperty(runtime, "position", $event.position);
-$payload.setProperty(runtime, "offset", $event.offset);
-    return $payload;
+void RNCViewPagerEventEmitter::onPageScroll(OnPageScroll event) const {
+  dispatchEvent("pageScroll", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "position", event.position);
+payload.setProperty(runtime, "offset", event.offset);
+    return payload;
   });
 }
 
 
-void RNCViewPagerEventEmitter::onPageSelected(OnPageSelected $event) const {
-  dispatchEvent("pageSelected", [$event=std::move($event)](jsi::Runtime &runtime) {
-    auto $payload = jsi::Object(runtime);
-    $payload.setProperty(runtime, "position", $event.position);
-    return $payload;
+void RNCViewPagerEventEmitter::onPageSelected(OnPageSelected event) const {
+  dispatchEvent("pageSelected", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "position", event.position);
+    return payload;
   });
 }
 
 
-void RNCViewPagerEventEmitter::onPageScrollStateChanged(OnPageScrollStateChanged $event) const {
-  dispatchEvent("pageScrollStateChanged", [$event=std::move($event)](jsi::Runtime &runtime) {
-    auto $payload = jsi::Object(runtime);
-    $payload.setProperty(runtime, "pageScrollState", toString($event.pageScrollState));
-    return $payload;
+void RNCViewPagerEventEmitter::onPageScrollStateChanged(OnPageScrollStateChanged event) const {
+  dispatchEvent("pageScrollStateChanged", [event=std::move(event)](jsi::Runtime &runtime) {
+    auto payload = jsi::Object(runtime);
+    payload.setProperty(runtime, "pageScrollState", toString(event.pageScrollState));
+    return payload;
   });
 }
 
