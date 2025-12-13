@@ -5,13 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Modal,
   Pressable,
   Image,
   PanResponder,
   Animated,
-} from 'react-native'; 
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg'; 

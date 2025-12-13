@@ -4,9 +4,9 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
+  StyleSheet
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';

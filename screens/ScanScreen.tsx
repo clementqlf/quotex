@@ -4,12 +4,12 @@ import {
   ActivityIndicator,
   Animated,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';

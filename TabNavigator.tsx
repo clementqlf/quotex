@@ -51,7 +51,6 @@ export function TabNavigator() {
             tabBar={() => null}   // ✅ LA SEULE BONNE FAÇON
             screenOptions={{
               swipeEnabled,
-              gestureResponseDistance: 20,
             }}
           >
             <Tab.Screen name="MyQuotes" component={MyQuotesScreen} />

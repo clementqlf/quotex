@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, BookOpen, User, Calendar, Globe } from 'lucide-react-native';
 import { authorDetails, bookDescriptions, globalQuotesDB, localQuotesDB } from '../data/staticData';
