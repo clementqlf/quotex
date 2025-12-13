@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "*.h": "objective-c"
+  },
+  "C_Cpp.errorSquiggles": "disabled"
+}
