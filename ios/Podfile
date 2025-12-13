@@ -11,8 +11,8 @@ target 'Quotex' do
   use_react_native!(
     :path => config[:reactNativePath],
     :hermes_enabled => false,
-    :fabric_enabled => false,
-    :new_arch_enabled => false
+    :fabric_enabled => true,
+    :new_arch_enabled => true
   )
 
   # Pods additionnels éventuels (exemple)

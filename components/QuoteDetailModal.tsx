@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
   similarAuthors,
 } from '../data/staticData'; 
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import Sortable from 'react-native-sortables';
 
 export interface Quote {
   id: number;
