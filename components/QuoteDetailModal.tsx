@@ -98,12 +98,13 @@ export function QuoteDetailModal() {
   const [dragStartPos, setDragStartPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Data for sortable grid (order of blocks)
+  // Use unique ids per instance (type#uid) to allow duplicate types without key collisions
   const [gridData, setGridData] = React.useState<string[]>([
-    'definition',
-    'bookInfo',
-    'author',
-    'similarBooks',
-    'similarAuthors',
+    `definition#0`,
+    `bookInfo#0`,
+    `author#0`,
+    `similarBooks#0`,
+    `similarAuthors#0`,
     'addBlock',
   ]);
 
@@ -156,8 +157,10 @@ export function QuoteDetailModal() {
   const authorDesc = authorInfo?.description || `${quote.author} est un auteur reconnu.`;
   const similarBookList =
     similarBooks[quote.text] || [];
-  const similarAuthorList =
-    similarAuthors[quote.author] || [];
+  // Prefer the book's listed author (e.g. biography author) when looking up similar authors;
+  // fall back to the quote's author name if necessary.
+  const bookAuthor = bookInfo?.author || quote.author;
+  const similarAuthorList = similarAuthors[bookAuthor] || [];
   const bookInfo = bookDescriptions[quote.book];
   const quoteTheme = quote.theme || 'Thème non renseigné';
 
@@ -179,132 +182,198 @@ export function QuoteDetailModal() {
   const handleAddBlock = (blockKey: string) => {
     setGridData(prev => {
       const withoutPlaceholder = prev.filter(x => x !== 'addBlock');
-      return [...withoutPlaceholder, blockKey, 'addBlock'];
+      const id = `${blockKey}#${Date.now()}`;
+      return [...withoutPlaceholder, id, 'addBlock'];
     });
     closeAddBlockModal();
   };
+
+  const handleRemoveBlockAt = (indexToRemove: number) => {
+    setGridData(prev => {
+      // Defensive: if index out of range or placeholder, do nothing
+      if (indexToRemove < 0 || indexToRemove >= prev.length) return prev;
+      if (prev[indexToRemove] === 'addBlock') return prev;
+      const arr = [...prev];
+      arr.splice(indexToRemove, 1);
+      // Ensure there's a single 'addBlock' placeholder at the end
+      const withoutPlaceholders = arr.filter(x => x !== 'addBlock');
+      return [...withoutPlaceholders, 'addBlock'];
+    });
+  };
   
   // Render function for sortable grid items (defined after data constants)
-  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
-    switch (item) {
+  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
+    // item may be like 'definition#123' or the placeholder 'addBlock'
+    const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
+    switch (base) {
       case 'definition':
         if (!definitions[quote.text]) return null;
-        return (
-          <View style={styles.definitionSection}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Définition</Text>
+        {
+          const content = (
+            <View style={styles.definitionSection}>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Définition</Text>
+              </View>
+              <View style={styles.definitionContent}>
+                {definitions[quote.text].map((dItem, index) => (
+                  <View key={index}>
+                    <Text style={styles.definitionTerm}>{dItem.term}</Text>
+                    <Text style={styles.definitionGenre}>{dItem.genre}</Text>
+                    <Text style={styles.definitionDesc}>{dItem.definition}</Text>
+                    <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
+                    {index !== definitions[quote.text].length - 1 && <View style={styles.definitionDivider} />}
+                  </View>
+                ))}
+              </View>
             </View>
-            <View style={styles.definitionContent}>
-              {definitions[quote.text].map((dItem, index) => (
-                <View key={index}>
-                  <Text style={styles.definitionTerm}>{dItem.term}</Text>
-                  <Text style={styles.definitionGenre}>{dItem.genre}</Text>
-                  <Text style={styles.definitionDesc}>{dItem.definition}</Text>
-                  <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
-                  {index !== definitions[quote.text].length - 1 && <View style={styles.definitionDivider} />}
-                </View>
-              ))}
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
             </View>
-          </View>
-        );
+          );
+        }
 
       case 'bookInfo':
         if (!bookInfo) return null;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos du livre</Text>
-            </View>
-            <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quote.book)}>
-              <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
-              <View style={styles.bookInfo}>
-                <TouchableOpacity onPress={() => onBookPress(quote.book)}>
-                  <Text style={styles.bookName}>{quote.book}</Text>
-                </TouchableOpacity>
-                <View style={styles.bookMeta}>
-                  <View style={styles.metaItem}>
-                    <Calendar size={14} color="#6B7280" />
-                    <Text style={styles.metaText}>{bookInfo.year}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <BookOpen size={14} color="#6B7280" />
-                    <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Star size={14} color="#20B8CD" fill="#20B8CD" />
-                    <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
-                  </View>
-                </View>
-                <View style={styles.genreBadge}>
-                  <Text style={styles.genreText}>{bookInfo.genre}</Text>
-                </View>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>À propos du livre</Text>
               </View>
-            </TouchableOpacity>
-            <Text style={styles.bookDesc}>{bookInfo.description}</Text>
-          </View>
-        );
+              <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quote.book)}>
+                <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
+                <View style={styles.bookInfo}>
+                  <TouchableOpacity onPress={() => onBookPress(quote.book)}>
+                    <Text style={styles.bookName}>{quote.book}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.bookMeta}>
+                    <View style={styles.metaItem}>
+                      <Calendar size={14} color="#6B7280" />
+                      <Text style={styles.metaText}>{bookInfo.year}</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <BookOpen size={14} color="#6B7280" />
+                      <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Star size={14} color="#20B8CD" fill="#20B8CD" />
+                      <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
+                    </View>
+                  </View>
+                  <View style={styles.genreBadge}>
+                    <Text style={styles.genreText}>{bookInfo.genre}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.bookDesc}>{bookInfo.description}</Text>
+            </View>
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
 
       case 'author':
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <UserIcon size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <UserIcon size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+              </View>
+              <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
+                <Text style={styles.authorName}>{quote.author}</Text>
+                <Text style={styles.authorDesc}>{authorDesc}</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
-              <Text style={styles.authorName}>{quote.author}</Text>
-              <Text style={styles.authorDesc}>{authorDesc}</Text>
-            </TouchableOpacity>
-          </View>
-        );
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
 
       case 'similarBooks':
         if (!similarBookList || similarBookList.length === 0) return null;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Livres similaires</Text>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Livres similaires</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+                {similarBookList.map((bookTitle) => {
+                  const similarBookInfo = bookDescriptions[bookTitle];
+                  if (!similarBookInfo) return null;
+                  return (
+                    <TouchableOpacity key={bookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle })}>
+                      <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
+                      <Text numberOfLines={2} style={styles.similarBookTitle}>{bookTitle}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-              {similarBookList.map((bookTitle) => {
-                const similarBookInfo = bookDescriptions[bookTitle];
-                if (!similarBookInfo) return null;
-                return (
-                  <TouchableOpacity key={bookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle })}>
-                    <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
-                    <Text numberOfLines={2} style={styles.similarBookTitle}>{bookTitle}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        );
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
 
       case 'similarAuthors':
         if (!similarAuthorList || similarAuthorList.length === 0) return null;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <UserIcon size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Auteurs similaires</Text>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <UserIcon size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Auteurs similaires</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+                {similarAuthorList.map((authorName) => {
+                  const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
+                  const authorCover = authorBook ? authorBook.cover : 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop';
+                  return (
+                    <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName })}>
+                      <Image source={{ uri: authorCover }} style={styles.similarBookCover} />
+                      <Text numberOfLines={2} style={styles.similarBookTitle}>{authorName}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-              {similarAuthorList.map((authorName) => {
-                const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
-                const authorCover = authorBook ? authorBook.cover : 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop';
-                return (
-                  <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName })}>
-                    <Image source={{ uri: authorCover }} style={styles.similarBookCover} />
-                    <Text numberOfLines={2} style={styles.similarBookTitle}>{authorName}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        );
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
 
       case 'addBlock':
         return (
@@ -833,5 +902,21 @@ const styles = StyleSheet.create({
   gridCardText: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  removableWrapper: {
+    position: 'relative',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0F0F0F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
   },
 });

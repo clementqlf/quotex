@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote} from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote} from 'lucide-react-native';
 import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '../data/staticData';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
@@ -45,10 +45,11 @@ export function BookDetailScreen() {
   const uniqueSimilarBooks = [...new Set(similarBookList)];
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  // Use unique ids per instance so duplicates are allowed and removable individually
   const [gridData, setGridData] = useState<string[]>([
-    'author',
-    'savedQuotes',
-    'similarBooks',
+    `author#0`,
+    `savedQuotes#0`,
+    `similarBooks#0`,
     'addBlock',
   ]);
   // Add-block modal state and helpers
@@ -63,77 +64,120 @@ export function BookDetailScreen() {
   const handleAddBlock = (blockKey: string) => {
     setGridData(prev => {
       const withoutPlaceholder = prev.filter(x => x !== 'addBlock');
-      return [...withoutPlaceholder, blockKey, 'addBlock'];
+      const id = `${blockKey}#${Date.now()}`;
+      return [...withoutPlaceholder, id, 'addBlock'];
     });
     closeAddBlockModal();
   };
 
-  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
-    switch (item) {
+  const handleRemoveBlockAt = (indexToRemove: number) => {
+    setGridData(prev => {
+      if (indexToRemove < 0 || indexToRemove >= prev.length) return prev;
+      if (prev[indexToRemove] === 'addBlock') return prev;
+      const arr = [...prev];
+      arr.splice(indexToRemove, 1);
+      const withoutPlaceholders = arr.filter(x => x !== 'addBlock');
+      return [...withoutPlaceholders, 'addBlock'];
+    });
+  };
+
+  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
+    const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
+    switch (base) {
       case 'author':
         if (!authorDetails[bookInfo.author]) return null;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <User size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <User size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName: bookInfo.author })}>
+                <Text style={styles.authorName}>{bookInfo.author}</Text>
+              </TouchableOpacity>
+              <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName: bookInfo.author })}>
-              <Text style={styles.authorName}>{bookInfo.author}</Text>
-            </TouchableOpacity>
-            <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
-          </View>
-        );
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
 
       case 'savedQuotes':
         if (savedQuotes.length === 0) return null;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Quote size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Quote size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
+              </View>
+              <View style={styles.savedQuotesList}>
+                {savedQuotes.map(quote => (
+                  <TouchableOpacity
+                    key={quote.id}
+                    style={styles.savedQuoteCard}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                  >
+                    <Text style={styles.savedQuoteText}>{quote.text}</Text>
+                    <View style={styles.savedQuoteMeta}>
+                      <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
+                      <Text style={styles.savedQuoteDate}>{quote.date}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-            <View style={styles.savedQuotesList}>
-              {savedQuotes.map(quote => (
-                <TouchableOpacity
-                  key={quote.id}
-                  style={styles.savedQuoteCard}
-                  activeOpacity={0.85}
-                  onPress={() => navigation.navigate('QuoteDetail', { quote })}
-                >
-                  <Text style={styles.savedQuoteText}>{quote.text}</Text>
-                  <View style={styles.savedQuoteMeta}>
-                    <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
-                    <Text style={styles.savedQuoteDate}>{quote.date}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
             </View>
-          </View>
-        );
+          );
+        }
 
       case 'similarBooks':
         if (uniqueSimilarBooks.length === 0) return null;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Livres similaires</Text>
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Livres similaires</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+                {uniqueSimilarBooks.map((sBookTitle) => {
+                  const similarBookInfo = bookDescriptions[sBookTitle];
+                  if (!similarBookInfo) return null;
+                  return (
+                    <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
+                      <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
+                      <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-              {uniqueSimilarBooks.map((sBookTitle) => {
-                const similarBookInfo = bookDescriptions[sBookTitle];
-                if (!similarBookInfo) return null;
-                return (
-                  <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
-                    <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
-                    <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        );
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
 
       
 
@@ -404,6 +448,22 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  removableWrapper: {
+    position: 'relative',
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0F0F0F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
   },
   gridSection: {
     backgroundColor: '#1A1A1A',
