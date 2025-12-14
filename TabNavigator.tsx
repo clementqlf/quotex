@@ -5,6 +5,7 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import MyQuotesScreen from './screens/MyQuotesScreen';
 import ScanScreen from './screens/ScanScreen';
 import SocialFeedScreen from './screens/SocialFeedScreen';
+import { PageIndicator } from './components/PageIndicator';
 
 /* =========================
    Contexts
@@ -57,6 +58,7 @@ export function TabNavigator() {
             <Tab.Screen name="Scan" component={ScanScreen} />
             <Tab.Screen name="Social" component={SocialFeedScreen} />
           </Tab.Navigator>
+          <PageIndicator count={3} activeIndex={tabIndex} />
         </View>
       </SwipeEnabledContext.Provider>
     </TabIndexContext.Provider>

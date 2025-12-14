@@ -49,11 +49,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    gap: 8, // Similaire à 'gap-2' en Tailwind
+    // 'gap' n'est pas largement supporté en React Native; appliquer des marges sur chaque point
   },
   dot: {
     height: 6, // Similaire à 'h-1.5'
     borderRadius: 3, // Similaire à 'rounded-full'
+    marginHorizontal: 4,
   },
   activeDot: {
     backgroundColor: '#20B8CD', // Couleur cyan du thème
