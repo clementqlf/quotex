@@ -1,6 +1,11 @@
 require_relative '../node_modules/react-native/scripts/react_native_pods'
 
+platform :ios, '15.5'
+
 prepare_react_native_project!
+
+# iOS New Architecture flag
+ENV['RCT_NEW_ARCH_ENABLED'] = '1'  # '1' = New Architecture, '0' = Legacy
 
 target 'Quotex' do
   config = use_native_modules!
@@ -8,7 +13,7 @@ target 'Quotex' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    :hermes_enabled => false,
+    :hermes_enabled => true,
     :fabric_enabled => true,
     :new_arch_enabled => true
   )

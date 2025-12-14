@@ -1,10 +1,23 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { TabParamList } from './TabNavigator';
-import { Quote } from './components/QuoteDetailModal';
 
+// Define shared types here to avoid circular imports
 export type User = {
+  id?: string;
   name: string;
   username: string;
+};
+
+export type Quote = {
+  id: number;
+  text: string;
+  book: string;
+  author: string;
+  theme?: string;
+  date?: string;
+  likes: number;
+  isLiked: boolean;
+  user?: User;
 };
 
 export type RootStackParamList = {
