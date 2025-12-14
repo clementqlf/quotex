@@ -8,7 +8,6 @@ import {
   Dimensions,
   Image,
   PanResponder,
-  Animated,
   GestureResponderEvent,
   PanResponderGestureState,
 } from 'react-native';
@@ -25,6 +24,7 @@ import {
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Sortable from 'react-native-sortables';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 
 export interface Quote {
@@ -160,6 +160,8 @@ export function QuoteDetailModal() {
   const bookInfo = bookDescriptions[quote.book];
   const quoteTheme = quote.theme || 'Thème non renseigné';
 
+  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  
   // Render function for sortable grid items (defined after data constants)
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
     switch (item) {
@@ -307,7 +309,8 @@ export function QuoteDetailModal() {
         {/* Poignée pour indiquer qu'on peut slider */}
         <View style={styles.handleBar} />
 
-          <ScrollView
+          <Animated.ScrollView
+            ref={scrollableRef}
             style={styles.content}
             contentContainerStyle={styles.contentContainer}
             showsVerticalScrollIndicator={false}
@@ -403,6 +406,9 @@ export function QuoteDetailModal() {
                 renderItem={renderGridItem}
                 rowGap={10}
                 columnGap={10}
+                scrollableRef={scrollableRef}
+                autoScrollEnabled={true}
+                autoScrollActivationOffset={75}
                 onOrderChange={(params) => {
                   const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
                   setGridData(prev => {
@@ -419,7 +425,7 @@ export function QuoteDetailModal() {
               <Text style={styles.placeholderText}>Ajouter un bloc</Text>
             </View>
 
-          </ScrollView>
+          </Animated.ScrollView>
       </View>
     </View>
   );
