@@ -14,6 +14,7 @@ import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '..
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import AddBlockModal from './AddBlockModal';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
 
@@ -48,7 +49,24 @@ export function BookDetailScreen() {
     'author',
     'savedQuotes',
     'similarBooks',
+    'addBlock',
   ]);
+  // Add-block modal state and helpers
+  const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
+  const blockOptions = [
+    { key: 'author', label: "À propos de l'auteur" },
+    { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
+    { key: 'similarBooks', label: 'Livres similaires' },
+  ];
+  const openAddBlockModal = () => setAddBlockModalVisible(true);
+  const closeAddBlockModal = () => setAddBlockModalVisible(false);
+  const handleAddBlock = (blockKey: string) => {
+    setGridData(prev => {
+      const withoutPlaceholder = prev.filter(x => x !== 'addBlock');
+      return [...withoutPlaceholder, blockKey, 'addBlock'];
+    });
+    closeAddBlockModal();
+  };
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
     switch (item) {
@@ -203,10 +221,11 @@ export function BookDetailScreen() {
                 });
               }}
             />
-            <View style={styles.placeholderSection}>
+            <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
               <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
               <Text style={styles.placeholderText}>Ajouter un bloc</Text>
-            </View>
+            </TouchableOpacity>
+            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
           </View>
         </Animated.ScrollView>
       </View>

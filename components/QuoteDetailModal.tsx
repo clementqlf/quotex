@@ -25,6 +25,7 @@ import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import AddBlockModal from './AddBlockModal';
 
 
 export interface Quote {
@@ -103,6 +104,7 @@ export function QuoteDetailModal() {
     'author',
     'similarBooks',
     'similarAuthors',
+    'addBlock',
   ]);
 
   
@@ -160,6 +162,27 @@ export function QuoteDetailModal() {
   const quoteTheme = quote.theme || 'Thème non renseigné';
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  // State and helpers for "Ajouter un bloc"
+  const [isAddBlockModalVisible, setAddBlockModalVisible] = React.useState(false);
+
+  const blockOptions = [
+    { key: 'definition', label: 'Définition' },
+    { key: 'bookInfo', label: "À propos du livre" },
+    { key: 'author', label: "À propos de l'auteur" },
+    { key: 'similarBooks', label: 'Livres similaires' },
+    { key: 'similarAuthors', label: 'Auteurs similaires' },
+  ];
+
+  const openAddBlockModal = () => setAddBlockModalVisible(true);
+  const closeAddBlockModal = () => setAddBlockModalVisible(false);
+
+  const handleAddBlock = (blockKey: string) => {
+    setGridData(prev => {
+      const withoutPlaceholder = prev.filter(x => x !== 'addBlock');
+      return [...withoutPlaceholder, blockKey, 'addBlock'];
+    });
+    closeAddBlockModal();
+  };
   
   // Render function for sortable grid items (defined after data constants)
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
@@ -285,16 +308,16 @@ export function QuoteDetailModal() {
 
       case 'addBlock':
         return (
-          <View style={styles.placeholderSection}>
+          <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
             <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
             <Text style={styles.placeholderText}>Ajouter un bloc</Text>
-          </View>
+          </TouchableOpacity>
         );
 
       default:
         return null;
     }
-  }, [navigation, quote, bookInfo, authorDesc, similarBookList, similarAuthorList, definitions]);
+  }, [navigation, quote, bookInfo, authorDesc, similarBookList, similarAuthorList, definitions, openAddBlockModal]);
 
   return (
     <View style={styles.container}>
@@ -418,6 +441,8 @@ export function QuoteDetailModal() {
                   });
                 }}
               />
+              {/* Modal réutilisable pour choisir le type de bloc à ajouter */}
+              <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
             </View>
 
           </Animated.ScrollView>
@@ -764,6 +789,39 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     marginBottom: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addBlockModal: {
+    width: '80%',
+    backgroundColor: '#0F0F0F',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  addBlockTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  addBlockOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1F1F1F',
+    marginBottom: 8,
+    backgroundColor: '#1A1A1A',
+  },
+  addBlockOptionText: {
+    color: '#E5E7EB',
+    fontSize: 14,
   },
   gridCard: {
     backgroundColor: '#36877F',
