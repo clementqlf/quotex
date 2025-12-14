@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote } from 'lucide-react-native';
+import { Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote} from 'lucide-react-native';
 import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '../data/staticData';
+import type { SortableGridRenderItem } from 'react-native-sortables';
+import Sortable from 'react-native-sortables';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
 
@@ -40,6 +43,87 @@ export function BookDetailScreen() {
   const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
   const uniqueSimilarBooks = [...new Set(similarBookList)];
 
+  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  const [gridData, setGridData] = useState<string[]>([
+    'author',
+    'savedQuotes',
+    'similarBooks',
+  ]);
+
+  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
+    switch (item) {
+      case 'author':
+        if (!authorDetails[bookInfo.author]) return null;
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <User size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName: bookInfo.author })}>
+              <Text style={styles.authorName}>{bookInfo.author}</Text>
+            </TouchableOpacity>
+            <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
+          </View>
+        );
+
+      case 'savedQuotes':
+        if (savedQuotes.length === 0) return null;
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Quote size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
+            </View>
+            <View style={styles.savedQuotesList}>
+              {savedQuotes.map(quote => (
+                <TouchableOpacity
+                  key={quote.id}
+                  style={styles.savedQuoteCard}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                >
+                  <Text style={styles.savedQuoteText}>{quote.text}</Text>
+                  <View style={styles.savedQuoteMeta}>
+                    <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
+                    <Text style={styles.savedQuoteDate}>{quote.date}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+
+      case 'similarBooks':
+        if (uniqueSimilarBooks.length === 0) return null;
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Livres similaires</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+              {uniqueSimilarBooks.map((sBookTitle) => {
+                const similarBookInfo = bookDescriptions[sBookTitle];
+                if (!similarBookInfo) return null;
+                return (
+                  <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
+                    <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
+                    <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        );
+
+      
+
+      default:
+        return null;
+    }
+  }, [navigation, bookInfo, savedQuotes, uniqueSimilarBooks]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -55,7 +139,8 @@ export function BookDetailScreen() {
           <View style={styles.placeholder} />
         </View>
 
-        <ScrollView
+        <Animated.ScrollView
+          ref={scrollableRef}
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
@@ -95,67 +180,35 @@ export function BookDetailScreen() {
             <Text style={styles.bookDesc}>{bookInfo.description}</Text>
           </View>
 
-          {/* About Author */}
-          {authorDetails[bookInfo.author] && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <User size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
-              </View>
-              <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName: bookInfo.author })}>
-                <Text style={styles.authorName}>{bookInfo.author}</Text>
-              </TouchableOpacity>
-              <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
+          <View style={styles.gridSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Organiser les blocs</Text>
             </View>
-          )}
-
-          {savedQuotes.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Quote size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
-              </View>
-              <View style={styles.savedQuotesList}>
-                {savedQuotes.map(quote => (
-                  <TouchableOpacity
-                    key={quote.id}
-                    style={styles.savedQuoteCard}
-                    activeOpacity={0.85}
-                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
-                  >
-                    <Text style={styles.savedQuoteText}>{quote.text}</Text>
-                    <View style={styles.savedQuoteMeta}>
-                      <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
-                      <Text style={styles.savedQuoteDate}>{quote.date}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Sortable.Grid
+              columns={1}
+              data={gridData}
+              renderItem={renderGridItem}
+              rowGap={10}
+              columnGap={10}
+              scrollableRef={scrollableRef}
+              autoScrollEnabled={true}
+              autoScrollActivationOffset={75}
+              onOrderChange={(params) => {
+                const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
+                setGridData(prev => {
+                  const arr = [...prev];
+                  const [moved] = arr.splice(fromIndex, 1);
+                  arr.splice(toIndex, 0, moved);
+                  return arr;
+                });
+              }}
+            />
+            <View style={styles.placeholderSection}>
+              <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
+              <Text style={styles.placeholderText}>Ajouter un bloc</Text>
             </View>
-          )}
-
-          {/* Similar Books */}
-          {uniqueSimilarBooks.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Livres similaires</Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                {uniqueSimilarBooks.map((sBookTitle) => {
-                  const similarBookInfo = bookDescriptions[sBookTitle];
-                  if (!similarBookInfo) return null;
-                  return (
-                    <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
-                      <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
-                      <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          )}
-        </ScrollView>
+          </View>
+        </Animated.ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -313,6 +366,33 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  placeholderSection: {
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 24,
+    minHeight: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0F0F0F',
+  },
+  placeholderIcon: {
+    marginBottom: 8,
+  },
+  placeholderText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  gridSection: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
   },
   errorText: { color: 'white', textAlign: 'center', marginTop: 50 },
 });

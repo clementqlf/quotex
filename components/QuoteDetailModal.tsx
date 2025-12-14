@@ -103,7 +103,6 @@ export function QuoteDetailModal() {
     'author',
     'similarBooks',
     'similarAuthors',
-    'addBlock',
   ]);
 
   
@@ -419,10 +418,6 @@ export function QuoteDetailModal() {
                   });
                 }}
               />
-            </View>
-            <View style={styles.placeholderSection}>
-              <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
-              <Text style={styles.placeholderText}>Ajouter un bloc</Text>
             </View>
 
           </Animated.ScrollView>
