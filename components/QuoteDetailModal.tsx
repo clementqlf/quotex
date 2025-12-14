@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   Image,
+  TextInput,
   PanResponder,
   GestureResponderEvent,
   PanResponderGestureState,
@@ -38,6 +39,7 @@ export interface Quote {
   likes: number;
   isLiked: boolean;
   user?: User; // Ajout de l'utilisateur optionnel
+  notes?: string; // Notes utilisateur
 }
 
 export interface User {
@@ -101,6 +103,7 @@ export function QuoteDetailModal() {
   // Use unique ids per instance (type#uid) to allow duplicate types without key collisions
   const [gridData, setGridData] = React.useState<string[]>([
     `definition#0`,
+    `notes#0`,
     `bookInfo#0`,
     `author#0`,
     `similarBooks#0`,
@@ -170,6 +173,7 @@ export function QuoteDetailModal() {
 
   const blockOptions = [
     { key: 'definition', label: 'Définition' },
+    { key: 'notes', label: 'Notes' },
     { key: 'bookInfo', label: "À propos du livre" },
     { key: 'author', label: "À propos de l'auteur" },
     { key: 'similarBooks', label: 'Livres similaires' },
@@ -226,6 +230,36 @@ export function QuoteDetailModal() {
                   </View>
                 ))}
               </View>
+            </View>
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+      case 'notes':
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Sparkles size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Notes</Text>
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Écrire des notes..."
+                placeholderTextColor="#6B7280"
+                multiline
+                numberOfLines={6}
+                value={quote.notes ?? ''}
+                onChangeText={(text) => setQuote((q) => (q ? { ...q, notes: text } : q))}
+                textAlignVertical="top"
+              />
             </View>
           );
           return (
@@ -765,6 +799,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: '#9CA3AF',
+  },
+  notesInput: {
+    backgroundColor: '#0B0B0B',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    padding: 12,
+    color: '#E5E7EB',
+    fontSize: 13,
+    minHeight: 120,
   },
   similarBooksContainer: {
     marginHorizontal: -8,
