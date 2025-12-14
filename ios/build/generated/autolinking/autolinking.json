@@ -27,34 +27,6 @@
         }
       }
     },
-    "react-native-safe-area-context": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context",
-      "name": "react-native-safe-area-context",
-      "platforms": {
-        "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/react-native-safe-area-context.podspec",
-          "version": "5.6.2",
-          "configurations": [],
-          "scriptPhases": []
-        },
-        "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/android",
-          "packageImportPath": "import com.th3rdwave.safeareacontext.SafeAreaContextPackage;",
-          "packageInstance": "new SafeAreaContextPackage()",
-          "buildTypes": [],
-          "libraryName": "safeareacontext",
-          "componentDescriptors": [
-            "RNCSafeAreaProviderComponentDescriptor",
-            "RNCSafeAreaViewComponentDescriptor"
-          ],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt",
-          "cxxModuleCMakeListsModuleName": null,
-          "cxxModuleCMakeListsPath": null,
-          "cxxModuleHeaderName": null,
-          "isPureCxxDependency": false
-        }
-      }
-    },
     "react-native-gesture-handler": {
       "root": "/Users/clementqlf/Quotex/node_modules/react-native-gesture-handler",
       "name": "react-native-gesture-handler",
@@ -103,6 +75,59 @@
             "RNCViewPagerComponentDescriptor"
           ],
           "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-pager-view/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cxxModuleCMakeListsModuleName": null,
+          "cxxModuleCMakeListsPath": null,
+          "cxxModuleHeaderName": null,
+          "isPureCxxDependency": false
+        }
+      }
+    },
+    "react-native-reanimated": {
+      "root": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated",
+      "name": "react-native-reanimated",
+      "platforms": {
+        "ios": {
+          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated/RNReanimated.podspec",
+          "version": "4.2.0",
+          "configurations": [],
+          "scriptPhases": []
+        },
+        "android": {
+          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated/android",
+          "packageImportPath": "import com.swmansion.reanimated.ReanimatedPackage;",
+          "packageInstance": "new ReanimatedPackage()",
+          "buildTypes": [],
+          "libraryName": "rnreanimated",
+          "componentDescriptors": [],
+          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cxxModuleCMakeListsModuleName": null,
+          "cxxModuleCMakeListsPath": null,
+          "cxxModuleHeaderName": null,
+          "isPureCxxDependency": false
+        }
+      }
+    },
+    "react-native-safe-area-context": {
+      "root": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context",
+      "name": "react-native-safe-area-context",
+      "platforms": {
+        "ios": {
+          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/react-native-safe-area-context.podspec",
+          "version": "5.6.2",
+          "configurations": [],
+          "scriptPhases": []
+        },
+        "android": {
+          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/android",
+          "packageImportPath": "import com.th3rdwave.safeareacontext.SafeAreaContextPackage;",
+          "packageInstance": "new SafeAreaContextPackage()",
+          "buildTypes": [],
+          "libraryName": "safeareacontext",
+          "componentDescriptors": [
+            "RNCSafeAreaProviderComponentDescriptor",
+            "RNCSafeAreaViewComponentDescriptor"
+          ],
+          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -242,6 +267,31 @@
           "buildTypes": [],
           "componentDescriptors": [],
           "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-vision-camera/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cxxModuleCMakeListsModuleName": null,
+          "cxxModuleCMakeListsPath": null,
+          "cxxModuleHeaderName": null,
+          "isPureCxxDependency": false
+        }
+      }
+    },
+    "react-native-worklets": {
+      "root": "/Users/clementqlf/Quotex/node_modules/react-native-worklets",
+      "name": "react-native-worklets",
+      "platforms": {
+        "ios": {
+          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-worklets/RNWorklets.podspec",
+          "version": "0.7.1",
+          "configurations": [],
+          "scriptPhases": []
+        },
+        "android": {
+          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-worklets/android",
+          "packageImportPath": "import com.swmansion.worklets.WorkletsPackage;",
+          "packageInstance": "new WorkletsPackage()",
+          "buildTypes": [],
+          "libraryName": "rnworklets",
+          "componentDescriptors": [],
+          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-worklets/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,

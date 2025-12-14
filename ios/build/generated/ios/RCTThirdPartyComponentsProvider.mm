@@ -20,10 +20,10 @@
 
   dispatch_once(&nativeComponentsToken, ^{
     thirdPartyComponents = @{
-		@"RNCSafeAreaProvider": NSClassFromString(@"RNCSafeAreaProviderComponentView"), // react-native-safe-area-context
-		@"RNCSafeAreaView": NSClassFromString(@"RNCSafeAreaViewComponentView"), // react-native-safe-area-context
 		@"RNGestureHandlerButton": NSClassFromString(@"RNGestureHandlerButtonComponentView"), // react-native-gesture-handler
 		@"RNCViewPager": NSClassFromString(@"RNCPagerViewComponentView"), // react-native-pager-view
+		@"RNCSafeAreaProvider": NSClassFromString(@"RNCSafeAreaProviderComponentView"), // react-native-safe-area-context
+		@"RNCSafeAreaView": NSClassFromString(@"RNCSafeAreaViewComponentView"), // react-native-safe-area-context
 		@"RNSFullWindowOverlay": NSClassFromString(@"RNSFullWindowOverlay"), // react-native-screens
 		@"RNSModalScreen": NSClassFromString(@"RNSModalScreen"), // react-native-screens
 		@"RNSScreenContainer": NSClassFromString(@"RNSScreenContainerView"), // react-native-screens

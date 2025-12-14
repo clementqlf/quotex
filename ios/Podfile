@@ -1,12 +1,10 @@
 require_relative '../node_modules/react-native/scripts/react_native_pods'
-platform :ios, '15.5'
 
 prepare_react_native_project!
 
 target 'Quotex' do
   config = use_native_modules!
-  pod 'RNScreens', :path => '../node_modules/react-native-screens'
-  pod 'RNGestureHandler', :path => '../node_modules/react-native-gesture-handler'
+
 
   use_react_native!(
     :path => config[:reactNativePath],
