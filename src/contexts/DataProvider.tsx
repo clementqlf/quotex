@@ -1,0 +1,130 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Quote, Author, Book } from '../../types';
+import { quoteService } from '../services/QuoteService';
+import { authorService } from '../services/AuthorService';
+import { BlockService } from '../services/BlockService';
+
+type DataContextType = {
+    quotes: Quote[];
+    authors: Author[];
+    isLoading: boolean;
+    refreshQuotes: () => Promise<void>;
+    toggleLikeQuote: (id: number) => Promise<void>;
+    toggleSaveQuote: (id: number) => Promise<void>;
+    deleteQuote: (id: number) => Promise<void>;
+    getAuthorByName: (name: string) => Promise<Author | undefined>;
+    getBooksByAuthor: (authorName: string) => Promise<Book[]>;
+    updateQuote: (id: number, updates: Partial<Quote>) => Promise<void>;
+    // Block management
+    getBlockLayout: (parentId: string | number, parentType: 'quote' | 'book') => Promise<string[]>;
+    updateBlockLayout: (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => Promise<void>;
+};
+
+const DataContext = createContext<DataContextType | undefined>(undefined);
+
+export const DataProvider = ({ children }: { children: ReactNode }) => {
+    const [quotes, setQuotes] = useState<Quote[]>([]);
+    const [authors, setAuthors] = useState<Author[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchData = async () => {
+        try {
+            setIsLoading(true);
+            const [fetchedQuotes, fetchedAuthors] = await Promise.all([
+                quoteService.getQuotes(),
+                authorService.getAuthors(),
+            ]);
+            setQuotes(fetchedQuotes);
+            setAuthors(fetchedAuthors);
+        } catch (error) {
+            console.error("Failed to fetch data", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const refreshQuotes = async () => {
+        const fetchedQuotes = await quoteService.getQuotes();
+        setQuotes(fetchedQuotes);
+    }
+
+    const toggleLikeQuote = async (id: number) => {
+        // Optimistic update
+        setQuotes(prevQuotes =>
+            prevQuotes.map(q =>
+                q.id === id
+                    ? { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }
+                    : q
+            )
+        );
+
+        // Call service
+        await quoteService.toggleLike(id);
+        // In a real app we might re-fetch or validate the response here
+    };
+
+    const toggleSaveQuote = async (id: number) => {
+        setQuotes(prev => prev.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q));
+        // await quoteService.toggleSave(id); // If we had it
+    }
+
+    const deleteQuote = async (id: number) => {
+        // Optimistic
+        setQuotes(prev => prev.filter(q => q.id !== id));
+        await quoteService.deleteQuote(id);
+    }
+
+    const getAuthorByName = async (name: string) => {
+        // Check cache first if we want, or just call service
+        return authorService.getAuthorByName(name);
+    }
+
+    const getBooksByAuthor = async (authorName: string) => {
+        return await authorService.getBooksByAuthor(authorName);
+    };
+
+    const getBlockLayout = async (parentId: string | number, parentType: 'quote' | 'book') => {
+        return await BlockService.getLayout(parentId, parentType);
+    };
+
+    const updateBlockLayout = async (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+        await BlockService.saveLayout(parentId, parentType, layout);
+    };
+
+    const updateQuote = async (id: number, updates: Partial<Quote>) => {
+        // Optimistic update
+        setQuotes(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+        await quoteService.updateQuote(id, updates);
+    };
+
+    return (
+        <DataContext.Provider value={{
+            quotes,
+            authors,
+            isLoading,
+            refreshQuotes,
+            toggleLikeQuote,
+            toggleSaveQuote,
+            deleteQuote,
+            getAuthorByName,
+            getBooksByAuthor,
+            getBlockLayout,
+            updateBlockLayout,
+            updateQuote,
+        }}>
+            {children}
+        </DataContext.Provider>
+    );
+};
+
+export const useData = () => {
+    const context = useContext(DataContext);
+    if (context === undefined) {
+        throw new Error('useData must be used within a DataProvider');
+    }
+    return context;
+};

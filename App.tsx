@@ -1,24 +1,28 @@
 import React, { useEffect } from 'react';
-import{  SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { AppNavigator } from './AppNavigator';
 import { StatusBar, NativeEventEmitter, NativeModules, StyleSheet, useColorScheme, View } from 'react-native';
+import { DataProvider } from './src/contexts/DataProvider';
 
 function App() {
   // RN 0.75 émet onAnimatedValueUpdate même sans listeners; on ajoute un listener no-op pour éviter le warn.
   const isDarkMode = useColorScheme() === 'dark';
-  
+
+
 
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <AppNavigator />
-      </NavigationContainer>
+        <DataProvider>
+          <NavigationContainer>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+            <AppNavigator />
+          </NavigationContainer>
+        </DataProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -28,9 +32,9 @@ function App() {
 // If you want a template/debug screen, recreate a lightweight component here.
 
 const styles = StyleSheet.create({
-    container: {
+  container: {
     flex: 1,
-   },
+  },
 });
 
 

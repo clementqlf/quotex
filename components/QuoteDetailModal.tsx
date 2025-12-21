@@ -13,7 +13,7 @@ import {
   PanResponderGestureState,
 } from 'react-native';
 import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Star, Plus } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg'; 
+import Svg, { Path } from 'react-native-svg';
 import {
   aiInterpretations,
   authorDetails,
@@ -21,71 +21,17 @@ import {
   definitions,
   similarBooks,
   similarAuthors,
-} from '../data/staticData'; 
+} from '../data/staticData';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
+import { useData } from '../src/contexts/DataProvider';
+import { Quote, User } from '../types';
 
 
-export interface Quote {
-  id: number;
-  text: string;
-  book: string;
-  author: string;
-  theme?: string;
-  date?: string;
-  likes: number;
-  isLiked: boolean;
-  user?: User; // Ajout de l'utilisateur optionnel
-  notes?: string; // Notes utilisateur
-}
-
-export interface User {
-  id: string;
-  name: string;
-  username: string;
-}
-
-// Composant wrapper pour rendre les blocs draggables
-interface DraggableBlockProps {
-  blockId: string;
-  isDragging: boolean;
-  offset: { x: number; y: number };
-  onLongPress: () => void;
-  onRelease: () => void;
-  onPan: (dx: number, dy: number) => void;
-  children: React.ReactNode;
-}
-
-function DraggableBlock({
-  blockId,
-  isDragging,
-  offset,
-  onLongPress,
-  onRelease,
-  onPan,
-  children,
-}: DraggableBlockProps) {
-  return (
-    <TouchableOpacity
-      onLongPress={onLongPress}
-      delayLongPress={500}
-      activeOpacity={1}
-      style={[
-        isDragging && {
-          opacity: 0.7,
-          backgroundColor: 'rgba(32, 184, 205, 0.1)',
-          borderWidth: 2,
-          borderColor: '#20B8CD',
-        },
-      ]}
-    >
-      {children}
-    </TouchableOpacity>
-  );
-}
+// Local types removed in favor of imports from ../types
 
 // Le composant n'a plus besoin de props, il va tout chercher dans la route.
 export function QuoteDetailModal() {
@@ -95,48 +41,53 @@ export function QuoteDetailModal() {
 
   // On utilise un état local pour la citation afin de pouvoir la mettre à jour
   const [quote, setQuote] = React.useState(initialQuote);
-  const [draggingBlockId, setDraggingBlockId] = React.useState<string | null>(null);
-  const [blockPositions, setBlockPositions] = React.useState<{ [key: string]: { x: number; y: number } }>({});
-  const [dragStartPos, setDragStartPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Data for sortable grid (order of blocks)
-  // Use unique ids per instance (type#uid) to allow duplicate types without key collisions
-  const [gridData, setGridData] = React.useState<string[]>([
-    `definition#0`,
-    `notes#0`,
-    `bookInfo#0`,
-    `author#0`,
-    `similarBooks#0`,
-    `similarAuthors#0`,
-    'addBlock',
-  ]);
+  // Persistence integration
+  const { getBlockLayout, updateBlockLayout, updateQuote } = useData();
+  const [gridData, setGridData] = React.useState<string[]>([]);
+  const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
 
-  
+  React.useEffect(() => {
+    if (quote?.id) {
+      getBlockLayout(quote.id, 'quote').then(layout => {
+        setGridData(layout);
+        setIsLoadingLayout(false);
+      });
+    }
+  }, [quote?.id]);
+
+  // Autosave notes/blockData
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (quote?.id && quote.blockData) {
+        updateQuote(quote.id, { blockData: quote.blockData });
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [quote?.blockData, quote?.id]);
+
+  const handleOrderChange = (fromIndex: number, toIndex: number) => {
+    setGridData(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, moved);
+      // Persist change
+      if (quote?.id) updateBlockLayout(quote.id, 'quote', arr);
+      return arr;
+    });
+  };
+
+  const handleUpdateBlockData = (blockId: string, data: any) => {
+    setQuote(current => {
+      if (!current) return current;
+      const newBlockData = { ...current.blockData, [blockId]: data };
+      return { ...current, blockData: newBlockData };
+    });
+  };
 
   if (!quote) return null;
 
   const onClose = () => navigation.goBack();
-
-  const handleLongPressBlock = (blockId: string) => {
-    setDraggingBlockId(blockId);
-    setDragStartPos({ x: blockPositions[blockId]?.x || 0, y: blockPositions[blockId]?.y || 0 });
-  };
-
-  const handlePanBlock = (blockId: string, dx: number, dy: number) => {
-    if (draggingBlockId === blockId) {
-      setBlockPositions(prev => ({
-        ...prev,
-        [blockId]: {
-          x: dragStartPos.x + dx,
-          y: dragStartPos.y + dy,
-        },
-      }));
-    }
-  };
-
-  const handleReleaseBlock = () => {
-    setDraggingBlockId(null);
-  };
 
   // Cette fonction met à jour l'état local ET appelle la fonction du parent
   const handleToggleLike = () => {
@@ -152,17 +103,15 @@ export function QuoteDetailModal() {
   const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });
   const onBookPress = (bookTitle: string) => navigation.navigate('BookDetail', { bookTitle });
 
-  // Data logic
-  const aiInterpretation = 
+  // Data logic dependencies
+  const aiInterpretation =
     aiInterpretations[quote.text] ||
     "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
   const authorInfo = authorDetails[quote.author];
   const authorDesc = authorInfo?.description || `${quote.author} est un auteur reconnu.`;
   const similarBookList =
     similarBooks[quote.text] || [];
-  // Prefer the book's listed author (e.g. biography author) when looking up similar authors;
-  // fall back to the quote's author name if necessary.
-  const bookAuthor = bookInfo?.author || quote.author;
+  const bookAuthor = authorInfo ? quote.author : quote.author; // Simplified fallback
   const similarAuthorList = similarAuthors[bookAuthor] || [];
   const bookInfo = bookDescriptions[quote.book];
   const quoteTheme = quote.theme || 'Thème non renseigné';
@@ -184,27 +133,25 @@ export function QuoteDetailModal() {
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
 
   const handleAddBlock = (blockKey: string) => {
-    setGridData(prev => {
-      const withoutPlaceholder = prev.filter(x => x !== 'addBlock');
-      const id = `${blockKey}#${Date.now()}`;
-      return [...withoutPlaceholder, id, 'addBlock'];
-    });
+    const newLayout = [...gridData.filter(x => x !== 'addBlock'), `${blockKey}#${Date.now()}`, 'addBlock'];
+    setGridData(newLayout);
+    if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
     closeAddBlockModal();
   };
 
   const handleRemoveBlockAt = (indexToRemove: number) => {
-    setGridData(prev => {
-      // Defensive: if index out of range or placeholder, do nothing
-      if (indexToRemove < 0 || indexToRemove >= prev.length) return prev;
-      if (prev[indexToRemove] === 'addBlock') return prev;
-      const arr = [...prev];
-      arr.splice(indexToRemove, 1);
-      // Ensure there's a single 'addBlock' placeholder at the end
-      const withoutPlaceholders = arr.filter(x => x !== 'addBlock');
-      return [...withoutPlaceholders, 'addBlock'];
-    });
+    // Defensive: if index out of range or placeholder, do nothing
+    if (indexToRemove < 0 || indexToRemove >= gridData.length) return;
+    if (gridData[indexToRemove] === 'addBlock') return;
+
+    const arr = [...gridData];
+    arr.splice(indexToRemove, 1);
+    const newLayout = [...arr.filter(x => x !== 'addBlock'), 'addBlock'];
+
+    setGridData(newLayout);
+    if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
   };
-  
+
   // Render function for sortable grid items (defined after data constants)
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
     // item may be like 'definition#123' or the placeholder 'addBlock'
@@ -220,13 +167,13 @@ export function QuoteDetailModal() {
                 <Text style={styles.sectionTitle}>Définition</Text>
               </View>
               <View style={styles.definitionContent}>
-                {definitions[quote.text].map((dItem, index) => (
-                  <View key={index}>
+                {definitions[quote.text].map((dItem, defIndex) => (
+                  <View key={defIndex}>
                     <Text style={styles.definitionTerm}>{dItem.term}</Text>
                     <Text style={styles.definitionGenre}>{dItem.genre}</Text>
                     <Text style={styles.definitionDesc}>{dItem.definition}</Text>
                     <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
-                    {index !== definitions[quote.text].length - 1 && <View style={styles.definitionDivider} />}
+                    {defIndex !== definitions[quote.text].length - 1 && <View style={styles.definitionDivider} />}
                   </View>
                 ))}
               </View>
@@ -256,8 +203,8 @@ export function QuoteDetailModal() {
                 placeholderTextColor="#6B7280"
                 multiline
                 numberOfLines={6}
-                value={quote.notes ?? ''}
-                onChangeText={(text) => setQuote((q) => (q ? { ...q, notes: text } : q))}
+                value={quote?.blockData?.[item] ?? ''}
+                onChangeText={(text) => handleUpdateBlockData(item, text)}
                 textAlignVertical="top"
               />
             </View>
@@ -434,130 +381,125 @@ export function QuoteDetailModal() {
         {/* Poignée pour indiquer qu'on peut slider */}
         <View style={styles.handleBar} />
 
-          <Animated.ScrollView
-            ref={scrollableRef}
-            style={styles.content}
-            contentContainerStyle={styles.contentContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Détails de la citation</Text>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <X size={24} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-            {/* Quote Section */}
-            <View style={styles.section}>
-              <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                  fill="#20B8CD"
-                  opacity={0.2}
-                />
-              </Svg>
-              <Text style={styles.quoteText}>{quote.text}</Text>
-
-              {/* Book & Author + Theme badge à droite */}
-              <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A2A2A', gap: 8}}>
-                <View style={{flex: 1}}>
-                  <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quote.book)}>
-                    <BookOpen size={16} color="#6B7280" />
-                    <Text style={styles.metaTextBook}>{quote.book}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quote.author)}>
-                    <UserIcon size={16} color="#6B7280" />
-                    <Text style={styles.metaTextAuthor}>{quote.author}</Text>
-                  </TouchableOpacity>
-                  {quote.date && (
-                    <View style={styles.metaRow}>
-                      <Calendar size={16} color="#6B7280" />
-                      <Text style={styles.metaTextDate}>{quote.date}</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.themeBadgeIA}>
-                  <Text style={styles.themeBadgeValue}>{quoteTheme}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Actions */}
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleToggleLike}
-              >
-                <Heart
-                  size={20}
-                  color={quote.isLiked ? '#20B8CD' : '#6B7280'}
-                  fill={quote.isLiked ? '#20B8CD' : 'none'}
-                />
-                <Text
-                  style={[
-                    styles.actionText,
-                    quote.isLiked && styles.actionTextActive,
-                  ]}
-                >
-                  {quote.likes}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Share2 size={20} color="#6B7280" />
-                <Text style={styles.actionText}>Partager</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* AI Interpretation */}
-            <View style={styles.aiSection}>
-              <View style={styles.aiHeader}>
-                <Sparkles size={16} color="#20B8CD" />
-                <Text style={styles.aiTitle}>Interprétation IA</Text>
-              </View>
-              <Text style={styles.aiText}>{aiInterpretation}</Text>
-            </View>
-
-
-
-            {/* Placeholder block */}
-            {/* Sortable Grid to arrange blocks */}
-            <View style={styles.gridSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Organiser les blocs</Text>
-              </View>
-              <Sortable.Grid
-                columns={1}
-                data={gridData}
-                renderItem={renderGridItem}
-                rowGap={10}
-                columnGap={10}
-                scrollableRef={scrollableRef}
-                autoScrollEnabled={true}
-                autoScrollActivationOffset={75}
-                onOrderChange={(params) => {
-                  const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                  setGridData(prev => {
-                    const arr = [...prev];
-                    const [moved] = arr.splice(fromIndex, 1);
-                    arr.splice(toIndex, 0, moved);
-                    return arr;
-                  });
-                }}
+        <Animated.ScrollView
+          ref={scrollableRef}
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Détails de la citation</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <X size={24} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+          {/* Quote Section */}
+          <View style={styles.section}>
+            <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                fill="#20B8CD"
+                opacity={0.2}
               />
-              {/* Modal réutilisable pour choisir le type de bloc à ajouter */}
-              <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
-            </View>
+            </Svg>
+            <Text style={styles.quoteText}>{quote.text}</Text>
 
-          </Animated.ScrollView>
+            {/* Book & Author + Theme badge à droite */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A2A2A', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quote.book)}>
+                  <BookOpen size={16} color="#6B7280" />
+                  <Text style={styles.metaTextBook}>{quote.book}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quote.author)}>
+                  <UserIcon size={16} color="#6B7280" />
+                  <Text style={styles.metaTextAuthor}>{quote.author}</Text>
+                </TouchableOpacity>
+                {quote.date && (
+                  <View style={styles.metaRow}>
+                    <Calendar size={16} color="#6B7280" />
+                    <Text style={styles.metaTextDate}>{quote.date}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.themeBadgeIA}>
+                <Text style={styles.themeBadgeValue}>{quoteTheme}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Actions */}
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleToggleLike}
+            >
+              <Heart
+                size={20}
+                color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                fill={quote.isLiked ? '#20B8CD' : 'none'}
+              />
+              <Text
+                style={[
+                  styles.actionText,
+                  quote.isLiked && styles.actionTextActive,
+                ]}
+              >
+                {quote.likes}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton}>
+              <Share2 size={20} color="#6B7280" />
+              <Text style={styles.actionText}>Partager</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* AI Interpretation */}
+          <View style={styles.aiSection}>
+            <View style={styles.aiHeader}>
+              <Sparkles size={16} color="#20B8CD" />
+              <Text style={styles.aiTitle}>Interprétation IA</Text>
+            </View>
+            <Text style={styles.aiText}>{aiInterpretation}</Text>
+          </View>
+
+
+
+          {/* Placeholder block */}
+          {/* Sortable Grid to arrange blocks */}
+          <View style={styles.gridSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Organiser les blocs</Text>
+            </View>
+            <Sortable.Grid
+              columns={1}
+              data={gridData}
+              renderItem={renderGridItem}
+              rowGap={10}
+              columnGap={10}
+              scrollableRef={scrollableRef}
+              autoScrollEnabled={true}
+              autoScrollActivationOffset={75}
+              onOrderChange={(params) => {
+                const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
+                handleOrderChange(fromIndex, toIndex);
+              }}
+            />
+            {/* Modal réutilisable pour choisir le type de bloc à ajouter */}
+            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
+          </View>
+
+        </Animated.ScrollView>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    justifyContent: 'flex-end' 
+  container: {
+    flex: 1,
+    justifyContent: 'flex-end'
   },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.7)' },
   modalView: {

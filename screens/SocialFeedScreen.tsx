@@ -12,43 +12,22 @@ import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-
 import Svg, { Path } from 'react-native-svg';
 import { useTabIndex } from '../TabNavigator';
 import { globalQuotesDB } from '../data/staticData';
+import { useData } from '../src/contexts/DataProvider';
 
 export default function SocialFeedScreen() {
   const navigation = useNavigation<any>();
-  const [quotes, setQuotes] = useState(globalQuotesDB);
+  const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
+  const feedQuotes = quotes.filter(q => !!q.user); // Global quotes have user
+
   const { setTabIndex } = useTabIndex();
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    if (isFocused) setTabIndex(2);
-  }, [isFocused]);
-
-  // Rafraîchit les données lorsque l'écran est focus pour voir les nouvelles citations globales
-  useEffect(() => {
     if (isFocused) {
-      setQuotes([...globalQuotesDB]);
+      setTabIndex(2);
+      refreshQuotes();
     }
   }, [isFocused]);
-
-  const toggleLike = (id: number) => {
-    const newQuotes = quotes.map(q => {
-      if (q.id === id) {
-        const updatedQuote = { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 };
-        // Mettre à jour la "base de données" pour la persistance de la démo
-        const dbIndex = globalQuotesDB.findIndex(dbq => dbq.id === id);
-        if (dbIndex > -1) globalQuotesDB[dbIndex] = updatedQuote;
-        return updatedQuote;
-      }
-      return q;
-    });
-    setQuotes(newQuotes);
-  };
-
-  const toggleSave = (id: number) => {
-    setQuotes(quotes.map(q =>
-      q.id === id ? { ...q, isSaved: !q.isSaved } : q
-    ));
-  };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('');
@@ -85,7 +64,7 @@ export default function SocialFeedScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {quotes.map((quote) => {
+        {feedQuotes.map((quote) => {
           // On s'assure que l'objet passé à QuoteDetail contient toutes les informations nécessaires,
           // y compris l'objet `user` complet avec son `id`.
           // On mappe aussi `time` vers `date` pour la cohérence.
@@ -94,24 +73,24 @@ export default function SocialFeedScreen() {
           return (
             <TouchableOpacity key={quote.id} style={styles.quoteCard} activeOpacity={0.8} onPress={() => {
               // On trouve la dernière version de la citation pour la passer au modal
-              const currentQuote = quotes.find(q => q.id === quote.id) || quote;
-              navigation.navigate('QuoteDetail', { quote: { ...currentQuote, date: currentQuote.time }, onToggleLike: () => toggleLike(quote.id) });
+              const currentQuote = feedQuotes.find(q => q.id === quote.id) || quote;
+              navigation.navigate('QuoteDetail', { quote: { ...currentQuote, date: currentQuote.time }, onToggleLike: () => toggleLikeQuote(quote.id) });
             }}>
               {/* User Info - Cliquable */}
-              <TouchableOpacity 
-                style={styles.userInfo} 
+              <TouchableOpacity
+                style={styles.userInfo}
                 onPress={(e) => {
                   e.stopPropagation(); // Empêche le clic de se propager à la carte parente
                   navigation.navigate('UserProfile', { user: quote.user });
                 }}
               >
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{getInitials(quote.user.name)}</Text>
+                  <Text style={styles.avatarText}>{getInitials(quote.user?.name || 'A')}</Text>
                 </View>
                 <View style={styles.userDetails}>
-                  <Text style={styles.userName}>{quote.user.name}</Text>
+                  <Text style={styles.userName}>{quote.user?.name}</Text>
                   <Text style={styles.userMeta}>
-                    {quote.user.username} · {quote.time}
+                    {quote.user?.username} · {quote.time || quote.date}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -140,7 +119,7 @@ export default function SocialFeedScreen() {
                 <View style={styles.actionsLeft}>
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => toggleLike(quote.id)}
+                    onPress={() => toggleLikeQuote(quote.id)}
                   >
                     <Heart
                       size={20}
@@ -167,7 +146,7 @@ export default function SocialFeedScreen() {
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity onPress={() => toggleSave(quote.id)}>
+                <TouchableOpacity onPress={() => toggleSaveQuote(quote.id)}>
                   <Bookmark
                     fill={quote.isSaved ? '#20B8CD' : 'transparent'}
                     size={20}

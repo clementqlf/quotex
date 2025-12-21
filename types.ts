@@ -3,9 +3,28 @@ import { TabParamList } from './TabNavigator';
 
 // Define shared types here to avoid circular imports
 export type User = {
-  id?: string;
+  id: string;
   name: string;
   username: string;
+};
+
+export type Author = {
+  name: string;
+  description: string;
+  image: string;
+  birthDate: string;
+  nationality: string;
+};
+
+export type Book = {
+  title: string;
+  description: string;
+  year: number;
+  pages: number;
+  author: string;
+  rating: number;
+  genre: string;
+  cover: string;
 };
 
 export type Quote = {
@@ -18,13 +37,25 @@ export type Quote = {
   likes: number;
   isLiked: boolean;
   user?: User;
+  comments?: number;
+  isSaved?: boolean;
+  time?: string; // keeping for compatibility with globalQuotesDB if needed, or unify to date
+  notes?: string;
+  blockData?: Record<string, any>;
 };
 
 export type RootStackParamList = {
   Main: NavigatorScreenParams<TabParamList>;
-  AuthorDetail: { authorName: string };
-  BookDetail: { bookTitle: string };
+  AuthorDetail: { author: Author };
+  BookDetail: { book: Book };
   QuoteDetail: { quoteId?: number; quote?: Quote };
   UserProfile: { user: User };
   ThemeDetail: { themeName: string };
 };
+
+export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes';
+
+export interface BlockConfig {
+  id: string;
+  type: BlockType;
+}

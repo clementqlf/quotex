@@ -11,19 +11,28 @@ import {
   PanResponder,
   Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; 
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3 } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg'; 
-import { localQuotesDB, bookDescriptions } from '../data/staticData';
+import Svg, { Path } from 'react-native-svg';
+import { bookDescriptions } from '../data/staticData';
 import { useTabIndex } from '../TabNavigator';
- 
+import { useData } from '../src/contexts/DataProvider';
+import { Quote } from '../types';
+
 type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 const EDGE_SWIPE_ZONE = 28;
 const SWIPE_ACTIVATION_THRESHOLD = 60;
+
 export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
-  const [quotes, setQuotes] = useState(localQuotesDB);
+  const { quotes: allQuotes, toggleLikeQuote, deleteQuote, refreshQuotes } = useData();
+
+  // Filter for "My Quotes" (assuming local quotes have no user attached in this demo data model)
+  const myQuotes = useMemo(() => allQuotes.filter(q => !q.user), [allQuotes]);
+
+  const [quotesToDisplay, setQuotesToDisplay] = useState(myQuotes);
+
   const { setTabIndex } = useTabIndex();
   const isFocused = useIsFocused();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -31,6 +40,7 @@ export default function MyQuotesScreen() {
   useEffect(() => {
     if (isFocused) {
       setTabIndex(0);
+      refreshQuotes();
     }
   }, [isFocused]);
 
@@ -40,19 +50,18 @@ export default function MyQuotesScreen() {
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes'>('quotes');
 
-  const authors = [...new Set(localQuotesDB.map(q => q.author))];
-  const books = [...new Set(localQuotesDB.map(q => q.book))];
+  const authors = [...new Set(myQuotes.map(q => q.author))];
+  const books = [...new Set(myQuotes.map(q => q.book))];
   const years = [...new Set(
-    localQuotesDB
-        .map(q => bookDescriptions[q.book]?.year)
-        .filter((year): year is number => !!year)
+    myQuotes
+      .map(q => bookDescriptions[q.book]?.year)
+      .filter((year): year is number => !!year)
   )].sort((a, b) => b - a);
 
   // Liste des thèmes (notion abordée)
   const themes = useMemo(() => {
-    // Regroupe les citations par thème (champ theme de la citation)
     const grouped: Record<string, { books: Set<string>; quoteCount: number }> = {};
-    for (const q of quotes) {
+    for (const q of myQuotes) {
       const theme = q.theme || 'Thème non renseigné';
       if (!grouped[theme]) grouped[theme] = { books: new Set(), quoteCount: 0 };
       grouped[theme].books.add(q.book);
@@ -65,55 +74,37 @@ export default function MyQuotesScreen() {
         quoteCount: data.quoteCount,
       }))
       .sort((a, b) => a.theme.localeCompare(b.theme));
-  }, [quotes]);
+  }, [myQuotes]);
 
-  // Rafraîchit les données lorsque l'écran est focus (après un scan par exemple)
+  // Update displayed quotes when source or filters change
   useEffect(() => {
-    if (isFocused) {
-      let quotesToDisplay = [...localQuotesDB];
-      if (activeFilters.length > 0) {
-        const filtersByType = activeFilters.reduce((acc, filter) => { 
-          if (!acc[filter.type]) {
-            acc[filter.type] = [];
-          }
-          acc[filter.type].push(filter.value);
-          return acc;
-        }, {} as Record<'author' | 'book' | 'year', (string | number)[]>);
+    let filtered = [...myQuotes];
+    if (activeFilters.length > 0) {
+      const filtersByType = activeFilters.reduce((acc, filter) => {
+        if (!acc[filter.type]) {
+          acc[filter.type] = [];
+        }
+        acc[filter.type].push(filter.value);
+        return acc;
+      }, {} as Record<'author' | 'book' | 'year', (string | number)[]>);
 
-        quotesToDisplay = quotesToDisplay.filter(q => {
-          const authorMatch = !filtersByType.author || filtersByType.author.includes(q.author);
-          const bookMatch = !filtersByType.book || filtersByType.book.includes(q.book);
-          const yearMatch = !filtersByType.year || (bookDescriptions[q.book] && filtersByType.year.includes(bookDescriptions[q.book].year));
-          return authorMatch && bookMatch && yearMatch;
-        });
-      }
-      setQuotes(quotesToDisplay);
+      filtered = filtered.filter(q => {
+        const authorMatch = !filtersByType.author || filtersByType.author.includes(q.author);
+        const bookMatch = !filtersByType.book || filtersByType.book.includes(q.book);
+        const yearMatch = !filtersByType.year || (bookDescriptions[q.book] && filtersByType.year.includes(bookDescriptions[q.book].year));
+        return authorMatch && bookMatch && yearMatch;
+      });
     }
-    // On met à jour les filtres temporaires quand les filtres actifs changent
-    setTempFilters([...activeFilters]);
-  }, [isFocused, activeFilters]);
+    setQuotesToDisplay(filtered);
 
-  const toggleLike = (id: number) => {
-    const newQuotes = quotes.map(q => {
-      if (q.id === id) {
-        const updatedQuote = { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 };
-        // Mettre à jour la "base de données" pour la persistance de la démo
-        const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
-        if (dbIndex > -1) localQuotesDB[dbIndex] = updatedQuote;
-        return updatedQuote;
-      }
-      return q;
-    });
-    setQuotes(newQuotes);
-  };
+    // Sync temp filters
+    setTempFilters([...activeFilters]);
+  }, [myQuotes, activeFilters]);
 
   const handleDeleteQuote = (id: number) => {
-    setQuotes(currentQuotes => currentQuotes.filter(q => q.id !== id));
-    const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
-    if (dbIndex > -1) {
-      localQuotesDB.splice(dbIndex, 1);
-    }
+    deleteQuote(id);
   };
+
 
   const toggleTempFilter = (type: 'author' | 'book' | 'year', value: string | number) => {
     setTempFilters(currentFilters => {
@@ -155,7 +146,7 @@ export default function MyQuotesScreen() {
   const [openCardId, setOpenCardId] = useState<number | null>(null);
 
   // Composant de carte de citation avec support du swipe et animation
-  const QuoteCardSwipeable = ({ quote }: { quote: typeof localQuotesDB[0] }) => {
+  const QuoteCardSwipeable = ({ quote }: { quote: Quote }) => {
     const [isDragging, setIsDragging] = useState(false);
     const dragStartX = useRef(0);
     const currentDragX = useRef(0);
@@ -238,11 +229,11 @@ export default function MyQuotesScreen() {
         if (isOpen) setOpenCardId(null);
         return;
       }
-      
+
       // Calculer la vélocité (vitesse du swipe en px/ms)
       const swipeDuration = Date.now() - dragStartTime.current;
       const velocity = swipeDuration > 0 ? currentDragX.current / swipeDuration : 0;
-      
+
       // Si la carte était ouverte et qu'on a swipé vers la gauche suffisamment, on referme
       if (isOpen && currentDragX.current < -30) {
         Animated.spring(translateX, {
@@ -307,7 +298,7 @@ export default function MyQuotesScreen() {
               <Edit3 size={20} color="#FFFFFF" />
               <Text style={styles.swipeButtonText}>Modifier</Text>
             </TouchableOpacity>
-            
+
             {/* Bouton Supprimer (rouge) */}
             <TouchableOpacity
               style={[styles.swipeButton, styles.deleteButton]}
@@ -329,7 +320,7 @@ export default function MyQuotesScreen() {
           </View>
 
           {/* Carte animée au-dessus */}
-          <Animated.View style={[styles.cardContainer, { transform: [{ translateX }] }]}> 
+          <Animated.View style={[styles.cardContainer, { transform: [{ translateX }] }]}>
             <TouchableOpacity
               style={[styles.quoteCard, { backgroundColor: '#1A1A1A' }]}
               activeOpacity={1}
@@ -346,8 +337,8 @@ export default function MyQuotesScreen() {
                     setOpenCardId(null);
                   } else {
                     // Sinon, naviguer vers les détails
-                    const currentQuote = quotes.find(q => q.id === quote.id) || quote;
-                    navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLike(quote.id) });
+                    const currentQuote = quotesToDisplay.find(q => q.id === quote.id) || quote;
+                    navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLikeQuote(quote.id) });
                   }
                 }
               }}
@@ -380,7 +371,7 @@ export default function MyQuotesScreen() {
               <View style={styles.actions}>
                 <TouchableOpacity
                   style={styles.actionButton}
-                  onPress={() => toggleLike(quote.id)}
+                  onPress={() => toggleLikeQuote(quote.id)}
                 >
                   <Heart
                     size={20}
@@ -408,7 +399,7 @@ export default function MyQuotesScreen() {
   };
 
   const booksData = useMemo(() => {
-    const grouped = quotes.reduce<Record<string, { authors: Set<string>; quoteCount: number }>>((acc, quote) => {
+    const grouped = myQuotes.reduce<Record<string, { authors: Set<string>; quoteCount: number }>>((acc, quote) => {
       if (!acc[quote.book]) {
         acc[quote.book] = { authors: new Set(), quoteCount: 0 };
       }
@@ -430,7 +421,7 @@ export default function MyQuotesScreen() {
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [quotes]);
+  }, [myQuotes]);
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -458,11 +449,11 @@ export default function MyQuotesScreen() {
           onPress={() => setViewMode('quotes')}
           activeOpacity={0.8}
         >
-          <Text style={styles.statValue}>{quotes.length}</Text>
+          <Text style={styles.statValue}>{myQuotes.length}</Text>
           <Text style={styles.statLabel}>Citations</Text>
         </TouchableOpacity>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{quotes.reduce((acc, q) => acc + q.likes, 0)}</Text>
+          <Text style={styles.statValue}>{myQuotes.reduce((acc, q) => acc + q.likes, 0)}</Text>
           <Text style={styles.statLabel}>J'aime</Text>
         </View>
         <TouchableOpacity
@@ -470,7 +461,7 @@ export default function MyQuotesScreen() {
           onPress={() => setViewMode('books')}
           activeOpacity={0.8}
         >
-          <Text style={styles.statValue}>{new Set(quotes.map(q => q.book)).size}</Text>
+          <Text style={styles.statValue}>{new Set(myQuotes.map(q => q.book)).size}</Text>
           <Text style={styles.statLabel}>Livres</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -564,7 +555,7 @@ export default function MyQuotesScreen() {
             <Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>
           )
         ) : (
-          quotes.map((quote) => (
+          quotesToDisplay.map((quote) => (
             <QuoteCardSwipeable key={quote.id} quote={quote} />
           ))
         )}
@@ -587,9 +578,9 @@ export default function MyQuotesScreen() {
                 </View>
               </TouchableOpacity>
               {expandedSection === 'author' && authors.map(author => (
-                  <TouchableOpacity key={author} style={styles.filterOption} onPress={() => toggleTempFilter('author', author)}>
-                    <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'author' && f.value === author) && styles.filterOptionTextSelected]}>{author}</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity key={author} style={styles.filterOption} onPress={() => toggleTempFilter('author', author)}>
+                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'author' && f.value === author) && styles.filterOptionTextSelected]}>{author}</Text>
+                </TouchableOpacity>
               ))}
 
               {/* Section Livre */}
@@ -600,9 +591,9 @@ export default function MyQuotesScreen() {
                 </View>
               </TouchableOpacity>
               {expandedSection === 'book' && books.map(book => (
-                  <TouchableOpacity key={book} style={styles.filterOption} onPress={() => toggleTempFilter('book', book)}>
-                    <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'book' && f.value === book) && styles.filterOptionTextSelected]}>{book}</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity key={book} style={styles.filterOption} onPress={() => toggleTempFilter('book', book)}>
+                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'book' && f.value === book) && styles.filterOptionTextSelected]}>{book}</Text>
+                </TouchableOpacity>
               ))}
 
               {/* Section Année */}
@@ -613,9 +604,9 @@ export default function MyQuotesScreen() {
                 </View>
               </TouchableOpacity>
               {expandedSection === 'year' && years.map(year => (
-                  <TouchableOpacity key={year} style={styles.filterOption} onPress={() => toggleTempFilter('year', year)}>
-                    <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'year' && f.value === year) && styles.filterOptionTextSelected]}>{year}</Text>
-                  </TouchableOpacity>
+                <TouchableOpacity key={year} style={styles.filterOption} onPress={() => toggleTempFilter('year', year)}>
+                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'year' && f.value === year) && styles.filterOptionTextSelected]}>{year}</Text>
+                </TouchableOpacity>
               ))}
             </ScrollView>
             <View style={styles.modalActions}>

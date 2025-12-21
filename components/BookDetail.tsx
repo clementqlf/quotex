@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote} from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote } from 'lucide-react-native';
 import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '../data/staticData';
+import { useData } from '../src/contexts/DataProvider';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
@@ -44,14 +45,34 @@ export function BookDetailScreen() {
   const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
   const uniqueSimilarBooks = [...new Set(similarBookList)];
 
+  const { getBlockLayout, updateBlockLayout } = useData();
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // Use unique ids per instance so duplicates are allowed and removable individually
-  const [gridData, setGridData] = useState<string[]>([
-    `author#0`,
-    `savedQuotes#0`,
-    `similarBooks#0`,
-    'addBlock',
-  ]);
+  const [gridData, setGridData] = useState<string[]>([]);
+  const [isLoadingLayout, setIsLoadingLayout] = useState(true);
+
+  // Fetch saved layout
+  React.useEffect(() => {
+    if (bookTitle) {
+      // Use bookTitle as ID for now (assuming titles are unique enough for this demo or we'd need IDs)
+      getBlockLayout(bookTitle, 'book').then(layout => {
+        setGridData(layout);
+        setIsLoadingLayout(false);
+      });
+    }
+  }, [bookTitle]);
+
+  const handleOrderChange = (fromIndex: number, toIndex: number) => {
+    setGridData(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(fromIndex, 1);
+      arr.splice(toIndex, 0, moved);
+      // Persist
+      if (bookTitle) updateBlockLayout(bookTitle, 'book', arr);
+      return arr;
+    });
+  };
+
   // Add-block modal state and helpers
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const blockOptions = [
@@ -61,24 +82,24 @@ export function BookDetailScreen() {
   ];
   const openAddBlockModal = () => setAddBlockModalVisible(true);
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
+
   const handleAddBlock = (blockKey: string) => {
-    setGridData(prev => {
-      const withoutPlaceholder = prev.filter(x => x !== 'addBlock');
-      const id = `${blockKey}#${Date.now()}`;
-      return [...withoutPlaceholder, id, 'addBlock'];
-    });
+    const newLayout = [...gridData.filter(x => x !== 'addBlock'), `${blockKey}#${Date.now()}`, 'addBlock'];
+    setGridData(newLayout);
+    if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
     closeAddBlockModal();
   };
 
   const handleRemoveBlockAt = (indexToRemove: number) => {
-    setGridData(prev => {
-      if (indexToRemove < 0 || indexToRemove >= prev.length) return prev;
-      if (prev[indexToRemove] === 'addBlock') return prev;
-      const arr = [...prev];
-      arr.splice(indexToRemove, 1);
-      const withoutPlaceholders = arr.filter(x => x !== 'addBlock');
-      return [...withoutPlaceholders, 'addBlock'];
-    });
+    if (indexToRemove < 0 || indexToRemove >= gridData.length) return;
+    if (gridData[indexToRemove] === 'addBlock') return;
+
+    const arr = [...gridData];
+    arr.splice(indexToRemove, 1);
+    const newLayout = [...arr.filter(x => x !== 'addBlock'), 'addBlock'];
+
+    setGridData(newLayout);
+    if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
   };
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
@@ -179,7 +200,7 @@ export function BookDetailScreen() {
           );
         }
 
-      
+
 
       default:
         return null;
@@ -257,12 +278,7 @@ export function BookDetailScreen() {
               autoScrollActivationOffset={75}
               onOrderChange={(params) => {
                 const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                setGridData(prev => {
-                  const arr = [...prev];
-                  const [moved] = arr.splice(fromIndex, 1);
-                  arr.splice(toIndex, 0, moved);
-                  return arr;
-                });
+                handleOrderChange(fromIndex, toIndex);
               }}
             />
             <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
