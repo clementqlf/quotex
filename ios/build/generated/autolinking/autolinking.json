@@ -3,6 +3,31 @@
   "reactNativePath": "/Users/clementqlf/Quotex/node_modules/react-native",
   "reactNativeVersion": "0.81",
   "dependencies": {
+    "@react-native-async-storage/async-storage": {
+      "root": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage",
+      "name": "@react-native-async-storage/async-storage",
+      "platforms": {
+        "ios": {
+          "podspecPath": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage/RNCAsyncStorage.podspec",
+          "version": "2.2.0",
+          "configurations": [],
+          "scriptPhases": []
+        },
+        "android": {
+          "sourceDir": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage/android",
+          "packageImportPath": "import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;",
+          "packageInstance": "new AsyncStoragePackage()",
+          "buildTypes": [],
+          "libraryName": "rnasyncstorage",
+          "componentDescriptors": [],
+          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cxxModuleCMakeListsModuleName": null,
+          "cxxModuleCMakeListsPath": null,
+          "cxxModuleHeaderName": null,
+          "isPureCxxDependency": false
+        }
+      }
+    },
     "@react-native-ml-kit/text-recognition": {
       "root": "/Users/clementqlf/Quotex/node_modules/@react-native-ml-kit/text-recognition",
       "name": "@react-native-ml-kit/text-recognition",
@@ -519,7 +544,7 @@
         {
           "name": "--terminal <string>",
           "description": "Launches the Metro Bundler in a new window using the specified terminal path.",
-          "default": "vscode"
+          "default": "Apple_Terminal"
         },
         {
           "name": "--binary-path <string>",
@@ -687,7 +712,7 @@
         {
           "name": "--terminal <string>",
           "description": "Launches the Metro Bundler in a new window using the specified terminal path.",
-          "default": "vscode"
+          "default": "Apple_Terminal"
         },
         {
           "name": "--appId <string>",

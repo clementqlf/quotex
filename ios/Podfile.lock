@@ -2446,6 +2446,34 @@ PODS:
     - React-perflogger (= 0.81.5)
     - React-utils (= 0.81.5)
     - SocketRocket
+  - RNCAsyncStorage (2.2.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - RNGestureHandler (2.29.1):
     - boost
     - DoubleConversion
@@ -2889,6 +2917,7 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - "RNMLKitTextRecognition (from `../node_modules/@react-native-ml-kit/text-recognition`)"
   - RNReanimated (from `../node_modules/react-native-reanimated`)
@@ -3066,6 +3095,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNCAsyncStorage:
+    :path: "../node_modules/@react-native-async-storage/async-storage"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
   RNMLKitTextRecognition:
@@ -3174,6 +3205,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: c277c5b231881ad4f00cd59e3aa0671b99d7ebee
   ReactCodegen: 0936e9ff5fd359d5f6b5173c2a90e91b446d33a3
   ReactCommon: 8df6e27c060970b9fb77a86e69a1cf9b934ea458
+  RNCAsyncStorage: 302f2fac014fd450046c120567ca364632da682b
   RNGestureHandler: 606b85298c19d681ca076ca523dc23396120adab
   RNMLKitTextRecognition: 02e17c2274c9c98aeaab68be51f6921746ffc8e1
   RNReanimated: b07657f577565cc7433fbba8785620728ab5fe2d

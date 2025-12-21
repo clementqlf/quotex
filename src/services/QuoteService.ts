@@ -1,20 +1,17 @@
 import { Quote } from '../../types';
 import { localQuotesDB, globalQuotesDB, addQuote as addQuoteToStatic } from '../../data/staticData';
+import { StorageService, STORAGE_KEYS } from './StorageService';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
 
-
 class QuoteService {
-    async getQuotes(): Promise<Quote[]> {
-        await delay(500);
-        // Combine local and global quotes for the feed
-        // casting to specific type if needed or ensure staticData matches types
-        // The staticData has slightly different structure (e.g. 'time' vs 'date'), we map it here.
-
-        const combined = [...localQuotesDB, ...globalQuotesDB].map(q => {
-            // Map to uniform Quote type
-            return {
+    private async seedDataIfNeeded(): Promise<void> {
+        const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
+        if (!storedQuotes) {
+            console.log('Seeding quotes from static data...');
+            // Normalize static data to Quote type
+            const initialQuotes = [...localQuotesDB, ...globalQuotesDB].map(q => ({
                 id: q.id,
                 text: q.text,
                 book: q.book,
@@ -22,15 +19,21 @@ class QuoteService {
                 theme: (q as any).theme || undefined,
                 likes: q.likes,
                 isLiked: q.isLiked,
-                user: (q as any).user, // might be undefined for local quotes in current staticData
+                user: (q as any).user,
                 date: (q as any).date || (q as any).time,
                 isSaved: (q as any).isSaved,
                 comments: (q as any).comments,
                 blockData: (q as any).blockData || {},
-            } as Quote;
-        });
+            } as Quote));
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, initialQuotes);
+        }
+    }
 
-        return combined;
+    async getQuotes(): Promise<Quote[]> {
+        await delay(500);
+        await this.seedDataIfNeeded();
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
+        return quotes || [];
     }
 
     async getQuoteById(id: number): Promise<Quote | undefined> {
@@ -41,49 +44,53 @@ class QuoteService {
 
     async toggleLike(id: number): Promise<Quote | undefined> {
         await delay(200);
-        // In a real app, this would call an API. 
-        // Here we find the object in memory and mutate it (since it's a reference) 
-        // or return a new one. mutation of imported static vars is possible but tricky in modules.
-        // For this 'functional' step, returning a simulated updated quote is enough for the State to update.
-
         const quotes = await this.getQuotes();
-        const quote = quotes.find(q => q.id === id);
-        if (quote) {
+        const quoteIndex = quotes.findIndex(q => q.id === id);
+
+        if (quoteIndex > -1) {
+            const quote = quotes[quoteIndex];
             quote.isLiked = !quote.isLiked;
             quote.likes += quote.isLiked ? 1 : -1;
+            quotes[quoteIndex] = quote;
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+            return quote;
         }
-        return quote;
+        return undefined;
     }
 
     async deleteQuote(id: number): Promise<void> {
         await delay(300);
-        // Simulate deletion from local DB
-        // We can't easily mutate the imported array and have it stick across reloads of the service 
-        // if we were just reading it, but since we are modifying the 'staticData' module in memory...
-        const index = localQuotesDB.findIndex(q => q.id === id);
-        if (index > -1) {
-            localQuotesDB.splice(index, 1);
-        }
-        // logic for global? normally we don't delete other ppl's quotes
+        const quotes = await this.getQuotes();
+        const newQuotes = quotes.filter(q => q.id !== id);
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, newQuotes);
     }
 
     async addQuote(text: string, book: string, author: string): Promise<void> {
         await delay(500);
-        addQuoteToStatic({ text, book, author });
+        const quotes = await this.getQuotes();
+        const newQuote: Quote = {
+            id: Date.now(), // Generate a unique ID
+            text,
+            book,
+            author,
+            likes: 0,
+            isLiked: false,
+            date: new Date().toISOString(),
+            isSaved: false,
+            comments: 0,
+            blockData: {},
+        };
+        const updatedQuotes = [newQuote, ...quotes];
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
     }
 
     async updateQuote(id: number, updates: Partial<Quote>): Promise<void> {
         await delay(300);
-        // Update in local DB
-        const localQuote = localQuotesDB.find(q => q.id === id);
-        if (localQuote) {
-            Object.assign(localQuote, updates);
-        }
-
-        // Update in global DB
-        const globalQuote = globalQuotesDB.find(q => q.id === id);
-        if (globalQuote) {
-            Object.assign(globalQuote, updates);
+        const quotes = await this.getQuotes();
+        const quoteIndex = quotes.findIndex(q => q.id === id);
+        if (quoteIndex > -1) {
+            quotes[quoteIndex] = { ...quotes[quoteIndex], ...updates };
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
         }
     }
 }

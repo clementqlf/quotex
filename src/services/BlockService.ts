@@ -3,10 +3,11 @@
  * Currently uses in-memory storage, but can be easily swapped for AsyncStorage or a backend.
  */
 
-// In-memory storage: "parentType:parentId" -> array of block IDs
-const blockStorage: Record<string, string[]> = {
-    // Default defaults could be defined here if needed
-};
+import { StorageService, STORAGE_KEYS } from './StorageService';
+
+/**
+ * Service to manage persistent block layouts for Quotes and Books.
+ */
 
 // Default layouts
 const DEFAULT_QUOTE_BLOCKS = [
@@ -35,8 +36,10 @@ export const BlockService = {
         await new Promise<void>(resolve => setTimeout(resolve, 50));
 
         const key = `${parentType}:${parentId}`;
-        if (blockStorage[key]) {
-            return [...blockStorage[key]];
+        const layouts = await StorageService.getItem<Record<string, string[]>>(STORAGE_KEYS.BLOCK_LAYOUTS) || {};
+
+        if (layouts[key]) {
+            return layouts[key];
         }
 
         // Return default if no custom layout exists
@@ -51,7 +54,10 @@ export const BlockService = {
         await new Promise<void>(resolve => setTimeout(resolve, 50));
 
         const key = `${parentType}:${parentId}`;
-        blockStorage[key] = layout;
+        const layouts = await StorageService.getItem<Record<string, string[]>>(STORAGE_KEYS.BLOCK_LAYOUTS) || {};
+
+        layouts[key] = layout;
+        await StorageService.setItem(STORAGE_KEYS.BLOCK_LAYOUTS, layouts);
 
         console.log(`[BlockService] Saved layout for ${key}:`, layout);
     }
