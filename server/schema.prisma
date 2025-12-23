@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Quote {
+  id        Int      @id @default(autoincrement())
+  text      String
+  author    String
+  book      String
+  likes     Int      @default(0)
+  isLiked   Boolean  @default(false)
+  date      DateTime @default(now())
+}

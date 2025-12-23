@@ -108,6 +108,20 @@ class QuoteService {
     }
 
     async deleteQuote(id: number): Promise<void> {
+        try {
+            console.log('Deleting quote on server:', id);
+            const response = await fetch(`${this.API_URL}/${id}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                console.log('Quote deleted on server');
+                return;
+            }
+        } catch (error) {
+            console.error('Network error deleting quote:', error);
+        }
+
         await delay(300);
         const quotes = await this.getQuotes();
         const newQuotes = quotes.filter(q => q.id !== id);
@@ -115,10 +129,32 @@ class QuoteService {
     }
 
     async addQuote(text: string, book: string, author: string): Promise<void> {
+        try {
+            console.log('Sending quote to server:', { text, book, author });
+            const response = await fetch(this.API_URL!, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text, book, author }),
+            });
+
+            if (response.ok) {
+                console.log('Quote saved to server');
+                // We rely on re-fetching or optimistic UI from DataProvider
+                return;
+            } else {
+                console.error('Server error saving quote:', await response.text());
+            }
+        } catch (error) {
+            console.error('Network error saving quote, falling back to local:', error);
+        }
+
+        // Fallback or Legacy: Save locally if server fails (or as backup)
         await delay(500);
         const quotes = await this.getQuotes();
         const newQuote: Quote = {
-            id: Date.now(), // Generate a unique ID
+            id: Date.now(),
             text,
             book,
             author,
