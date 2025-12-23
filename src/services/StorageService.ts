@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
     AUTHORS: 'authors_data',
     BOOKS: 'books_data',
     BLOCK_LAYOUTS: 'block_layouts',
+    BLOCK_DATA: 'block_data',
 };
 
 export const StorageService = {

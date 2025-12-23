@@ -57,8 +57,38 @@ export const BlockService = {
         const layouts = await StorageService.getItem<Record<string, string[]>>(STORAGE_KEYS.BLOCK_LAYOUTS) || {};
 
         layouts[key] = layout;
+        layouts[key] = layout;
         await StorageService.setItem(STORAGE_KEYS.BLOCK_LAYOUTS, layouts);
 
         console.log(`[BlockService] Saved layout for ${key}:`, layout);
+    },
+
+    /**
+     * Get data for blocks (e.g. notes content) for a specific entity.
+     */
+    async getBlockData(parentId: string | number, parentType: 'quote' | 'book'): Promise<Record<string, any>> {
+        // Simulate delay
+        await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+        const key = `${parentType}:${parentId}`;
+        const allBlockData = await StorageService.getItem<Record<string, Record<string, any>>>(STORAGE_KEYS.BLOCK_DATA) || {};
+
+        return allBlockData[key] || {};
+    },
+
+    /**
+     * Save data for blocks (e.g. notes content) for a specific entity.
+     */
+    async saveBlockData(parentId: string | number, parentType: 'quote' | 'book', data: Record<string, any>): Promise<void> {
+        // Simulate delay
+        await new Promise<void>(resolve => setTimeout(resolve, 50));
+
+        const key = `${parentType}:${parentId}`;
+        const allBlockData = await StorageService.getItem<Record<string, Record<string, any>>>(STORAGE_KEYS.BLOCK_DATA) || {};
+
+        allBlockData[key] = data;
+        await StorageService.setItem(STORAGE_KEYS.BLOCK_DATA, allBlockData);
+
+        console.log(`[BlockService] Saved block data for ${key}:`, data);
     }
 };

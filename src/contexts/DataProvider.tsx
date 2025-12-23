@@ -18,6 +18,9 @@ type DataContextType = {
     // Block management
     getBlockLayout: (parentId: string | number, parentType: 'quote' | 'book') => Promise<string[]>;
     updateBlockLayout: (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => Promise<void>;
+    // Book data management
+    getBookData: (bookTitle: string) => Promise<Record<string, any>>;
+    updateBookData: (bookTitle: string, data: Record<string, any>) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -101,6 +104,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await quoteService.updateQuote(id, updates);
     };
 
+    const getBookData = async (bookTitle: string) => {
+        return await BlockService.getBlockData(bookTitle, 'book');
+    };
+
+    const updateBookData = async (bookTitle: string, data: Record<string, any>) => {
+        await BlockService.saveBlockData(bookTitle, 'book', data);
+    };
+
     return (
         <DataContext.Provider value={{
             quotes,
@@ -115,6 +126,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             getBlockLayout,
             updateBlockLayout,
             updateQuote,
+            getBookData,
+            updateBookData,
         }}>
             {children}
         </DataContext.Provider>

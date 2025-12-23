@@ -9,13 +9,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote } from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles } from 'lucide-react-native';
 import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
+import { TextInput } from 'react-native';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
 
@@ -45,22 +46,40 @@ export function BookDetailScreen() {
   const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
   const uniqueSimilarBooks = [...new Set(similarBookList)];
 
-  const { getBlockLayout, updateBlockLayout } = useData();
+  const { getBlockLayout, updateBlockLayout, getBookData, updateBookData } = useData();
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // Use unique ids per instance so duplicates are allowed and removable individually
   const [gridData, setGridData] = useState<string[]>([]);
+  const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
 
   // Fetch saved layout
   React.useEffect(() => {
     if (bookTitle) {
-      // Use bookTitle as ID for now (assuming titles are unique enough for this demo or we'd need IDs)
-      getBlockLayout(bookTitle, 'book').then(layout => {
+      Promise.all([
+        getBlockLayout(bookTitle, 'book'),
+        getBookData(bookTitle)
+      ]).then(([layout, data]) => {
         setGridData(layout);
+        setBlockData(data);
         setIsLoadingLayout(false);
       });
     }
   }, [bookTitle]);
+
+  // Autosave blockData
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (bookTitle && blockData) {
+        updateBookData(bookTitle, blockData);
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [blockData, bookTitle]);
+
+  const handleUpdateBlockData = (blockId: string, data: any) => {
+    setBlockData(current => ({ ...current, [blockId]: data }));
+  };
 
   const handleOrderChange = (fromIndex: number, toIndex: number) => {
     setGridData(prev => {
@@ -76,6 +95,7 @@ export function BookDetailScreen() {
   // Add-block modal state and helpers
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const blockOptions = [
+    { key: 'notes', label: 'Notes' },
     { key: 'author', label: "À propos de l'auteur" },
     { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
     { key: 'similarBooks', label: 'Livres similaires' },
@@ -118,6 +138,36 @@ export function BookDetailScreen() {
                 <Text style={styles.authorName}>{bookInfo.author}</Text>
               </TouchableOpacity>
               <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
+            </View>
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+      case 'notes':
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Sparkles size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Notes</Text>
+              </View>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Écrire des notes sur ce livre..."
+                placeholderTextColor="#6B7280"
+                multiline
+                numberOfLines={6}
+                value={blockData?.[item] ?? ''}
+                onChangeText={(text) => handleUpdateBlockData(item, text)}
+                textAlignVertical="top"
+              />
             </View>
           );
           return (
@@ -490,4 +540,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: { color: 'white', textAlign: 'center', marginTop: 50 },
+  notesInput: {
+    backgroundColor: '#0B0B0B',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    padding: 12,
+    color: '#E5E7EB',
+    fontSize: 13,
+    minHeight: 120,
+  },
 });
