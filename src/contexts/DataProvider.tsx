@@ -37,6 +37,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                 quoteService.getQuotes(),
                 authorService.getAuthors(),
             ]);
+            console.log('DataProvider fetched quotes:', fetchedQuotes.length);
             setQuotes(fetchedQuotes);
             setAuthors(fetchedAuthors);
         } catch (error) {

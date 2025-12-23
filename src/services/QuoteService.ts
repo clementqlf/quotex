@@ -1,4 +1,5 @@
 import { Quote } from '../../types';
+import { Platform } from 'react-native';
 import { localQuotesDB, globalQuotesDB, addQuote as addQuoteToStatic } from '../../data/staticData';
 import { StorageService, STORAGE_KEYS } from './StorageService';
 
@@ -29,7 +30,55 @@ class QuoteService {
         }
     }
 
+    // Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator
+    // Replace with your machine's local IP (e.g., 192.168.1.x) for physical device testing
+    private readonly API_URL = Platform.select({
+        android: 'http://10.0.2.2:3000/quotes',
+        ios: 'http://192.168.1.123:3000/quotes', // Updated with your local IP
+        default: 'http://192.168.1.123:3000/quotes',
+    });
+
+
+
     async getQuotes(): Promise<Quote[]> {
+        // Try fetching from server first
+        try {
+            console.log('Fetching quotes from:', this.API_URL);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
+            const response = await fetch(this.API_URL!, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const serverQuotes = await response.json();
+                console.log('Server response:', serverQuotes.length, 'quotes');
+
+                // Map server data to Quote type and merge with local persistence if needed
+                // For this prototype, we just return server data formatted as Quote objects
+                const mappedQuotes: Quote[] = serverQuotes.map((q: any) => ({
+                    id: q.id,
+                    text: q.text,
+                    book: q.book,
+                    author: q.author,
+                    // Default values for fields not in server
+                    theme: 'General',
+                    likes: 0,
+                    isLiked: false,
+                    // user field intentionally undefined so it shows in "My Quotes"
+                    date: new Date().toISOString(),
+                    isSaved: false,
+                    comments: 0,
+                    blockData: {},
+                }));
+                console.log('Mapped server quotes:', JSON.stringify(mappedQuotes, null, 2));
+                return mappedQuotes;
+            }
+        } catch (error) {
+            console.log('Server unreachable, falling back to local storage:', error);
+        }
+
+        // Fallback to local storage
         await delay(500);
         await this.seedDataIfNeeded();
         const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
