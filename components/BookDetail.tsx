@@ -9,10 +9,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare } from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
 import { bookDescriptions, authorDetails, similarBooks, localQuotesDB, mockReviews } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
-import { Modal, Alert } from 'react-native';
+import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
@@ -121,6 +121,7 @@ export function BookDetailScreen() {
   const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
   const blockOptions = [
     { key: 'reviews', label: 'Avis & Commentaires' },
+    { key: 'buy', label: 'Acheter ce livre' },
     { key: 'notes', label: 'Notes' },
     { key: 'author', label: "À propos de l'auteur" },
     { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
@@ -336,6 +337,44 @@ export function BookDetailScreen() {
           );
         }
 
+      case 'buy':
+        if (!bookInfo.buyLinks || bookInfo.buyLinks.length === 0) return null;
+        {
+          const content = (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <ShoppingCart size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Acheter ce livre</Text>
+              </View>
+              <View style={styles.buyLinksList}>
+                {bookInfo.buyLinks.map((link, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.buyLinkItem}
+                    onPress={() => {
+                      Linking.openURL(link.url).catch(err => Alert.alert("Erreur", "Impossible d'ouvrir le lien"));
+                    }}
+                  >
+                    <View style={styles.buyLinkInfo}>
+                      <Text style={styles.buyLinkStore}>{link.store}</Text>
+                      <ExternalLink size={12} color="#6B7280" />
+                    </View>
+                    <Text style={styles.buyLinkPrice}>{link.price}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          );
+          return (
+            <View style={styles.removableWrapper}>
+              {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
       case 'similarBooks':
         if (uniqueSimilarBooks.length === 0) return null;
         {
@@ -454,7 +493,7 @@ export function BookDetailScreen() {
               <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
               <Text style={styles.placeholderText}>Ajouter un bloc</Text>
             </TouchableOpacity>
-            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
+            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions.filter(opt => opt.key !== 'buy' || (bookInfo.buyLinks && bookInfo.buyLinks.length > 0))} />
           </View>
         </Animated.ScrollView>
 
@@ -861,5 +900,33 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     lineHeight: 22,
     marginTop: 8,
+  },
+  buyLinksList: {
+    gap: 12,
+  },
+  buyLinkItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  buyLinkInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buyLinkStore: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  buyLinkPrice: {
+    color: '#20B8CD',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

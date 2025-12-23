@@ -25,6 +25,7 @@ export type Book = {
   rating: number;
   genre: string;
   cover: string;
+  buyLinks?: Array<{ store: string; url: string; price: string }>;
 };
 
 export type Quote = {
@@ -64,7 +65,7 @@ export type RootStackParamList = {
   ThemeDetail: { themeName: string };
 };
 
-export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes' | 'reviews';
+export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes' | 'reviews' | 'buy';
 
 export interface BlockConfig {
   id: string;

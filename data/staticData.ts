@@ -95,7 +95,7 @@ export const authorDetails: { [key: string]: { description: string, image: strin
 };
 // J'ai supprimé authorDescriptions qui est maintenant remplacé par authorDetails
 
-export const bookDescriptions: { [key: string]: { description: string; author: string; year: number; pages: number; rating: number; genre: string; cover: string } } = {
+export const bookDescriptions: { [key: string]: { description: string; author: string; year: number; pages: number; rating: number; genre: string; cover: string; buyLinks?: Array<{ store: string; url: string; price: string }> } } = {
   "Steve Jobs": {
     description: "La biographie définitive de Steve Jobs révèle l'homme derrière le mythe : un perfectionniste obsessionnel qui a révolutionné six industries.",
     year: 2011,
@@ -104,6 +104,11 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
     rating: 4.7,
     genre: "Biographie",
     cover: "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=400&h=600&fit=crop",
+    buyLinks: [
+      { store: "Amazon", url: "https://amazon.com", price: "24.99€" },
+      { store: "FNAC", url: "https://fnac.com", price: "24.99€" },
+      { store: "Libraires", url: "https://lalibrairie.com", price: "25.50€" }
+    ]
   },
   "Einstein: His Life and Universe": {
     description: "Walter Isaacson explore comment l'imagination scientifique d'Einstein a émergé de sa nature rebelle et de son esprit indépendant.",
@@ -113,6 +118,10 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
     rating: 4.6,
     genre: "Biographie",
     cover: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=600&fit=crop",
+    buyLinks: [
+      { store: "Amazon", url: "https://amazon.com", price: "18.99€" },
+      { store: "Recyclivre", url: "https://recyclivre.com", price: "8.50€" }
+    ]
   },
   "Harry Potter and the Chamber of Secrets": {
     description: "La deuxième année de Harry à Poudlard s'annonce périlleuse quand une mystérieuse créature commence à pétrifier les élèves.",
@@ -122,6 +131,10 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
     rating: 4.8,
     genre: "Fantasy",
     cover: "https://images.unsplash.com/photo-1551029506-0807df4e2031?w=400&h=600&fit=crop",
+    buyLinks: [
+      { store: "Amazon", url: "https://amazon.com", price: "22.00€" },
+      { store: "FNAC", url: "https://fnac.com", price: "22.50€" }
+    ]
   },
   "The Obstacle Is the Way": {
     description: "Ryan Holiday nous enseigne comment transformer nos obstacles en avantages en s'inspirant de la philosophie stoïcienne.",
@@ -131,6 +144,9 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
     rating: 4.7,
     genre: "Philosophie",
     cover: "https://images.unsplash.com/photo-1524995767962-b624634ad030?w=400&h=600&fit=crop",
+    buyLinks: [
+      { store: "Amazon", url: "https://amazon.com", price: "15.99€" }
+    ]
   },
   "The Alchemist": {
     description: "L'Alchimiste raconte l'histoire de Santiago, un jeune berger andalou qui part à la recherche d'un trésor enfoui au pied des pyramides égyptiennes.",
@@ -140,6 +156,10 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
     rating: 4.6,
     genre: "Philosophie",
     cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop",
+    buyLinks: [
+      { store: "Amazon", url: "https://amazon.com", price: "12.00€" },
+      { store: "FNAC", url: "https://fnac.com", price: "12.00€" }
+    ]
   },
   "Middlemarch": {
     description: "Middlemarch, une étude de la vie de province, est un roman de George Eliot. Il est considéré comme l'un des plus grands romans en langue anglaise.",
@@ -149,6 +169,9 @@ export const bookDescriptions: { [key: string]: { description: string; author: s
     rating: 4.2,
     genre: "Classique",
     cover: "https://images.unsplash.com/photo-1588666307646-86b1d359a381?w=400&h=600&fit=crop",
+    buyLinks: [
+      { store: "Amazon", url: "https://amazon.com", price: "10.50€" }
+    ]
   },
 };
 
