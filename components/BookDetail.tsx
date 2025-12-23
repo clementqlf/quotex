@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles } from 'lucide-react-native';
-import { bookDescriptions, authorDetails, similarBooks, localQuotesDB } from '../data/staticData';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare } from 'lucide-react-native';
+import { bookDescriptions, authorDetails, similarBooks, localQuotesDB, mockReviews } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
+import { Modal, Alert } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
@@ -81,6 +82,29 @@ export function BookDetailScreen() {
     setBlockData(current => ({ ...current, [blockId]: data }));
   };
 
+  // Calculate dynamic average rating
+  const userReview = blockData?.userReview;
+  const otherReviews = mockReviews[bookTitle] || [];
+
+  const allRatings = otherReviews.map(r => r.rating);
+  if (userReview?.rating) {
+    allRatings.push(userReview.rating);
+  }
+
+  const averageRating = allRatings.length > 0
+    ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1)
+    : bookInfo.rating; // Fallback to static rating
+
+  const handleUpdateRating = (rating: number) => {
+    const newReview = { ...userReview, rating, date: "À l'instant" };
+    handleUpdateBlockData('userReview', newReview);
+  };
+
+  const handleUpdateComment = (comment: string) => {
+    const newReview = { ...userReview, comment, date: "À l'instant" };
+    handleUpdateBlockData('userReview', newReview);
+  };
+
   const handleOrderChange = (fromIndex: number, toIndex: number) => {
     setGridData(prev => {
       const arr = [...prev];
@@ -94,7 +118,9 @@ export function BookDetailScreen() {
 
   // Add-block modal state and helpers
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
+  const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
   const blockOptions = [
+    { key: 'reviews', label: 'Avis & Commentaires' },
     { key: 'notes', label: 'Notes' },
     { key: 'author', label: "À propos de l'auteur" },
     { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
@@ -120,6 +146,15 @@ export function BookDetailScreen() {
 
     setGridData(newLayout);
     if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
+  };
+
+  const handlePublishReview = () => {
+    if (!userReview?.comment) {
+      Alert.alert("Erreur", "Veuillez écrire un commentaire avant de publier.");
+      return;
+    }
+    Alert.alert("Succès", "Votre avis a été publié avec succès !");
+    // In a real app, this would trigger an API call and lock the input/change state.
   };
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
@@ -173,6 +208,90 @@ export function BookDetailScreen() {
           return (
             <View style={styles.removableWrapper}>
               {content}
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+      case 'reviews':
+        {
+          return (
+            <View style={styles.removableWrapper}>
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Star size={16} color="#20B8CD" />
+                  <Text style={styles.sectionTitle}>Avis & Commentaires</Text>
+                </View>
+
+                {/* User Rating input */}
+                <View style={styles.userRatingContainer}>
+                  <Text style={styles.subTitle}>Votre note</Text>
+                  <View style={styles.starRow}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity key={star} onPress={() => handleUpdateRating(star)}>
+                        <Star
+                          size={24}
+                          color={userReview?.rating >= star ? "#20B8CD" : "#4B5563"}
+                          fill={userReview?.rating >= star ? "#20B8CD" : "none"}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* User Comment input */}
+                <View style={styles.commentInputContainer}>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Donnez votre avis sur ce livre..."
+                    placeholderTextColor="#6B7280"
+                    multiline
+                    value={userReview?.comment ?? ''}
+                    onChangeText={handleUpdateComment}
+                  />
+                  <TouchableOpacity style={styles.publishButton} onPress={handlePublishReview}>
+                    <Send size={14} color="#000" />
+                    <Text style={styles.publishButtonText}>Publier</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Other reviews list */}
+                {otherReviews.length > 0 && (
+                  <View style={styles.reviewsList}>
+                    <Text style={styles.subTitle}>Avis de la communauté</Text>
+                    {otherReviews.slice(0, 2).map((review: any) => (
+                      <View key={review.id} style={styles.reviewItem}>
+                        <View style={styles.reviewHeader}>
+                          <View style={styles.reviewerInfo}>
+                            {review.user?.image ? (
+                              <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
+                            ) : (
+                              <View style={[styles.reviewerAvatar, { backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }]}>
+                                <User size={12} color="#9CA3AF" />
+                              </View>
+                            )}
+                            <Text style={styles.reviewerName}>{review.user.name}</Text>
+                          </View>
+                          <Text style={styles.reviewDate}>{review.date}</Text>
+                        </View>
+                        <View style={styles.reviewRating}>
+                          {[1, 2, 3, 4, 5].map(s => (
+                            <Star key={s} size={10} color={review.rating >= s ? "#20B8CD" : "#4B5563"} fill={review.rating >= s ? "#20B8CD" : "none"} />
+                          ))}
+                        </View>
+                        <Text style={styles.reviewComment}>{review.comment}</Text>
+                      </View>
+                    ))}
+                    {otherReviews.length > 2 && (
+                      <TouchableOpacity style={styles.seeAllReviewsButton} onPress={() => setAllReviewsVisible(true)}>
+                        <Text style={styles.seeAllReviewsText}>Voir les {otherReviews.length} avis</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
               <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
@@ -300,7 +419,7 @@ export function BookDetailScreen() {
                   </View>
                   <View style={styles.metaItem}>
                     <Star size={14} color="#20B8CD" fill="#20B8CD" />
-                    <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
+                    <Text style={styles.metaText}>{averageRating}/5</Text>
                   </View>
                 </View>
 
@@ -338,6 +457,50 @@ export function BookDetailScreen() {
             <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
           </View>
         </Animated.ScrollView>
+
+        {/* Full Screen Reviews Modal */}
+        <Modal
+          visible={isAllReviewsVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setAllReviewsVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Avis ({otherReviews.length})</Text>
+              <TouchableOpacity onPress={() => setAllReviewsVisible(false)} style={styles.modalCloseButton}>
+                <X size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              {otherReviews.map((review: any) => (
+                <View key={review.id} style={styles.modalReviewItem}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewerInfo}>
+                      {review.user?.image ? (
+                        <Image source={{ uri: review.user.image }} style={styles.reviewerAvatarLarge} />
+                      ) : (
+                        <View style={[styles.reviewerAvatarLarge, { backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }]}>
+                          <User size={16} color="#9CA3AF" />
+                        </View>
+                      )}
+                      <View>
+                        <Text style={styles.reviewerNameLarge}>{review.user.name}</Text>
+                        <Text style={styles.reviewDate}>{review.date}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.reviewRating}>
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <Star key={s} size={12} color={review.rating >= s ? "#20B8CD" : "#4B5563"} fill={review.rating >= s ? "#20B8CD" : "none"} />
+                      ))}
+                    </View>
+                  </View>
+                  <Text style={styles.reviewCommentLarge}>{review.comment}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -549,5 +712,154 @@ const styles = StyleSheet.create({
     color: '#E5E7EB',
     fontSize: 13,
     minHeight: 120,
+  },
+  userRatingContainer: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  subTitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  starRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  commentInputContainer: {
+    marginBottom: 20,
+  },
+  commentInput: {
+    backgroundColor: '#0B0B0B',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    borderRadius: 12,
+    padding: 12,
+    color: '#E5E7EB',
+    fontSize: 13,
+    minHeight: 80,
+  },
+  reviewsList: {
+    gap: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+    paddingTop: 16,
+  },
+  reviewItem: {
+    backgroundColor: '#0F0F0F',
+    borderRadius: 12,
+    padding: 12,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  reviewerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewerAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  reviewerName: {
+    fontSize: 12,
+    color: '#E5E7EB',
+    fontWeight: '500',
+  },
+  reviewDate: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    gap: 2,
+    marginBottom: 6,
+  },
+  reviewComment: {
+    fontSize: 13,
+    color: '#D1D5DB',
+    lineHeight: 18,
+  },
+  publishButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#20B8CD',
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-end',
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  publishButtonText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  seeAllReviewsButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+    marginTop: 8,
+  },
+  seeAllReviewsText: {
+    color: '#20B8CD',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0F0F0F',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1F1F1F',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalContent: {
+    padding: 16,
+    gap: 16,
+  },
+  modalReviewItem: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  reviewerAvatarLarge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  reviewerNameLarge: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  reviewCommentLarge: {
+    fontSize: 14,
+    color: '#E5E7EB',
+    lineHeight: 22,
+    marginTop: 8,
   },
 });

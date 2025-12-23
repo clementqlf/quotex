@@ -44,6 +44,17 @@ export type Quote = {
   blockData?: Record<string, any>;
 };
 
+export type Review = {
+  id: string;
+  user: {
+    name: string;
+    image?: string;
+  };
+  rating: number;
+  comment: string;
+  date: string;
+};
+
 export type RootStackParamList = {
   Main: NavigatorScreenParams<TabParamList>;
   AuthorDetail: { author: Author };
@@ -53,7 +64,7 @@ export type RootStackParamList = {
   ThemeDetail: { themeName: string };
 };
 
-export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes';
+export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes' | 'reviews';
 
 export interface BlockConfig {
   id: string;
