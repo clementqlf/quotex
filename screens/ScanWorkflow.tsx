@@ -17,7 +17,8 @@ import { useNavigation } from '@react-navigation/native';
 import { Heart, Share2, Trash2, X } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
-import { addQuote, bookDescriptions, localQuotesDB } from '../data/staticData';
+import { bookDescriptions, localQuotesDB } from '../data/staticData';
+import { useData } from '../src/contexts/DataProvider';
 
 type MLKitText = {
   text: string;
@@ -37,6 +38,7 @@ const PATH_SAMPLE_STEP = 1;
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }) => {
   const navigation = useNavigation<any>();
+  const { addQuote } = useData();
   const [scannedText, setScannedText] = useState('');
   const [photoDimensions, setPhotoDimensions] = useState({ width: 0, height: 0 });
   const [selectedBlocks, setSelectedBlocks] = useState<MLKitText[]>([]);
@@ -478,7 +480,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
     setShowPreviewModal(true);
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     const finalText = editedQuote.trim() || scannedText;
     if (!finalText) return;
 
@@ -488,7 +490,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
 
     const authorName = editedAuthor.trim() || bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
 
-    addQuote({ text: finalText, book: bookTitle, author: authorName });
+    await addQuote(finalText, bookTitle, authorName);
 
     setShowPreviewModal(false);
     setScannedText('');
@@ -556,7 +558,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
           };
         }}
       >
-        <Animated.View style={[styles.photoContent, { transform: [{ scale: previewScale }] }]}> 
+        <Animated.View style={[styles.photoContent, { transform: [{ scale: previewScale }] }]}>
           <Image
             source={{ uri: `file://${photo.path}` }}
             style={styles.photo}

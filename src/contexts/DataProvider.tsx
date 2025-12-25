@@ -21,6 +21,7 @@ type DataContextType = {
     // Book data management
     getBookData: (bookTitle: string) => Promise<Record<string, any>>;
     updateBookData: (bookTitle: string, data: Record<string, any>) => Promise<void>;
+    addQuote: (text: string, book: string, author: string) => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -113,6 +114,30 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await BlockService.saveBlockData(bookTitle, 'book', data);
     };
 
+    const addQuote = async (text: string, book: string, author: string) => {
+        // Optimistic update (with temp ID)
+        const tempId = Date.now();
+        const newQuote: Quote = {
+            id: tempId,
+            text,
+            book,
+            author,
+            likes: 0,
+            isLiked: false,
+            date: new Date().toISOString(),
+            isSaved: false,
+            comments: 0,
+            blockData: {},
+        };
+        setQuotes(prev => [newQuote, ...prev]);
+
+        // Call service
+        await quoteService.addQuote(text, book, author);
+
+        // Re-fetch to get real ID and server data
+        await refreshQuotes();
+    };
+
     return (
         <DataContext.Provider value={{
             quotes,
@@ -122,6 +147,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             toggleLikeQuote,
             toggleSaveQuote,
             deleteQuote,
+            addQuote,
             getAuthorByName,
             getBooksByAuthor,
             getBlockLayout,

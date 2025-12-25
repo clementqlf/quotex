@@ -34,8 +34,8 @@ class QuoteService {
     // Replace with your machine's local IP (e.g., 192.168.1.x) for physical device testing
     private readonly API_URL = Platform.select({
         android: 'http://10.0.2.2:3000/quotes',
-        ios: 'http://192.168.1.123:3000/quotes', // Updated with your local IP
-        default: 'http://192.168.1.123:3000/quotes',
+        ios: 'http://192.168.1.60:3000/quotes', // Updated to current local IP
+        default: 'http://192.168.1.60:3000/quotes',
     });
 
 
@@ -54,31 +54,33 @@ class QuoteService {
                 const serverQuotes = await response.json();
                 console.log('Server response:', serverQuotes.length, 'quotes');
 
-                // Map server data to Quote type and merge with local persistence if needed
-                // For this prototype, we just return server data formatted as Quote objects
                 const mappedQuotes: Quote[] = serverQuotes.map((q: any) => ({
                     id: q.id,
                     text: q.text,
                     book: q.book,
                     author: q.author,
-                    // Default values for fields not in server
                     theme: 'General',
                     likes: 0,
                     isLiked: false,
-                    // user field intentionally undefined so it shows in "My Quotes"
                     date: new Date().toISOString(),
                     isSaved: false,
                     comments: 0,
                     blockData: {},
                 }));
-                console.log('Mapped server quotes:', JSON.stringify(mappedQuotes, null, 2));
+
+                // Update local cache
+                await StorageService.setItem(STORAGE_KEYS.QUOTES, mappedQuotes);
+
+                // Trigger sync of pending quotes in background
+                this.syncPendingQuotes();
+
                 return mappedQuotes;
             }
         } catch (error) {
-            console.log('Server unreachable, falling back to local storage:', error);
+            console.log('Server unreachable, using local storage:', error);
         }
 
-        // Fallback to local storage
+        // Fallback to local storage (offline mode)
         await delay(500);
         await this.seedDataIfNeeded();
         const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
@@ -116,45 +118,51 @@ class QuoteService {
 
             if (response.ok) {
                 console.log('Quote deleted on server');
-                return;
+                // Could also update cache here
             }
         } catch (error) {
             console.error('Network error deleting quote:', error);
         }
 
+        // Optimistic local delete
         await delay(300);
-        const quotes = await this.getQuotes();
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
         const newQuotes = quotes.filter(q => q.id !== id);
         await StorageService.setItem(STORAGE_KEYS.QUOTES, newQuotes);
     }
 
     async addQuote(text: string, book: string, author: string): Promise<void> {
+        const quotePayload = { text, book, author };
         try {
-            console.log('Sending quote to server:', { text, book, author });
+            console.log('Sending quote to server:', quotePayload);
             const response = await fetch(this.API_URL!, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ text, book, author }),
+                body: JSON.stringify(quotePayload),
             });
 
             if (response.ok) {
                 console.log('Quote saved to server');
-                // We rely on re-fetching or optimistic UI from DataProvider
                 return;
             } else {
                 console.error('Server error saving quote:', await response.text());
+                // Decide if we should queue on server error (500) or just network error. 
+                // For now, let's queue on any failure to be safe, or maybe just network. 
+                // Simple approach: if not OK, queue it.
+                await this.addToPendingQueue(quotePayload);
             }
         } catch (error) {
-            console.error('Network error saving quote, falling back to local:', error);
+            console.error('Network error saving quote, queueing for sync:', error);
+            await this.addToPendingQueue(quotePayload);
         }
 
-        // Fallback or Legacy: Save locally if server fails (or as backup)
-        await delay(500);
-        const quotes = await this.getQuotes();
+        // Update local cache optimistically
+        await delay(100);
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
         const newQuote: Quote = {
-            id: Date.now(),
+            id: Date.now(), // Temp ID
             text,
             book,
             author,
@@ -167,6 +175,45 @@ class QuoteService {
         };
         const updatedQuotes = [newQuote, ...quotes];
         await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
+    }
+
+    private async addToPendingQueue(payload: { text: string; book: string; author: string }) {
+        const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+        pending.push(payload);
+        await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, pending);
+        console.log('Quote added to pending queue');
+    }
+
+    private async syncPendingQuotes() {
+        const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES);
+        if (!pending || pending.length === 0) return;
+
+        console.log(`Syncing ${pending.length} pending quotes...`);
+        const remaining: any[] = [];
+
+        for (const quote of pending) {
+            try {
+                const response = await fetch(this.API_URL!, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(quote),
+                });
+                if (!response.ok) {
+                    remaining.push(quote);
+                    console.log('Failed to sync quote, keeping in queue');
+                } else {
+                    console.log('Synced quote successfully');
+                }
+            } catch (e) {
+                remaining.push(quote);
+                console.log('Network error syncing quote, keeping in queue');
+            }
+        }
+
+        if (remaining.length !== pending.length) {
+            await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, remaining);
+            console.log('Sync complete. Remaining items:', remaining.length);
+        }
     }
 
     async updateQuote(id: number, updates: Partial<Quote>): Promise<void> {

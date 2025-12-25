@@ -80,12 +80,27 @@ async function seedIfNeeded() {
                 {
                     text: "The only way to do great work is to love what you do.",
                     author: "Steve Jobs",
-                    book: "Stanford Commencement Address"
+                    book: "Steve Jobs"
                 },
                 {
-                    text: "It does not matter how slowly you go as long as you do not stop.",
-                    author: "Confucius",
-                    book: "Analects"
+                    text: "In the middle of difficulty lies opportunity.",
+                    author: "Albert Einstein",
+                    book: "Einstein: His Life and Universe"
+                },
+                {
+                    text: "It is our choices that show what we truly are, far more than our abilities.",
+                    author: "J.K. Rowling",
+                    book: "Harry Potter and the Chamber of Secrets"
+                },
+                {
+                    text: "The only impossible journey is the one you never begin.",
+                    author: "Tony Robbins",
+                    book: "Notes from a Friend"
+                },
+                {
+                    text: "Life is what happens when you're busy making other plans.",
+                    author: "John Lennon",
+                    book: "Beautiful Boy"
                 }
             ]
         });
