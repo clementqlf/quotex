@@ -22,6 +22,7 @@ type DataContextType = {
     getBookData: (bookTitle: string) => Promise<Record<string, any>>;
     updateBookData: (bookTitle: string, data: Record<string, any>) => Promise<void>;
     addQuote: (text: string, book: string, author: string) => Promise<void>;
+    getUserByUsername: (username: string) => Promise<any>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -138,6 +139,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await refreshQuotes();
     };
 
+    const getUserByUsername = async (username: string) => {
+        return await quoteService.getUserByUsername(username);
+    };
+
     return (
         <DataContext.Provider value={{
             quotes,
@@ -155,6 +160,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             updateQuote,
             getBookData,
             updateBookData,
+            getUserByUsername,
         }}>
             {children}
         </DataContext.Provider>

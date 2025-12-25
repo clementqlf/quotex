@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
+import { seed } from './seedData';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -53,6 +54,36 @@ app.get('/books', async (req, res) => {
         res.json(books);
     } catch (e) {
         res.status(500).json({ error: 'Failed to fetch books' });
+    }
+});
+
+// Get user by username
+app.get('/users/:username', async (req, res) => {
+    try {
+        const { username } = req.params;
+        // Handle @ prefix
+        const cleanUsername = username.startsWith('@') ? username : `@${username}`;
+
+        const user = await prisma.user.findUnique({
+            where: { username: cleanUsername },
+            include: {
+                quotes: {
+                    include: {
+                        book: true,
+                        author: true
+                    }
+                }
+            }
+        });
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+        res.json(user);
+    } catch (e) {
+        console.error("Error fetching user", e);
+        res.status(500).json({ error: 'Failed to fetch user' });
     }
 });
 
@@ -130,124 +161,9 @@ app.delete('/quotes/:id', async (req, res) => {
 // --- Seeding ---
 
 async function seedIfNeeded() {
-    const count = await prisma.author.count();
+    const count = await prisma.user.count(); // Check users instead of authors, or just quote table
     if (count === 0) {
-        console.log('Seeding initial data...');
-
-        // Users
-        const user1 = await prisma.user.create({
-            data: {
-                username: "@clementqlf",
-                name: "Clément QLF",
-                image: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop"
-            }
-        });
-        const user2 = await prisma.user.create({
-            data: {
-                username: "@sophiereads",
-                name: "Sophie Martin",
-                image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop"
-            }
-        });
-
-        // Authors
-        const steveJobs = await prisma.author.create({
-            data: {
-                name: "Steve Jobs",
-                description: "Co-founder of Apple Inc.",
-                image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
-                nationality: "American"
-            }
-        });
-
-        const einstein = await prisma.author.create({
-            data: {
-                name: "Albert Einstein",
-                description: "Theoretical physicist.",
-                image: "https://images.unsplash.com/photo-1541560052-77ec1bbc09f7?w=400&h=400&fit=crop",
-                nationality: "German"
-            }
-        });
-
-        const jkr = await prisma.author.create({
-            data: {
-                name: "J.K. Rowling",
-                description: "Author of Harry Potter.",
-                image: "https://images.unsplash.com/photo-1611601322175-8759d8e33441?w=400&h=400&fit=crop",
-                nationality: "British"
-            }
-        });
-
-        // Books
-        const bioJobs = await prisma.book.create({
-            data: {
-                title: "Steve Jobs",
-                authorId: steveJobs.id,
-                year: 2011,
-                pages: 656,
-                cover: "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=400&h=600&fit=crop",
-                genre: "Biography",
-                rating: 4.7
-            }
-        });
-
-        const bioEinstein = await prisma.book.create({
-            data: {
-                title: "Einstein: His Life and Universe",
-                authorId: einstein.id,
-                year: 2007,
-                pages: 704,
-                cover: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=600&fit=crop",
-                genre: "Biography",
-                rating: 4.6
-            }
-        });
-
-        const hp2 = await prisma.book.create({
-            data: {
-                title: "Harry Potter and the Chamber of Secrets",
-                authorId: jkr.id,
-                year: 1998,
-                pages: 341,
-                cover: "https://images.unsplash.com/photo-1551029506-0807df4e2031?w=400&h=600&fit=crop",
-                genre: "Fantasy",
-                rating: 4.8
-            }
-        });
-
-        // Quotes
-        await prisma.quote.createMany({
-            data: [
-                {
-                    text: "The only way to do great work is to love what you do.",
-                    authorId: steveJobs.id,
-                    bookId: bioJobs.id,
-                    userId: user1.id,
-                    likes: 12,
-                    isLiked: true,
-                    theme: "Travail"
-                },
-                {
-                    text: "In the middle of difficulty lies opportunity.",
-                    authorId: einstein.id,
-                    bookId: bioEinstein.id,
-                    userId: user2.id,
-                    likes: 8,
-                    theme: "Développement personnel"
-                },
-                {
-                    text: "It is our choices that show what we truly are, far more than our abilities.",
-                    authorId: jkr.id,
-                    bookId: hp2.id,
-                    userId: user1.id,
-                    likes: 24,
-                    isLiked: true,
-                    theme: "Choix"
-                }
-            ]
-        });
-
-        console.log('Seeded database.');
+        await seed();
     }
 }
 

@@ -60,5 +60,9 @@ model User {
   username  String   @unique
   name      String?
   image     String?
+  bio       String?
+  website   String?
+  followers Int      @default(0)
+  following Int      @default(0)
   quotes    Quote[]
 }

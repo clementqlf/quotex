@@ -10,10 +10,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, Mail, Link, Quote } from 'lucide-react-native';
-import { RootStackParamList, Author, Book } from '../types';
-import UserProfiles from '../mock/user-profiles.json'; // Gardé pour la bio, stats, etc.
-import { globalQuotesDB } from '../data/staticData'; // Import de la DB globale
+import { RootStackParamList, Author, Book, User } from '../types';
+// import UserProfiles from '../mock/user-profiles.json'; // Removed
+// import { globalQuotesDB } from '../data/staticData'; // Removed direct import
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+import { useData } from '../src/contexts/DataProvider';
 
 interface UserRouteParam {
   id: number | string;
@@ -42,39 +43,41 @@ export function UserProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<UserProfileScreenRouteProp>();
   const { user } = route.params;
+  const { getUserByUsername } = useData();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [profileData, setProfileData] = useState<any>(null);
+  const [profileData, setProfileData] = useState<User | null>(null);
   const [userQuotes, setUserQuotes] = useState<GlobalQuote[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
-    // Simuler le chargement des données
-    setTimeout(() => {
-      // 1. Trouver le profil étendu (bio, liens, etc.)
-      // On cherche par ID ou username
-      const profile = UserProfiles.find((p: any) => p.id === user.id || p.username === user.username) || {
-        ...user,
-        bio: "Passionné de littérature et de mots.",
-        followers: 0,
-        following: 0,
-        links: []
-      };
-      setProfileData(profile);
+    const fetchProfile = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getUserByUsername(user.username);
+        if (data) {
+          setProfileData(data);
+          // If backend returns quotes, use them
+          if (data.quotes) {
+            const mapped = data.quotes.map((q: any) => ({
+              ...q,
+              user: data, // Ensure user object is attached
+              time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
+            }));
+            setUserQuotes(mapped);
+          }
+        } else {
+          // Fallback for demo or if not found (shouldn't happen if migrated correctly)
+          setProfileData({ ...user } as User);
+        }
+      } catch (e) {
+        console.error("Error loading profile", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      // 2. Filtrer les citations de cet utilisateur depuis la DB globale
-      // On convertit les IDs en string pour être sûr
-      const quotes = globalQuotesDB.filter((q: any) =>
-        q.user && (String(q.user.id) === String(user.id) || q.user.username === user.username)
-      ).map((q: any) => ({
-        ...q,
-        // Normalisation pour l'affichage
-        time: q.time || new Date(q.date).toLocaleDateString()
-      }));
-
-      setUserQuotes(quotes as GlobalQuote[]);
-      setIsLoading(false);
-    }, 500);
+    fetchProfile();
   }, [user]);
 
   const toggleFollow = () => {

@@ -228,6 +228,22 @@ class QuoteService {
             await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
         }
     }
+
+    async getUserByUsername(username: string): Promise<any | undefined> {
+        try {
+            const baseUrl = this.API_URL!.replace('/quotes', '');
+            // Strip @ if present in URL segment to avoid double encoding or issues, handled by server anyway
+            const cleanUsername = username.replace('@', '');
+            const response = await fetch(`${baseUrl}/users/${cleanUsername}`);
+
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.log('Error fetching user:', e);
+        }
+        return undefined;
+    }
 }
 
 export const quoteService = new QuoteService();

@@ -6,6 +6,11 @@ export type User = {
   id: string | number;
   name: string;
   username: string;
+  image?: string;
+  bio?: string;
+  website?: string;
+  followers?: number;
+  following?: number;
 };
 
 export type Author = {
