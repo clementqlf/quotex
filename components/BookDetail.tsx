@@ -10,8 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
-import { bookDescriptions, authorDetails, similarBooks, mockReviews } from '../data/staticData';
+import { similarBooks, mockReviews } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
+import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
@@ -25,36 +26,40 @@ type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'p
 export function BookDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<BookDetailScreenRouteProp>();
-  // Le titre du livre peut être passé plusieurs fois, on s'assure de ne pas avoir de problème
   const bookTitle = route.params?.bookTitle;
 
-  const bookInfo = bookDescriptions[bookTitle];
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName } = useData();
 
-  if (!bookInfo) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          {/* On peut ajouter un bouton de retour ici aussi */}
-          <Text style={styles.errorText}>Livre non trouvé.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData } = useData();
-
-  const savedQuotes = quotes.filter(q => getBookTitle(q.book) === bookTitle);
-  // Logique pour trouver les livres similaires à partir des citations sauvegardées
-  const currentBookQuotes = savedQuotes.map(mq => mq.text);
-  // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
-  const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
-  const uniqueSimilarBooks = [...new Set(similarBookList)];
-
-  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
-  // Use unique ids per instance so duplicates are allowed and removable individually
+  const [bookInfo, setBookInfo] = useState<Book | null>(null);
+  const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
+  const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
+  const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
+  const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+
+  React.useEffect(() => {
+    async function loadMetadata() {
+      if (!bookTitle) return;
+      setIsLoadingMetadata(true);
+      try {
+        const fetchedBook = await getBookByTitle(bookTitle);
+        if (fetchedBook) {
+          setBookInfo(fetchedBook);
+          const authorName = typeof fetchedBook.author === 'string' ? fetchedBook.author : fetchedBook.author.name;
+          const fetchedAuthor = await getAuthorByName(authorName);
+          if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+        }
+      } catch (err) {
+        console.error('Error loading book/author metadata:', err);
+      } finally {
+        setIsLoadingMetadata(false);
+      }
+    }
+    loadMetadata();
+  }, [bookTitle, getBookByTitle, getAuthorByName]);
 
   // Fetch saved layout
   React.useEffect(() => {
@@ -68,7 +73,7 @@ export function BookDetailScreen() {
         setIsLoadingLayout(false);
       });
     }
-  }, [bookTitle]);
+  }, [bookTitle, getBlockLayout, getBookData]);
 
   // Autosave blockData
   React.useEffect(() => {
@@ -78,7 +83,16 @@ export function BookDetailScreen() {
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [blockData, bookTitle]);
+  }, [blockData, bookTitle, updateBookData]);
+
+
+  const savedQuotes = quotes.filter(q => getBookTitle(q.book) === bookTitle);
+  // Logique pour trouver les livres similaires à partir des citations sauvegardées
+  const currentBookQuotes = savedQuotes.map(mq => mq.text);
+  // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
+  const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
+  const uniqueSimilarBooks = [...new Set(similarBookList)];
+
 
   const handleUpdateBlockData = (blockId: string, data: any) => {
     setBlockData(current => ({ ...current, [blockId]: data }));
@@ -93,9 +107,6 @@ export function BookDetailScreen() {
     allRatings.push(userReview.rating);
   }
 
-  const averageRating = allRatings.length > 0
-    ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1)
-    : bookInfo.rating; // Fallback to static rating
 
   const handleUpdateRating = (rating: number) => {
     const newReview = { ...userReview, rating, date: "À l'instant" };
@@ -118,9 +129,6 @@ export function BookDetailScreen() {
     });
   };
 
-  // Add-block modal state and helpers
-  const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
-  const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
   const blockOptions = [
     { key: 'reviews', label: 'Avis & Commentaires' },
     { key: 'buy', label: 'Acheter ce livre' },
@@ -161,21 +169,23 @@ export function BookDetailScreen() {
   };
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
+    if (!bookInfo) return null;
     const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
     switch (base) {
       case 'author':
-        if (!authorDetails[bookInfo.author]) return null;
+        if (!authorInfo) return null;
         {
+          const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
           const content = (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <User size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName: bookInfo.author })}>
-                <Text style={styles.authorName}>{bookInfo.author}</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName })}>
+                <Text style={styles.authorName}>{authorName}</Text>
               </TouchableOpacity>
-              <Text style={styles.authorDesc}>{authorDetails[bookInfo.author].description}</Text>
+              <Text style={styles.authorDesc}>{authorInfo.description}</Text>
             </View>
           );
           return (
@@ -388,11 +398,16 @@ export function BookDetailScreen() {
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
                 {uniqueSimilarBooks.map((sBookTitle) => {
-                  const similarBookInfo = bookDescriptions[sBookTitle];
-                  if (!similarBookInfo) return null;
+                  // Keep this logic similar but we might not have all similar books info yet.
+                  // For now, since it's static similarBooks mapping, we might still want to fetch their covers.
+                  // But the user said "similarBooks and mockReviews in static", so leave as is but aware bookDescriptions is gone.
+                  // We can't really use bookDescriptions[sBookTitle] anymore.
+                  // Let's assume for now that if we don't have the info, we show a placeholder or nothing.
                   return (
                     <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
-                      <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
+                      <View style={[styles.similarBookCover, { backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center' }]}>
+                        <BookIcon size={24} color="#4B5563" />
+                      </View>
                       <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
                     </TouchableOpacity>
                   );
@@ -416,6 +431,56 @@ export function BookDetailScreen() {
         return null;
     }
   }, [navigation, bookInfo, savedQuotes, uniqueSimilarBooks]);
+
+  if (!bookTitle) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.errorText}>Aucun livre spécifié.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isLoadingMetadata) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{bookTitle}</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: '#9CA3AF' }}>Chargement des informations...</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!bookInfo) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{bookTitle}</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <Text style={styles.errorText}>Livre non trouvé sur le serveur.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const averageRating = allRatings.length > 0
+    ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1)
+    : bookInfo.rating; // Fallback to static rating
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -444,8 +509,11 @@ export function BookDetailScreen() {
               <Image source={{ uri: bookInfo.cover }} style={styles.bookCoverImage} />
               <View style={styles.bookInfo}>
                 <Text style={styles.bookTitleText}>{bookTitle}</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName: bookInfo.author })}>
-                  <Text style={styles.bookAuthorText}>{bookInfo.author}</Text>
+                <TouchableOpacity onPress={() => {
+                  const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
+                  navigation.navigate('AuthorDetail', { authorName });
+                }}>
+                  <Text style={styles.bookAuthorText}>{typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name}</Text>
                 </TouchableOpacity>
 
                 {/* Book Meta Info */}

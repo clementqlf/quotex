@@ -50,7 +50,23 @@ class AuthorService {
             (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
         );
     }
+
+    async getBookByTitle(title: string): Promise<Book | undefined> {
+        try {
+            const response = await fetch(`${this.API_URL}/books`);
+            if (response.ok) {
+                const books = await response.json();
+                return books.find((b: any) => b.title === title);
+            }
+        } catch (error) {
+            console.error('Error fetching book by title:', error);
+        }
+
+        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+        return (storedBooks || []).find(b => b.title === title);
+    }
 }
+
 
 export const authorService = new AuthorService();
 
