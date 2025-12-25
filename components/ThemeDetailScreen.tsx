@@ -8,8 +8,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, Quote, Heart } from 'lucide-react-native';
-import { localQuotesDB } from '../data/staticData';
+import { Quote as QuoteIcon, Heart, ChevronLeft } from 'lucide-react-native';
+import { useData } from '../src/contexts/DataProvider';
+import { Quote } from '../types';
+import { getAuthorName, getBookTitle } from '../src/utils/dataHelpers';
 
 type ThemeDetailScreenRouteProp = RouteProp<{ params: { themeName: string } }, 'params'>;
 
@@ -17,8 +19,8 @@ export function ThemeDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<ThemeDetailScreenRouteProp>();
   const themeName = route.params?.themeName;
-  
-  const [quotes, setQuotes] = useState(localQuotesDB);
+
+  const { quotes: allQuotes, toggleLikeQuote } = useData();
 
   if (!themeName) {
     return (
@@ -30,24 +32,12 @@ export function ThemeDetailScreen() {
     );
   }
 
-  // Filtrer les citations par thème
-  const themeQuotes = quotes.filter(q => (q.theme || 'Thème non renseigné') === themeName);
+  // Filtrer les citations par thème (sur toutes les citations dynamiques)
+  const themeQuotes = allQuotes.filter(q => (q.theme || 'Thème non renseigné') === themeName);
 
-  const toggleLike = (id: number) => {
-    const newQuotes = quotes.map(q => {
-      if (q.id === id) {
-        const updatedQuote = { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 };
-        const dbIndex = localQuotesDB.findIndex(dbq => dbq.id === id);
-        if (dbIndex > -1) localQuotesDB[dbIndex] = updatedQuote;
-        return updatedQuote;
-      }
-      return q;
-    });
-    setQuotes(newQuotes);
-  };
 
-  const openQuoteDetail = (quote: typeof localQuotesDB[0]) => {
-    navigation.navigate('QuoteDetail', { quote, onToggleLike: toggleLike });
+  const openQuoteDetail = (quote: Quote) => {
+    navigation.navigate('QuoteDetail', { quote, onToggleLike: toggleLikeQuote });
   };
 
   return (
@@ -85,7 +75,7 @@ export function ThemeDetailScreen() {
           {themeQuotes.length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Quote size={16} color="#20B8CD" />
+                <QuoteIcon size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>Citations du thème</Text>
               </View>
               <View style={styles.quotesList}>
@@ -99,16 +89,16 @@ export function ThemeDetailScreen() {
                     <Text style={styles.quoteText}>"{quote.text}"</Text>
                     <View style={styles.quoteMeta}>
                       <View style={styles.quoteMetaLeft}>
-                        <Text style={styles.quoteAuthor}>{quote.author}</Text>
-                        <Text style={styles.quoteBook}>{quote.book}</Text>
+                        <Text style={styles.quoteAuthor}>{getAuthorName(quote.author)}</Text>
+                        <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>
                       </View>
                       <View style={styles.quoteMetaRight}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           style={styles.likeButton}
-                          onPress={() => toggleLike(quote.id)}
+                          onPress={() => toggleLikeQuote(quote.id)}
                         >
-                          <Heart 
-                            size={16} 
+                          <Heart
+                            size={16}
                             color={quote.isLiked ? "#EF4444" : "#6B7280"}
                             fill={quote.isLiked ? "#EF4444" : "none"}
                           />
@@ -146,7 +136,7 @@ const styles = StyleSheet.create({
   placeholder: { width: 28 },
   content: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 32 },
-  
+
   themeInfoSection: {
     backgroundColor: '#1A1A1A',
     borderWidth: 1,

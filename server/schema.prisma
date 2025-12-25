@@ -52,6 +52,7 @@ model Quote {
   isLiked   Boolean  @default(false)
   isSaved   Boolean  @default(false)
   date      DateTime @default(now())
+  theme     String?
 }
 
 model User {

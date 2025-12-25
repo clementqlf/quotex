@@ -59,7 +59,7 @@ class QuoteService {
                     text: q.text,
                     book: q.book,
                     author: q.author,
-                    theme: 'General',
+                    theme: q.theme,
                     likes: q.likes || 0,
                     isLiked: q.isLiked || false,
                     date: q.date || new Date().toISOString(),

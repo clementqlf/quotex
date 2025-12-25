@@ -62,8 +62,8 @@ app.post('/quotes', async (req, res) => {
         // Expecting { text, author: string, book: string } from client for simplicity,
         // or { text, authorId, bookId } if client is advanced.
         // For this task, let's handle "find or create" based on names to keep client simple for now.
-        const { text, author, book } = req.body;
-        console.log('POST /quotes received:', { text, author, book });
+        const { text, author, book, theme } = req.body;
+        console.log('POST /quotes received:', { text, author, book, theme });
 
         if (!text || !author || !book) {
             res.status(400).json({ error: 'Missing required fields' });
@@ -94,7 +94,9 @@ app.post('/quotes', async (req, res) => {
                 date: new Date(),
                 authorId: authorRecord.id,
                 bookId: bookRecord.id,
-                userId: 1 // Hardcoded to default user for now
+
+                userId: 1, // Hardcoded to default user for now
+                theme
             },
             include: {
                 author: true,
@@ -222,14 +224,16 @@ async function seedIfNeeded() {
                     bookId: bioJobs.id,
                     userId: user1.id,
                     likes: 12,
-                    isLiked: true
+                    isLiked: true,
+                    theme: "Travail"
                 },
                 {
                     text: "In the middle of difficulty lies opportunity.",
                     authorId: einstein.id,
                     bookId: bioEinstein.id,
                     userId: user2.id,
-                    likes: 8
+                    likes: 8,
+                    theme: "Développement personnel"
                 },
                 {
                     text: "It is our choices that show what we truly are, far more than our abilities.",
@@ -237,7 +241,8 @@ async function seedIfNeeded() {
                     bookId: hp2.id,
                     userId: user1.id,
                     likes: 24,
-                    isLiked: true
+                    isLiked: true,
+                    theme: "Choix"
                 }
             ]
         });
