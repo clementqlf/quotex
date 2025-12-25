@@ -10,9 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, BookOpen, User, Calendar, Globe } from 'lucide-react-native';
-import { authorDetails, bookDescriptions, globalQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { getAuthorName } from '../src/utils/dataHelpers';
+import { Author, Book } from '../types';
 
 type AuthorDetailScreenRouteProp = RouteProp<{ params: { authorName: string } }, 'params'>;
 
@@ -21,20 +21,37 @@ export function AuthorDetailScreen() {
   const route = useRoute<AuthorDetailScreenRouteProp>();
   const { authorName } = route.params;
 
-  const authorInfo = authorDetails[authorName];
+  const { quotes, getAuthorByName, getBooksByAuthor } = useData();
+  const [authorInfo, setAuthorInfo] = React.useState<Author | null>(null);
+  const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
+  const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
+
+  React.useEffect(() => {
+    async function loadAuthorData() {
+      setIsLoadingAuthor(true);
+      try {
+        const [info, books] = await Promise.all([
+          getAuthorByName(authorName),
+          getBooksByAuthor(authorName)
+        ]);
+        if (info) setAuthorInfo(info);
+        setAuthorBooks(books);
+      } catch (error) {
+        console.error("Error loading author data:", error);
+      } finally {
+        setIsLoadingAuthor(false);
+      }
+    }
+    loadAuthorData();
+  }, [authorName, getAuthorByName, getBooksByAuthor]);
+
   const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
-  const authorBooks = Object.entries(bookDescriptions).filter(
-    ([, book]) => book.author === authorName
-  );
-
-  const { quotes } = useData();
-
-  // Compte le nombre total de citations pour cet auteur depuis les deux DBs
-  const localQuoteCount = quotes.filter(q => getAuthorName(q.author) === authorName).length;
-  const globalQuoteCount = globalQuotesDB.filter(q => getAuthorName(q.author) === authorName).length;
-  const totalQuotes = localQuoteCount + globalQuoteCount;
+  // Compte le nombre total de citations pour cet auteur depuis la DB locale (qui contient tout en mode serveur)
+  const totalQuotes = quotes.filter(q =>
+    typeof q.author === 'string' ? q.author === authorName : q.author?.name === authorName
+  ).length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -77,12 +94,12 @@ export function AuthorDetailScreen() {
               <View style={styles.detailItem}>
                 <Calendar size={16} color="#9CA3AF" />
                 <Text style={styles.detailLabel}>Naissance</Text>
-                <Text style={styles.detailValue}>{authorInfo.birthDate}</Text>
+                <Text style={styles.detailValue}>{authorInfo?.birthDate || 'Inconnu'}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Globe size={16} color="#9CA3AF" />
                 <Text style={styles.detailLabel}>Nationalité</Text>
-                <Text style={styles.detailValue}>{authorInfo.nationality}</Text>
+                <Text style={styles.detailValue}>{authorInfo?.nationality || 'Inconnue'}</Text>
               </View>
             </View>
           </View>
@@ -106,15 +123,15 @@ export function AuthorDetailScreen() {
                 <BookOpen size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>Livres de {authorName}</Text>
               </View>
-              {authorBooks.map(([bookTitle, bookInfo]) => (
+              {authorBooks.map((book) => (
                 <TouchableOpacity
-                  key={bookTitle}
+                  key={book.title}
                   style={styles.bookItem}
-                  onPress={() => navigation.navigate('BookDetail', { bookTitle: bookTitle })}>
-                  <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
+                  onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title })}>
+                  <Image source={{ uri: book.cover }} style={styles.bookCover} />
                   <View style={styles.bookInfo}>
-                    <Text style={styles.bookTitle}>{bookTitle}</Text>
-                    <Text style={styles.bookMetaText}>{bookInfo.year}</Text>
+                    <Text style={styles.bookTitle}>{book.title}</Text>
+                    <Text style={styles.bookMetaText}>{book.year}</Text>
                   </View>
                 </TouchableOpacity>
               ))}

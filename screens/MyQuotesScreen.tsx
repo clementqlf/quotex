@@ -339,7 +339,7 @@ export default function MyQuotesScreen() {
                   } else {
                     // Sinon, naviguer vers les détails
                     const currentQuote = quotesToDisplay.find(q => q.id === quote.id) || quote;
-                    navigation.navigate('QuoteDetail', { quote: currentQuote, onToggleLike: () => toggleLikeQuote(quote.id) });
+                    navigation.navigate('QuoteDetail', { quote: currentQuote });
                   }
                 }
               }}

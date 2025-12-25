@@ -75,7 +75,7 @@ export default function SocialFeedScreen() {
             <TouchableOpacity key={quote.id} style={styles.quoteCard} activeOpacity={0.8} onPress={() => {
               // On trouve la dernière version de la citation pour la passer au modal
               const currentQuote = feedQuotes.find(q => q.id === quote.id) || quote;
-              navigation.navigate('QuoteDetail', { quote: { ...currentQuote, date: currentQuote.time }, onToggleLike: () => toggleLikeQuote(quote.id) });
+              navigation.navigate('QuoteDetail', { quote: { ...currentQuote, date: currentQuote.time } });
             }}>
               {/* User Info - Cliquable */}
               <TouchableOpacity

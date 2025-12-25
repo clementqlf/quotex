@@ -37,7 +37,7 @@ export function ThemeDetailScreen() {
 
 
   const openQuoteDetail = (quote: Quote) => {
-    navigation.navigate('QuoteDetail', { quote, onToggleLike: toggleLikeQuote });
+    navigation.navigate('QuoteDetail', { quote });
   };
 
   return (

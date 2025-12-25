@@ -37,14 +37,14 @@ import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 // Le composant n'a plus besoin de props, il va tout chercher dans la route.
 export function QuoteDetailModal() {
   const navigation = useNavigation<any>();
-  const route = useRoute<RouteProp<{ params: { quote: Quote, onToggleLike?: (id: number) => void } }, 'params'>>();
-  const { quote: initialQuote, onToggleLike: onToggleLikeProp } = route.params ?? {};
+  const route = useRoute<RouteProp<{ params: { quote: Quote } }, 'params'>>();
+  const { quote: initialQuote } = route.params ?? {};
 
   // On utilise un état local pour la citation afin de pouvoir la mettre à jour
   const [quote, setQuote] = React.useState(initialQuote);
 
   // Persistence integration
-  const { getBlockLayout, updateBlockLayout, updateQuote } = useData();
+  const { getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
   const [gridData, setGridData] = React.useState<string[]>([]);
   const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
 
@@ -90,15 +90,15 @@ export function QuoteDetailModal() {
 
   const onClose = () => navigation.goBack();
 
-  // Cette fonction met à jour l'état local ET appelle la fonction du parent
+  // Cette fonction met à jour l'état local ET appelle la fonction du contexte
   const handleToggleLike = () => {
     // 1. Mettre à jour l'état de la modale pour un retour visuel immédiat
     setQuote(currentQuote => {
       if (!currentQuote) return currentQuote;
       return { ...currentQuote, isLiked: !currentQuote.isLiked, likes: currentQuote.isLiked ? currentQuote.likes - 1 : currentQuote.likes + 1 };
     });
-    // 2. Appeler la fonction passée en paramètre pour mettre à jour l'écran parent
-    onToggleLikeProp?.(quote.id);
+    // 2. Appeler la fonction du contexte pour mettre à jour l'état global
+    toggleLikeQuote(quote.id);
   };
 
   const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });

@@ -71,37 +71,71 @@ export const seed = async () => {
             name: "Steve Jobs",
             description: "Co-founder of Apple Inc. Visionary entrepreneur.",
             image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
-            nationality: "American"
+            nationality: "American",
+            birthDate: "24 février 1955"
         },
         {
             name: "Albert Einstein",
             description: "Theoretical physicist. Developed the theory of relativity.",
             image: "https://images.unsplash.com/photo-1541560052-77ec1bbc09f7?w=400&h=400&fit=crop",
-            nationality: "German"
+            nationality: "German",
+            birthDate: "14 mars 1879"
         },
         {
             name: "J.K. Rowling",
             description: "Author of the Harry Potter fantasy series.",
             image: "https://images.unsplash.com/photo-1611601322175-8759d8e33441?w=400&h=400&fit=crop",
-            nationality: "British"
+            nationality: "British",
+            birthDate: "31 juillet 1965"
         },
         {
             name: "Frank Herbert",
             description: "Science fiction author, best known for the novel Dune.",
             image: "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=400&fit=crop", // Abstract space-like
-            nationality: "American"
+            nationality: "American",
+            birthDate: "8 octobre 1920"
         },
         {
             name: "Marcus Aurelius",
             description: "Roman emperor and Stoic philosopher.",
             image: "https://images.unsplash.com/photo-1595166671408-72e7371994b7?w=400&h=400&fit=crop", // Statue
-            nationality: "Roman"
+            nationality: "Roman",
+            birthDate: "26 avril 121"
         },
         {
             name: "Victor Hugo",
             description: "French poet, novelist, and dramatist of the Romantic movement.",
             image: "https://images.unsplash.com/photo-1474932430478-367dbb6832c1?w=400&h=400&fit=crop", // Paris feel
-            nationality: "French"
+            nationality: "French",
+            birthDate: "26 février 1802"
+        },
+        {
+            name: "Walter Isaacson",
+            description: "American writer and journalist.",
+            image: "https://images.unsplash.com/photo-1613287393999-d3913027a1a6?w=400&h=400&fit=crop",
+            nationality: "American",
+            birthDate: "20 mai 1952"
+        },
+        {
+            name: "Ryan Holiday",
+            description: "Auteur américain de philosophie stoïcienne.",
+            image: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=400&h=400&fit=crop",
+            nationality: "Américain",
+            birthDate: "16 juin 1987"
+        },
+        {
+            name: "Paulo Coelho",
+            description: "Romancier brésilien célèbre pour L'Alchimiste.",
+            image: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=400&h=400&fit=crop",
+            nationality: "Brésilien",
+            birthDate: "24 août 1947"
+        },
+        {
+            name: "George Eliot",
+            description: "Romancière anglaise de l'époque victorienne.",
+            image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop",
+            nationality: "Anglaise",
+            birthDate: "22 novembre 1819"
         }
     ];
 
@@ -179,18 +213,8 @@ export const seed = async () => {
         }
     ];
 
-    // Ensure Walter Isaacson exists since we need him for the bio books
-    const isaacson = await prisma.author.upsert({
-        where: { name: "Walter Isaacson" },
-        update: {},
-        create: {
-            name: "Walter Isaacson",
-            description: "American writer and journalist.",
-            image: "https://images.unsplash.com/photo-1613287393999-d3913027a1a6?w=400&h=400&fit=crop",
-            nationality: "American"
-        }
-    });
-    authors["Walter Isaacson"] = isaacson;
+    // Walter Isaacson is now in authorsData array
+
 
     const books: Record<string, any> = {};
     for (const b of booksData) {
