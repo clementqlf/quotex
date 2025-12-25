@@ -151,14 +151,12 @@ export function UserProfileScreen() {
           {/* Bio & Links */}
           <View style={styles.section}>
             <Text style={styles.bioText}>{profileData.bio}</Text>
-            {profileData.links && profileData.links.length > 0 && (
+            {profileData.website && profileData.website.length > 0 && (
               <View style={styles.linksContainer}>
-                {profileData.links.map((link: any, index: number) => (
-                  <TouchableOpacity key={index} style={styles.linkItem}>
-                    <Link size={14} color="#20B8CD" />
-                    <Text style={styles.linkText}>{link.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                <TouchableOpacity style={styles.linkItem}>
+                  <Link size={14} color="#20B8CD" />
+                  <Text style={styles.linkText}>{profileData.website}</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
