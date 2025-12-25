@@ -13,11 +13,12 @@ import Svg, { Path } from 'react-native-svg';
 import { useTabIndex } from '../TabNavigator';
 import { globalQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
+import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
 export default function SocialFeedScreen() {
   const navigation = useNavigation<any>();
   const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
-  const feedQuotes = quotes.filter(q => !!q.user); // Global quotes have user
+  const feedQuotes = quotes.filter(q => q.user && q.user.id !== 1); // Global quotes except mine
 
   const { setTabIndex } = useTabIndex();
   const isFocused = useIsFocused();
@@ -108,9 +109,9 @@ export default function SocialFeedScreen() {
 
                 {/* Book Tag */}
                 <View style={styles.bookTag}>
-                  <Text style={styles.bookName}>{quote.book}</Text>
+                  <Text style={styles.bookName}>{getBookTitle(quote.book)}</Text>
                   <Text style={styles.separator}>·</Text>
-                  <Text style={styles.authorName}>{quote.author}</Text>
+                  <Text style={styles.authorName}>{getAuthorName(quote.author)}</Text>
                 </View>
               </View>
 
