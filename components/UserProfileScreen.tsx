@@ -10,9 +10,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, Mail, Link, Quote } from 'lucide-react-native';
-import { RootStackParamList } from '../types';
+import { RootStackParamList, Author, Book } from '../types';
 import UserProfiles from '../mock/user-profiles.json'; // Gardé pour la bio, stats, etc.
 import { globalQuotesDB } from '../data/staticData'; // Import de la DB globale
+import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
 interface UserRouteParam {
   id: number | string;
@@ -25,81 +26,68 @@ interface GlobalQuote {
   id: number;
   user: { id: string; name: string; username: string; };
   text: string;
-  book: string;
-  author: string;
-  time: string;
+  book: string | Book;
+  author: string | Author;
+  time?: string;
+  date?: string;
   likes: number;
   comments: number;
   isLiked: boolean;
   isSaved: boolean;
 }
-type UserProfileScreenRouteProp = RouteProp<RootStackParamList & { UserProfile: { user: UserRouteParam } }, 'UserProfile'>;
 
-// Types pour les données du profil (bio, stats, etc.)
-interface UserProfile {
-  bio: string;
-  website: string;
-  stats: {
-    followers: number;
-    following: number;
-  };
-}
+type UserProfileScreenRouteProp = RouteProp<RootStackParamList, 'UserProfile'>;
 
 export function UserProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<UserProfileScreenRouteProp>();
-  const user = route.params?.user; // Utilisation du chaînage optionnel pour plus de sécurité
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [userQuotes, setUserQuotes] = useState<GlobalQuote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = route.params;
 
-  // Si l'utilisateur ou son ID est manquant, on ne peut pas continuer.
-  if (!user || !user.id) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.placeholderText}>
-            Impossible de charger le profil. L'identifiant de l'utilisateur est manquant.
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const [isLoading, setIsLoading] = useState(true);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [userQuotes, setUserQuotes] = useState<GlobalQuote[]>([]);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
-    const fetchUserProfile = () => {
-      try {
-        // Récupère les données depuis le fichier JSON factice
-        // Utilise .find() sur le tableau pour trouver le bon profil
-        const data = UserProfiles.find(p => String(p.id) === String(user.id));
+    // Simuler le chargement des données
+    setTimeout(() => {
+      // 1. Trouver le profil étendu (bio, liens, etc.)
+      // On cherche par ID ou username
+      const profile = UserProfiles.find((p: any) => p.id === user.id || p.username === user.username) || {
+        ...user,
+        bio: "Passionné de littérature et de mots.",
+        followers: 0,
+        following: 0,
+        links: []
+      };
+      setProfileData(profile);
 
-        if (!data) {
-          throw new Error(`Profil utilisateur avec l'ID ${user.id} non trouvé.`);
-        }
+      // 2. Filtrer les citations de cet utilisateur depuis la DB globale
+      // On convertit les IDs en string pour être sûr
+      const quotes = globalQuotesDB.filter((q: any) =>
+        q.user && (String(q.user.id) === String(user.id) || q.user.username === user.username)
+      ).map((q: any) => ({
+        ...q,
+        // Normalisation pour l'affichage
+        time: q.time || new Date(q.date).toLocaleDateString()
+      }));
 
-        setProfile(data);
+      setUserQuotes(quotes as GlobalQuote[]);
+      setIsLoading(false);
+    }, 500);
+  }, [user]);
 
-        // Filtre les citations de la DB globale pour cet utilisateur
-        const quotes = globalQuotesDB.filter(q => String(q.user.id) === String(user.id));
-        setUserQuotes(quotes);
-      } catch (error) {
-        console.error("Erreur lors de la récupération du profil:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, [user.id]); // Dépendance plus spécifique
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('');
+  const toggleFollow = () => {
+    setIsFollowing(!isFollowing);
   };
+
+  if (isLoading || !profileData) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#20B8CD" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -112,82 +100,86 @@ export function UserProfileScreen() {
           >
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{user.name}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{user.username}</Text>
           <View style={styles.placeholder} />
         </View>
 
-        {loading ? (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#20B8CD" />
-          </View>
-        ) : !profile ? (
-          <Text style={styles.placeholderText}>Impossible de charger le profil.</Text>
-        ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Profile Header */}
+          {/* Profile Section */}
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
+              <Text style={styles.avatarText}>{profileData.name[0]}</Text>
             </View>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userUsername}>{user.username}</Text>
-            
-            <TouchableOpacity style={styles.followButton}>
-              <Text style={styles.followButtonText}>Suivre</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.userName}>{profileData.name}</Text>
+            <Text style={styles.userUsername}>@{profileData.username}</Text>
 
-          {/* Bio */}
-          <View style={styles.section}>
-             <Text style={styles.bioText}>{profile.bio}</Text>
-             <View style={styles.linksContainer}>
-                <View style={styles.linkItem}>
-                    <Mail size={14} color="#6B7280" />
-                    <Text style={styles.linkText}>Contacter</Text>
-                </View>
-                <View style={styles.linkItem}>
-                    <Link size={14} color="#6B7280" />
-                    <Text style={styles.linkText}>{profile.website}</Text>
-                </View>
-             </View>
+            <TouchableOpacity
+              style={[
+                styles.followButton,
+                isFollowing && styles.followButtonActive
+              ]}
+              onPress={toggleFollow}
+            >
+              <Text style={[
+                styles.followButtonText,
+                isFollowing && styles.followButtonTextActive
+              ]}>
+                {isFollowing ? 'Abonné' : "S'abonner"}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Stats */}
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userQuotes.length}</Text>
-              <Text style={styles.statLabel}>Citations</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{profile.stats.followers}</Text>
+              <Text style={styles.statValue}>{profileData.followers || 0}</Text>
               <Text style={styles.statLabel}>Abonnés</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{profile.stats.following}</Text>
+              <Text style={styles.statValue}>{profileData.following || 0}</Text>
               <Text style={styles.statLabel}>Abonnements</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{userQuotes.length}</Text>
+              <Text style={styles.statLabel}>Citations</Text>
             </View>
           </View>
 
-          {/* User's quotes */}
+          {/* Bio & Links */}
+          <View style={styles.section}>
+            <Text style={styles.bioText}>{profileData.bio}</Text>
+            {profileData.links && profileData.links.length > 0 && (
+              <View style={styles.linksContainer}>
+                {profileData.links.map((link: any, index: number) => (
+                  <TouchableOpacity key={index} style={styles.linkItem}>
+                    <Link size={14} color="#20B8CD" />
+                    <Text style={styles.linkText}>{link.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* User's Quotes */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Quote size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Citations de {user.name.split(' ')[0]}</Text>
+              <Text style={styles.sectionTitle}>Citations partagées</Text>
             </View>
+
             {userQuotes.length > 0 ? (
               <View style={styles.savedQuotesList}>
                 {userQuotes.map((quote) => (
                   <TouchableOpacity
                     key={quote.id}
                     style={styles.savedQuoteCard}
-                    activeOpacity={0.85}
                     onPress={() => navigation.navigate('QuoteDetail', { quote })}
                   >
-                    <Text style={styles.savedQuoteText}>{quote.text}</Text>
+                    <Text style={styles.savedQuoteText} numberOfLines={3}>"{quote.text}"</Text>
                     <View style={styles.savedQuoteMeta}>
                       <View>
-                        <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
-                        <Text style={styles.savedQuoteBook}>{quote.book}</Text>
+                        <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
+                        <Text style={styles.savedQuoteBook}>{getBookTitle(quote.book)}</Text>
                       </View>
                       <Text style={styles.savedQuoteDate}>{quote.time}</Text>
                     </View>
@@ -199,7 +191,6 @@ export function UserProfileScreen() {
             )}
           </View>
         </ScrollView>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -230,6 +221,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
     textAlign: 'center',
+    fontWeight: '600',
   },
   placeholder: {
     width: 28,
@@ -238,9 +230,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0F0F0F',
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   profileHeader: {
     alignItems: 'center',
@@ -258,12 +252,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 32,
     color: '#20B8CD',
+    fontWeight: 'bold',
   },
   userName: {
     fontSize: 20,
     color: '#FFFFFF',
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   userUsername: {
@@ -274,13 +270,21 @@ const styles = StyleSheet.create({
   followButton: {
     backgroundColor: '#20B8CD',
     paddingVertical: 8,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     borderRadius: 8,
+  },
+  followButtonActive: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#20B8CD',
   },
   followButtonText: {
     color: '#0F0F0F',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  followButtonTextActive: {
+    color: '#20B8CD',
   },
   section: {
     backgroundColor: '#1A1A1A',
@@ -328,6 +332,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     color: '#20B8CD',
+    fontWeight: 'bold',
   },
   statLabel: {
     fontSize: 12,
@@ -337,7 +342,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     color: '#FFFFFF',
-    marginBottom: 12,
+    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -371,10 +376,12 @@ const styles = StyleSheet.create({
   savedQuoteMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
   },
   savedQuoteAuthor: {
     fontSize: 12,
     color: '#20B8CD',
+    fontWeight: '500',
   },
   savedQuoteBook: {
     fontSize: 12,

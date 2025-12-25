@@ -7,12 +7,57 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model Author {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  image       String?
+  birthDate   String?
+  nationality String?
+  books       Book[]
+  quotes      Quote[]
+}
+
+model Book {
+  id          Int      @id @default(autoincrement())
+  title       String   @unique
+  description String?
+  year        Int?
+  pages       Int?
+  cover       String?
+  genre       String?
+  rating      Float?
+  
+  authorId    Int
+  author      Author   @relation(fields: [authorId], references: [id])
+  
+  quotes      Quote[]
+}
+
 model Quote {
   id        Int      @id @default(autoincrement())
   text      String
-  author    String
-  book      String
+
+  // Relations
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  authorId  Int
+  author    Author   @relation(fields: [authorId], references: [id])
+  
+  bookId    Int?
+  book      Book?    @relation(fields: [bookId], references: [id])
+  
   likes     Int      @default(0)
   isLiked   Boolean  @default(false)
+  isSaved   Boolean  @default(false)
   date      DateTime @default(now())
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  name      String?
+  image     String?
+  quotes    Quote[]
 }

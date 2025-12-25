@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
-import { bookDescriptions, authorDetails, similarBooks, localQuotesDB, mockReviews } from '../data/staticData';
+import { bookDescriptions, authorDetails, similarBooks, mockReviews } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
@@ -18,6 +18,7 @@ import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
 import { TextInput } from 'react-native';
+import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
 
@@ -40,14 +41,15 @@ export function BookDetailScreen() {
     );
   }
 
-  const savedQuotes = localQuotesDB.filter(mq => mq.book === bookTitle);
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData } = useData();
+
+  const savedQuotes = quotes.filter(q => getBookTitle(q.book) === bookTitle);
   // Logique pour trouver les livres similaires à partir des citations sauvegardées
   const currentBookQuotes = savedQuotes.map(mq => mq.text);
   // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
   const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
   const uniqueSimilarBooks = [...new Set(similarBookList)];
 
-  const { getBlockLayout, updateBlockLayout, getBookData, updateBookData } = useData();
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // Use unique ids per instance so duplicates are allowed and removable individually
   const [gridData, setGridData] = useState<string[]>([]);
@@ -319,7 +321,7 @@ export function BookDetailScreen() {
                   >
                     <Text style={styles.savedQuoteText}>{quote.text}</Text>
                     <View style={styles.savedQuoteMeta}>
-                      <Text style={styles.savedQuoteAuthor}>{quote.author}</Text>
+                      <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
                       <Text style={styles.savedQuoteDate}>{quote.date}</Text>
                     </View>
                   </TouchableOpacity>

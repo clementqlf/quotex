@@ -29,6 +29,7 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
 import { useData } from '../src/contexts/DataProvider';
 import { Quote, User } from '../types';
+import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
 
 // Local types removed in favor of imports from ../types
@@ -103,17 +104,20 @@ export function QuoteDetailModal() {
   const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });
   const onBookPress = (bookTitle: string) => navigation.navigate('BookDetail', { bookTitle });
 
+  const quoteAuthorName = getAuthorName(quote.author);
+  const quoteBookTitle = getBookTitle(quote.book);
+
   // Data logic dependencies
   const aiInterpretation =
     aiInterpretations[quote.text] ||
     "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
-  const authorInfo = authorDetails[quote.author];
-  const authorDesc = authorInfo?.description || `${quote.author} est un auteur reconnu.`;
+  const authorInfo = authorDetails[quoteAuthorName];
+  const authorDesc = authorInfo?.description || `${quoteAuthorName} est un auteur reconnu.`;
   const similarBookList =
     similarBooks[quote.text] || [];
-  const bookAuthor = authorInfo ? quote.author : quote.author; // Simplified fallback
+  const bookAuthor = authorInfo ? quoteAuthorName : quoteAuthorName; // Simplified fallback
   const similarAuthorList = similarAuthors[bookAuthor] || [];
-  const bookInfo = bookDescriptions[quote.book];
+  const bookInfo = bookDescriptions[quoteBookTitle];
   const quoteTheme = quote.theme || 'Thème non renseigné';
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
@@ -228,11 +232,11 @@ export function QuoteDetailModal() {
                 <BookOpen size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos du livre</Text>
               </View>
-              <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quote.book)}>
+              <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quoteBookTitle)}>
                 <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
                 <View style={styles.bookInfo}>
-                  <TouchableOpacity onPress={() => onBookPress(quote.book)}>
-                    <Text style={styles.bookName}>{quote.book}</Text>
+                  <TouchableOpacity onPress={() => onBookPress(quoteBookTitle)}>
+                    <Text style={styles.bookName}>{quoteBookTitle}</Text>
                   </TouchableOpacity>
                   <View style={styles.bookMeta}>
                     <View style={styles.metaItem}>
@@ -274,8 +278,8 @@ export function QuoteDetailModal() {
                 <UserIcon size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
               </View>
-              <TouchableOpacity onPress={() => onAuthorPress(quote.author)}>
-                <Text style={styles.authorName}>{quote.author}</Text>
+              <TouchableOpacity onPress={() => onAuthorPress(quoteAuthorName)}>
+                <Text style={styles.authorName}>{quoteAuthorName}</Text>
                 <Text style={styles.authorDesc}>{authorDesc}</Text>
               </TouchableOpacity>
             </View>
@@ -367,7 +371,7 @@ export function QuoteDetailModal() {
       default:
         return null;
     }
-  }, [navigation, quote, bookInfo, authorDesc, similarBookList, similarAuthorList, definitions, openAddBlockModal]);
+  }, [navigation, quote, bookInfo, authorDesc, similarBookList, similarAuthorList, definitions, openAddBlockModal, quoteBookTitle, quoteAuthorName]);
 
   return (
     <View style={styles.container}>
@@ -408,13 +412,13 @@ export function QuoteDetailModal() {
             {/* Book & Author + Theme badge à droite */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A2A2A', gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quote.book)}>
+                <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quoteBookTitle)}>
                   <BookOpen size={16} color="#6B7280" />
-                  <Text style={styles.metaTextBook}>{quote.book}</Text>
+                  <Text style={styles.metaTextBook}>{quoteBookTitle}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quote.author)}>
+                <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quoteAuthorName)}>
                   <UserIcon size={16} color="#6B7280" />
-                  <Text style={styles.metaTextAuthor}>{quote.author}</Text>
+                  <Text style={styles.metaTextAuthor}>{quoteAuthorName}</Text>
                 </TouchableOpacity>
                 {quote.date && (
                   <View style={styles.metaRow}>

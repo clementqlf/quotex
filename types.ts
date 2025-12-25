@@ -3,12 +3,13 @@ import { TabParamList } from './TabNavigator';
 
 // Define shared types here to avoid circular imports
 export type User = {
-  id: string;
+  id: string | number;
   name: string;
   username: string;
 };
 
 export type Author = {
+  id?: number | string; // added id
   name: string;
   description: string;
   image: string;
@@ -17,11 +18,12 @@ export type Author = {
 };
 
 export type Book = {
+  id?: number | string; // added id
   title: string;
   description: string;
   year: number;
   pages: number;
-  author: string;
+  author: string | Author; // Author can also be an object now
   rating: number;
   genre: string;
   cover: string;
@@ -31,8 +33,8 @@ export type Book = {
 export type Quote = {
   id: number;
   text: string;
-  book: string;
-  author: string;
+  book: string | Book; // Can be object (from server) or string (legacy/static)
+  author: string | Author; // Can be object (from server) or string (legacy/static)
   theme?: string;
   date?: string;
   likes: number;

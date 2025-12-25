@@ -19,6 +19,7 @@ import { bookDescriptions } from '../data/staticData';
 import { useTabIndex } from '../TabNavigator';
 import { useData } from '../src/contexts/DataProvider';
 import { Quote } from '../types';
+import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
 type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 const EDGE_SWIPE_ZONE = 28;
@@ -28,8 +29,8 @@ export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
   const { quotes: allQuotes, toggleLikeQuote, deleteQuote, refreshQuotes } = useData();
 
-  // Filter for "My Quotes" (assuming local quotes have no user attached in this demo data model)
-  const myQuotes = useMemo(() => allQuotes.filter(q => !q.user), [allQuotes]);
+  // Filter for "My Quotes" (current user is ID 1) or legacy local quotes
+  const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id == 1 || !q.user), [allQuotes]);
 
   const [quotesToDisplay, setQuotesToDisplay] = useState(myQuotes);
 
@@ -50,11 +51,11 @@ export default function MyQuotesScreen() {
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes'>('quotes');
 
-  const authors = [...new Set(myQuotes.map(q => q.author))];
-  const books = [...new Set(myQuotes.map(q => q.book))];
+  const authors = [...new Set(myQuotes.map(q => getAuthorName(q.author)))];
+  const books = [...new Set(myQuotes.map(q => getBookTitle(q.book)))];
   const years = [...new Set(
     myQuotes
-      .map(q => bookDescriptions[q.book]?.year)
+      .map(q => bookDescriptions[getBookTitle(q.book)]?.year)
       .filter((year): year is number => !!year)
   )].sort((a, b) => b - a);
 
@@ -64,7 +65,7 @@ export default function MyQuotesScreen() {
     for (const q of myQuotes) {
       const theme = q.theme || 'Thème non renseigné';
       if (!grouped[theme]) grouped[theme] = { books: new Set(), quoteCount: 0 };
-      grouped[theme].books.add(q.book);
+      grouped[theme].books.add(getBookTitle(q.book));
       grouped[theme].quoteCount += 1;
     }
     return Object.entries(grouped)
@@ -89,9 +90,9 @@ export default function MyQuotesScreen() {
       }, {} as Record<'author' | 'book' | 'year', (string | number)[]>);
 
       filtered = filtered.filter(q => {
-        const authorMatch = !filtersByType.author || filtersByType.author.includes(q.author);
-        const bookMatch = !filtersByType.book || filtersByType.book.includes(q.book);
-        const yearMatch = !filtersByType.year || (bookDescriptions[q.book] && filtersByType.year.includes(bookDescriptions[q.book].year));
+        const authorMatch = !filtersByType.author || filtersByType.author.includes(getAuthorName(q.author));
+        const bookMatch = !filtersByType.book || filtersByType.book.includes(getBookTitle(q.book));
+        const yearMatch = !filtersByType.year || (bookDescriptions[getBookTitle(q.book)] && filtersByType.year.includes(bookDescriptions[getBookTitle(q.book)].year));
         return authorMatch && bookMatch && yearMatch;
       });
     }
@@ -358,10 +359,10 @@ export default function MyQuotesScreen() {
               {/* Book Info */}
               <View style={styles.bookInfo}>
                 <View style={styles.bookInfoLeft}>
-                  <Text style={styles.bookTitle}>{quote.book}</Text>
+                  <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
                   {/* Le nom de l'auteur n'est plus cliquable ici */}
                   <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
-                    {quote.author}
+                    {getAuthorName(quote.author)}
                   </Text>
                 </View>
                 <Text style={styles.dateText}>{quote.date}</Text>
@@ -400,11 +401,13 @@ export default function MyQuotesScreen() {
 
   const booksData = useMemo(() => {
     const grouped = myQuotes.reduce<Record<string, { authors: Set<string>; quoteCount: number }>>((acc, quote) => {
-      if (!acc[quote.book]) {
-        acc[quote.book] = { authors: new Set(), quoteCount: 0 };
+      const title = getBookTitle(quote.book);
+      const author = getAuthorName(quote.author);
+      if (!acc[title]) {
+        acc[title] = { authors: new Set(), quoteCount: 0 };
       }
-      acc[quote.book].authors.add(quote.author);
-      acc[quote.book].quoteCount += 1;
+      acc[title].authors.add(author);
+      acc[title].quoteCount += 1;
       return acc;
     }, {});
 

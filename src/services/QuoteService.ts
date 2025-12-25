@@ -60,12 +60,14 @@ class QuoteService {
                     book: q.book,
                     author: q.author,
                     theme: 'General',
-                    likes: 0,
-                    isLiked: false,
-                    date: new Date().toISOString(),
-                    isSaved: false,
-                    comments: 0,
-                    blockData: {},
+                    likes: q.likes || 0,
+                    isLiked: q.isLiked || false,
+                    date: q.date || new Date().toISOString(),
+                    time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
+                    isSaved: q.isSaved || false,
+                    comments: q.comments || 0,
+                    blockData: q.blockData || {},
+                    user: q.user // Use user from server
                 }));
 
                 // Update local cache
@@ -172,6 +174,7 @@ class QuoteService {
             isSaved: false,
             comments: 0,
             blockData: {},
+            user: { id: 1, name: "Clément QLF", username: "@clementqlf" }
         };
         const updatedQuotes = [newQuote, ...quotes];
         await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);

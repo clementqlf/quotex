@@ -10,7 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, BookOpen, User, Calendar, Globe } from 'lucide-react-native';
-import { authorDetails, bookDescriptions, globalQuotesDB, localQuotesDB } from '../data/staticData';
+import { authorDetails, bookDescriptions, globalQuotesDB } from '../data/staticData';
+import { useData } from '../src/contexts/DataProvider';
+import { getAuthorName } from '../src/utils/dataHelpers';
 
 type AuthorDetailScreenRouteProp = RouteProp<{ params: { authorName: string } }, 'params'>;
 
@@ -26,9 +28,12 @@ export function AuthorDetailScreen() {
   const authorBooks = Object.entries(bookDescriptions).filter(
     ([, book]) => book.author === authorName
   );
+
+  const { quotes } = useData();
+
   // Compte le nombre total de citations pour cet auteur depuis les deux DBs
-  const localQuoteCount = localQuotesDB.filter(q => q.author === authorName).length;
-  const globalQuoteCount = globalQuotesDB.filter(q => q.author === authorName).length;
+  const localQuoteCount = quotes.filter(q => getAuthorName(q.author) === authorName).length;
+  const globalQuoteCount = globalQuotesDB.filter(q => getAuthorName(q.author) === authorName).length;
   const totalQuotes = localQuoteCount + globalQuoteCount;
 
   return (
@@ -102,17 +107,17 @@ export function AuthorDetailScreen() {
                 <Text style={styles.sectionTitle}>Livres de {authorName}</Text>
               </View>
               {authorBooks.map(([bookTitle, bookInfo]) => (
-                <TouchableOpacity 
-                  key={bookTitle} 
+                <TouchableOpacity
+                  key={bookTitle}
                   style={styles.bookItem}
                   onPress={() => navigation.navigate('BookDetail', { bookTitle: bookTitle })}>
-                <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
-                <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle}>{bookTitle}</Text>
-                  <Text style={styles.bookMetaText}>{bookInfo.year}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
+                  <View style={styles.bookInfo}>
+                    <Text style={styles.bookTitle}>{bookTitle}</Text>
+                    <Text style={styles.bookMetaText}>{bookInfo.year}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
         </ScrollView>
