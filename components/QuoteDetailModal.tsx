@@ -33,6 +33,8 @@ import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
 
 // Local types removed in favor of imports from ../types
+import WordSelectionModal from './WordSelectionModal';
+import { fetchDefinition } from '../src/services/WiktionaryService';
 
 // Le composant n'a plus besoin de props, il va tout chercher dans la route.
 export function QuoteDetailModal() {
@@ -123,6 +125,37 @@ export function QuoteDetailModal() {
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // State and helpers for "Ajouter un bloc"
   const [isAddBlockModalVisible, setAddBlockModalVisible] = React.useState(false);
+  const [isWordSelectionModalVisible, setWordSelectionModalVisible] = React.useState(false);
+  const [currentDefinitionBlockId, setCurrentDefinitionBlockId] = React.useState<string | null>(null);
+
+  const handleWordsSelected = async (words: string[]) => {
+    if (!currentDefinitionBlockId) return;
+
+    // Fetch definitions for all selected words
+    // We can show a loading indicator here if needed, but for now we'll just wait
+    // Ideally we should have a 'loading' state for the block itself or the modal
+
+    const newDefinitions = [];
+    for (const word of words) {
+      const def = await fetchDefinition(word);
+      if (def) {
+        newDefinitions.push(def);
+      } else {
+        // Fallback if no definition found
+        newDefinitions.push({
+          term: word,
+          genre: 'Non trouvé',
+          definition: "Aucune définition trouvée pour ce mot.",
+          example: ''
+        });
+      }
+    }
+
+    handleUpdateBlockData(currentDefinitionBlockId, newDefinitions);
+    setWordSelectionModalVisible(false);
+    setCurrentDefinitionBlockId(null);
+  };
+
 
   const blockOptions = [
     { key: 'definition', label: 'Définition' },
@@ -162,7 +195,31 @@ export function QuoteDetailModal() {
     const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
     switch (base) {
       case 'definition':
-        if (!definitions[quote.text]) return null;
+        // Check if we have data for this definition block
+        const blockDefinitionData = quote?.blockData?.[item] as { term: string, genre: string, definition: string, example: string }[] | undefined;
+
+        // If no data (or legacy behavior check), render the placeholder state to select words
+        if (!blockDefinitionData || blockDefinitionData.length === 0) {
+          return (
+            <View style={styles.removableWrapper}>
+              <TouchableOpacity
+                style={styles.emptyBlockContainer}
+                onPress={() => {
+                  setCurrentDefinitionBlockId(item);
+                  setWordSelectionModalVisible(true);
+                }}
+              >
+                <BookOpen size={24} color="#20B8CD" />
+                <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
+                <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+                <X size={14} color="#EF4444" />
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
         {
           const content = (
             <View style={styles.definitionSection}>
@@ -171,7 +228,7 @@ export function QuoteDetailModal() {
                 <Text style={styles.sectionTitle}>Définition</Text>
               </View>
               <View style={styles.definitionContent}>
-                {definitions[quote.text].map((dItem, defIndex) => (
+                {blockDefinitionData.map((dItem, defIndex) => (
                   <View key={defIndex}>
                     <Text style={styles.definitionTerm}>{dItem.term}</Text>
                     <Text style={styles.definitionGenre}>{dItem.genre}</Text>
@@ -181,6 +238,16 @@ export function QuoteDetailModal() {
                   </View>
                 ))}
               </View>
+              {/* Button to edit selection (optional, useful feature) */}
+              <TouchableOpacity
+                style={styles.editSelectionButton}
+                onPress={() => {
+                  setCurrentDefinitionBlockId(item);
+                  setWordSelectionModalVisible(true);
+                }}
+              >
+                <Text style={styles.editSelectionText}>Modifier la sélection</Text>
+              </TouchableOpacity>
             </View>
           );
           return (
@@ -492,6 +559,13 @@ export function QuoteDetailModal() {
             />
             {/* Modal réutilisable pour choisir le type de bloc à ajouter */}
             <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
+
+            <WordSelectionModal
+              visible={isWordSelectionModalVisible}
+              onClose={() => setWordSelectionModalVisible(false)}
+              onConfirm={handleWordsSelected}
+              quoteText={quote.text}
+            />
           </View>
 
         </Animated.ScrollView>
@@ -793,6 +867,40 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontFamily: 'Times New Roman',
     fontStyle: 'italic',
+  },
+  emptyBlockContainer: {
+    backgroundColor: 'rgba(32, 184, 205, 0.05)',
+    borderWidth: 1,
+    borderColor: '#20B8CD',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  emptyBlockText: {
+    color: '#20B8CD',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyBlockSubtext: {
+    color: '#6B7280',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  editSelectionButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#2A2A2A',
+  },
+  editSelectionText: {
+    color: '#20B8CD',
+    fontSize: 12,
+    fontWeight: '500',
   },
   definitionGenre: {
     fontSize: 12,
