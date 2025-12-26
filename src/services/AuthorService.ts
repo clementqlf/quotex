@@ -49,16 +49,20 @@ class AuthorService {
 
     async getBookByTitle(title: string): Promise<Book | undefined> {
         try {
-            const response = await fetch(`${this.API_URL}/books`);
+            console.log(`[AuthorService] Fetching book by title: ${title}`);
+            const response = await fetch(`${this.API_URL}/books?t=${Date.now()}`); // Add timestamp to prevent caching
             if (response.ok) {
                 const books = await response.json();
-                return books.find((b: any) => b.title === title);
+                const book = books.find((b: any) => b.title === title);
+                console.log(`[AuthorService] Found book: ${title}, rating: ${book?.rating}`);
+                return book;
             }
         } catch (error) {
             console.error('Error fetching book by title:', error);
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+        console.log('[AuthorService] Fallback to storage');
         return (storedBooks || []).find(b => b.title === title);
     }
 }

@@ -42,26 +42,31 @@ export function BookDetailScreen() {
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
-  React.useEffect(() => {
-    async function loadMetadata() {
-      if (!bookTitle) return;
-      setIsLoadingMetadata(true);
-      try {
-        const fetchedBook = await getBookByTitle(bookTitle);
-        if (fetchedBook) {
-          setBookInfo(fetchedBook);
-          const authorName = typeof fetchedBook.author === 'string' ? fetchedBook.author : fetchedBook.author.name;
-          const fetchedAuthor = await getAuthorByName(authorName);
-          if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
-        }
-      } catch (err) {
-        console.error('Error loading book/author metadata:', err);
-      } finally {
-        setIsLoadingMetadata(false);
+  const loadMetadata = useCallback(async () => {
+    if (!bookTitle) return;
+    console.log('[BookDetail] loadMetadata triggered');
+    setIsLoadingMetadata(true);
+    try {
+      const fetchedBook = await getBookByTitle(bookTitle);
+      if (fetchedBook) {
+        console.log(`[BookDetail] Fetched book info. Rating: ${fetchedBook.rating}`);
+        setBookInfo(fetchedBook);
+        const authorName = typeof fetchedBook.author === 'string' ? fetchedBook.author : fetchedBook.author.name;
+        const fetchedAuthor = await getAuthorByName(authorName);
+        if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+      } else {
+        console.log('[BookDetail] Book not found');
       }
+    } catch (err) {
+      console.error('Error loading book/author metadata:', err);
+    } finally {
+      setIsLoadingMetadata(false);
     }
-    loadMetadata();
   }, [bookTitle, getBookByTitle, getAuthorByName]);
+
+  React.useEffect(() => {
+    loadMetadata();
+  }, [loadMetadata]);
 
   // Fetch saved layout
   React.useEffect(() => {
@@ -214,6 +219,7 @@ export function BookDetailScreen() {
             <ReviewBlock
               bookId={bookId}
               onRemove={() => handleRemoveBlockAt(index)}
+              onReviewAdded={loadMetadata}
             />
           );
         }

@@ -7,9 +7,10 @@ import { ReviewService } from '../src/services/ReviewService';
 interface ReviewBlockProps {
     bookId: number;
     onRemove?: () => void;
+    onReviewAdded?: () => void;
 }
 
-export default function ReviewBlock({ bookId, onRemove }: ReviewBlockProps) {
+export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewBlockProps) {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -54,6 +55,12 @@ export default function ReviewBlock({ bookId, onRemove }: ReviewBlockProps) {
             setRating(0);
             setComment('');
             Alert.alert("Succès", "Votre avis a été publié !");
+            if (onRemove) {
+                // Optionally remove the block if it was a one-time thing, but usually we want to keep it to show the review
+            }
+            if (onReviewAdded) {
+                onReviewAdded();
+            }
         } else {
             Alert.alert("Erreur", "Impossible de publier l'avis.");
         }

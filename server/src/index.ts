@@ -48,11 +48,16 @@ app.get('/authors', async (req, res) => {
 // Get all books
 app.get('/books', async (req, res) => {
     try {
+        console.log(`[Server] GET /books accessed`);
         const books = await prisma.book.findMany({
             include: { author: true }
         });
+        if (books.length > 0) {
+            console.log(`[Server] Returning ${books.length} books. Sample rating: ${books[0].title} = ${books[0].rating}`);
+        }
         res.json(books);
     } catch (e) {
+        console.error('Error fetching books:', e);
         res.status(500).json({ error: 'Failed to fetch books' });
     }
 });
@@ -162,6 +167,7 @@ app.delete('/quotes/:id', async (req, res) => {
 // --- Reviews ---
 
 // Create a new review
+// Create a new review
 app.post('/reviews', async (req, res) => {
     try {
         const { rating, comment, bookId, userId } = req.body;
@@ -183,6 +189,24 @@ app.post('/reviews', async (req, res) => {
                 user: true,
                 book: true
             }
+        });
+
+        // Calculate new average rating
+        const aggregations = await prisma.review.aggregate({
+            _avg: {
+                rating: true
+            },
+            where: {
+                bookId: bookId
+            }
+        });
+
+        const newAverageRating = aggregations._avg.rating || rating;
+
+        // Update book with new rating
+        await prisma.book.update({
+            where: { id: bookId },
+            data: { rating: newAverageRating }
         });
 
         res.json(newReview);
