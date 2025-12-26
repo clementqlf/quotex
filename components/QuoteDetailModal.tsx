@@ -234,7 +234,7 @@ export function QuoteDetailModal() {
                     <Text style={styles.definitionGenre}>{dItem.genre}</Text>
                     <Text style={styles.definitionDesc}>{dItem.definition}</Text>
                     <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
-                    {defIndex !== definitions[quote.text].length - 1 && <View style={styles.definitionDivider} />}
+                    {defIndex !== blockDefinitionData.length - 1 && <View style={styles.definitionDivider} />}
                   </View>
                 ))}
               </View>
