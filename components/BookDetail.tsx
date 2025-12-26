@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
-import { similarBooks, mockReviews } from '../data/staticData';
+import { similarBooks } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
@@ -20,6 +20,7 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
 import { TextInput } from 'react-native';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+import ReviewBlock from './ReviewBlock';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
 
@@ -37,7 +38,8 @@ export function BookDetailScreen() {
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
-  const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
+
+
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
   React.useEffect(() => {
@@ -98,25 +100,8 @@ export function BookDetailScreen() {
     setBlockData(current => ({ ...current, [blockId]: data }));
   };
 
-  // Calculate dynamic average rating
-  const userReview = blockData?.userReview;
-  const otherReviews = mockReviews[bookTitle] || [];
-
-  const allRatings = otherReviews.map(r => r.rating);
-  if (userReview?.rating) {
-    allRatings.push(userReview.rating);
-  }
 
 
-  const handleUpdateRating = (rating: number) => {
-    const newReview = { ...userReview, rating, date: "À l'instant" };
-    handleUpdateBlockData('userReview', newReview);
-  };
-
-  const handleUpdateComment = (comment: string) => {
-    const newReview = { ...userReview, comment, date: "À l'instant" };
-    handleUpdateBlockData('userReview', newReview);
-  };
 
   const handleOrderChange = (fromIndex: number, toIndex: number) => {
     setGridData(prev => {
@@ -159,14 +144,7 @@ export function BookDetailScreen() {
     if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
   };
 
-  const handlePublishReview = () => {
-    if (!userReview?.comment) {
-      Alert.alert("Erreur", "Veuillez écrire un commentaire avant de publier.");
-      return;
-    }
-    Alert.alert("Succès", "Votre avis a été publié avec succès !");
-    // In a real app, this would trigger an API call and lock the input/change state.
-  };
+
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
     if (!bookInfo) return null;
@@ -230,85 +208,13 @@ export function BookDetailScreen() {
 
       case 'reviews':
         {
+          const bookId = typeof bookInfo.id === 'string' ? parseInt(bookInfo.id) : bookInfo.id;
+          if (!bookId) return null; // Should not happen with server data
           return (
-            <View style={styles.removableWrapper}>
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Star size={16} color="#20B8CD" />
-                  <Text style={styles.sectionTitle}>Avis & Commentaires</Text>
-                </View>
-
-                {/* User Rating input */}
-                <View style={styles.userRatingContainer}>
-                  <Text style={styles.subTitle}>Votre note</Text>
-                  <View style={styles.starRow}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <TouchableOpacity key={star} onPress={() => handleUpdateRating(star)}>
-                        <Star
-                          size={24}
-                          color={userReview?.rating >= star ? "#20B8CD" : "#4B5563"}
-                          fill={userReview?.rating >= star ? "#20B8CD" : "none"}
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* User Comment input */}
-                <View style={styles.commentInputContainer}>
-                  <TextInput
-                    style={styles.commentInput}
-                    placeholder="Donnez votre avis sur ce livre..."
-                    placeholderTextColor="#6B7280"
-                    multiline
-                    value={userReview?.comment ?? ''}
-                    onChangeText={handleUpdateComment}
-                  />
-                  <TouchableOpacity style={styles.publishButton} onPress={handlePublishReview}>
-                    <Send size={14} color="#000" />
-                    <Text style={styles.publishButtonText}>Publier</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Other reviews list */}
-                {otherReviews.length > 0 && (
-                  <View style={styles.reviewsList}>
-                    <Text style={styles.subTitle}>Avis de la communauté</Text>
-                    {otherReviews.slice(0, 2).map((review: any) => (
-                      <View key={review.id} style={styles.reviewItem}>
-                        <View style={styles.reviewHeader}>
-                          <View style={styles.reviewerInfo}>
-                            {review.user?.image ? (
-                              <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
-                            ) : (
-                              <View style={[styles.reviewerAvatar, { backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }]}>
-                                <User size={12} color="#9CA3AF" />
-                              </View>
-                            )}
-                            <Text style={styles.reviewerName}>{review.user.name}</Text>
-                          </View>
-                          <Text style={styles.reviewDate}>{review.date}</Text>
-                        </View>
-                        <View style={styles.reviewRating}>
-                          {[1, 2, 3, 4, 5].map(s => (
-                            <Star key={s} size={10} color={review.rating >= s ? "#20B8CD" : "#4B5563"} fill={review.rating >= s ? "#20B8CD" : "none"} />
-                          ))}
-                        </View>
-                        <Text style={styles.reviewComment}>{review.comment}</Text>
-                      </View>
-                    ))}
-                    {otherReviews.length > 2 && (
-                      <TouchableOpacity style={styles.seeAllReviewsButton} onPress={() => setAllReviewsVisible(true)}>
-                        <Text style={styles.seeAllReviewsText}>Voir les {otherReviews.length} avis</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-              </View>
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
+            <ReviewBlock
+              bookId={bookId}
+              onRemove={() => handleRemoveBlockAt(index)}
+            />
           );
         }
 
@@ -478,9 +384,8 @@ export function BookDetailScreen() {
     );
   }
 
-  const averageRating = allRatings.length > 0
-    ? (allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1)
-    : bookInfo.rating; // Fallback to static rating
+  // Use server rating or fallback
+  const averageRating = bookInfo.rating ? bookInfo.rating.toFixed(1) : 'N/A';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -568,48 +473,7 @@ export function BookDetailScreen() {
         </Animated.ScrollView>
 
         {/* Full Screen Reviews Modal */}
-        <Modal
-          visible={isAllReviewsVisible}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setAllReviewsVisible(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Avis ({otherReviews.length})</Text>
-              <TouchableOpacity onPress={() => setAllReviewsVisible(false)} style={styles.modalCloseButton}>
-                <X size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.modalContent}>
-              {otherReviews.map((review: any) => (
-                <View key={review.id} style={styles.modalReviewItem}>
-                  <View style={styles.reviewHeader}>
-                    <View style={styles.reviewerInfo}>
-                      {review.user?.image ? (
-                        <Image source={{ uri: review.user.image }} style={styles.reviewerAvatarLarge} />
-                      ) : (
-                        <View style={[styles.reviewerAvatarLarge, { backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }]}>
-                          <User size={16} color="#9CA3AF" />
-                        </View>
-                      )}
-                      <View>
-                        <Text style={styles.reviewerNameLarge}>{review.user.name}</Text>
-                        <Text style={styles.reviewDate}>{review.date}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.reviewRating}>
-                      {[1, 2, 3, 4, 5].map(s => (
-                        <Star key={s} size={12} color={review.rating >= s ? "#20B8CD" : "#4B5563"} fill={review.rating >= s ? "#20B8CD" : "none"} />
-                      ))}
-                    </View>
-                  </View>
-                  <Text style={styles.reviewCommentLarge}>{review.comment}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </Modal>
+
       </View>
     </SafeAreaView>
   );

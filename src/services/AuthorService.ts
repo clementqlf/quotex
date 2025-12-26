@@ -1,13 +1,9 @@
 import { Author, Book } from '../../types';
 import { StorageService, STORAGE_KEYS } from './StorageService';
-import { Platform } from 'react-native';
+import { API_BASE_URL } from '../config/api';
 
 class AuthorService {
-    private readonly API_URL = Platform.select({
-        android: 'http://10.0.2.2:3000',
-        ios: 'http://192.168.1.60:3000',
-        default: 'http://192.168.1.60:3000',
-    });
+    private readonly API_URL = API_BASE_URL;
 
     async getAuthors(): Promise<Author[]> {
         try {

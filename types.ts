@@ -53,14 +53,13 @@ export type Quote = {
 };
 
 export type Review = {
-  id: string;
-  user: {
-    name: string;
-    image?: string;
-  };
+  id: number;
   rating: number;
-  comment: string;
-  date: string;
+  comment?: string | null;
+  createdAt: string;
+  user: User;
+  userId: number;
+  bookId: number;
 };
 
 export type RootStackParamList = {

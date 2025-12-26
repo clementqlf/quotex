@@ -32,6 +32,7 @@ model Book {
   author      Author   @relation(fields: [authorId], references: [id])
   
   quotes      Quote[]
+  reviews     Review[]
 }
 
 model Quote {
@@ -64,5 +65,19 @@ model User {
   website   String?
   followers Int      @default(0)
   following Int      @default(0)
-  quotes    Quote[]
+  quotes      Quote[]
+  reviews     Review[]
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  
+  bookId    Int
+  book      Book     @relation(fields: [bookId], references: [id])
 }

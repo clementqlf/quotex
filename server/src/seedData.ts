@@ -136,6 +136,21 @@ export const seed = async () => {
             image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop",
             nationality: "Anglaise",
             birthDate: "22 novembre 1819"
+        },
+
+        {
+            name: "George Orwell",
+            description: "English novelist and essayist, critic of totalitarianism.",
+            image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&h=400&fit=crop",
+            nationality: "British",
+            birthDate: "25 juin 1903"
+        },
+        {
+            name: "Franz Kafka",
+            description: "German-speaking Bohemian novelist and short-story writer.",
+            image: "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=400&fit=crop",
+            nationality: "Austro-Hungarian",
+            birthDate: "3 juillet 1883"
         }
     ];
 
@@ -374,6 +389,64 @@ export const seed = async () => {
             console.log(`Created quote: "${q.text.substring(0, 20)}..."`);
         } else {
             console.log(`Missing link for quote: ${q.text} (Author: ${!!author}, Book: ${!!book}, User: ${!!user})`);
+        }
+    }
+
+    // --- Reviews ---
+    const reviewsData = [
+        {
+            user: "@clementqlf",
+            book: "Dune",
+            rating: 5,
+            comment: "Un chef-d'œuvre absolu de la science-fiction. L'univers est d'une richesse incroyable."
+        },
+        {
+            user: "@sophiereads",
+            book: "Dune",
+            rating: 4,
+            comment: "Un peu dense au début, mais une fois plongé dedans, impossible de le lâcher."
+        },
+        {
+            user: "@tom_tech",
+            book: "Steve Jobs",
+            rating: 5,
+            comment: "Inspirant pour tout entrepreneur. La complexité du personnage est bien rendue."
+        },
+        {
+            user: "@emma_art",
+            book: "Les Misérables",
+            rating: 5,
+            comment: "Bouleversant. Hugo décrit la misère et la rédemption avec une puissance inégalée."
+        },
+        {
+            user: "@lucas_books",
+            book: "Meditations",
+            rating: 5,
+            comment: "Un livre de chevet indispensable pour rester stoïque face aux épreuves."
+        },
+        {
+            user: "@clementqlf",
+            book: "Harry Potter and the Chamber of Secrets",
+            rating: 4,
+            comment: "Toujours un plaisir de se replonger dans cet univers, même adulte."
+        }
+    ];
+
+    for (const r of reviewsData) {
+        const user = users[r.user];
+        const book = books[r.book];
+
+        if (user && book) {
+            await prisma.review.create({
+                data: {
+                    userId: user.id,
+                    bookId: book.id,
+                    rating: r.rating,
+                    comment: r.comment,
+                    createdAt: new Date()
+                }
+            });
+            console.log(`Created review for ${r.book} by ${r.user}`);
         }
     }
 

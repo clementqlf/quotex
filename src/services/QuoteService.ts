@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { localQuotesDB, globalQuotesDB, addQuote as addQuoteToStatic } from '../../data/staticData';
 import { StorageService, STORAGE_KEYS } from './StorageService';
 
+import { API_BASE_URL } from '../config/api';
+
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
 
@@ -30,13 +32,8 @@ class QuoteService {
         }
     }
 
-    // Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator
-    // Replace with your machine's local IP (e.g., 192.168.1.x) for physical device testing
-    private readonly API_URL = Platform.select({
-        android: 'http://10.0.2.2:3000/quotes',
-        ios: 'http://192.168.1.60:3000/quotes', // Updated to current local IP
-        default: 'http://192.168.1.60:3000/quotes',
-    });
+    // Use centralized API config
+    private readonly API_URL = `${API_BASE_URL}/quotes`;
 
 
 

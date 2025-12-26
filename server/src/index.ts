@@ -158,6 +158,68 @@ app.delete('/quotes/:id', async (req, res) => {
     }
 });
 
+
+// --- Reviews ---
+
+// Create a new review
+app.post('/reviews', async (req, res) => {
+    try {
+        const { rating, comment, bookId, userId } = req.body;
+
+        if (!rating || !bookId || !userId) {
+            res.status(400).json({ error: 'Missing required fields' });
+            return;
+        }
+
+        const newReview = await prisma.review.create({
+            data: {
+                rating,
+                comment,
+                bookId,
+                userId,
+                createdAt: new Date()
+            },
+            include: {
+                user: true,
+                book: true
+            }
+        });
+
+        res.json(newReview);
+    } catch (e) {
+        console.error('Error creating review:', e);
+        res.status(500).json({ error: 'Failed to create review' });
+    }
+});
+
+// Get reviews for a book
+app.get('/reviews', async (req, res) => {
+    try {
+        const { bookId } = req.query;
+        if (!bookId) {
+            res.status(400).json({ error: 'Missing bookId query parameter' });
+            return;
+        }
+
+        const parsedBookId = parseInt(bookId as string);
+        if (isNaN(parsedBookId)) {
+            res.status(400).json({ error: 'Invalid bookId: must be a number' });
+            return;
+        }
+
+        const reviews = await prisma.review.findMany({
+            where: { bookId: parsedBookId },
+            include: { user: true },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(reviews);
+    } catch (e) {
+        console.error('Error fetching reviews:', e);
+        res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+});
+
 // --- Seeding ---
 
 async function seedIfNeeded() {
