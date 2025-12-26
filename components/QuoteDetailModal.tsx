@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import {
   View,
+  Share,
   Text,
   ScrollView,
   TouchableOpacity,
@@ -101,6 +102,17 @@ export function QuoteDetailModal() {
     });
     // 2. Appeler la fonction du contexte pour mettre à jour l'état global
     toggleLikeQuote(quote.id);
+  };
+
+  const handleShare = async () => {
+    try {
+      const message = `"${quote.text}"\n- ${quoteAuthorName}\n(via Quotex)`;
+      await Share.share({
+        message,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
   };
 
   const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });
@@ -520,7 +532,7 @@ export function QuoteDetailModal() {
                 {quote.likes}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
               <Share2 size={20} color="#6B7280" />
               <Text style={styles.actionText}>Partager</Text>
             </TouchableOpacity>
