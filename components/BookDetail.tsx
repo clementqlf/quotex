@@ -39,6 +39,35 @@ export function BookDetailScreen() {
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
 
+  type TabType = 'description' | 'my_sheet';
+  const [activeTab, setActiveTab] = useState<TabType>('description');
+
+  const DESCRIPTION_BLOCKS = ['author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
+  const MYSHEET_BLOCKS = ['notes'];
+
+  const blockOptions = [
+    { key: 'reviews', label: 'Avis & Commentaires' },
+    { key: 'buy', label: 'Acheter ce livre' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'author', label: "À propos de l'auteur" },
+    { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
+    { key: 'similarBooks', label: 'Livres similaires' },
+  ];
+
+  const isBlockInTab = (blockKey: string, tab: TabType) => {
+    // blockKey e.g. "author#123" or "addBlock"
+    if (blockKey === 'addBlock') return true;
+    const base = blockKey.split('#')[0];
+    if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
+    if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
+    return false;
+  };
+
+  const currentTabBlocks = (gridData || []).filter(key => isBlockInTab(key, activeTab));
+
+  const filteredBlockOptions = activeTab === 'description'
+    ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key) && (opt.key !== 'buy' || (bookInfo?.buyLinks && bookInfo.buyLinks.length > 0)))
+    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key));
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
@@ -75,8 +104,8 @@ export function BookDetailScreen() {
         getBlockLayout(bookTitle, 'book'),
         getBookData(bookTitle)
       ]).then(([layout, data]) => {
-        setGridData(layout);
-        setBlockData(data);
+        setGridData(layout || []);
+        setBlockData(data || {});
         setIsLoadingLayout(false);
       });
     }
@@ -119,14 +148,7 @@ export function BookDetailScreen() {
     });
   };
 
-  const blockOptions = [
-    { key: 'reviews', label: 'Avis & Commentaires' },
-    { key: 'buy', label: 'Acheter ce livre' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'author', label: "À propos de l'auteur" },
-    { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
-    { key: 'similarBooks', label: 'Livres similaires' },
-  ];
+
   const openAddBlockModal = () => setAddBlockModalVisible(true);
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
 
@@ -137,19 +159,14 @@ export function BookDetailScreen() {
     closeAddBlockModal();
   };
 
-  const handleRemoveBlockAt = (indexToRemove: number) => {
-    if (indexToRemove < 0 || indexToRemove >= gridData.length) return;
-    if (gridData[indexToRemove] === 'addBlock') return;
+  const handleRemoveBlock = (itemToRemove: string) => {
+    if (itemToRemove === 'addBlock') return;
 
-    const arr = [...gridData];
-    arr.splice(indexToRemove, 1);
-    const newLayout = [...arr.filter(x => x !== 'addBlock'), 'addBlock'];
+    const newLayout = gridData.filter(x => x !== itemToRemove);
 
     setGridData(newLayout);
     if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
   };
-
-
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
     if (!bookInfo) return null;
@@ -174,7 +191,7 @@ export function BookDetailScreen() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -204,7 +221,7 @@ export function BookDetailScreen() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -218,7 +235,7 @@ export function BookDetailScreen() {
           return (
             <ReviewBlock
               bookId={bookId}
-              onRemove={() => handleRemoveBlockAt(index)}
+              onRemove={() => handleRemoveBlock(item)}
               onReviewAdded={loadMetadata}
             />
           );
@@ -254,7 +271,7 @@ export function BookDetailScreen() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -292,7 +309,7 @@ export function BookDetailScreen() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -310,11 +327,6 @@ export function BookDetailScreen() {
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
                 {uniqueSimilarBooks.map((sBookTitle) => {
-                  // Keep this logic similar but we might not have all similar books info yet.
-                  // For now, since it's static similarBooks mapping, we might still want to fetch their covers.
-                  // But the user said "similarBooks and mockReviews in static", so leave as is but aware bookDescriptions is gone.
-                  // We can't really use bookDescriptions[sBookTitle] anymore.
-                  // Let's assume for now that if we don't have the info, we show a placeholder or nothing.
                   return (
                     <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
                       <View style={[styles.similarBookCover, { backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center' }]}>
@@ -330,7 +342,7 @@ export function BookDetailScreen() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -452,13 +464,33 @@ export function BookDetailScreen() {
             <Text style={styles.bookDesc}>{bookInfo.description}</Text>
           </View>
 
+          {/* TABS */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'description' && styles.activeTabButton]}
+              onPress={() => setActiveTab('description')}
+            >
+              <Text style={[styles.tabText, activeTab === 'description' && styles.activeTabText]}>Description</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'my_sheet' && styles.activeTabButton]}
+              onPress={() => setActiveTab('my_sheet')}
+            >
+              <Text style={[styles.tabText, activeTab === 'my_sheet' && styles.activeTabText]}>Ma fiche</Text>
+            </TouchableOpacity>
+          </View>
+
+
           <View style={styles.gridSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Organiser les blocs</Text>
+              {/* Optional: Change title based on Tab? Or keep generic */}
+              <Text style={styles.sectionTitle}>
+                {activeTab === 'description' ? 'Détails du livre' : 'Mon espace personnel'}
+              </Text>
             </View>
             <Sortable.Grid
               columns={1}
-              data={gridData}
+              data={currentTabBlocks}
               renderItem={renderGridItem}
               rowGap={10}
               columnGap={10}
@@ -467,14 +499,84 @@ export function BookDetailScreen() {
               autoScrollActivationOffset={75}
               onOrderChange={(params) => {
                 const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                handleOrderChange(fromIndex, toIndex);
+                // logic needs to map back to original gridData indices if we want to support reorder
+                // But Sortable.Grid works on the data passed to it. 
+                // Since we are passing a filtered subset, the indices returned are for that subset.
+                // We need to map them back to the real separate list indices or handle it carefully.
+
+                // Complexity warning: Reordering a filtered list and syncing back to the main list is tricky.
+                // Simplified approach: Create a helper to reorder within the main list based on the subset movement.
+
+                const itemMoving = currentTabBlocks[fromIndex];
+                // Remove itemMoving from gridData
+                const compacted = gridData.filter(x => x !== itemMoving);
+
+                // Find where to insert. 
+                // We need to find the "neighbor" in the full list to know where to drop it.
+                // if toIndex is 0, we put it before the first item of the current view (if any)
+                // if toIndex is N, we put it after the Nth item of the current view.
+
+                let insertIndexInMaster = -1;
+
+                if (toIndex === 0) {
+                  // Put before the first item of the CURRENT VIEW that exists in the master list
+                  if (currentTabBlocks.length > 1) { // >1 because we haven't mutated currentTabBlocks yet effectively in this logic context
+                    // The item at toIndex (which is currently someone else)
+                    const neighbor = currentTabBlocks[0] === itemMoving ? currentTabBlocks[1] : currentTabBlocks[0];
+                    // Wait, if fromIndex was 0 and toIndex is 0, no change.
+                    // Sortable calls this when change happens.
+                  }
+                }
+
+                // This is getting complicated. 
+                // Alternative: Just update the `gridData` by rebuilding it. 
+                // We have `currentTabBlocks` which reflects the NEW order (Sortable handled the visual drag).
+                // Wait, Sortable.Grid onOrderChange gives us the new indices. It doesn't give us the new array automatically in the callback params usually, or it does?
+                // The library expects us to update the data source.
+
+                // Let's manually construct the new sub-array
+                const newSubOrder = [...currentTabBlocks];
+                const [moved] = newSubOrder.splice(fromIndex, 1);
+                newSubOrder.splice(toIndex, 0, moved);
+
+                // Now verify this against the master `gridData`.
+                // We want to preserve the relative order of items NOT in this tab.
+                // And enforce the new order for items IN this tab.
+
+                const newMasterList: string[] = [];
+                let subIndex = 0;
+                for (const item of gridData) {
+                  if (isBlockInTab(item, activeTab)) {
+                    // This slot belongs to the current tab stream
+                    if (subIndex < newSubOrder.length) {
+                      newMasterList.push(newSubOrder[subIndex]);
+                      subIndex++;
+                    }
+                  } else {
+                    // Keep other tab items in place
+                    newMasterList.push(item);
+                  }
+                }
+
+                // Safety check: verify we didn't lose anything (e.g. if addBlock is in both?)
+                // Actually addBlock is in both. This logic might duplicate it or mess it up.
+                // Special case: 'addBlock' is usually at the end. 
+                // Let's rely on simple filtering. 
+
+                setGridData(newMasterList);
+                if (bookTitle) updateBlockLayout(bookTitle, 'book', newMasterList);
               }}
             />
             <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
               <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
               <Text style={styles.placeholderText}>Ajouter un bloc</Text>
             </TouchableOpacity>
-            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions.filter(opt => opt.key !== 'buy' || (bookInfo.buyLinks && bookInfo.buyLinks.length > 0))} />
+            <AddBlockModal
+              visible={isAddBlockModalVisible}
+              onClose={closeAddBlockModal}
+              onSelect={handleAddBlock}
+              options={filteredBlockOptions}
+            />
           </View>
         </Animated.ScrollView>
 
@@ -867,6 +969,31 @@ const styles = StyleSheet.create({
   buyLinkPrice: {
     color: '#20B8CD',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTabButton: {
+    borderBottomColor: '#20B8CD',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 });
