@@ -85,8 +85,8 @@ export const rotateFrameToUpright = (
 
     if (orientation === 90) {
         return {
-            left: top,
-            top: baseWidth - (left + width),
+            left: baseHeight - (top + height),
+            top: left,
             width: height,
             height: width,
         };
@@ -102,8 +102,8 @@ export const rotateFrameToUpright = (
     }
 
     return {
-        left: baseHeight - (top + height),
-        top: left,
+        left: top,
+        top: baseWidth - (left + width),
         width: height,
         height: width,
     };
@@ -150,14 +150,8 @@ export const getBlockRectOnScreen = (
     const scaleX = imageSize.width / orientedBaseWidth;
     const scaleY = imageSize.height / orientedBaseHeight;
 
-    const left = (orientation === 90 || orientation === 270)
-        ? ((orientedBaseWidth - (rotatedFrame.left + rotatedFrame.width)) * scaleX) + imageSize.offsetX
-        : (rotatedFrame.left * scaleX) + imageSize.offsetX;
-
-    const top = (orientation === 90 || orientation === 270)
-        ? ((orientedBaseHeight - (rotatedFrame.top + rotatedFrame.height)) * scaleY) + imageSize.offsetY
-        : (rotatedFrame.top * scaleY) + imageSize.offsetY;
-
+    const left = rotatedFrame.left * scaleX + imageSize.offsetX;
+    const top = rotatedFrame.top * scaleY + imageSize.offsetY;
     const width = rotatedFrame.width * scaleX;
     const height = rotatedFrame.height * scaleY;
 

@@ -83,7 +83,8 @@ export const useScanSelection = (
 
         const oriented: PositionedBlock[] = selectedBlocks
             .map<PositionedBlock | null>(block => {
-                const rect = getBlockRectOnScreen(block, imageSize, photoDimensions, orientation);
+                if (!photo) return null;
+                const rect = getBlockRectOnScreen(block, imageSize, { width: photo.width, height: photo.height }, orientation);
                 if (!rect) return null;
 
                 let alignedX = rect.left + rect.width / 2;
@@ -140,9 +141,10 @@ export const useScanSelection = (
 
         const orientation = getPhotoOrientation(photo);
 
-        return wordBlocks.filter(block =>
-            isPointInBlock(x, y, block, imageSize, photoDimensions, orientation, padding)
-        );
+        return wordBlocks.filter(block => {
+            if (!photo) return false;
+            return isPointInBlock(x, y, block, imageSize, { width: photo.width, height: photo.height }, orientation, padding);
+        });
     };
 
     const updateSelectionForBlocks = (blocks: MLKitText[], mode: 'add' | 'remove') => {
@@ -186,8 +188,9 @@ export const useScanSelection = (
         const orientation = getPhotoOrientation(photo);
 
         const blocksToUpdate = Array.from(touchedBlocksMap.values()).sort((a, b) => {
-            const rectA = getBlockRectOnScreen(a, imageSize, photoDimensions, orientation);
-            const rectB = getBlockRectOnScreen(b, imageSize, photoDimensions, orientation);
+            if (!photo) return 0;
+            const rectA = getBlockRectOnScreen(a, imageSize, { width: photo.width, height: photo.height }, orientation);
+            const rectB = getBlockRectOnScreen(b, imageSize, { width: photo.width, height: photo.height }, orientation);
             if (!rectA || !rectB) return 0;
 
             const tolerance = Math.max(rectA.height, rectB.height) * 0.3;

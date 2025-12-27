@@ -138,7 +138,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
           />
           <View style={styles.blocksOverlay} {...panResponder.panHandlers}>
             {imageSize.width > 0 && wordBlocks.map((block, index) => {
-              const rect = getBlockRectOnScreen(block, imageSize, photoDimensions, orientation);
+              const rect = getBlockRectOnScreen(block, imageSize, { width: photo.width, height: photo.height }, orientation);
               if (!rect) return null;
 
               const isSelected = selectedBlocks.some(b => getBlockKey(b) === getBlockKey(block));
