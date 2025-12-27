@@ -34,6 +34,7 @@ export default function ScanScreen() {
     width: number;
     height: number;
   } | null>(null);
+  const [scanAreaY, setScanAreaY] = React.useState(0);
 
   const { setTabIndex } = useTabIndex();
   const { setSwipeEnabled } = useSwipeEnabled();
@@ -326,7 +327,13 @@ export default function ScanScreen() {
 
       {!photo && (
         <>
-          <View style={styles.scanArea}>
+          <View
+            style={styles.scanArea}
+            onLayout={(event) => {
+              const { y } = event.nativeEvent.layout;
+              setScanAreaY(y);
+            }}
+          >
             <View
               style={styles.scanFrame}
               onLayout={(event) => {
@@ -444,7 +451,7 @@ export default function ScanScreen() {
                   <Rect width={containerSize.width} height={containerSize.height} fill="white" />
                   <Rect
                     x={scanFrameLayout.x}
-                    y={scanFrameLayout.y + 22}
+                    y={scanAreaY + scanFrameLayout.y}
                     width={scanFrameLayout.width}
                     height={scanFrameLayout.height}
                     rx="24"
@@ -492,7 +499,7 @@ export default function ScanScreen() {
           </View>
         </>
       )}
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -532,7 +539,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    marginTop: -125,
+    marginTop: -160,
   },
   scanFrame: {
     width: '100%',
