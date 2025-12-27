@@ -163,7 +163,18 @@ export default function ScanScreen() {
   };
 
   const handleTakePhoto = async () => {
-    if (!cameraRef.current || isLoading || scanLockRef.current || !isFocused) return;
+    if (!cameraRef.current || isLoading || !isFocused) return;
+
+    // Retry mechanism for the lock: If busy (Live OCR is capturing), wait a bit
+    if (scanLockRef.current) {
+      let retries = 5; // ~250ms max
+      while (scanLockRef.current && retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        retries--;
+      }
+      // If still busy after retries, abort
+      if (scanLockRef.current) return;
+    }
 
     setIsLoading(true);
     scanLockRef.current = true; // Lock global (capture + live)
@@ -459,13 +470,17 @@ export default function ScanScreen() {
 
               <View style={styles.scanButtonContainer}>
                 <TouchableOpacity
-                  style={[styles.scanButton, isLoading && styles.scanButtonActive]}
+                  style={[
+                    styles.scanButton,
+                    isLoading && styles.scanButtonActive,
+                    !isTextDetectedLive && styles.scanButtonDisabled
+                  ]}
                   onPress={handleTakePhoto}
-                  disabled={isLoading}
+                  disabled={isLoading || !isTextDetectedLive}
                   activeOpacity={0.9}
                 >
                   <View>
-                    <ScanLine size={28} color="#20B8CD" />
+                    <ScanLine size={28} color={isTextDetectedLive ? "#20B8CD" : "#444"} />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -507,7 +522,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     shadowColor: '#20B8CD',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 1,
     shadowRadius: 15,
     elevation: 8,
     zIndex: 10,
@@ -683,6 +698,12 @@ const styles = StyleSheet.create({
   scanButtonActive: {
     backgroundColor: 'rgba(32, 184, 205, 0.2)',
     borderColor: '#FFFFFF',
+  },
+  scanButtonDisabled: {
+    opacity: 0.4,
+    borderColor: '#444',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   permissionText: {
     color: 'white',

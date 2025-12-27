@@ -46,6 +46,10 @@ export function useLiveOCR({
                         enableShutterSound: false,
                     });
 
+                    // Release lock as soon as photo is taken
+                    if (scanLockRef) scanLockRef.current = false;
+                    internalBusyRef.current = false;
+
                     // Check if mounted/enabled before processing
                     if (!isMounted || !enabled || !isFocused) return;
 
@@ -56,12 +60,8 @@ export function useLiveOCR({
                     }
                 } catch (e) {
                     // ignore errors (busy, etc)
-                    // console.log('Live OCR Error:', e);
-                } finally {
-                    if (isMounted) {
-                        internalBusyRef.current = false;
-                        if (scanLockRef) scanLockRef.current = false;
-                    }
+                    if (scanLockRef) scanLockRef.current = false;
+                    internalBusyRef.current = false;
                 }
             }, 1000);
         }
