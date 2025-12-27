@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, G } from 'react-native-svg';
+import Svg, { Path, G, Defs, Filter, FeGaussianBlur, FeMerge, FeMergeNode, FeFlood, FeComposite, FeColorMatrix } from 'react-native-svg';
 
 interface QuotexLogoProps {
     width?: number | string;
@@ -18,10 +18,29 @@ const QuotexLogo: React.FC<QuotexLogoProps> = ({
         <Svg
             width={width}
             height={height}
-            viewBox="0 0 169.85605 41.242687"
-            style={style}
+            viewBox="-115 -55 400 150"
+            style={[style, { overflow: 'visible' }]}
         >
-            <G transform="translate(-12.995855,-97.00984)">
+            <Defs>
+                <Filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+                    <FeGaussianBlur in="SourceAlpha" stdDeviation="12" result="blur" />
+                    <FeColorMatrix
+                        in="blur"
+                        type="matrix"
+                        values="0 0 0 0 0.125
+                                0 0 0 0 0.72
+                                0 0 0 0 0.80
+                                0 0 0 1 0"
+                        result="cyanBlur"
+                    />
+                    <FeMerge>
+                        <FeMergeNode in="cyanBlur" />
+                        <FeMergeNode in="cyanBlur" />
+                        <FeMergeNode in="SourceGraphic" />
+                    </FeMerge>
+                </Filter>
+            </Defs>
+            <G transform="translate(-12.995855,-97.00984)" filter="url(#glow)">
                 <Path
                     fill={color}
                     stroke={color}

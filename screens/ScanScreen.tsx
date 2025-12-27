@@ -297,7 +297,7 @@ export default function ScanScreen() {
       {!photo && (
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <QuotexLogo width={136} height={33} color="#FFFFFF" style={styles.logoImage} />
+            <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />
           </View>
         </View>
       )}
@@ -502,6 +502,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F0F0F',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'visible',
   },
   header: {
     position: 'relative',
@@ -509,22 +510,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
     width: '100%',
+    overflow: 'visible',
   },
   logoContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    paddingVertical: 8,
+    paddingVertical: 10,
     overflow: 'visible',
   },
   logoImage: {
-    // width/height managed by props, but keeping here for layout if needed or shadow
     marginBottom: 6,
-    shadowColor: '#20B8CD',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 15,
-    elevation: 8,
     zIndex: 10,
     overflow: 'visible',
   },
@@ -536,7 +532,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
-    marginTop: -95,
+    marginTop: -125,
   },
   scanFrame: {
     width: '100%',
