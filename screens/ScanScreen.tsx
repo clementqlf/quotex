@@ -201,6 +201,19 @@ export default function ScanScreen() {
   //   outputRange: [-140, 140],
   // });
 
+  const processImage = async (path: string): Promise<TextRecognitionResult | null> => {
+    const cleanPath = path.startsWith('file://') ? path : `file://${path}`;
+    console.log('ScanScreen: Processing image path:', cleanPath);
+
+    try {
+      const result = await TextRecognition.recognize(cleanPath);
+      return result;
+    } catch (error) {
+      console.error('ScanScreen: OCR Failed', error);
+      return null;
+    }
+  };
+
   const handleTakePhoto = async () => {
     if (!cameraRef.current || isLoading || isCapturing.current || !isFocused) return;
 
@@ -219,7 +232,7 @@ export default function ScanScreen() {
         enableShutterSound: false,
       });
 
-      const result = await TextRecognition.recognize(photoFile.path);
+      const result = await processImage(photoFile.path);
 
       if (!result || result.blocks.length === 0) {
         setPhoto(null);
@@ -278,29 +291,9 @@ export default function ScanScreen() {
         return;
       }
 
-      console.log('ScanScreen: Image picked', image.path);
-      console.log('ScanScreen: Dimensions', image.width, 'x', image.height);
+      const result = await processImage(image.path);
 
-      // iOS requires file:// prefix for some modules, but verify what TextRecognition needs.
-      // Usually, the path from ImagePicker on iOS is /path/to/file.
-      // We will ensure it has file:// prefix for consistency if it's missing,
-      // as simple string paths sometimes cause issues in native modules expects URLs.
-      const imagePath = image.path;
-      const cleanPath = imagePath.startsWith('file://') ? imagePath : `file://${imagePath}`;
-
-      console.log('ScanScreen: Using path for OCR', cleanPath);
-
-      let result = null;
-      try {
-        console.log('ScanScreen: Starting text recognition...');
-        // Pass the path directly. MLKit usually handles file:// paths well.
-        result = await TextRecognition.recognize(cleanPath);
-        console.log('ScanScreen: OCR result blocks:', result?.blocks?.length);
-      } catch (ocrError) {
-        console.error('ScanScreen: OCR Failed', ocrError);
-        // Fallback to empty result if OCR fails to prevent crash
-        result = { blocks: [] } as any;
-      }
+      const cleanPath = image.path.startsWith('file://') ? image.path : `file://${image.path}`;
 
       // Create a pseudo PhotoFile object
       const pickedPhoto: PhotoFile = {
@@ -311,15 +304,8 @@ export default function ScanScreen() {
         metadata: { Orientation: 1 } as any, // Default orientation
       } as PhotoFile;
 
-      if (!result || result.blocks.length === 0) {
-        console.log('No text found in picked image');
-      }
-
-      console.log('ScanScreen: Setting photo and OCR result');
       setPhoto(pickedPhoto);
-      setOcrResult(result);
-      console.log('ScanScreen: State updated');
-
+      setOcrResult(result || { blocks: [] } as any);
 
     } catch (error: any) {
       if (error?.code !== 'E_PICKER_CANCELLED') {
