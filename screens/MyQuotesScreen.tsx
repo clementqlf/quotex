@@ -21,6 +21,7 @@ import { useTabIndex } from '../TabNavigator';
 import { useData } from '../src/contexts/DataProvider';
 import { Quote } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+import { formatRelativeDate } from '../src/utils/dateUtils';
 
 type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 const EDGE_SWIPE_ZONE = 28;
@@ -366,7 +367,7 @@ export default function MyQuotesScreen() {
                     {getAuthorName(quote.author)}
                   </Text>
                 </View>
-                <Text style={styles.dateText}>{quote.date}</Text>
+                <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>
               </View>
 
               {/* Actions */}

@@ -31,6 +31,7 @@ import AddBlockModal from './AddBlockModal';
 import { useData } from '../src/contexts/DataProvider';
 import { Quote, User } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+import { formatRelativeDate } from '../src/utils/dateUtils';
 
 
 // Local types removed in favor of imports from ../types
@@ -520,7 +521,7 @@ export function QuoteDetailModal() {
                 {quote.date && (
                   <View style={styles.metaRow}>
                     <Calendar size={16} color="#6B7280" />
-                    <Text style={styles.metaTextDate}>{quote.date}</Text>
+                    <Text style={styles.metaTextDate}>{formatRelativeDate(quote.date)}</Text>
                   </View>
                 )}
               </View>
