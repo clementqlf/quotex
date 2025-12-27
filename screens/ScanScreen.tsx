@@ -19,7 +19,7 @@ import { useTabIndex, useSwipeEnabled } from '../TabNavigator';
 
 import ScanWorkflow from './ScanWorkflow';
 
-const quotexLogo = require('../assets/images/quotex_logo.png');
+import QuotexLogo from '../components/QuotexLogo';
 
 export default function ScanScreen() {
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
@@ -41,7 +41,7 @@ export default function ScanScreen() {
   const ocrLiveInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
   // Ajout d'un flag pour éviter les captures concurrentes
   const isCapturing = React.useRef(false);
-  
+
   const { setTabIndex } = useTabIndex();
   const { setSwipeEnabled } = useSwipeEnabled();
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -51,35 +51,35 @@ export default function ScanScreen() {
   // Pseudo OCR live : prend une photo temporaire toutes les 1s et détecte du texte
   React.useEffect(() => {
     let isMounted = true;
-    
+
     if (!photo && cameraRef.current && isFocused) {
       ocrLiveInterval.current = setInterval(async () => {
         // Vérifier immédiatement avant la capture
         if (!isMounted || !isFocused || isCapturing.current) return;
-        
+
         isCapturing.current = true;
         try {
           if (!cameraRef.current) return;
-          
+
           const tempPhoto = await cameraRef.current.takePhoto({
             flash: 'off',
             enableShutterSound: false,
           });
-          
+
           // Vérifier l'état du composant après la photo
           if (!isMounted || !isFocused) {
             isCapturing.current = false;
             return;
           }
-          
+
           const result = await TextRecognition.recognize(tempPhoto.path);
-          
+
           // Vérifier avant le setState
           if (!isMounted || !isFocused) {
             isCapturing.current = false;
             return;
           }
-          
+
           setIsTextDetectedLive(!!result && result.blocks.length > 0);
         } catch (e) {
           // ignore errors (ex: camera not ready)
@@ -90,7 +90,7 @@ export default function ScanScreen() {
         }
       }, 1000);
     }
-    
+
     return () => {
       isMounted = false;
       isCapturing.current = false;
@@ -159,7 +159,7 @@ export default function ScanScreen() {
         ocrLiveInterval.current = null;
       }
       isCapturing.current = false;
-      
+
       // Réinitialiser les états
       setPhoto(null);
       setOcrResult(null);
@@ -202,22 +202,22 @@ export default function ScanScreen() {
 
   const handleTakePhoto = async () => {
     if (!cameraRef.current || isLoading || isCapturing.current || !isFocused) return;
-    
+
     setIsLoading(true);
     isCapturing.current = true;
-    
+
     // Arrête l'OCR live pendant la capture manuelle
     if (ocrLiveInterval.current) {
       clearInterval(ocrLiveInterval.current);
       ocrLiveInterval.current = null;
     }
-    
+
     try {
       const photoFile = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
       });
-      
+
       const result = await TextRecognition.recognize(photoFile.path);
 
       if (!result || result.blocks.length === 0) {
@@ -274,7 +274,7 @@ export default function ScanScreen() {
       {!photo && (
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Image source={quotexLogo} style={styles.logoImage} resizeMode="contain" tintColor="#FFFFFF" />
+            <QuotexLogo width={136} height={33} color="#FFFFFF" style={styles.logoImage} />
           </View>
         </View>
       )}
@@ -322,8 +322,8 @@ export default function ScanScreen() {
                       {
                         left: -3,
                         top: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width-32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height-32] }),
+                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
+                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderTopWidth: 3,
                         borderLeftWidth: 3,
                         borderTopLeftRadius: 24,
@@ -340,8 +340,8 @@ export default function ScanScreen() {
                       {
                         right: -3,
                         top: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width-32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height-32] }),
+                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
+                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderTopWidth: 3,
                         borderRightWidth: 3,
                         borderTopRightRadius: 24,
@@ -393,8 +393,8 @@ export default function ScanScreen() {
               {/* Ligne de scan animée supprimée */}
 
               <View style={styles.content}>
-                <Animated.View 
-                  style={[styles.fadeContainer, { opacity: fadeAnim }]} 
+                <Animated.View
+                  style={[styles.fadeContainer, { opacity: fadeAnim }]}
                   pointerEvents="none"
                 >
                   <View style={styles.iconShadowWrapper}>
@@ -490,8 +490,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   logoImage: {
-    width: 136,
-    height: 50.8,
+    // width/height managed by props, but keeping here for layout if needed or shadow
     marginBottom: 6,
     shadowColor: '#20B8CD',
     shadowOffset: { width: 0, height: 0 },
