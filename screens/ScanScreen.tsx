@@ -362,6 +362,7 @@ export default function ScanScreen() {
           device={device}
           isActive={true}
           photo
+          outputOrientation="preview"
           ref={cameraRef}
           onError={(error) => {
             console.log('Camera error:', error);
