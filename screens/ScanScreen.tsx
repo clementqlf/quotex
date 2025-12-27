@@ -19,6 +19,7 @@ import ImagePicker from 'react-native-image-crop-picker';
 import { useTabIndex, useSwipeEnabled } from '../TabNavigator';
 
 import ScanWorkflow from './ScanWorkflow';
+import { useLiveOCR } from '../src/hooks/useLiveOCR';
 
 import QuotexLogo from '../components/QuotexLogo';
 
@@ -34,73 +35,29 @@ export default function ScanScreen() {
     height: number;
   } | null>(null);
 
-  // Pseudo OCR live : texte détecté en live
-  const [isTextDetectedLive, setIsTextDetectedLive] = React.useState(false);
-  const frameAnim = React.useRef(new Animated.Value(0)).current;
-  const fadeAnim = React.useRef(new Animated.Value(1)).current;
-  const isFocused = useIsFocused();
-  const ocrLiveInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
-  // Ajout d'un flag pour éviter les captures concurrentes
-  const isCapturing = React.useRef(false);
-
   const { setTabIndex } = useTabIndex();
   const { setSwipeEnabled } = useSwipeEnabled();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = React.useRef<Camera | null>(null);
+  const isFocused = useIsFocused();
 
-  // Pseudo OCR live : prend une photo temporaire toutes les 1s et détecte du texte
-  React.useEffect(() => {
-    let isMounted = true;
+  // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
+  const scanLockRef = React.useRef(false);
 
-    if (!photo && cameraRef.current && isFocused) {
-      ocrLiveInterval.current = setInterval(async () => {
-        // Vérifier immédiatement avant la capture
-        if (!isMounted || !isFocused || isCapturing.current) return;
+  // Hook Live OCR
+  const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
+    cameraRef,
+    isFocused,
+    enabled: !photo && !isLoading,
+    scanLockRef,
+  });
 
-        isCapturing.current = true;
-        try {
-          if (!cameraRef.current) return;
+  const frameAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
 
-          const tempPhoto = await cameraRef.current.takePhoto({
-            flash: 'off',
-            enableShutterSound: false,
-          });
 
-          // Vérifier l'état du composant après la photo
-          if (!isMounted || !isFocused) {
-            isCapturing.current = false;
-            return;
-          }
 
-          const result = await TextRecognition.recognize(tempPhoto.path);
-
-          // Vérifier avant le setState
-          if (!isMounted || !isFocused) {
-            isCapturing.current = false;
-            return;
-          }
-
-          setIsTextDetectedLive(!!result && result.blocks.length > 0);
-        } catch (e) {
-          // ignore errors (ex: camera not ready)
-        } finally {
-          if (isMounted) {
-            isCapturing.current = false;
-          }
-        }
-      }, 1000);
-    }
-
-    return () => {
-      isMounted = false;
-      isCapturing.current = false;
-      if (ocrLiveInterval.current) {
-        clearInterval(ocrLiveInterval.current);
-        ocrLiveInterval.current = null;
-      }
-    };
-  }, [photo, isFocused]);
 
   // Animation des coins vers cadre complet (live)
   React.useEffect(() => {
@@ -136,11 +93,7 @@ export default function ScanScreen() {
   // Cleanup au unmount du composant
   React.useEffect(() => {
     return () => {
-      if (ocrLiveInterval.current) {
-        clearInterval(ocrLiveInterval.current);
-        ocrLiveInterval.current = null;
-      }
-      isCapturing.current = false;
+      scanLockRef.current = false;
     };
   }, []);
 
@@ -154,17 +107,12 @@ export default function ScanScreen() {
     if (isFocused) {
       setTabIndex(1);
     } else {
-      // Arrêter immédiatement tous les intervalles et captures
-      if (ocrLiveInterval.current) {
-        clearInterval(ocrLiveInterval.current);
-        ocrLiveInterval.current = null;
-      }
-      isCapturing.current = false;
+      scanLockRef.current = false;
 
       // Réinitialiser les états
       setPhoto(null);
       setOcrResult(null);
-      setIsTextDetectedLive(false);
+      setIsTextDetectedLive(false); // Le hook le fera si unmount, mais on force ici si besoin
     }
   }, [isFocused, setTabIndex]);
 
@@ -215,16 +163,10 @@ export default function ScanScreen() {
   };
 
   const handleTakePhoto = async () => {
-    if (!cameraRef.current || isLoading || isCapturing.current || !isFocused) return;
+    if (!cameraRef.current || isLoading || scanLockRef.current || !isFocused) return;
 
     setIsLoading(true);
-    isCapturing.current = true;
-
-    // Arrête l'OCR live pendant la capture manuelle
-    if (ocrLiveInterval.current) {
-      clearInterval(ocrLiveInterval.current);
-      ocrLiveInterval.current = null;
-    }
+    scanLockRef.current = true; // Lock global (capture + live)
 
     try {
       const photoFile = await cameraRef.current.takePhoto({
@@ -248,7 +190,7 @@ export default function ScanScreen() {
       setOcrResult(null);
     } finally {
       setIsLoading(false);
-      isCapturing.current = false;
+      scanLockRef.current = false;
     }
   };
 
@@ -261,14 +203,11 @@ export default function ScanScreen() {
   const handlePickImage = async () => {
     try {
       if (isLoading) return;
-      setIsLoading(true);
 
-      // Arrête l'OCR live
-      if (ocrLiveInterval.current) {
-        clearInterval(ocrLiveInterval.current);
-        ocrLiveInterval.current = null;
-      }
-      isCapturing.current = true;
+      // Note: On ne lock pas scanLockRef ici car ImagePicker est une activité UI externe
+      // Mais on set isLoading à true, ce qui désactive le hook useLiveOCR via la prop `enabled`
+
+      setIsLoading(true);
 
       const image = await ImagePicker.openPicker({
         mediaType: 'photo',
@@ -287,7 +226,6 @@ export default function ScanScreen() {
 
       if (!image) {
         setIsLoading(false);
-        isCapturing.current = false;
         return;
       }
 
@@ -315,7 +253,6 @@ export default function ScanScreen() {
       }
     } finally {
       setIsLoading(false);
-      isCapturing.current = false;
     }
   };
 
