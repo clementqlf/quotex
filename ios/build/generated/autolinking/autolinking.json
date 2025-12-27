@@ -80,6 +80,31 @@
         }
       }
     },
+    "react-native-image-crop-picker": {
+      "root": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker",
+      "name": "react-native-image-crop-picker",
+      "platforms": {
+        "ios": {
+          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker/RNImageCropPicker.podspec",
+          "version": "0.51.1",
+          "configurations": [],
+          "scriptPhases": []
+        },
+        "android": {
+          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker/android",
+          "packageImportPath": "import com.reactnative.ivpusic.imagepicker.PickerPackage;",
+          "packageInstance": "new PickerPackage()",
+          "buildTypes": [],
+          "libraryName": "RNCImageCropPickerSpec",
+          "componentDescriptors": [],
+          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cxxModuleCMakeListsModuleName": null,
+          "cxxModuleCMakeListsPath": null,
+          "cxxModuleHeaderName": null,
+          "isPureCxxDependency": false
+        }
+      }
+    },
     "react-native-pager-view": {
       "root": "/Users/clementqlf/Quotex/node_modules/react-native-pager-view",
       "name": "react-native-pager-view",
@@ -544,7 +569,7 @@
         {
           "name": "--terminal <string>",
           "description": "Launches the Metro Bundler in a new window using the specified terminal path.",
-          "default": "Apple_Terminal"
+          "default": "vscode"
         },
         {
           "name": "--binary-path <string>",
@@ -712,7 +737,7 @@
         {
           "name": "--terminal <string>",
           "description": "Launches the Metro Bundler in a new window using the specified terminal path.",
-          "default": "Apple_Terminal"
+          "default": "vscode"
         },
         {
           "name": "--appId <string>",

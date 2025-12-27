@@ -37,6 +37,9 @@ const HIGHLIGHT_PADDING = 1;
 const PATH_SAMPLE_STEP = 1;
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }) => {
+  console.log('ScanWorkflow: Mounting with photo path:', photo.path);
+  console.log('ScanWorkflow: OCR blocks count:', ocrResult?.blocks?.length);
+
   const navigation = useNavigation<any>();
   const { addQuote } = useData();
   const [scannedText, setScannedText] = useState('');
@@ -519,8 +522,8 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
           const orientedWidth = orientation === 90 || orientation === 270 ? photoH : photoW;
           const orientedHeight = orientation === 90 || orientation === 270 ? photoW : photoH;
 
-          const imageAspectRatio = orientedWidth / orientedHeight;
-          const containerAspectRatio = containerWidth / containerHeight;
+          const imageAspectRatio = orientedHeight > 0 ? orientedWidth / orientedHeight : 1;
+          const containerAspectRatio = containerHeight > 0 ? containerWidth / containerHeight : 1;
 
           let displayedWidth;
           let displayedHeight;

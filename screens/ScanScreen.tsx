@@ -15,6 +15,7 @@ import { BookOpen, Image as ImageIcon, ScanLine, Sparkles } from 'lucide-react-n
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
+import ImagePicker from 'react-native-image-crop-picker';
 import { useTabIndex, useSwipeEnabled } from '../TabNavigator';
 
 import ScanWorkflow from './ScanWorkflow';
@@ -244,6 +245,94 @@ export default function ScanScreen() {
     setIsTextDetectedLive(false);
   };
 
+  const handlePickImage = async () => {
+    try {
+      if (isLoading) return;
+      setIsLoading(true);
+
+      // Arrête l'OCR live
+      if (ocrLiveInterval.current) {
+        clearInterval(ocrLiveInterval.current);
+        ocrLiveInterval.current = null;
+      }
+      isCapturing.current = true;
+
+      const image = await ImagePicker.openPicker({
+        mediaType: 'photo',
+        cropping: true,
+        freeStyleCropEnabled: true,
+        cropperToolbarTitle: 'Rogner la citation',
+        cropperChooseText: 'Valider',
+        cropperCancelText: 'Annuler',
+        compressImageQuality: 1, // Max quality
+        // Force high resolution output
+        width: 3000,
+        height: 3000,
+        compressImageMaxWidth: 4096,
+        compressImageMaxHeight: 4096,
+      });
+
+      if (!image) {
+        setIsLoading(false);
+        isCapturing.current = false;
+        return;
+      }
+
+      console.log('ScanScreen: Image picked', image.path);
+      console.log('ScanScreen: Dimensions', image.width, 'x', image.height);
+
+      // iOS requires file:// prefix for some modules, but verify what TextRecognition needs.
+      // Usually, the path from ImagePicker on iOS is /path/to/file.
+      // We will ensure it has file:// prefix for consistency if it's missing,
+      // as simple string paths sometimes cause issues in native modules expects URLs.
+      const imagePath = image.path;
+      const cleanPath = imagePath.startsWith('file://') ? imagePath : `file://${imagePath}`;
+
+      console.log('ScanScreen: Using path for OCR', cleanPath);
+
+      let result = null;
+      try {
+        console.log('ScanScreen: Starting text recognition...');
+        // Pass the path directly. MLKit usually handles file:// paths well.
+        result = await TextRecognition.recognize(cleanPath);
+        console.log('ScanScreen: OCR result blocks:', result?.blocks?.length);
+      } catch (ocrError) {
+        console.error('ScanScreen: OCR Failed', ocrError);
+        // Fallback to empty result if OCR fails to prevent crash
+        result = { blocks: [] } as any;
+      }
+
+      // Create a pseudo PhotoFile object
+      const pickedPhoto: PhotoFile = {
+        path: cleanPath, // Use the path with file:// schema if needed or raw path 
+        width: image.width,
+        height: image.height,
+        isRawPhoto: false,
+        metadata: { Orientation: 1 } as any, // Default orientation
+      } as PhotoFile;
+
+      if (!result || result.blocks.length === 0) {
+        console.log('No text found in picked image');
+      }
+
+      console.log('ScanScreen: Setting photo and OCR result');
+      setPhoto(pickedPhoto);
+      setOcrResult(result);
+      console.log('ScanScreen: State updated');
+
+
+    } catch (error: any) {
+      if (error?.code !== 'E_PICKER_CANCELLED') {
+        console.error('Picker error:', error);
+      } else {
+        console.log('User cancelled selection');
+      }
+    } finally {
+      setIsLoading(false);
+      isCapturing.current = false;
+    }
+  };
+
   if (!hasPermission) {
     return (
       <SafeAreaView style={styles.container}>
@@ -440,7 +529,7 @@ export default function ScanScreen() {
 
           <View style={styles.controls}>
             <View style={styles.controlsRow}>
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity style={styles.iconButton} onPress={handlePickImage}>
                 <ImageIcon size={24} color="#E5E7EB" />
               </TouchableOpacity>
 
