@@ -10,6 +10,7 @@ import {
   Image,
   PanResponder,
   Animated,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -383,7 +384,20 @@ export default function MyQuotesScreen() {
                     {quote.likes}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => {
+                  const handleShare = async () => {
+                    try {
+                      const authorName = getAuthorName(quote.author);
+                      const message = `"${quote.text}"\n- ${authorName}\n(via Quotex)`;
+                      await Share.share({
+                        message,
+                      });
+                    } catch (error) {
+                      console.error('Error sharing:', error);
+                    }
+                  };
+                  handleShare();
+                }}>
                   <Share2 size={20} color="#6B7280" />
                   <Text style={styles.actionText}>Partager</Text>
                 </TouchableOpacity>
