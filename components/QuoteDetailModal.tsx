@@ -51,6 +51,35 @@ export function QuoteDetailModal() {
   const [gridData, setGridData] = React.useState<string[]>([]);
   const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
 
+  type TabType = 'description' | 'my_sheet';
+  const [activeTab, setActiveTab] = React.useState<TabType>('description');
+
+  const DESCRIPTION_BLOCKS = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
+  const MYSHEET_BLOCKS = ['definition', 'notes'];
+
+  const blockOptions = [
+    { key: 'definition', label: 'Définition' },
+    { key: 'notes', label: 'Notes' },
+    { key: 'bookInfo', label: "À propos du livre" },
+    { key: 'author', label: "À propos de l'auteur" },
+    { key: 'similarBooks', label: 'Livres similaires' },
+    { key: 'similarAuthors', label: 'Auteurs similaires' },
+  ];
+
+  const isBlockInTab = (blockKey: string, tab: TabType) => {
+    if (blockKey === 'addBlock') return true;
+    const base = blockKey.split('#')[0];
+    if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
+    if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
+    return false;
+  };
+
+  const currentTabBlocks = (gridData || []).filter(key => isBlockInTab(key, activeTab));
+
+  const filteredBlockOptions = activeTab === 'description'
+    ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key))
+    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key));
+
   React.useEffect(() => {
     if (quote?.id) {
       getBlockLayout(quote.id, 'quote').then(layout => {
@@ -169,14 +198,7 @@ export function QuoteDetailModal() {
   };
 
 
-  const blockOptions = [
-    { key: 'definition', label: 'Définition' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'bookInfo', label: "À propos du livre" },
-    { key: 'author', label: "À propos de l'auteur" },
-    { key: 'similarBooks', label: 'Livres similaires' },
-    { key: 'similarAuthors', label: 'Auteurs similaires' },
-  ];
+
 
   const openAddBlockModal = () => setAddBlockModalVisible(true);
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
@@ -188,14 +210,10 @@ export function QuoteDetailModal() {
     closeAddBlockModal();
   };
 
-  const handleRemoveBlockAt = (indexToRemove: number) => {
-    // Defensive: if index out of range or placeholder, do nothing
-    if (indexToRemove < 0 || indexToRemove >= gridData.length) return;
-    if (gridData[indexToRemove] === 'addBlock') return;
+  const handleRemoveBlock = (itemToRemove: string) => {
+    if (itemToRemove === 'addBlock') return;
 
-    const arr = [...gridData];
-    arr.splice(indexToRemove, 1);
-    const newLayout = [...arr.filter(x => x !== 'addBlock'), 'addBlock'];
+    const newLayout = gridData.filter(x => x !== itemToRemove);
 
     setGridData(newLayout);
     if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
@@ -225,7 +243,7 @@ export function QuoteDetailModal() {
                 <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
                 <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -265,7 +283,7 @@ export function QuoteDetailModal() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -295,7 +313,7 @@ export function QuoteDetailModal() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -342,7 +360,7 @@ export function QuoteDetailModal() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -366,7 +384,7 @@ export function QuoteDetailModal() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -399,7 +417,7 @@ export function QuoteDetailModal() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -432,7 +450,7 @@ export function QuoteDetailModal() {
           return (
             <View style={styles.removableWrapper}>
               {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlockAt(index)}>
+              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
                 <X size={14} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -547,17 +565,36 @@ export function QuoteDetailModal() {
             <Text style={styles.aiText}>{aiInterpretation}</Text>
           </View>
 
+          {/* TABS */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'description' && styles.activeTabButton]}
+              onPress={() => setActiveTab('description')}
+            >
+              <Text style={[styles.tabText, activeTab === 'description' && styles.activeTabText]}>Description</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'my_sheet' && styles.activeTabButton]}
+              onPress={() => setActiveTab('my_sheet')}
+            >
+              <Text style={[styles.tabText, activeTab === 'my_sheet' && styles.activeTabText]}>Ma fiche</Text>
+            </TouchableOpacity>
+          </View>
+
 
 
           {/* Placeholder block */}
           {/* Sortable Grid to arrange blocks */}
+          {/* Sortable Grid to arrange blocks */}
           <View style={styles.gridSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Organiser les blocs</Text>
+              <Text style={styles.sectionTitle}>
+                {activeTab === 'description' ? 'Détails' : 'Mon espace personnel'}
+              </Text>
             </View>
             <Sortable.Grid
               columns={1}
-              data={gridData}
+              data={currentTabBlocks}
               renderItem={renderGridItem}
               rowGap={10}
               columnGap={10}
@@ -566,11 +603,37 @@ export function QuoteDetailModal() {
               autoScrollActivationOffset={75}
               onOrderChange={(params) => {
                 const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                handleOrderChange(fromIndex, toIndex);
+                // logic needs to map back to original gridData indices if we want to support reorder
+                // But Sortable.Grid works on the data passed to it. 
+                // Since we are passing a filtered subset, the indices returned are for that subset.
+                // We need to map them back to the real separate list indices or handle it carefully.
+
+                // Let's manually construct the new sub-array
+                const newSubOrder = [...currentTabBlocks];
+                const [moved] = newSubOrder.splice(fromIndex, 1);
+                newSubOrder.splice(toIndex, 0, moved);
+
+                const newMasterList: string[] = [];
+                let subIndex = 0;
+                for (const item of gridData) {
+                  if (isBlockInTab(item, activeTab)) {
+                    // This slot belongs to the current tab stream
+                    if (subIndex < newSubOrder.length) {
+                      newMasterList.push(newSubOrder[subIndex]);
+                      subIndex++;
+                    }
+                  } else {
+                    // Keep other tab items in place
+                    newMasterList.push(item);
+                  }
+                }
+
+                setGridData(newMasterList);
+                if (quote?.id) updateBlockLayout(quote.id, 'quote', newMasterList);
               }}
             />
             {/* Modal réutilisable pour choisir le type de bloc à ajouter */}
-            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={blockOptions} />
+            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />
 
             <WordSelectionModal
               visible={isWordSelectionModalVisible}
@@ -1028,5 +1091,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#2A2A2A',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTabButton: {
+    borderBottomColor: '#20B8CD',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
