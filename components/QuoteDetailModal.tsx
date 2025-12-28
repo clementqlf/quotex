@@ -518,6 +518,15 @@ export function QuoteDetailModal() {
                   <UserIcon size={16} color="#6B7280" />
                   <Text style={styles.metaTextAuthor}>{quoteAuthorName}</Text>
                 </TouchableOpacity>
+                {quote.user && (
+                  <TouchableOpacity style={styles.metaRow} onPress={() => navigation.navigate('UserProfile', { user: quote.user })}>
+                    <Image
+                      source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
+                      style={styles.publisherAvatar}
+                    />
+                    <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>@{quote.user.username}</Text></Text>
+                  </TouchableOpacity>
+                )}
                 {quote.date && (
                   <View style={styles.metaRow}>
                     <Calendar size={16} color="#6B7280" />
@@ -761,6 +770,20 @@ const styles = StyleSheet.create({
   metaTextDate: {
     color: '#6B7280',
     fontSize: 12,
+  },
+  publisherAvatar: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#333',
+  },
+  metaTextPublisher: {
+    color: '#9CA3AF',
+    fontSize: 13,
+  },
+  publisherUsername: {
+    color: '#E5E7EB',
+    fontWeight: '500',
   },
   actions: {
     flexDirection: 'row',
