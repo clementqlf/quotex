@@ -1,0 +1,288 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    SectionList,
+    Image,
+    ActivityIndicator,
+    Keyboard
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon } from 'lucide-react-native';
+import { searchService, SearchResults } from '../src/services/SearchService';
+import { Quote, Book, Author } from '../types';
+import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+
+type SearchSection =
+    | { title: 'Citations'; data: Quote[]; type: 'quote' }
+    | { title: 'Livres'; data: Book[]; type: 'book' }
+    | { title: 'Auteurs'; data: Author[]; type: 'author' }
+    | { title: 'Thèmes'; data: string[]; type: 'theme' };
+
+export default function SearchScreen() {
+    const navigation = useNavigation<any>();
+    const [query, setQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [] });
+    const inputRef = useRef<TextInput>(null);
+
+    useEffect(() => {
+        // Focus input on mount
+        setTimeout(() => {
+            inputRef.current?.focus();
+        }, 100);
+    }, []);
+
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (query.trim().length > 1) { // Search after 2 chars
+                performSearch(query);
+            } else {
+                setResults({ quotes: [], authors: [], books: [], themes: [] });
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [query]);
+
+    const performSearch = async (text: string) => {
+        setIsLoading(true);
+        try {
+            const data = await searchService.search(text);
+            setResults(data);
+        } catch (error) {
+            console.error('Search error:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const sections: SearchSection[] = [
+        { title: 'Thèmes', data: results.themes, type: 'theme' },
+        { title: 'Auteurs', data: results.authors, type: 'author' },
+        { title: 'Livres', data: results.books, type: 'book' },
+        { title: 'Citations', data: results.quotes, type: 'quote' },
+    ].filter(section => section.data.length > 0) as SearchSection[];
+
+    const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
+        if (section.type === 'quote') {
+            const quote = item as Quote;
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                >
+                    <View style={styles.quoteIconContainer}>
+                        <QuoteIcon size={16} color="#20B8CD" fill="#20B8CD" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text numberOfLines={2} style={styles.quoteText}>"{quote.text}"</Text>
+                        <Text style={styles.subText}>{getAuthorName(quote.author)} • {getBookTitle(quote.book)}</Text>
+                    </View>
+                </TouchableOpacity>
+            );
+        } else if (section.type === 'book') {
+            const book = item as Book;
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => navigation.navigate('BookDetail', { book })}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                        <BookOpen size={20} color="#3B82F6" />
+                    </View>
+                    <View>
+                        <Text style={styles.itemTitle}>{book.title}</Text>
+                        <Text style={styles.subText}>{getAuthorName(book.author)}</Text>
+                    </View>
+                </TouchableOpacity>
+            );
+        } else if (section.type === 'author') {
+            const author = item as Author;
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => navigation.navigate('AuthorDetail', { author })}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                        <User size={20} color="#10B981" />
+                    </View>
+                    <Text style={styles.itemTitle}>{author.name}</Text>
+                </TouchableOpacity>
+            );
+        } else if (section.type === 'theme') {
+            const theme = item as string;
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => navigation.navigate('ThemeDetail', { themeName: theme })}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
+                        <Hash size={20} color="#EC4899" />
+                    </View>
+                    <Text style={styles.itemTitle}>{theme}</Text>
+                </TouchableOpacity>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <SafeAreaView style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <ArrowLeft size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <View style={styles.searchBar}>
+                    <Search size={20} color="#9CA3AF" />
+                    <TextInput
+                        ref={inputRef}
+                        style={styles.input}
+                        placeholder="Rechercher citations, livres..."
+                        placeholderTextColor="#6B7280"
+                        value={query}
+                        onChangeText={setQuery}
+                        returnKeyType="search"
+                    />
+                    {query.length > 0 && (
+                        <TouchableOpacity onPress={() => { setQuery(''); inputRef.current?.focus(); }}>
+                            <X size={18} color="#9CA3AF" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+
+            {/* Content */}
+            {isLoading ? (
+                <View style={styles.centerContainer}>
+                    <ActivityIndicator size="large" color="#20B8CD" />
+                </View>
+            ) : (
+                <SectionList
+                    sections={sections as any}
+                    keyExtractor={(item, index) => index.toString()}
+                    renderItem={renderItem}
+                    renderSectionHeader={({ section: { title } }) => (
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>{title}</Text>
+                        </View>
+                    )}
+                    contentContainerStyle={styles.listContent}
+                    keyboardShouldPersistTaps="handled"
+                    ListEmptyComponent={
+                        query.length > 1 ? (
+                            <View style={styles.centerContainer}>
+                                <Text style={styles.emptyText}>Aucun résultat trouvé.</Text>
+                            </View>
+                        ) : null
+                    }
+                />
+            )}
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#0F0F0F',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1F1F1F',
+    },
+    backButton: {
+        padding: 4,
+    },
+    searchBar: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1A1A1A',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 48,
+        gap: 10,
+    },
+    input: {
+        flex: 1,
+        color: '#FFFFFF',
+        fontSize: 16,
+        height: '100%',
+    },
+    listContent: {
+        paddingBottom: 40,
+    },
+    sectionHeader: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#0F0F0F', // sticky header background
+    },
+    sectionTitle: {
+        color: '#20B8CD',
+        fontSize: 14,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    resultItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1A1A1A',
+    },
+    itemTitle: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    subText: {
+        color: '#6B7280',
+        fontSize: 14,
+        marginTop: 2,
+    },
+    quoteText: {
+        color: '#E5E7EB',
+        fontSize: 15,
+        fontStyle: 'italic',
+        marginBottom: 4,
+    },
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    quoteIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(32, 184, 205, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 40,
+    },
+    emptyText: {
+        color: '#6B7280',
+        fontSize: 16,
+    }
+});

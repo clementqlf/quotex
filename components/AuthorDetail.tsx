@@ -12,30 +12,36 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, BookOpen, User, Calendar, Globe } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { getAuthorName } from '../src/utils/dataHelpers';
-import { Author, Book } from '../types';
+import { Author, Book, RootStackParamList } from '../types';
 
-type AuthorDetailScreenRouteProp = RouteProp<{ params: { authorName: string } }, 'params'>;
+type AuthorDetailScreenRouteProp = RouteProp<RootStackParamList, 'AuthorDetail'>;
 
 export function AuthorDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<AuthorDetailScreenRouteProp>();
-  const { authorName } = route.params;
+  // Handle both cases: author object passed (Search) or maybe just name (Legacy?)
+  // types.ts says { author: Author }, so we should rely on that.
+  // But let's be safe if we need to fall back.
+  const { author } = route.params;
 
-  const { quotes, getAuthorByName, getBooksByAuthor } = useData();
-  const [authorInfo, setAuthorInfo] = React.useState<Author | null>(null);
+  const { quotes, getBooksByAuthor } = useData();
+  const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
 
   React.useEffect(() => {
     async function loadAuthorData() {
+      if (!author) return;
+
       setIsLoadingAuthor(true);
       try {
-        const [info, books] = await Promise.all([
-          getAuthorByName(authorName),
-          getBooksByAuthor(authorName)
-        ]);
-        if (info) setAuthorInfo(info);
+        const books = await getBooksByAuthor(author.name);
         setAuthorBooks(books);
+
+        // If we only had partial data, we might want to fetch more details,
+        // but typically author object has everything. 
+        // If authorInfo is missing description, we could try to fetch it?
+        // For now, assume passed author is good or we fetch books.
       } catch (error) {
         console.error("Error loading author data:", error);
       } finally {
@@ -43,8 +49,9 @@ export function AuthorDetailScreen() {
       }
     }
     loadAuthorData();
-  }, [authorName, getAuthorByName, getBooksByAuthor]);
+  }, [author, getBooksByAuthor]);
 
+  const authorName = author?.name || 'Inconnu';
   const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 

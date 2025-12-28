@@ -308,6 +308,88 @@ app.get('/reviews', async (req, res) => {
     }
 });
 
+// --- Search ---
+
+app.get('/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q || typeof q !== 'string') {
+            res.status(400).json({ error: 'Missing or invalid query parameter "q"' });
+            return;
+        }
+
+        const query = q.toLowerCase();
+        console.log(`[Server] Search query: "${query}"`);
+
+        // 1. Search Quotes (text or theme)
+        const quotes = await prisma.quote.findMany({
+            where: {
+                OR: [
+                    { text: { contains: query } }, // removed mode: 'insensitive' for compatibility if sqlite
+                    { theme: { contains: query } }
+                ]
+            },
+            include: {
+                author: true,
+                book: true,
+                user: true,
+                _count: { select: { likes: true } }
+            },
+            take: 20
+        });
+
+        // 2. Search Authors
+        const authors = await prisma.author.findMany({
+            where: {
+                name: { contains: query }
+            },
+            take: 10
+        });
+
+        // 3. Search Books
+        const books = await prisma.book.findMany({
+            where: {
+                title: { contains: query }
+            },
+            include: { author: true },
+            take: 10
+        });
+
+        // 4. Search Themes (Derived from Quotes)
+        // Since we don't have a separate Theme model, we find unique themes from quotes matching the query
+        // But the user probably wants to search *for* a theme.
+        // We already searched quotes by theme.
+        // Let's also just find distinct themes that contain the query string.
+        const themesRaw = await prisma.quote.findMany({
+            where: {
+                theme: { contains: query }
+            },
+            select: { theme: true },
+            distinct: ['theme'],
+            take: 10
+        });
+        const themes = themesRaw.map(t => t.theme).filter(t => t !== null);
+
+        // Process quotes to include proper like counts and structure
+        const formattedQuotes = quotes.map(quote => ({
+            ...quote,
+            isLiked: false, // User context needed for real state, defaulting to false for search result list
+            likesCount: quote._count.likes
+        }));
+
+        res.json({
+            quotes: formattedQuotes,
+            authors,
+            books,
+            themes
+        });
+
+    } catch (e) {
+        console.error('Error performing search:', e);
+        res.status(500).json({ error: 'Failed to perform search' });
+    }
+});
+
 // --- Seeding ---
 
 async function seedIfNeeded() {

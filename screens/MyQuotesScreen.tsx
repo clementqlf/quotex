@@ -451,7 +451,7 @@ export default function MyQuotesScreen() {
           <Text style={styles.headerTitle}>Mes Citations</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Search')}>
             <Search size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>

@@ -1,5 +1,4 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
-import { NavigatorScreenParams } from '@react-navigation/native';
 
 // Define shared types here to avoid circular imports
 export type User = {
@@ -68,15 +67,17 @@ export type TabParamList = {
   MyQuotes: undefined;
   Scan: undefined;
   Social: undefined;
+  Search: undefined; // Added Search route
 };
 
 export type RootStackParamList = {
   Main: NavigatorScreenParams<TabParamList>;
-  AuthorDetail: { author: Author };
-  BookDetail: { book: Book };
+  AuthorDetail: { author?: Author; authorName?: string };
+  BookDetail: { book?: Book; bookTitle?: string };
   QuoteDetail: { quoteId?: number; quote?: Quote };
   UserProfile: { user: User };
   ThemeDetail: { themeName: string };
+  Search: undefined;
 };
 
 export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes' | 'reviews' | 'buy';

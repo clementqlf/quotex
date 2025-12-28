@@ -7,6 +7,7 @@ import { RootStackParamList } from './types'; // Assurez-vous que ce fichier exi
 import { QuoteDetailModal } from './components/QuoteDetailModal';
 import { ThemeDetailScreen } from './components/ThemeDetailScreen';
 import { TabNavigator } from './TabNavigator'; // Importer le TabNavigator
+import SearchScreen from './screens/SearchScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,10 +25,11 @@ export function AppNavigator() {
       {/* Groupe pour les écrans qui doivent s'afficher par-dessus */}
       <Stack.Group screenOptions={{ presentation: 'modal' }}>
         <Stack.Screen name="AuthorDetail" component={AuthorDetailScreen} />
-        <Stack.Screen name="BookDetail" component={BookDetailScreen} /> 
+        <Stack.Screen name="BookDetail" component={BookDetailScreen} />
         <Stack.Screen name="UserProfile" component={UserProfileScreen} />
         <Stack.Screen name="QuoteDetail" component={QuoteDetailModal} options={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }} />
         <Stack.Screen name="ThemeDetail" component={ThemeDetailScreen} />
+        <Stack.Screen name="Search" component={SearchScreen} />
       </Stack.Group>
     </Stack.Navigator>
   );

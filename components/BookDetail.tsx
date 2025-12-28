@@ -22,18 +22,22 @@ import { TextInput } from 'react-native';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import ReviewBlock from './ReviewBlock';
 
-type BookDetailScreenRouteProp = RouteProp<{ params: { bookTitle: string } }, 'params'>;
+type BookDetailScreenRouteProp = RouteProp<{ params: { book?: Book; bookTitle?: string } }, 'params'>;
 
 export function BookDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<BookDetailScreenRouteProp>();
-  const bookTitle = route.params?.bookTitle;
+  const params = route.params;
+
+  // Handle both cases
+  const passedBook = params?.book;
+  const bookTitle = passedBook?.title || params?.bookTitle;
 
   const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName } = useData();
 
-  const [bookInfo, setBookInfo] = useState<Book | null>(null);
+  const [bookInfo, setBookInfo] = useState<Book | null>(passedBook || null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(!passedBook);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
@@ -72,15 +76,31 @@ export function BookDetailScreen() {
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
   const loadMetadata = useCallback(async () => {
+    // If we have bookInfo from params but no author info, or if we just have title
     if (!bookTitle) return;
+
+    // Only fetch if we don't have full info or if we only had title
+    // If passedBook is present, we might still want to fetch author if it was just an ID/string in the book object?
+    // In our types, Book.author is Author | string.
+
     console.log('[BookDetail] loadMetadata triggered');
-    setIsLoadingMetadata(true);
+    if (!passedBook) setIsLoadingMetadata(true);
+
     try {
-      const fetchedBook = await getBookByTitle(bookTitle);
-      if (fetchedBook) {
-        console.log(`[BookDetail] Fetched book info. Rating: ${fetchedBook.rating}`);
-        setBookInfo(fetchedBook);
-        const authorName = typeof fetchedBook.author === 'string' ? fetchedBook.author : fetchedBook.author.name;
+      // If we already have the book, rely on it but ensure we have the author
+      let currentBook = passedBook;
+      if (!currentBook) {
+        currentBook = await getBookByTitle(bookTitle);
+        if (currentBook) setBookInfo(currentBook);
+      }
+
+      if (currentBook) {
+        console.log(`[BookDetail] Book info ready. Rating: ${currentBook.rating}`);
+        const authorVal = currentBook.author;
+        // Check if authorVal is object or string
+        const authorName = typeof authorVal === 'string' ? authorVal : authorVal.name;
+
+        // Always try to fetch full author details if we don't have them
         const fetchedAuthor = await getAuthorByName(authorName);
         if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
       } else {
@@ -91,7 +111,7 @@ export function BookDetailScreen() {
     } finally {
       setIsLoadingMetadata(false);
     }
-  }, [bookTitle, getBookByTitle, getAuthorByName]);
+  }, [bookTitle, getBookByTitle, getAuthorByName, passedBook]);
 
   React.useEffect(() => {
     loadMetadata();
@@ -230,6 +250,7 @@ export function BookDetailScreen() {
 
       case 'reviews':
         {
+          if (!bookInfo) return null;
           const bookId = typeof bookInfo.id === 'string' ? parseInt(bookInfo.id) : bookInfo.id;
           if (!bookId) return null; // Should not happen with server data
           return (
