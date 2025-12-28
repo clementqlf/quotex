@@ -13,23 +13,86 @@ app.use(express.json());
 // --- Endpoints ---
 
 // Get all quotes
+// Get all quotes
 app.get('/quotes', async (req, res) => {
     try {
         console.log('GET /quotes accessed');
+        const userId = 1; // Assuming default user for now
+
         const quotes = await prisma.quote.findMany({
             include: {
                 author: true,
                 book: true,
-                user: true
+                user: true,
+                likes: {
+                    where: { userId: userId }
+                },
+                _count: {
+                    select: { likes: true }
+                }
             },
             orderBy: { date: 'desc' }
         });
-        console.log(`Returning ${quotes.length} quotes`);
-        // Transform for client compatibility if needed, or client updates to match
-        res.json(quotes);
+
+        const quotesWithLikeStatus = quotes.map(quote => ({
+            ...quote,
+            isLiked: quote.likes.length > 0,
+            likesCount: quote._count.likes // Use the real relation count
+        }));
+
+        console.log(`Returning ${quotesWithLikeStatus.length} quotes`);
+        res.json(quotesWithLikeStatus);
     } catch (e) {
         console.error('Error fetching quotes:', e);
         res.status(500).json({ error: 'Failed to fetch quotes' });
+    }
+});
+
+// Toggle like on a quote
+app.post('/quotes/:id/like', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = 1; // Hardcoded user for now
+        const quoteId = parseInt(id);
+
+        const existingLike = await prisma.like.findUnique({
+            where: {
+                userId_quoteId: {
+                    userId,
+                    quoteId
+                }
+            }
+        });
+
+        if (existingLike) {
+            // Unlike
+            await prisma.like.delete({
+                where: {
+                    id: existingLike.id
+                }
+            });
+            await prisma.quote.update({
+                where: { id: quoteId },
+                data: { likesCount: { decrement: 1 } }
+            });
+            res.json({ isLiked: false });
+        } else {
+            // Like
+            await prisma.like.create({
+                data: {
+                    userId,
+                    quoteId
+                }
+            });
+            await prisma.quote.update({
+                where: { id: quoteId },
+                data: { likesCount: { increment: 1 } }
+            });
+            res.json({ isLiked: true });
+        }
+    } catch (e) {
+        console.error('Error toggling like:', e);
+        res.status(500).json({ error: 'Failed to toggle like' });
     }
 });
 
@@ -132,7 +195,8 @@ app.post('/quotes', async (req, res) => {
                 bookId: bookRecord.id,
 
                 userId: 1, // Hardcoded to default user for now
-                theme
+                theme,
+                likesCount: 0
             },
             include: {
                 author: true,

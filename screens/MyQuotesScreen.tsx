@@ -382,7 +382,7 @@ export default function MyQuotesScreen() {
                     fill={quote.isLiked ? '#20B8CD' : 'none'}
                   />
                   <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
-                    {quote.likes}
+                    {quote.likesCount}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={() => {
@@ -471,7 +471,7 @@ export default function MyQuotesScreen() {
           <Text style={styles.statLabel}>Citations</Text>
         </TouchableOpacity>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{myQuotes.reduce((acc, q) => acc + q.likes, 0)}</Text>
+          <Text style={styles.statValue}>{myQuotes.reduce((acc, q) => acc + q.likesCount, 0)}</Text>
           <Text style={styles.statLabel}>J'aime</Text>
         </View>
         <TouchableOpacity

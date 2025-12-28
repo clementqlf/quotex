@@ -102,7 +102,7 @@ export function ThemeDetailScreen() {
                             color={quote.isLiked ? "#EF4444" : "#6B7280"}
                             fill={quote.isLiked ? "#EF4444" : "none"}
                           />
-                          <Text style={styles.likeCount}>{quote.likes}</Text>
+                          <Text style={styles.likeCount}>{quote.likesCount}</Text>
                         </TouchableOpacity>
                       </View>
                     </View>

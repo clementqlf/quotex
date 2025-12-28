@@ -1,5 +1,5 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
-import { TabParamList } from './TabNavigator';
+import { NavigatorScreenParams } from '@react-navigation/native';
 
 // Define shared types here to avoid circular imports
 export type User = {
@@ -42,7 +42,8 @@ export type Quote = {
   author: string | Author; // Can be object (from server) or string (legacy/static)
   theme?: string;
   date?: string;
-  likes: number;
+  likesCount: number; // Replaced 'likes' number with likesCount
+  likes?: any[]; // The relation array
   isLiked: boolean;
   user?: User;
   comments?: number;
@@ -60,6 +61,13 @@ export type Review = {
   user: User;
   userId: number;
   bookId: number;
+};
+
+// Define TabParamList here to avoid circular dependency
+export type TabParamList = {
+  MyQuotes: undefined;
+  Scan: undefined;
+  Social: undefined;
 };
 
 export type RootStackParamList = {

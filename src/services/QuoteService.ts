@@ -20,6 +20,7 @@ class QuoteService {
                 book: q.book,
                 author: q.author,
                 theme: (q as any).theme || undefined,
+                likesCount: q.likesCount || 0,
                 likes: q.likes,
                 isLiked: q.isLiked,
                 user: (q as any).user,
@@ -57,7 +58,7 @@ class QuoteService {
                     book: q.book,
                     author: q.author,
                     theme: q.theme,
-                    likes: q.likes || 0,
+                    likesCount: q.likesCount || 0,
                     isLiked: q.isLiked || false,
                     date: q.date || new Date().toISOString(),
                     time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
@@ -100,7 +101,7 @@ class QuoteService {
         if (quoteIndex > -1) {
             const quote = quotes[quoteIndex];
             quote.isLiked = !quote.isLiked;
-            quote.likes += quote.isLiked ? 1 : -1;
+            quote.likesCount += quote.isLiked ? 1 : -1;
             quotes[quoteIndex] = quote;
             await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
             return quote;

@@ -128,7 +128,7 @@ export function QuoteDetailModal() {
     // 1. Mettre à jour l'état de la modale pour un retour visuel immédiat
     setQuote(currentQuote => {
       if (!currentQuote) return currentQuote;
-      return { ...currentQuote, isLiked: !currentQuote.isLiked, likes: currentQuote.isLiked ? currentQuote.likes - 1 : currentQuote.likes + 1 };
+      return { ...currentQuote, isLiked: !currentQuote.isLiked, likesCount: currentQuote.isLiked ? currentQuote.likesCount - 1 : currentQuote.likesCount + 1 };
     });
     // 2. Appeler la fonction du contexte pour mettre à jour l'état global
     toggleLikeQuote(quote.id);
@@ -557,7 +557,7 @@ export function QuoteDetailModal() {
                   quote.isLiked && styles.actionTextActive,
                 ]}
               >
-                {quote.likes}
+                {quote.likesCount}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={handleShare}>

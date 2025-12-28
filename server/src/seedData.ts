@@ -268,10 +268,10 @@ export const seed = async () => {
         {
             text: "The only way to do great work is to love what you do.",
             book: "Steve Jobs",
-            author: "Steve Jobs", // Attributed to subject often
+            author: "Steve Jobs",
             user: "@clementqlf",
             theme: "Travail",
-            likes: 12
+            likesCount: 12
         },
         {
             text: "Stay hungry, stay foolish.",
@@ -279,7 +279,7 @@ export const seed = async () => {
             author: "Steve Jobs",
             user: "@tom_tech",
             theme: "Innovation",
-            likes: 45
+            likesCount: 45
         },
         {
             text: "In the middle of difficulty lies opportunity.",
@@ -287,7 +287,7 @@ export const seed = async () => {
             author: "Albert Einstein",
             user: "@sophiereads",
             theme: "Résilience",
-            likes: 8
+            likesCount: 8
         },
         {
             text: "Imagination is more important than knowledge.",
@@ -295,7 +295,7 @@ export const seed = async () => {
             author: "Albert Einstein",
             user: "@emma_art",
             theme: "Créativité",
-            likes: 156
+            likesCount: 156
         },
         {
             text: "It is our choices that show what we truly are, far more than our abilities.",
@@ -303,7 +303,7 @@ export const seed = async () => {
             author: "J.K. Rowling",
             user: "@clementqlf",
             theme: "Choix",
-            likes: 24
+            likesCount: 24
         },
         {
             text: "I must not fear. Fear is the mind-killer.",
@@ -311,15 +311,15 @@ export const seed = async () => {
             author: "Frank Herbert",
             user: "@sophiereads",
             theme: "Courage",
-            likes: 890
+            likesCount: 890
         },
         {
             text: "He who has a why to live can bear almost any how.",
-            book: "Dune", // Often misattributed or referenced, actually Nietzsche but fits the vibe
+            book: "Dune",
             author: "Frank Herbert",
             user: "@lucas_books",
             theme: "Philosophie",
-            likes: 42
+            likesCount: 42
         },
         {
             text: "You have power over your mind - not outside events. Realize this, and you will find strength.",
@@ -327,7 +327,7 @@ export const seed = async () => {
             author: "Marcus Aurelius",
             user: "@clementqlf",
             theme: "Stoïcisme",
-            likes: 312
+            likesCount: 312
         },
         {
             text: "The soul becomes dyed with the color of its thoughts.",
@@ -335,7 +335,7 @@ export const seed = async () => {
             author: "Marcus Aurelius",
             user: "@emma_art",
             theme: "Spiritualité",
-            likes: 210
+            likesCount: 210
         },
         {
             text: "Even the darkest night will end and the sun will rise.",
@@ -343,7 +343,7 @@ export const seed = async () => {
             author: "Victor Hugo",
             user: "@emma_art",
             theme: "Espoir",
-            likes: 567
+            likesCount: 567
         },
         {
             text: "To love another person is to see the face of God.",
@@ -351,19 +351,15 @@ export const seed = async () => {
             author: "Victor Hugo",
             user: "@lucas_books",
             theme: "Amour",
-            likes: 123
+            likesCount: 123
         }
     ];
 
+    const allQuotes: any[] = [];
+
     for (const q of quotesData) {
-        // Find Author ID (using the attributed author or book author if needed)
-        // For simplicity, we search author by name
         let author = authors[q.author];
-        // If not found (e.g. Steve Jobs the person vs the book), try to find/create or fallback?
-        // We created Steve Jobs as author earlier.
         if (!author) {
-            // Maybe Walter Isaacson wrote the book, but quote is by Steve Jobs.
-            // We have Steve Jobs in authors list.
             const record = await prisma.author.findUnique({ where: { name: q.author } });
             author = record;
         }
@@ -372,23 +368,76 @@ export const seed = async () => {
         const user = users[q.user];
 
         if (author && book && user) {
-            await prisma.quote.create({
+            const quote = await prisma.quote.create({
                 data: {
                     text: q.text,
                     authorId: author.id,
                     bookId: book.id,
                     userId: user.id,
                     theme: q.theme,
-                    likes: q.likes,
-                    // Since we seed for everyone, let's leave isLiked false by default or true if it's "User 1's" seed.
-                    // Let's set it to true only if user is clementqlf (ID 1 usually)
-                    isLiked: q.user === "@clementqlf",
+                    likesCount: q.likesCount, // Initialize count for display
                     date: new Date()
                 }
             });
+            allQuotes.push(quote);
             console.log(`Created quote: "${q.text.substring(0, 20)}..."`);
         } else {
             console.log(`Missing link for quote: ${q.text} (Author: ${!!author}, Book: ${!!book}, User: ${!!user})`);
+        }
+    }
+
+    // --- Likes ---
+    // Distribute some real Likes relations to match the counts (approximately or partially)
+    console.log("Seeding Likes...");
+    const allUsers = Object.values(users);
+
+    // For each quote, create a few random likes
+    for (const q of allQuotes) {
+        // Randomly pick 0-3 users to like each quote
+        const numLikes = Math.floor(Math.random() * 4);
+        const shuffledUsers = allUsers.sort(() => 0.5 - Math.random());
+        const selectedUsers = shuffledUsers.slice(0, numLikes);
+
+        for (const liker of selectedUsers) {
+            try {
+                await prisma.like.upsert({
+                    where: {
+                        userId_quoteId: {
+                            userId: liker.id,
+                            quoteId: q.id
+                        }
+                    },
+                    update: {},
+                    create: {
+                        userId: liker.id,
+                        quoteId: q.id
+                    }
+                });
+            } catch (e) {
+                // Ignore if already exists (shouldn't happen with upsert but good to be safe in loop)
+            }
+        }
+
+        // Update the real count based on relations + arbitrary extra for "social proof" simulation if desired
+        // Or strictly strictly match relation count.
+        // Let's strictly update the count to match the relations we just created
+        // BUT user wanted "enriched" DB, so maybe the initial likesCount was fake "imported" likes.
+        // Let's keeping the initial likesCount as a base and ADD the relation count if we want?
+        // Actually, for consistency, the likesCount should ideally reflect relations. 
+        // But for "demo" purposes with high numbers (890 likes etc), we can keep the fake number + real relations.
+        // The implementation logic modifies likesCount on toggle.
+        // So let's just create relations for SOME users, and let the count be high.
+
+        // Ensure the Quote owner (User 1 / clementqlf) likes some quotes for testing "isLiked" true
+        if (Math.random() > 0.5) {
+            const mainUser = users["@clementqlf"];
+            if (mainUser) {
+                await prisma.like.upsert({
+                    where: { userId_quoteId: { userId: mainUser.id, quoteId: q.id } },
+                    update: {},
+                    create: { userId: mainUser.id, quoteId: q.id }
+                });
+            }
         }
     }
 

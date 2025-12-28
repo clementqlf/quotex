@@ -133,7 +133,7 @@ export default function SocialFeedScreen() {
                         quote.isLiked && styles.actionTextActive,
                       ]}
                     >
-                      {quote.likes}
+                      {quote.likesCount}
                     </Text>
                   </TouchableOpacity>
 

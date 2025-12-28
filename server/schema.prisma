@@ -49,8 +49,8 @@ model Quote {
   bookId    Int?
   book      Book?    @relation(fields: [bookId], references: [id])
   
-  likes     Int      @default(0)
-  isLiked   Boolean  @default(false)
+  likes     Like[]
+  likesCount Int     @default(0) // Cache for performance, updated manually or via triggers
   isSaved   Boolean  @default(false)
   date      DateTime @default(now())
   theme     String?
@@ -67,6 +67,20 @@ model User {
   following Int      @default(0)
   quotes      Quote[]
   reviews     Review[]
+  likes       Like[]
+}
+
+model Like {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  
+  quoteId   Int
+  quote     Quote    @relation(fields: [quoteId], references: [id])
+
+  @@unique([userId, quoteId])
 }
 
 model Review {

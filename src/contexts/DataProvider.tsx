@@ -64,7 +64,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setQuotes(prevQuotes =>
             prevQuotes.map(q =>
                 q.id === id
-                    ? { ...q, isLiked: !q.isLiked, likes: q.isLiked ? q.likes - 1 : q.likes + 1 }
+                    ? { ...q, isLiked: !q.isLiked, likesCount: q.isLiked ? q.likesCount - 1 : q.likesCount + 1 }
                     : q
             )
         );
@@ -124,7 +124,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             text,
             book,
             author,
-            likes: 0,
+            likesCount: 0,
             isLiked: false,
             date: new Date().toISOString(),
             isSaved: false,

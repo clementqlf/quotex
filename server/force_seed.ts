@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 async function forceSeed() {
     console.log('Clearing existing data...');
     // Delete in order to satisfy foreign key constraints
+    await prisma.like.deleteMany();
     await prisma.review.deleteMany();
     await prisma.quote.deleteMany();
     await prisma.book.deleteMany();

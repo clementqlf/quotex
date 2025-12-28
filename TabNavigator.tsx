@@ -13,13 +13,13 @@ import { PageIndicator } from './components/PageIndicator';
 
 const TabIndexContext = createContext({
   tabIndex: 1,
-  setTabIndex: (_index: number) => {},
+  setTabIndex: (_index: number) => { },
 });
 export const useTabIndex = () => useContext(TabIndexContext);
 
 const SwipeEnabledContext = createContext({
   swipeEnabled: true,
-  setSwipeEnabled: (_enabled: boolean) => {},
+  setSwipeEnabled: (_enabled: boolean) => { },
 });
 export const useSwipeEnabled = () => useContext(SwipeEnabledContext);
 
@@ -27,11 +27,7 @@ export const useSwipeEnabled = () => useContext(SwipeEnabledContext);
    Navigation types
 ========================= */
 
-export type TabParamList = {
-  MyQuotes: undefined;
-  Scan: undefined;
-  Social: undefined;
-};
+import { TabParamList } from './types';
 
 const Tab = createMaterialTopTabNavigator<TabParamList>();
 
