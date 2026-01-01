@@ -252,7 +252,6 @@ export function BookDetailScreen() {
         return (
           <ReviewBlock
             bookId={bookId}
-            onRemove={() => handleRemoveBlock(item)}
             onReviewAdded={loadMetadata}
           />
         );
