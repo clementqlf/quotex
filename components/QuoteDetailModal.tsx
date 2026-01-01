@@ -220,187 +220,172 @@ export function QuoteDetailModal() {
     if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
   };
 
-  // Render function for sortable grid items (defined after data constants)
-  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
-    // item may be like 'definition#123' or the placeholder 'addBlock'
+  // Helper function to render block content without wrappers
+  const renderBlockContent = (item: string) => {
     const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
+
     switch (base) {
-      case 'definition':
+      case 'definition': {
         // Check if we have data for this definition block
         const blockDefinitionData = quote?.blockData?.[item] as { term: string, genre: string, definition: string, example: string }[] | undefined;
 
         // If no data (or legacy behavior check), render the placeholder state to select words
         if (!blockDefinitionData || blockDefinitionData.length === 0) {
+          // Placeholder content for definition
           return (
-            <View style={styles.removableWrapper}>
-              <TouchableOpacity
-                style={styles.emptyBlockContainer}
-                onPress={() => {
-                  setCurrentDefinitionBlockId(item);
-                  setWordSelectionModalVisible(true);
-                }}
-              >
-                <BookOpen size={24} color="#20B8CD" />
-                <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
-                <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.emptyBlockContainer}
+              onPress={() => {
+                setCurrentDefinitionBlockId(item);
+                setWordSelectionModalVisible(true);
+              }}
+            >
+              <BookOpen size={24} color="#20B8CD" />
+              <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
+              <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
+            </TouchableOpacity>
           );
         }
 
-        {
-          const content = (
-            <View style={styles.definitionSection}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Définition</Text>
-              </View>
-              <View style={styles.definitionContent}>
-                {blockDefinitionData.map((dItem, defIndex) => (
-                  <View key={defIndex}>
-                    <Text style={styles.definitionTerm}>{dItem.term}</Text>
-                    <Text style={styles.definitionGenre}>{dItem.genre}</Text>
-                    <Text style={styles.definitionDesc}>{dItem.definition}</Text>
-                    <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
-                    {defIndex !== blockDefinitionData.length - 1 && <View style={styles.definitionDivider} />}
-                  </View>
-                ))}
-              </View>
-              {/* Button to edit selection (optional, useful feature) */}
-              <TouchableOpacity
-                style={styles.editSelectionButton}
-                onPress={() => {
-                  setCurrentDefinitionBlockId(item);
-                  setWordSelectionModalVisible(true);
-                }}
-              >
-                <Text style={styles.editSelectionText}>Modifier la sélection</Text>
-              </TouchableOpacity>
+        return (
+          <View style={styles.definitionSection}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Définition</Text>
             </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+            <View style={styles.definitionContent}>
+              {blockDefinitionData.map((dItem, defIndex) => (
+                <View key={defIndex}>
+                  <Text style={styles.definitionTerm}>{dItem.term}</Text>
+                  <Text style={styles.definitionGenre}>{dItem.genre}</Text>
+                  <Text style={styles.definitionDesc}>{dItem.definition}</Text>
+                  <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
+                  {defIndex !== blockDefinitionData.length - 1 && <View style={styles.definitionDivider} />}
+                </View>
+              ))}
             </View>
-          );
-        }
+            {/* Button to edit selection */}
+            <TouchableOpacity
+              style={styles.editSelectionButton}
+              onPress={() => {
+                setCurrentDefinitionBlockId(item);
+                setWordSelectionModalVisible(true);
+              }}
+            >
+              <Text style={styles.editSelectionText}>Modifier la sélection</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
 
-      case 'notes':
-        {
-          const content = (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Sparkles size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Notes</Text>
-              </View>
-              <TextInput
-                style={styles.notesInput}
-                placeholder="Écrire des notes..."
-                placeholderTextColor="#6B7280"
-                multiline
-                numberOfLines={6}
-                value={quote?.blockData?.[item] ?? ''}
-                onChangeText={(text) => handleUpdateBlockData(item, text)}
-                textAlignVertical="top"
-              />
+      case 'notes': {
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Sparkles size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Notes</Text>
             </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-          );
-        }
+            <TextInput
+              style={styles.notesInput}
+              placeholder="Écrire des notes..."
+              placeholderTextColor="#6B7280"
+              multiline
+              numberOfLines={6}
+              value={quote?.blockData?.[item] ?? ''}
+              onChangeText={(text) => handleUpdateBlockData(item, text)}
+              textAlignVertical="top"
+            />
+          </View>
+        );
+      }
 
-      case 'bookInfo':
-        if (!bookInfo) return null;
-        {
-          const content = (
+      case 'bookInfo': {
+        if (!bookInfo) {
+          return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <BookOpen size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos du livre</Text>
               </View>
-              <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quoteBookTitle)}>
-                <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
-                <View style={styles.bookInfo}>
-                  <TouchableOpacity onPress={() => onBookPress(quoteBookTitle)}>
-                    <Text style={styles.bookName}>{quoteBookTitle}</Text>
-                  </TouchableOpacity>
-                  <View style={styles.bookMeta}>
-                    <View style={styles.metaItem}>
-                      <Calendar size={14} color="#6B7280" />
-                      <Text style={styles.metaText}>{bookInfo.year}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <BookOpen size={14} color="#6B7280" />
-                      <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Star size={14} color="#20B8CD" fill="#20B8CD" />
-                      <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
-                    </View>
-                  </View>
-                  <View style={styles.genreBadge}>
-                    <Text style={styles.genreText}>{bookInfo.genre}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.bookDesc}>{bookInfo.description}</Text>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Informations sur le livre non disponibles pour cette citation.
+              </Text>
             </View>
           );
         }
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>À propos du livre</Text>
+            </View>
+            <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quoteBookTitle)}>
+              <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
+              <View style={styles.bookInfo}>
+                <TouchableOpacity onPress={() => onBookPress(quoteBookTitle)}>
+                  <Text style={styles.bookName}>{quoteBookTitle}</Text>
+                </TouchableOpacity>
+                <View style={styles.bookMeta}>
+                  <View style={styles.metaItem}>
+                    <Calendar size={14} color="#6B7280" />
+                    <Text style={styles.metaText}>{bookInfo.year}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <BookOpen size={14} color="#6B7280" />
+                    <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Star size={14} color="#20B8CD" fill="#20B8CD" />
+                    <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
+                  </View>
+                </View>
+                <View style={styles.genreBadge}>
+                  <Text style={styles.genreText}>{bookInfo.genre}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.bookDesc}>{bookInfo.description}</Text>
+          </View>
+        );
+      }
 
-      case 'author':
-        {
-          const content = (
+      case 'author': {
+        if (!authorInfo && !authorDesc) {
+          return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <UserIcon size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
               </View>
-              <TouchableOpacity onPress={() => onAuthorPress(quoteAuthorName)}>
-                <Text style={styles.authorName}>{quoteAuthorName}</Text>
-                <Text style={styles.authorDesc}>{authorDesc}</Text>
-              </TouchableOpacity>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Informations sur l'auteur non disponibles.
+              </Text>
             </View>
           );
         }
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <UserIcon size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+            </View>
+            <TouchableOpacity onPress={() => onAuthorPress(quoteAuthorName)}>
+              <Text style={styles.authorName}>{quoteAuthorName}</Text>
+              <Text style={styles.authorDesc}>{authorDesc}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
 
-      case 'similarBooks':
-        if (!similarBookList || similarBookList.length === 0) return null;
-        {
-          const content = (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Livres similaires</Text>
-              </View>
+      case 'similarBooks': {
+        const hasSimilarBooks = similarBookList && similarBookList.length > 0;
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Livres similaires</Text>
+            </View>
+            {hasSimilarBooks ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
                 {similarBookList.map((bookTitle) => {
                   const similarBookInfo = bookDescriptions[bookTitle];
@@ -413,27 +398,24 @@ export function QuoteDetailModal() {
                   );
                 })}
               </ScrollView>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-          );
-        }
+            ) : (
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Aucun livre similaire trouvé.
+              </Text>
+            )}
+          </View>
+        );
+      }
 
-      case 'similarAuthors':
-        if (!similarAuthorList || similarAuthorList.length === 0) return null;
-        {
-          const content = (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <UserIcon size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Auteurs similaires</Text>
-              </View>
+      case 'similarAuthors': {
+        const hasSimilarAuthors = similarAuthorList && similarAuthorList.length > 0;
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <UserIcon size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Auteurs similaires</Text>
+            </View>
+            {hasSimilarAuthors ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
                 {similarAuthorList.map((authorName) => {
                   const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
@@ -446,17 +428,14 @@ export function QuoteDetailModal() {
                   );
                 })}
               </ScrollView>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-          );
-        }
+            ) : (
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Aucun auteur similaire trouvé.
+              </Text>
+            )}
+          </View>
+        );
+      }
 
       case 'addBlock':
         return (
@@ -469,7 +448,27 @@ export function QuoteDetailModal() {
       default:
         return null;
     }
-  }, [navigation, quote, bookInfo, authorDesc, similarBookList, similarAuthorList, definitions, openAddBlockModal, quoteBookTitle, quoteAuthorName]);
+  };
+
+  // Render function for sortable grid items (defined after data constants)
+  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
+    const content = renderBlockContent(item);
+    if (!content) return null;
+
+    // We do NOT want to wrap 'addBlock' in the removable wrapper
+    if (item === 'addBlock') {
+      return content; // It already has its own touchable style
+    }
+
+    return (
+      <View style={styles.removableWrapper}>
+        {content}
+        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
+          <X size={14} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
+    );
+  }, [renderBlockContent, handleRemoveBlock]);
 
   return (
     <View style={styles.container}>
@@ -596,61 +595,73 @@ export function QuoteDetailModal() {
           {/* Placeholder block */}
           {/* Sortable Grid to arrange blocks */}
           {/* Sortable Grid to arrange blocks */}
+          {/* Tab Content */}
           <View style={styles.gridSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
                 {activeTab === 'description' ? 'Détails' : 'Mon espace personnel'}
               </Text>
             </View>
-            <Sortable.Grid
-              columns={1}
-              data={currentTabBlocks}
-              renderItem={renderGridItem}
-              rowGap={10}
-              columnGap={10}
-              scrollableRef={scrollableRef}
-              autoScrollEnabled={true}
-              autoScrollActivationOffset={75}
-              onOrderChange={(params) => {
-                const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                // logic needs to map back to original gridData indices if we want to support reorder
-                // But Sortable.Grid works on the data passed to it. 
-                // Since we are passing a filtered subset, the indices returned are for that subset.
-                // We need to map them back to the real separate list indices or handle it carefully.
 
-                // Let's manually construct the new sub-array
-                const newSubOrder = [...currentTabBlocks];
-                const [moved] = newSubOrder.splice(fromIndex, 1);
-                newSubOrder.splice(toIndex, 0, moved);
+            {activeTab === 'description' ? (
+              <View style={{ gap: 10 }}>
+                {/* Description Fixed Blocks */}
+                {renderBlockContent('bookInfo')}
+                {renderBlockContent('author')}
+                {renderBlockContent('similarBooks')}
+                {renderBlockContent('similarAuthors')}
+              </View>
+            ) : (
+              // My Sheet Sortable Grid
+              <>
+                <Sortable.Grid
+                  columns={1}
+                  data={currentTabBlocks}
+                  renderItem={renderGridItem}
+                  rowGap={10}
+                  columnGap={10}
+                  scrollableRef={scrollableRef} // Utiliser la ref du ScrollView parent
+                  autoScrollEnabled={true}
+                  autoScrollActivationOffset={75}
+                  onOrderChange={(params) => {
+                    const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
+                    // logic needs to map back to original gridData indices if we want to support reorder
+                    // Sortable.Grid works on the data passed to it (currentTabBlocks). 
 
-                const newMasterList: string[] = [];
-                let subIndex = 0;
-                for (const item of gridData) {
-                  if (isBlockInTab(item, activeTab)) {
-                    // This slot belongs to the current tab stream
-                    if (subIndex < newSubOrder.length) {
-                      newMasterList.push(newSubOrder[subIndex]);
-                      subIndex++;
+                    // Helper to reorder the master list based on the sub-list change
+                    const newSubOrder = [...currentTabBlocks];
+                    const [moved] = newSubOrder.splice(fromIndex, 1);
+                    newSubOrder.splice(toIndex, 0, moved);
+
+                    const newMasterList: string[] = [];
+                    let subIndex = 0;
+                    for (const item of gridData) {
+                      if (isBlockInTab(item, activeTab)) {
+                        // This slot belongs to the current tab stream
+                        if (subIndex < newSubOrder.length) {
+                          newMasterList.push(newSubOrder[subIndex]);
+                          subIndex++;
+                        }
+                      } else {
+                        // Keep other tab items in place
+                        newMasterList.push(item);
+                      }
                     }
-                  } else {
-                    // Keep other tab items in place
-                    newMasterList.push(item);
-                  }
-                }
 
-                setGridData(newMasterList);
-                if (quote?.id) updateBlockLayout(quote.id, 'quote', newMasterList);
-              }}
-            />
-            {/* Modal réutilisable pour choisir le type de bloc à ajouter */}
-            <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />
+                    setGridData(newMasterList);
+                    if (quote?.id) updateBlockLayout(quote.id, 'quote', newMasterList);
+                  }}
+                />
+                <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />
 
-            <WordSelectionModal
-              visible={isWordSelectionModalVisible}
-              onClose={() => setWordSelectionModalVisible(false)}
-              onConfirm={handleWordsSelected}
-              quoteText={quote.text}
-            />
+                <WordSelectionModal
+                  visible={isWordSelectionModalVisible}
+                  onClose={() => setWordSelectionModalVisible(false)}
+                  onConfirm={handleWordsSelected}
+                  quoteText={quote.text}
+                />
+              </>
+            )}
           </View>
 
         </Animated.ScrollView>

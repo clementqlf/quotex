@@ -188,194 +188,246 @@ export function BookDetailScreen() {
     if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
   };
 
-  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
+  // Helper function to render block content
+  const renderBlockContent = (item: string) => {
     if (!bookInfo) return null;
     const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
+
     switch (base) {
-      case 'author':
-        if (!authorInfo) return null;
-        {
-          const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
-          const content = (
+      case 'author': {
+        if (!authorInfo) {
+          return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <User size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName })}>
-                <Text style={styles.authorName}>{authorName}</Text>
-              </TouchableOpacity>
-              <Text style={styles.authorDesc}>{authorInfo.description}</Text>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Informations sur l'auteur non disponibles.
+              </Text>
             </View>
           );
         }
 
-      case 'notes':
-        {
-          const content = (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Sparkles size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Notes</Text>
-              </View>
-              <TextInput
-                style={styles.notesInput}
-                placeholder="Écrire des notes sur ce livre..."
-                placeholderTextColor="#6B7280"
-                multiline
-                numberOfLines={6}
-                value={blockData?.[item] ?? ''}
-                onChangeText={(text) => handleUpdateBlockData(item, text)}
-                textAlignVertical="top"
-              />
+        const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <User size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
             </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
-            </View>
-          );
-        }
+            <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName })}>
+              <Text style={styles.authorName}>{authorName}</Text>
+            </TouchableOpacity>
+            <Text style={styles.authorDesc}>{authorInfo.description}</Text>
+          </View>
+        );
+      }
 
-      case 'reviews':
-        {
-          if (!bookInfo) return null;
-          const bookId = typeof bookInfo.id === 'string' ? parseInt(bookInfo.id) : bookInfo.id;
-          if (!bookId) return null; // Should not happen with server data
-          return (
-            <ReviewBlock
-              bookId={bookId}
-              onRemove={() => handleRemoveBlock(item)}
-              onReviewAdded={loadMetadata}
+      case 'notes': {
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Sparkles size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Notes</Text>
+            </View>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="Écrire des notes sur ce livre..."
+              placeholderTextColor="#6B7280"
+              multiline
+              numberOfLines={6}
+              value={blockData?.[item] ?? ''}
+              onChangeText={(text) => handleUpdateBlockData(item, text)}
+              textAlignVertical="top"
             />
-          );
-        }
+          </View>
+        );
+      }
 
-      case 'savedQuotes':
-        if (savedQuotes.length === 0) return null;
-        {
-          const content = (
+      case 'reviews': {
+        if (!bookInfo) return null;
+        const bookId = typeof bookInfo.id === 'string' ? parseInt(bookInfo.id) : bookInfo.id;
+        if (!bookId) return null;
+        return (
+          <ReviewBlock
+            bookId={bookId}
+            onRemove={() => handleRemoveBlock(item)}
+            onReviewAdded={loadMetadata}
+          />
+        );
+      }
+
+      case 'savedQuotes': {
+        if (savedQuotes.length === 0) {
+          return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Quote size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
               </View>
-              <View style={styles.savedQuotesList}>
-                {savedQuotes.map(quote => (
-                  <TouchableOpacity
-                    key={quote.id}
-                    style={styles.savedQuoteCard}
-                    activeOpacity={0.85}
-                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
-                  >
-                    <Text style={styles.savedQuoteText}>{quote.text}</Text>
-                    <View style={styles.savedQuoteMeta}>
-                      <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
-                      <Text style={styles.savedQuoteDate}>{quote.date}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Aucune citation sauvegardée pour ce livre.
+              </Text>
             </View>
           );
         }
 
-      case 'buy':
-        if (!bookInfo.buyLinks || bookInfo.buyLinks.length === 0) return null;
-        {
-          const content = (
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Quote size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
+            </View>
+            <View style={styles.savedQuotesList}>
+              {savedQuotes.map(quote => (
+                <TouchableOpacity
+                  key={quote.id}
+                  style={styles.savedQuoteCard}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                >
+                  <Text style={styles.savedQuoteText}>{quote.text}</Text>
+                  <View style={styles.savedQuoteMeta}>
+                    <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
+                    <Text style={styles.savedQuoteDate}>{quote.date}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+      }
+
+      case 'buy': {
+        if (!bookInfo.buyLinks || bookInfo.buyLinks.length === 0) {
+          return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <ShoppingCart size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>Acheter ce livre</Text>
               </View>
-              <View style={styles.buyLinksList}>
-                {bookInfo.buyLinks.map((link, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.buyLinkItem}
-                    onPress={() => {
-                      Linking.openURL(link.url).catch(err => Alert.alert("Erreur", "Impossible d'ouvrir le lien"));
-                    }}
-                  >
-                    <View style={styles.buyLinkInfo}>
-                      <Text style={styles.buyLinkStore}>{link.store}</Text>
-                      <ExternalLink size={12} color="#6B7280" />
-                    </View>
-                    <Text style={styles.buyLinkPrice}>{link.price}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Aucun lien d'achat disponible.
+              </Text>
             </View>
           );
         }
 
-      case 'similarBooks':
-        if (uniqueSimilarBooks.length === 0) return null;
-        {
-          const content = (
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ShoppingCart size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Acheter ce livre</Text>
+            </View>
+            <View style={styles.buyLinksList}>
+              {bookInfo.buyLinks.map((link, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.buyLinkItem}
+                  onPress={() => {
+                    Linking.openURL(link.url).catch(err => Alert.alert("Erreur", "Impossible d'ouvrir le lien"));
+                  }}
+                >
+                  <View style={styles.buyLinkInfo}>
+                    <Text style={styles.buyLinkStore}>{link.store}</Text>
+                    <ExternalLink size={12} color="#6B7280" />
+                  </View>
+                  <Text style={styles.buyLinkPrice}>{link.price}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+      }
+
+      case 'similarBooks': {
+        if (uniqueSimilarBooks.length === 0) {
+          return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <BookOpen size={16} color="#20B8CD" />
                 <Text style={styles.sectionTitle}>Livres similaires</Text>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                {uniqueSimilarBooks.map((sBookTitle) => {
-                  return (
-                    <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
-                      <View style={[styles.similarBookCover, { backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center' }]}>
-                        <BookIcon size={24} color="#4B5563" />
-                      </View>
-                      <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          );
-          return (
-            <View style={styles.removableWrapper}>
-              {content}
-              <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-                <X size={14} color="#EF4444" />
-              </TouchableOpacity>
+              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                Aucun livre similaire trouvé.
+              </Text>
             </View>
           );
         }
 
-
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Livres similaires</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
+              {uniqueSimilarBooks.map((sBookTitle) => {
+                return (
+                  <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
+                    <View style={[styles.similarBookCover, { backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center' }]}>
+                      <BookIcon size={24} color="#4B5563" />
+                    </View>
+                    <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        );
+      }
 
       default:
         return null;
     }
-  }, [navigation, bookInfo, savedQuotes, uniqueSimilarBooks]);
+  };
+
+  const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
+    const content = renderBlockContent(item);
+    if (!content) return null;
+
+    // Don't wrap addBlock (though it's not in the main switch above, handled separately in modal logic, 
+    // but wait, addBlock isn't part of renderBlockContent. 
+    // Actually addBlock logic was separate. The previous code had addBlock filtering.
+    // Let's keep it clean. My Sheet only uses 'notes' usually + addBlock.
+    // But wait, the previous renderGridItem didn't handle 'addBlock' inside the switch?
+    // Ah, previous code logic:
+    // If item is 'addBlock', it might be rendered via renderGridItem depending on implementation?
+    // Actually addBlock IS in gridData.
+
+    if (item === 'addBlock') {
+      // Placeholder logic. But wait, in the new Code I put addBlock BUTTON explicitly below the grid for non-sortable?
+      // No, for 'my_sheet', I kept Sortable.Grid.
+      // And added the button explicitly BELOW it?
+      // In my replacement chunk for the grid section:
+      // I put:
+      // <Sortable.Grid ... />
+      // <TouchableOpacity ... addBlock ... />
+      // This implies addBlock is NOT in gridData? 
+      // But handleAddBlock adds it to gridData.
+      // If addBlock is in gridData, it will be rendered by renderGridItem.
+      // So I should check if item === 'addBlock' and return it.
+
+      // However, renderBlockContent doesn't handle 'addBlock'.
+
+      return (
+        <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
+          <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
+          <Text style={styles.placeholderText}>Ajouter un bloc</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View style={styles.removableWrapper}>
+        {content}
+        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
+          <X size={14} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
+    );
+  }, [renderBlockContent, handleRemoveBlock]);
 
   if (!bookTitle) {
     return (
@@ -509,95 +561,107 @@ export function BookDetailScreen() {
                 {activeTab === 'description' ? 'Détails du livre' : 'Mon espace personnel'}
               </Text>
             </View>
-            <Sortable.Grid
-              columns={1}
-              data={currentTabBlocks}
-              renderItem={renderGridItem}
-              rowGap={10}
-              columnGap={10}
-              scrollableRef={scrollableRef}
-              autoScrollEnabled={true}
-              autoScrollActivationOffset={75}
-              onOrderChange={(params) => {
-                const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                // logic needs to map back to original gridData indices if we want to support reorder
-                // But Sortable.Grid works on the data passed to it. 
-                // Since we are passing a filtered subset, the indices returned are for that subset.
-                // We need to map them back to the real separate list indices or handle it carefully.
+            {activeTab === 'description' ? (
+              <View style={{ gap: 10 }}>
+                {renderBlockContent('author')}
+                {renderBlockContent('savedQuotes')}
+                {renderBlockContent('reviews')}
+                {renderBlockContent('buy')}
+                {renderBlockContent('similarBooks')}
+              </View>
+            ) : (
+              <>
+                <Sortable.Grid
+                  columns={1}
+                  data={currentTabBlocks}
+                  renderItem={renderGridItem}
+                  rowGap={10}
+                  columnGap={10}
+                  scrollableRef={scrollableRef}
+                  autoScrollEnabled={true}
+                  autoScrollActivationOffset={75}
+                  onOrderChange={(params) => {
+                    const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
+                    // logic needs to map back to original gridData indices if we want to support reorder
+                    // But Sortable.Grid works on the data passed to it. 
+                    // Since we are passing a filtered subset, the indices returned are for that subset.
+                    // We need to map them back to the real separate list indices or handle it carefully.
 
-                // Complexity warning: Reordering a filtered list and syncing back to the main list is tricky.
-                // Simplified approach: Create a helper to reorder within the main list based on the subset movement.
+                    // Complexity warning: Reordering a filtered list and syncing back to the main list is tricky.
+                    // Simplified approach: Create a helper to reorder within the main list based on the subset movement.
 
-                const itemMoving = currentTabBlocks[fromIndex];
-                // Remove itemMoving from gridData
-                const compacted = gridData.filter(x => x !== itemMoving);
+                    const itemMoving = currentTabBlocks[fromIndex];
+                    // Remove itemMoving from gridData
+                    const compacted = gridData.filter(x => x !== itemMoving);
 
-                // Find where to insert. 
-                // We need to find the "neighbor" in the full list to know where to drop it.
-                // if toIndex is 0, we put it before the first item of the current view (if any)
-                // if toIndex is N, we put it after the Nth item of the current view.
+                    // Find where to insert. 
+                    // We need to find the "neighbor" in the full list to know where to drop it.
+                    // if toIndex is 0, we put it before the first item of the current view (if any)
+                    // if toIndex is N, we put it after the Nth item of the current view.
 
-                let insertIndexInMaster = -1;
+                    let insertIndexInMaster = -1;
 
-                if (toIndex === 0) {
-                  // Put before the first item of the CURRENT VIEW that exists in the master list
-                  if (currentTabBlocks.length > 1) { // >1 because we haven't mutated currentTabBlocks yet effectively in this logic context
-                    // The item at toIndex (which is currently someone else)
-                    const neighbor = currentTabBlocks[0] === itemMoving ? currentTabBlocks[1] : currentTabBlocks[0];
-                    // Wait, if fromIndex was 0 and toIndex is 0, no change.
-                    // Sortable calls this when change happens.
-                  }
-                }
-
-                // This is getting complicated. 
-                // Alternative: Just update the `gridData` by rebuilding it. 
-                // We have `currentTabBlocks` which reflects the NEW order (Sortable handled the visual drag).
-                // Wait, Sortable.Grid onOrderChange gives us the new indices. It doesn't give us the new array automatically in the callback params usually, or it does?
-                // The library expects us to update the data source.
-
-                // Let's manually construct the new sub-array
-                const newSubOrder = [...currentTabBlocks];
-                const [moved] = newSubOrder.splice(fromIndex, 1);
-                newSubOrder.splice(toIndex, 0, moved);
-
-                // Now verify this against the master `gridData`.
-                // We want to preserve the relative order of items NOT in this tab.
-                // And enforce the new order for items IN this tab.
-
-                const newMasterList: string[] = [];
-                let subIndex = 0;
-                for (const item of gridData) {
-                  if (isBlockInTab(item, activeTab)) {
-                    // This slot belongs to the current tab stream
-                    if (subIndex < newSubOrder.length) {
-                      newMasterList.push(newSubOrder[subIndex]);
-                      subIndex++;
+                    if (toIndex === 0) {
+                      // Put before the first item of the CURRENT VIEW that exists in the master list
+                      if (currentTabBlocks.length > 1) { // >1 because we haven't mutated currentTabBlocks yet effectively in this logic context
+                        // The item at toIndex (which is currently someone else)
+                        const neighbor = currentTabBlocks[0] === itemMoving ? currentTabBlocks[1] : currentTabBlocks[0];
+                        // Wait, if fromIndex was 0 and toIndex is 0, no change.
+                        // Sortable calls this when change happens.
+                      }
                     }
-                  } else {
-                    // Keep other tab items in place
-                    newMasterList.push(item);
-                  }
-                }
 
-                // Safety check: verify we didn't lose anything (e.g. if addBlock is in both?)
-                // Actually addBlock is in both. This logic might duplicate it or mess it up.
-                // Special case: 'addBlock' is usually at the end. 
-                // Let's rely on simple filtering. 
+                    // This is getting complicated. 
+                    // Alternative: Just update the `gridData` by rebuilding it. 
+                    // We have `currentTabBlocks` which reflects the NEW order (Sortable handled the visual drag).
+                    // Wait, Sortable.Grid onOrderChange gives us the new indices. It doesn't give us the new array automatically in the callback params usually, or it does?
+                    // The library expects us to update the data source.
 
-                setGridData(newMasterList);
-                if (bookTitle) updateBlockLayout(bookTitle, 'book', newMasterList);
-              }}
-            />
-            <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
-              <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
-              <Text style={styles.placeholderText}>Ajouter un bloc</Text>
-            </TouchableOpacity>
-            <AddBlockModal
-              visible={isAddBlockModalVisible}
-              onClose={closeAddBlockModal}
-              onSelect={handleAddBlock}
-              options={filteredBlockOptions}
-            />
+                    // Let's manually construct the new sub-array
+                    const newSubOrder = [...currentTabBlocks];
+                    const [moved] = newSubOrder.splice(fromIndex, 1);
+                    newSubOrder.splice(toIndex, 0, moved);
+
+                    // Now verify this against the master `gridData`.
+                    // We want to preserve the relative order of items NOT in this tab.
+                    // And enforce the new order for items IN this tab.
+
+                    const newMasterList: string[] = [];
+                    let subIndex = 0;
+                    for (const item of gridData) {
+                      if (isBlockInTab(item, activeTab)) {
+                        // This slot belongs to the current tab stream
+                        if (subIndex < newSubOrder.length) {
+                          newMasterList.push(newSubOrder[subIndex]);
+                          subIndex++;
+                        }
+                      } else {
+                        // Keep other tab items in place
+                        newMasterList.push(item);
+                      }
+                    }
+
+                    // Safety check: verify we didn't lose anything (e.g. if addBlock is in both?)
+                    // Actually addBlock is in both. This logic might duplicate it or mess it up.
+                    // Special case: 'addBlock' is usually at the end. 
+                    // Let's rely on simple filtering. 
+
+                    setGridData(newMasterList);
+                    if (bookTitle) updateBlockLayout(bookTitle, 'book', newMasterList);
+                  }}
+                />
+                <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
+                  <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
+                  <Text style={styles.placeholderText}>Ajouter un bloc</Text>
+                </TouchableOpacity>
+                <AddBlockModal
+                  visible={isAddBlockModalVisible}
+                  onClose={closeAddBlockModal}
+                  onSelect={handleAddBlock}
+                  options={filteredBlockOptions}
+                />
+              </>
+            )}
           </View>
         </Animated.ScrollView>
 
