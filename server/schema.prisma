@@ -19,6 +19,7 @@ model Book {
   rating      Float?
   buyLinks    String?  // JSON string: Array<{ store: string; url: string; price: string }>
   googleId    String?  @unique
+  openLibraryId String? @unique
   isbn        String?
   
   authorId    Int

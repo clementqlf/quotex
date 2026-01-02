@@ -10,9 +10,27 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Helper to format book (parse JSON fields)
+const formatBook = (book: any) => {
+    if (!book) return null;
+    return {
+        ...book,
+        buyLinks: book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : [],
+    };
+};
+
+// Helper to format quote (including nested book)
+const formatQuote = (quote: any) => {
+    return {
+        ...quote,
+        book: quote.book ? formatBook(quote.book) : null,
+        isLiked: quote.likes ? quote.likes.length > 0 : false,
+        likesCount: quote._count ? quote._count.likes : quote.likesCount
+    };
+};
+
 // --- Endpoints ---
 
-// Get all quotes
 // Get all quotes
 app.get('/quotes', async (req, res) => {
     try {
@@ -34,11 +52,7 @@ app.get('/quotes', async (req, res) => {
             orderBy: { date: 'desc' }
         });
 
-        const quotesWithLikeStatus = quotes.map(quote => ({
-            ...quote,
-            isLiked: quote.likes.length > 0,
-            likesCount: quote._count.likes // Use the real relation count
-        }));
+        const quotesWithLikeStatus = quotes.map(formatQuote);
 
         console.log(`Returning ${quotesWithLikeStatus.length} quotes`);
         res.json(quotesWithLikeStatus);
@@ -74,11 +88,7 @@ app.get('/quotes/:id', async (req, res) => {
             return;
         }
 
-        const quoteWithLikeStatus = {
-            ...quote,
-            isLiked: quote.likes.length > 0,
-            likesCount: quote._count.likes
-        };
+        const quoteWithLikeStatus = formatQuote(quote);
 
         res.json(quoteWithLikeStatus);
     } catch (e) {
@@ -163,7 +173,8 @@ app.get('/books', async (req, res) => {
         if (books.length > 0) {
             console.log(`[Server] Returning ${books.length} books. Sample rating: ${books[0].title} = ${books[0].rating}`);
         }
-        res.json(books);
+        const formattedBooks = books.map(formatBook);
+        res.json(formattedBooks);
     } catch (e) {
         console.error('Error fetching books:', e);
         res.status(500).json({ error: 'Failed to fetch books' });
@@ -193,7 +204,11 @@ app.get('/users/:username', async (req, res) => {
             res.status(404).json({ error: 'User not found' });
             return;
         }
-        res.json(user);
+        const formattedUser = {
+            ...user,
+            quotes: user.quotes.map((q: any) => formatQuote({ ...q, user })) // optimizing to not re-fetch user
+        };
+        res.json(formattedUser);
     } catch (e) {
         console.error("Error fetching user", e);
         res.status(500).json({ error: 'Failed to fetch user' });
@@ -251,7 +266,7 @@ app.post('/quotes', async (req, res) => {
         });
 
         console.log('Created quote:', newQuote.id);
-        res.json(newQuote);
+        res.json(formatQuote(newQuote));
     } catch (e) {
         console.error('Error creating quote:', e);
         res.status(500).json({ error: 'Failed to create quote' });
@@ -357,6 +372,7 @@ app.get('/reviews', async (req, res) => {
 
 // Search Google Books
 import { searchGoogleBooks } from './services/googleBooks';
+import { searchHybrid } from './services/hybridSearch';
 
 app.get('/google-books/search', async (req, res) => {
     try {
@@ -366,7 +382,8 @@ app.get('/google-books/search', async (req, res) => {
             return;
         }
 
-        const results = await searchGoogleBooks(q);
+        console.log(`[Server] Searching for: ${q} (Hybrid Mode)`);
+        const results = await searchHybrid(q);
         res.json(results);
     } catch (e) {
         console.error('Error in Google Books search endpoint:', e);
@@ -378,80 +395,135 @@ app.get('/google-books/search', async (req, res) => {
 app.post('/books/import', async (req, res) => {
     try {
         const bookData = req.body;
-        // Expected shape: FormattedBook from our service
-        // { googleId, title, authors, description, year, pages, cover, genre, isbn }
 
-        if (!bookData.title || !bookData.googleId) {
-            res.status(400).json({ error: 'Missing required fields (title, googleId)' });
+        if (!bookData.title && !bookData.googleId && !bookData.openLibraryId) {
+            res.status(400).json({ error: 'Book data must have an ID or title' });
             return;
         }
 
         console.log(`[Server] Importing book: ${bookData.title}`);
+        console.log(`[Server] Received bookData:`, JSON.stringify(bookData, null, 2));
 
-        // 1. Check if Book exists by Google ID
-        let existingBook = await prisma.book.findUnique({
-            where: { googleId: bookData.googleId }
-        });
+        let existingBook = null;
 
-        if (existingBook) {
-            console.log(`[Server] Book found by GoogleID: ${existingBook.title}`);
-            res.json(existingBook);
-            return;
+        // 1. Check by OpenLibraryId (Best for de-duplication)
+        if (bookData.openLibraryId) {
+            existingBook = await prisma.book.findUnique({
+                where: { openLibraryId: bookData.openLibraryId },
+                include: { author: true }
+            });
         }
 
-        // 2. Check if Book exists by Title (fallback for legacy data)
-        existingBook = await prisma.book.findUnique({
-            where: { title: bookData.title }
-        });
+        // 2. Check by GoogleId (Legacy / Fallback)
+        if (!existingBook && bookData.googleId) {
+            existingBook = await prisma.book.findUnique({
+                where: { googleId: bookData.googleId },
+                include: { author: true }
+            });
+        }
+
+        // 3. Check by Title (Last resort for legacy)
+        if (!existingBook && bookData.title) {
+            existingBook = await prisma.book.findUnique({
+                where: { title: bookData.title },
+                include: { author: true }
+            });
+        }
 
         if (existingBook) {
-            console.log(`[Server] Book found by Title. Updating metadata...`);
-            // Update the existing book with rich data if currently missing
+            console.log(`[Server] Book found: ${existingBook.title}. Updating metadata...`);
+
+            // If we found it via Title/GoogleId but now we have an OL ID, we should update it!
+            const shouldUpdateOlId = bookData.openLibraryId && !existingBook.openLibraryId;
+            const openLibraryId = shouldUpdateOlId ? bookData.openLibraryId : existingBook.openLibraryId;
+
+            // Generate buy links if missing
+            let buyLinksJson = existingBook.buyLinks;
+            if (!buyLinksJson || buyLinksJson === '[]') {
+                // Helper to generate buy links
+                const buyLinks = [];
+                if (bookData.buyLink) {
+                    buyLinks.push({ store: 'Google Play', url: bookData.buyLink, price: bookData.price || '' });
+                }
+
+                const isbn = bookData.isbn || existingBook.isbn;
+                if (isbn) {
+                    buyLinks.push({ store: 'Amazon', url: `https://www.amazon.fr/s?k=${isbn}`, price: '' });
+                    buyLinks.push({ store: 'Fnac', url: `https://www.fnac.com/SearchResult/ResultList.aspx?Search=${isbn}`, price: '' });
+                    buyLinks.push({ store: 'Chasse-aux-livres', url: `https://www.chasse-aux-livres.fr/pr/${isbn}`, price: '' });
+                } else {
+                    // Fallback: Search by Title + Author
+                    const query = encodeURIComponent(`${existingBook.title} ${existingBook.author?.name || ''}`.trim());
+                    buyLinks.push({ store: 'Amazon', url: `https://www.amazon.fr/s?k=${query}`, price: '' });
+                    buyLinks.push({ store: 'Fnac', url: `https://www.fnac.com/SearchResult/ResultList.aspx?Search=${query}`, price: '' });
+                }
+                buyLinksJson = JSON.stringify(buyLinks);
+            }
+
             const updatedBook = await prisma.book.update({
                 where: { id: existingBook.id },
                 data: {
-                    googleId: bookData.googleId,
+                    googleId: bookData.googleId || existingBook.googleId, // prefer new ID if available? or existing?
+                    openLibraryId: openLibraryId,
                     isbn: bookData.isbn || existingBook.isbn,
-                    description: existingBook.description || bookData.description,
-                    cover: existingBook.cover || bookData.cover,
+                    description: existingBook.description || bookData.description, // prefer existing description if present? Actually OL/GB strategy says use GB description.
+                    // If existing description is empty, use new.
+                    cover: (existingBook.cover && existingBook.cover.length > 0) ? existingBook.cover : bookData.cover,
                     pages: existingBook.pages || bookData.pages,
                     year: existingBook.year || bookData.year,
                     genre: existingBook.genre || bookData.genre,
+                    rating: (existingBook.rating === 0 || existingBook.rating === null) ? (bookData.rating || existingBook.rating) : existingBook.rating,
+                    buyLinks: buyLinksJson
                 }
             });
-            // Re-fetch with author to ensure frontend compatibility
             const fullUpdatedBook = await prisma.book.findUnique({
                 where: { id: updatedBook.id },
                 include: { author: true }
             });
-            res.json(fullUpdatedBook);
+            res.json(formatBook(fullUpdatedBook));
             return;
         }
 
         // 3. Create New Book
-        // First, ensure Author exists
         const authorName = bookData.authors && bookData.authors.length > 0 ? bookData.authors[0] : 'Unknown';
-
         let author = await prisma.author.findUnique({ where: { name: authorName } });
         if (!author) {
             author = await prisma.author.create({
-                data: { name: authorName } // We could potentially fetch author image too if we had a Google Author API usage
+                data: { name: authorName }
             });
         }
+
+        // Helper to generate buy links
+        const buyLinks = [];
+        if (bookData.buyLink) {
+            buyLinks.push({ store: 'Google Play', url: bookData.buyLink, price: bookData.price || '' });
+        }
+
+        if (bookData.isbn) {
+            buyLinks.push({ store: 'Amazon', url: `https://www.amazon.fr/s?k=${bookData.isbn}`, price: '' });
+            buyLinks.push({ store: 'Fnac', url: `https://www.fnac.com/SearchResult/ResultList.aspx?Search=${bookData.isbn}`, price: '' });
+            buyLinks.push({ store: 'Chasse-aux-livres', url: `https://www.chasse-aux-livres.fr/pr/${bookData.isbn}`, price: '' });
+        } else {
+            const query = encodeURIComponent(`${bookData.title} ${authorName}`.trim());
+            buyLinks.push({ store: 'Amazon', url: `https://www.amazon.fr/s?k=${query}`, price: '' });
+            buyLinks.push({ store: 'Fnac', url: `https://www.fnac.com/SearchResult/ResultList.aspx?Search=${query}`, price: '' });
+        }
+        const buyLinksJson = JSON.stringify(buyLinks);
 
         const newBook = await prisma.book.create({
             data: {
                 title: bookData.title,
                 googleId: bookData.googleId,
+                openLibraryId: bookData.openLibraryId,
                 isbn: bookData.isbn,
-                description: bookData.description,
-                year: bookData.year,
-                pages: bookData.pages,
-                cover: bookData.cover,
-                genre: bookData.genre,
+                description: bookData.description || '',
+                year: bookData.year || 0,
+                pages: bookData.pages || 0,
+                cover: bookData.cover || '',
+                genre: bookData.genre || 'Unknown',
                 authorId: author.id,
-                // Initialize default values
-                rating: 0
+                rating: bookData.rating || 0,
+                buyLinks: buyLinksJson
             },
             include: {
                 author: true
@@ -459,7 +531,7 @@ app.post('/books/import', async (req, res) => {
         });
 
         console.log(`[Server] Created new book: ${newBook.title}`);
-        res.json(newBook);
+        res.json(formatBook(newBook));
 
     } catch (e) {
         console.error('Error importing book:', e);
@@ -527,16 +599,15 @@ app.get('/search', async (req, res) => {
         const themes = themesRaw.map(t => t.theme).filter(t => t !== null);
 
         // Process quotes
-        const formattedQuotes = quotes.map(quote => ({
-            ...quote,
-            isLiked: false,
-            likesCount: quote._count.likes
-        }));
+        const formattedQuotes = quotes.map(formatQuote);
+
+        // Process books
+        const formattedBooks = books.map(formatBook);
 
         res.json({
             quotes: formattedQuotes,
             authors,
-            books,
+            books: formattedBooks,
             themes
         });
 

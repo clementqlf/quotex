@@ -3,6 +3,7 @@ import { Book } from '../../types';
 
 export interface GoogleBookResult {
     googleId: string;
+    openLibraryId?: string;
     title: string;
     authors: string[];
     description: string;
@@ -11,6 +12,9 @@ export interface GoogleBookResult {
     cover: string | null;
     genre: string | null;
     isbn: string | null;
+    rating: number | null;
+    buyLink: string | null;
+    price: string | null;
 }
 
 class GoogleBooksService {
