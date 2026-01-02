@@ -353,12 +353,127 @@ app.get('/reviews', async (req, res) => {
     }
 });
 
+// --- Google Books Integration ---
+
+// Search Google Books
+import { searchGoogleBooks } from './services/googleBooks';
+
+app.get('/google-books/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q || typeof q !== 'string') {
+            res.status(400).json({ error: 'Missing query parameter "q"' });
+            return;
+        }
+
+        const results = await searchGoogleBooks(q);
+        res.json(results);
+    } catch (e) {
+        console.error('Error in Google Books search endpoint:', e);
+        res.status(500).json({ error: 'Failed to search Google Books' });
+    }
+});
+
+// Import a book from Google Books data
+app.post('/books/import', async (req, res) => {
+    try {
+        const bookData = req.body;
+        // Expected shape: FormattedBook from our service
+        // { googleId, title, authors, description, year, pages, cover, genre, isbn }
+
+        if (!bookData.title || !bookData.googleId) {
+            res.status(400).json({ error: 'Missing required fields (title, googleId)' });
+            return;
+        }
+
+        console.log(`[Server] Importing book: ${bookData.title}`);
+
+        // 1. Check if Book exists by Google ID
+        let existingBook = await prisma.book.findUnique({
+            where: { googleId: bookData.googleId }
+        });
+
+        if (existingBook) {
+            console.log(`[Server] Book found by GoogleID: ${existingBook.title}`);
+            res.json(existingBook);
+            return;
+        }
+
+        // 2. Check if Book exists by Title (fallback for legacy data)
+        existingBook = await prisma.book.findUnique({
+            where: { title: bookData.title }
+        });
+
+        if (existingBook) {
+            console.log(`[Server] Book found by Title. Updating metadata...`);
+            // Update the existing book with rich data if currently missing
+            const updatedBook = await prisma.book.update({
+                where: { id: existingBook.id },
+                data: {
+                    googleId: bookData.googleId,
+                    isbn: bookData.isbn || existingBook.isbn,
+                    description: existingBook.description || bookData.description,
+                    cover: existingBook.cover || bookData.cover,
+                    pages: existingBook.pages || bookData.pages,
+                    year: existingBook.year || bookData.year,
+                    genre: existingBook.genre || bookData.genre,
+                }
+            });
+            // Re-fetch with author to ensure frontend compatibility
+            const fullUpdatedBook = await prisma.book.findUnique({
+                where: { id: updatedBook.id },
+                include: { author: true }
+            });
+            res.json(fullUpdatedBook);
+            return;
+        }
+
+        // 3. Create New Book
+        // First, ensure Author exists
+        const authorName = bookData.authors && bookData.authors.length > 0 ? bookData.authors[0] : 'Unknown';
+
+        let author = await prisma.author.findUnique({ where: { name: authorName } });
+        if (!author) {
+            author = await prisma.author.create({
+                data: { name: authorName } // We could potentially fetch author image too if we had a Google Author API usage
+            });
+        }
+
+        const newBook = await prisma.book.create({
+            data: {
+                title: bookData.title,
+                googleId: bookData.googleId,
+                isbn: bookData.isbn,
+                description: bookData.description,
+                year: bookData.year,
+                pages: bookData.pages,
+                cover: bookData.cover,
+                genre: bookData.genre,
+                authorId: author.id,
+                // Initialize default values
+                rating: 0
+            },
+            include: {
+                author: true
+            }
+        });
+
+        console.log(`[Server] Created new book: ${newBook.title}`);
+        res.json(newBook);
+
+    } catch (e) {
+        console.error('Error importing book:', e);
+        res.status(500).json({ error: 'Failed to import book' });
+    }
+});
+
+
 // --- Search ---
 
 app.get('/search', async (req, res) => {
     try {
         const { q } = req.query;
-        if (!q || typeof q !== 'string') {
+        if (!q || typeof q !== 'string') { // Fixed logic here as well
             res.status(400).json({ error: 'Missing or invalid query parameter "q"' });
             return;
         }
@@ -370,7 +485,7 @@ app.get('/search', async (req, res) => {
         const quotes = await prisma.quote.findMany({
             where: {
                 OR: [
-                    { text: { contains: query } }, // removed mode: 'insensitive' for compatibility if sqlite
+                    { text: { contains: query } },
                     { theme: { contains: query } }
                 ]
             },
@@ -401,10 +516,6 @@ app.get('/search', async (req, res) => {
         });
 
         // 4. Search Themes (Derived from Quotes)
-        // Since we don't have a separate Theme model, we find unique themes from quotes matching the query
-        // But the user probably wants to search *for* a theme.
-        // We already searched quotes by theme.
-        // Let's also just find distinct themes that contain the query string.
         const themesRaw = await prisma.quote.findMany({
             where: {
                 theme: { contains: query }
@@ -415,10 +526,10 @@ app.get('/search', async (req, res) => {
         });
         const themes = themesRaw.map(t => t.theme).filter(t => t !== null);
 
-        // Process quotes to include proper like counts and structure
+        // Process quotes
         const formattedQuotes = quotes.map(quote => ({
             ...quote,
-            isLiked: false, // User context needed for real state, defaulting to false for search result list
+            isLiked: false,
             likesCount: quote._count.likes
         }));
 

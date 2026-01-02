@@ -15,6 +15,7 @@ import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-rea
 import { bookDescriptions, localQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { searchService } from '../src/services/SearchService';
+import { googleBooksService } from '../src/services/GoogleBooksService';
 
 type ScanPreviewModalProps = {
     visible: boolean;
@@ -41,7 +42,8 @@ export default function ScanPreviewModal({
     const [editedQuote, setEditedQuote] = useState('');
 
     // State for Book Suggestions
-    const [suggestions, setSuggestions] = useState<string[]>([]);
+    type SuggestionItem = { type: 'local' | 'google'; title: string; data?: any };
+    const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
@@ -112,10 +114,8 @@ export default function ScanPreviewModal({
     const handleConfirm = () => {
         const finalText = editedQuote.trim() || scannedText;
         if (!finalText) return;
-
         const finalBook = editedBook.trim() || getBookTitle();
         const finalAuthor = editedAuthor.trim() || getAuthorName();
-
         onConfirm(finalText, finalBook, finalAuthor);
     };
 
@@ -123,22 +123,36 @@ export default function ScanPreviewModal({
         setEditedBook(text);
 
         if (!text.trim()) {
-            setSuggestions(initialBooks);
+            setSuggestions(initialBooks.map(b => ({ type: 'local', title: b })));
             return;
         }
 
         setIsLoadingSuggestions(true);
         try {
-            // Search locally first/mix or just use API? 
-            // API search gives us books from the DB
-            const results = await searchService.search(text);
-            const bookTitles = results.books.map(b => b.title);
+            // Parallel search: Local + Google
+            const [localResults, googleResults] = await Promise.all([
+                searchService.search(text).catch(() => ({ books: [] })),
+                googleBooksService.search(text).catch(() => [])
+            ]);
 
-            // Also include local matches from initialBooks if not in results?
+            const bookTitles = localResults.books ? localResults.books.map(b => b.title) : [];
             const localMatches = initialBooks.filter(b => b.toLowerCase().includes(text.toLowerCase()));
 
-            const combined = Array.from(new Set([...bookTitles, ...localMatches]));
-            setSuggestions(combined);
+            // Local items (deduplicated)
+            const uniqueLocalTitles = Array.from(new Set([...bookTitles, ...localMatches]));
+            const localItems: SuggestionItem[] = uniqueLocalTitles.map(t => ({ type: 'local', title: t }));
+
+            // Google items
+            // Filter out Google results that exactly match a local title (to avoid duplicates if we already have it)?
+            // Or just show them as "Google" to indicate enhanced data?
+            // Let's show them.
+            const googleItems: SuggestionItem[] = googleResults.map(b => ({
+                type: 'google',
+                title: b.title,
+                data: b
+            }));
+
+            setSuggestions([...localItems, ...googleItems]);
         } catch (error) {
             console.error("Error searching books", error);
         } finally {
@@ -259,16 +273,29 @@ export default function ScanPreviewModal({
                                                         )}
                                                         {suggestions.map((item, index) => (
                                                             <TouchableOpacity
-                                                                key={`${item}-${index}`}
+                                                                key={`${item.title}-${index}`}
                                                                 style={styles.suggestionItem}
-                                                                onPress={() => {
-                                                                    setEditedBook(item);
+                                                                onPress={async () => {
+                                                                    if (item.type === 'google' && item.data) {
+                                                                        setIsLoadingSuggestions(true);
+                                                                        await googleBooksService.importBook(item.data);
+                                                                        if (item.data.authors && item.data.authors.length > 0) {
+                                                                            setEditedAuthor(item.data.authors[0]);
+                                                                        }
+                                                                        setIsLoadingSuggestions(false);
+                                                                    }
+                                                                    setEditedBook(item.title);
                                                                     setIsEditingBook(false);
                                                                     setShowSuggestions(false);
                                                                 }}
                                                             >
-                                                                <BookIcon size={14} color="#6B7280" style={{ marginRight: 8 }} />
-                                                                <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
+                                                                <BookIcon size={14} color={item.type === 'google' ? '#20B8CD' : '#6B7280'} style={{ marginRight: 8 }} />
+                                                                <View style={{ flex: 1 }}>
+                                                                    <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
+                                                                    {item.type === 'google' && (
+                                                                        <Text style={{ fontSize: 10, color: '#20B8CD', fontStyle: 'italic' }}>Depuis Google Books</Text>
+                                                                    )}
+                                                                </View>
                                                             </TouchableOpacity>
                                                         ))}
                                                         {suggestions.length === 0 && !isLoadingSuggestions && (
@@ -284,7 +311,7 @@ export default function ScanPreviewModal({
                                                 onPress={() => {
                                                     setIsEditingBook(true);
                                                     setEditedBook(''); // Clear on click as requested
-                                                    setSuggestions(initialBooks);
+                                                    setSuggestions(initialBooks.map(b => ({ type: 'local', title: b })));
                                                     setShowSuggestions(true);
                                                     // Close other dropdowns
                                                     setIsEditingAuthor(false);

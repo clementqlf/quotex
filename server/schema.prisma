@@ -18,6 +18,8 @@ model Book {
   genre       String?
   rating      Float?
   buyLinks    String?  // JSON string: Array<{ store: string; url: string; price: string }>
+  googleId    String?  @unique
+  isbn        String?
   
   authorId    Int
   author      Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)

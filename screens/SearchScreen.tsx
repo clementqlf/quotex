@@ -17,17 +17,21 @@ import { searchService, SearchResults } from '../src/services/SearchService';
 import { Quote, Book, Author } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 
+import { googleBooksService } from '../src/services/GoogleBooksService';
+
 type SearchSection =
     | { title: 'Citations'; data: Quote[]; type: 'quote' }
     | { title: 'Livres'; data: Book[]; type: 'book' }
     | { title: 'Auteurs'; data: Author[]; type: 'author' }
-    | { title: 'Thèmes'; data: string[]; type: 'theme' };
+    | { title: 'Thèmes'; data: string[]; type: 'theme' }
+    | { title: 'Découvrir (Google Books)'; data: any[]; type: 'google_book' };
 
 export default function SearchScreen() {
     const navigation = useNavigation<any>();
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [] });
+    const [googleResults, setGoogleResults] = useState<any[]>([]);
     const inputRef = useRef<TextInput>(null);
 
     useEffect(() => {
@@ -43,6 +47,7 @@ export default function SearchScreen() {
                 performSearch(query);
             } else {
                 setResults({ quotes: [], authors: [], books: [], themes: [] });
+                setGoogleResults([]);
             }
         }, 500); // 500ms debounce
 
@@ -52,10 +57,28 @@ export default function SearchScreen() {
     const performSearch = async (text: string) => {
         setIsLoading(true);
         try {
-            const data = await searchService.search(text);
-            setResults(data);
+            const [localData, googleData] = await Promise.all([
+                searchService.search(text),
+                googleBooksService.search(text).catch(() => [])
+            ]);
+            setResults(localData);
+            setGoogleResults(googleData);
         } catch (error) {
             console.error('Search error:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGoogleBookPress = async (bookData: any) => {
+        setIsLoading(true);
+        try {
+            const importedBook = await googleBooksService.importBook(bookData);
+            if (importedBook) {
+                navigation.navigate('BookDetail', { book: importedBook });
+            }
+        } catch (error) {
+            console.error("Failed to import book", error);
         } finally {
             setIsLoading(false);
         }
@@ -66,6 +89,7 @@ export default function SearchScreen() {
         { title: 'Auteurs', data: results.authors, type: 'author' },
         { title: 'Livres', data: results.books, type: 'book' },
         { title: 'Citations', data: results.quotes, type: 'quote' },
+        { title: 'Découvrir (Google Books)', data: googleResults, type: 'google_book' },
     ].filter(section => section.data.length > 0) as SearchSection[];
 
     const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
@@ -93,7 +117,11 @@ export default function SearchScreen() {
                     onPress={() => navigation.navigate('BookDetail', { book })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                        <BookOpen size={20} color="#3B82F6" />
+                        {book.cover ? (
+                            <Image source={{ uri: book.cover }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                        ) : (
+                            <BookOpen size={20} color="#3B82F6" />
+                        )}
                     </View>
                     <View>
                         <Text style={styles.itemTitle}>{book.title}</Text>
@@ -127,6 +155,28 @@ export default function SearchScreen() {
                     <Text style={styles.itemTitle}>{theme}</Text>
                 </TouchableOpacity>
             );
+        } else if (section.type === 'google_book') {
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => handleGoogleBookPress(item)}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.05)' }]}>
+                        {item.cover ? (
+                            <Image source={{ uri: item.cover }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                        ) : (
+                            <BookOpen size={20} color="#3B82F6" />
+                        )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={styles.itemTitle}>{item.title}</Text>
+                            {/* <Text style={{fontSize: 10, color: '#20B8CD'}}>Google</Text> */}
+                        </View>
+                        <Text style={styles.subText}>{item.authors ? item.authors.join(', ') : 'Auteur inconnu'}</Text>
+                    </View>
+                </TouchableOpacity>
+            )
         }
         return null;
     };
