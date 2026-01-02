@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, BookOpen, User, Calendar, Globe } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
-import { getAuthorName } from '../src/utils/dataHelpers';
+import { getAuthorName, getBookTitle } from '../src/utils/dataHelpers';
 import { Author, Book, RootStackParamList } from '../types';
 
 type AuthorDetailScreenRouteProp = RouteProp<RootStackParamList, 'AuthorDetail'>;
@@ -22,26 +22,30 @@ export function AuthorDetailScreen() {
   // Handle both cases: author object passed (Search) or maybe just name (Legacy?)
   // types.ts says { author: Author }, so we should rely on that.
   // But let's be safe if we need to fall back.
-  const { author } = route.params;
+  const { author, authorName: paramAuthorName } = route.params;
+  const nameToUse = author?.name || paramAuthorName;
 
-  const { quotes, getBooksByAuthor } = useData();
+  const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote } = useData();
   const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
 
   React.useEffect(() => {
     async function loadAuthorData() {
-      if (!author) return;
+      if (!nameToUse) return;
 
       setIsLoadingAuthor(true);
       try {
-        const books = await getBooksByAuthor(author.name);
-        setAuthorBooks(books);
+        const [books, fetchedAuthor] = await Promise.all([
+          getBooksByAuthor(nameToUse),
+          !authorInfo ? getAuthorByName(nameToUse) : Promise.resolve(null)
+        ]);
 
-        // If we only had partial data, we might want to fetch more details,
-        // but typically author object has everything. 
-        // If authorInfo is missing description, we could try to fetch it?
-        // For now, assume passed author is good or we fetch books.
+        setAuthorBooks(books);
+        if (fetchedAuthor) {
+          setAuthorInfo(fetchedAuthor);
+        }
+
       } catch (error) {
         console.error("Error loading author data:", error);
       } finally {
@@ -49,9 +53,9 @@ export function AuthorDetailScreen() {
       }
     }
     loadAuthorData();
-  }, [author, getBooksByAuthor]);
+  }, [nameToUse, getBooksByAuthor, getAuthorByName]);
 
-  const authorName = author?.name || 'Inconnu';
+  const authorName = authorInfo?.name || nameToUse || 'Inconnu';
   const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
@@ -124,6 +128,7 @@ export function AuthorDetailScreen() {
           </View>
 
           {/* Books by Author Section */}
+          {/* Books by Author Section */}
           {authorBooks.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -144,6 +149,60 @@ export function AuthorDetailScreen() {
               ))}
             </View>
           )}
+
+          {/* User's Saved Quotes Section */}
+          {(() => {
+            const userQuotes = quotes.filter(q => {
+              // Filter for "My Quotes" logic (user 1 or legacy local)
+              const isMyQuote = q.user?.id == 1 || !q.user;
+              if (!isMyQuote) return false;
+
+              // Match author
+              const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
+              return qAuthorName === authorName;
+            });
+
+            if (userQuotes.length === 0) return null;
+
+            return (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: '#20B8CD' }]}>Mes Citations</Text>
+                </View>
+                <View style={{ gap: 12 }}>
+                  {userQuotes.map((quote) => (
+                    <TouchableOpacity
+                      key={quote.id}
+                      style={styles.quoteCard}
+                      activeOpacity={0.85}
+                      onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                    >
+                      <Text style={styles.quoteText}>"{quote.text}"</Text>
+                      <View style={styles.quoteMeta}>
+                        <View style={styles.quoteMetaLeft}>
+                          {/* Auhtor is redundant here, so we only show book title */}
+                          <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>
+                        </View>
+                        <View style={styles.quoteMetaRight}>
+                          <TouchableOpacity
+                            style={styles.likeButton}
+                            onPress={() => toggleLikeQuote(quote.id)}
+                          >
+                            <Heart
+                              size={16}
+                              color={quote.isLiked ? "#EF4444" : "#6B7280"}
+                              fill={quote.isLiked ? "#EF4444" : "none"}
+                            />
+                            <Text style={styles.likeCount}>{quote.likesCount}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -301,5 +360,48 @@ const styles = StyleSheet.create({
   bookMetaText: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  quoteCard: {
+    backgroundColor: '#121212',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    padding: 12,
+  },
+  quoteText: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#E5E7EB',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  quoteMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  quoteMetaLeft: {
+    flex: 1,
+  },
+  quoteBook: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  quoteMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#1F1F1F',
+  },
+  likeCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
 });

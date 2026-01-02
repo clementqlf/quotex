@@ -51,7 +51,7 @@ export default function MyQuotesScreen() {
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
-  const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes'>('quotes');
+  const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
 
   const authors = [...new Set(myQuotes.map(q => getAuthorName(q.author)))];
   const books = [...new Set(myQuotes.map(q => getBookTitle(q.book)))];
@@ -440,6 +440,28 @@ export default function MyQuotesScreen() {
       })
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [myQuotes]);
+
+  const authorsData = useMemo(() => {
+    const grouped = myQuotes.reduce<Record<string, { author: any; quoteCount: number }>>((acc, quote) => {
+      const name = getAuthorName(quote.author);
+      if (!acc[name]) {
+        acc[name] = { author: quote.author, quoteCount: 0 };
+      } else if (typeof acc[name].author === 'string' && typeof quote.author !== 'string') {
+        // Upgrade to object if we found one
+        acc[name].author = quote.author;
+      }
+      acc[name].quoteCount += 1;
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .map((data) => ({
+        name: getAuthorName(data.author),
+        image: typeof data.author !== 'string' ? data.author?.image : null,
+        quoteCount: data.quoteCount,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [myQuotes]);
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -470,10 +492,7 @@ export default function MyQuotesScreen() {
           <Text style={styles.statValue}>{myQuotes.length}</Text>
           <Text style={styles.statLabel}>Citations</Text>
         </TouchableOpacity>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{myQuotes.reduce((acc, q) => acc + q.likesCount, 0)}</Text>
-          <Text style={styles.statLabel}>J'aime</Text>
-        </View>
+
         <TouchableOpacity
           style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
           onPress={() => setViewMode('books')}
@@ -481,6 +500,14 @@ export default function MyQuotesScreen() {
         >
           <Text style={styles.statValue}>{new Set(myQuotes.map(q => q.book)).size}</Text>
           <Text style={styles.statLabel}>Livres</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
+          onPress={() => setViewMode('authors')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.statValue}>{authorsData.length}</Text>
+          <Text style={styles.statLabel}>Auteurs</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
@@ -546,6 +573,34 @@ export default function MyQuotesScreen() {
             ))
           ) : (
             <Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>
+          )
+        ) : viewMode === 'authors' ? (
+          authorsData.length > 0 ? (
+            authorsData.map(author => (
+              <TouchableOpacity
+                key={author.name}
+                style={styles.bookCard}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('AuthorDetail', { authorName: author.name })}
+              >
+                <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
+                  {author.image ? (
+                    <Image source={{ uri: author.image }} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 16, backgroundColor: '#2A2A2A' }} />
+                  ) : (
+                    <View style={{ width: 60, height: 60, borderRadius: 30, marginRight: 16, backgroundColor: '#20B8CD22', justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#20B8CD' }}>{author.name.charAt(0)}</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.bookCardTitle, { marginBottom: 4 }]}>{author.name}</Text>
+                    <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
+                  </View>
+                  <ChevronDown size={20} color="#6B7280" style={{ transform: [{ rotate: '-90deg' }] }} />
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>
           )
         ) : viewMode === 'themes' ? (
           themes.length > 0 ? (
