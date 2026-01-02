@@ -41,7 +41,7 @@ export default function ScanPreviewModal({
             setEditedAuthor('');
             setIsEditingBook(false);
             setIsEditingAuthor(false);
-            setIsEditingQuote(false);
+            setIsEditingQuote(!scannedText);
         }
     }, [visible, scannedText]);
 
@@ -122,8 +122,8 @@ export default function ScanPreviewModal({
                                         setEditedQuote(editedQuote || scannedText);
                                     }}
                                 >
-                                    <Text style={styles.previewQuoteText}>
-                                        {editedQuote || scannedText}
+                                    <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: '#6B7280', fontStyle: 'normal' }]}>
+                                        {editedQuote || scannedText || "Toucher pour ajouter une citation..."}
                                     </Text>
                                 </TouchableOpacity>
                             )}

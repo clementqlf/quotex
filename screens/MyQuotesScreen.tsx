@@ -14,9 +14,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3 } from 'lucide-react-native';
+import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { bookDescriptions } from '../data/staticData';
+import ScanPreviewModal from '../components/ScanPreviewModal';
 import { useTabIndex } from '../TabNavigator';
 import { useData } from '../src/contexts/DataProvider';
 import { Quote } from '../types';
@@ -29,7 +30,7 @@ const SWIPE_ACTIVATION_THRESHOLD = 60;
 
 export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
-  const { quotes: allQuotes, toggleLikeQuote, deleteQuote, refreshQuotes } = useData();
+  const { quotes: allQuotes, toggleLikeQuote, deleteQuote, refreshQuotes, addQuote } = useData();
 
   // Filter for "My Quotes" (current user is ID 1) or legacy local quotes
   const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id == 1 || !q.user), [allQuotes]);
@@ -47,6 +48,7 @@ export default function MyQuotesScreen() {
     }
   }, [isFocused]);
 
+  const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
@@ -473,6 +475,9 @@ export default function MyQuotesScreen() {
           <Text style={styles.headerTitle}>Mes Citations</Text>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => setShowManualQuoteModal(true)}>
+            <Plus size={20} color="#20B8CD" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Search')}>
             <Search size={20} color="#9CA3AF" />
           </TouchableOpacity>
@@ -698,7 +703,19 @@ export default function MyQuotesScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+
+
+      <ScanPreviewModal
+        visible={showManualQuoteModal}
+        onClose={() => setShowManualQuoteModal(false)}
+        onConfirm={async (text, book, author) => {
+          await addQuote(text, book, author);
+          setShowManualQuoteModal(false);
+          refreshQuotes();
+        }}
+        scannedText=""
+      />
+    </SafeAreaView >
   );
 }
 
