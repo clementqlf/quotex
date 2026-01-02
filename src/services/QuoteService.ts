@@ -20,10 +20,10 @@ class QuoteService {
                 book: q.book,
                 author: q.author,
                 theme: (q as any).theme || undefined,
-                likesCount: q.likesCount || 0,
-                likes: q.likes,
+                likesCount: (q as any).likesCount || ((q as any).likes && typeof (q as any).likes === 'number' ? (q as any).likes : 0),
+                likes: [], // Static data doesn't have partial likes relation array usually
                 isLiked: q.isLiked,
-                user: (q as any).user,
+                user: (q as any).user || { id: "1", name: "Clément QLF", username: "@clementqlf" },
                 date: (q as any).date || (q as any).time,
                 isSaved: (q as any).isSaved,
                 comments: (q as any).comments,
@@ -65,7 +65,9 @@ class QuoteService {
                     isSaved: q.isSaved || false,
                     comments: q.comments || 0,
                     blockData: q.blockData || {},
-                    user: q.user // Use user from server
+                    user: q.user,
+                    aiInterpretation: q.aiInterpretation,
+                    definitions: q.definitions ? JSON.parse(q.definitions) : undefined,
                 }));
 
                 // Update local cache
@@ -84,10 +86,56 @@ class QuoteService {
         await delay(500);
         await this.seedDataIfNeeded();
         const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
-        return quotes || [];
+
+        // Ensure all legacy quotes have a user
+        const safeQuotes = (quotes || []).map(q => ({
+            ...q,
+            user: q.user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
+        }));
+
+        return safeQuotes;
     }
 
     async getQuoteById(id: number): Promise<Quote | undefined> {
+        // Try fetching from server first
+        try {
+            console.log(`Fetching quote ${id} from server...`);
+            const response = await fetch(`${this.API_URL}/${id}`);
+            if (response.ok) {
+                const q = await response.json();
+                console.log('Quote fetched successfully:', q.id);
+
+                const mappedQuote: Quote = {
+                    id: q.id,
+                    text: q.text,
+                    book: q.book,
+                    author: q.author,
+                    theme: q.theme,
+                    likesCount: q.likesCount || 0,
+                    isLiked: q.isLiked || false,
+                    date: q.date || new Date().toISOString(),
+                    time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
+                    isSaved: q.isSaved || false,
+                    comments: q.comments || 0,
+                    blockData: q.blockData || {},
+                    user: q.user,
+                    aiInterpretation: q.aiInterpretation,
+                    definitions: q.definitions ? (typeof q.definitions === 'string' ? JSON.parse(q.definitions) : q.definitions) : undefined,
+                };
+
+                // Update strictly this quote in local cache to ensure consistency
+                const currentQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+                const updatedQuotes = currentQuotes.map(cq => cq.id === id ? mappedQuote : cq);
+                // If it's a new quote not in list (unlikely via navigation but possible), add it? 
+                // For now, just update if exists.
+                await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
+
+                return mappedQuote;
+            }
+        } catch (error) {
+            console.log('Error fetching quote by ID, using local fallback:', error);
+        }
+
         await delay(300);
         const quotes = await this.getQuotes();
         return quotes.find(q => q.id === id);
@@ -166,7 +214,8 @@ class QuoteService {
             text,
             book,
             author,
-            likes: 0,
+            likesCount: 0,
+            likes: [], // Initialize empty likes array for new quote
             isLiked: false,
             date: new Date().toISOString(),
             isSaved: false,

@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
-import { similarBooks } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
@@ -146,7 +145,7 @@ export function BookDetailScreen() {
   // Logique pour trouver les livres similaires à partir des citations sauvegardées
   const currentBookQuotes = savedQuotes.map(mq => mq.text);
   // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
-  const similarBookList = currentBookQuotes.flatMap(q => similarBooks[q] || []);
+  const similarBookList = bookInfo?.similarBooks || [];
   const uniqueSimilarBooks = [...new Set(similarBookList)];
 
 

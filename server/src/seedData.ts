@@ -165,21 +165,52 @@ export const seed = async () => {
         console.log(`Upserted author: ${a.name}`);
     }
 
+    // --- Update Authors (for Similar Authors) ---
+    // Manually linking some similar authors for demo
+    const similarAuthorsMap: Record<string, string[]> = {
+        "Walter Isaacson": ["Ryan Holiday"],
+        "Ryan Holiday": ["Walter Isaacson"],
+        "Paulo Coelho": ["Ryan Holiday"],
+        "George Eliot": ["J.K. Rowling"]
+    };
+
+    for (const [authorName, similarNames] of Object.entries(similarAuthorsMap)) {
+        const authorId = authors[authorName]?.id;
+        if (!authorId) continue;
+
+        const similarIds = similarNames
+            .map(name => authors[name]?.id)
+            .filter(id => id !== undefined);
+
+        if (similarIds.length > 0) {
+            await prisma.author.update({
+                where: { id: authorId },
+                data: {
+                    similarAuthors: {
+                        connect: similarIds.map(id => ({ id }))
+                    }
+                }
+            });
+            console.log(`Linked similar authors for: ${authorName}`);
+        }
+    }
+
+
     // --- Books ---
     const booksData = [
         {
             title: "Steve Jobs",
-            authorName: "Steve Jobs", // Note: actually Walter Isaacson wrote it, but sticking to current schema logic where author links usually
-            // Wait, schema links Book -> Author. The field is authorId. 
-            // In staticData.ts, Author of "Steve Jobs" book was "Walter Isaacson".
-            // Let's stick to the Authors we created above for simplicity or create Walter Isaacson if we want realism.
-            // Let's create Walter Isaacson as an Author to be correct.
             realAuthorName: "Walter Isaacson",
             year: 2011,
             pages: 656,
             cover: "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=400&h=600&fit=crop",
             genre: "Biography",
-            rating: 4.7
+            rating: 4.7,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "24.99€" },
+                { store: "FNAC", url: "https://fnac.com", price: "24.99€" },
+                { store: "Libraires", url: "https://lalibrairie.com", price: "25.50€" }
+            ])
         },
         {
             title: "Einstein: His Life and Universe",
@@ -188,7 +219,11 @@ export const seed = async () => {
             pages: 704,
             cover: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=600&fit=crop",
             genre: "Biography",
-            rating: 4.6
+            rating: 4.6,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "18.99€" },
+                { store: "Recyclivre", url: "https://recyclivre.com", price: "8.50€" }
+            ])
         },
         {
             title: "Harry Potter and the Chamber of Secrets",
@@ -197,7 +232,11 @@ export const seed = async () => {
             pages: 341,
             cover: "https://images.unsplash.com/photo-1551029506-0807df4e2031?w=400&h=600&fit=crop",
             genre: "Fantasy",
-            rating: 4.8
+            rating: 4.8,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "22.00€" },
+                { store: "FNAC", url: "https://fnac.com", price: "22.50€" }
+            ])
         },
         {
             title: "Dune",
@@ -206,7 +245,10 @@ export const seed = async () => {
             pages: 412,
             cover: "https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=400&h=600&fit=crop",
             genre: "Science Fiction",
-            rating: 4.9
+            rating: 4.9,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "10.00€" }
+            ])
         },
         {
             title: "Meditations",
@@ -225,15 +267,49 @@ export const seed = async () => {
             cover: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=400&h=600&fit=crop",
             genre: "Classic",
             rating: 4.9
+        },
+        {
+            title: "The Obstacle Is the Way",
+            realAuthorName: "Ryan Holiday",
+            year: 2014,
+            pages: 224,
+            cover: "https://images.unsplash.com/photo-1524995767962-b624634ad030?w=400&h=600&fit=crop",
+            genre: "Philosophie",
+            rating: 4.7,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "15.99€" }
+            ])
+        },
+        {
+            title: "The Alchemist",
+            realAuthorName: "Paulo Coelho",
+            year: 1988,
+            pages: 163,
+            cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop",
+            genre: "Philosophie",
+            rating: 4.6,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "12.00€" },
+                { store: "FNAC", url: "https://fnac.com", price: "12.00€" }
+            ])
+        },
+        {
+            title: "Middlemarch",
+            realAuthorName: "George Eliot",
+            year: 1871,
+            pages: 880,
+            cover: "https://images.unsplash.com/photo-1588666307646-86b1d359a381?w=400&h=600&fit=crop",
+            genre: "Classique",
+            rating: 4.2,
+            buyLinks: JSON.stringify([
+                { store: "Amazon", url: "https://amazon.com", price: "10.50€" }
+            ])
         }
     ];
 
-    // Walter Isaacson is now in authorsData array
-
-
     const books: Record<string, any> = {};
     for (const b of booksData) {
-        const author = authors[b.realAuthorName] || authors[b.authorName!];
+        const author = authors[b.realAuthorName];
         if (!author) {
             console.error(`Author not found for book: ${b.title}`);
             continue;
@@ -247,6 +323,7 @@ export const seed = async () => {
                 cover: b.cover,
                 genre: b.genre,
                 rating: b.rating,
+                buyLinks: b.buyLinks,
                 authorId: author.id
             },
             create: {
@@ -256,12 +333,47 @@ export const seed = async () => {
                 cover: b.cover,
                 genre: b.genre,
                 rating: b.rating,
+                buyLinks: b.buyLinks,
                 authorId: author.id
             }
         });
         books[b.title] = book;
         console.log(`Upserted book: ${b.title}`);
     }
+
+    // --- Update Books (for Similar Books) ---
+    const similarBooksMap: Record<string, string[]> = {
+        "The only way to do great work is to love what you do.": ["Einstein: His Life and Universe"], // Mapping key mismatch logic?
+        // Wait, similarBooks was keyed by Quote in static data?
+        // No, similarBooks in staticData was Key: QuoteText -> Value: BookTitles[]. that's weird.
+        // Usually similar books are Book -> Book.
+        // Let's assume standard Book -> Book similarity.
+        "Steve Jobs": ["Einstein: His Life and Universe", "The Obstacle Is the Way"],
+        "Einstein: His Life and Universe": ["Steve Jobs"],
+        "The Obstacle Is the Way": ["Steve Jobs", "The Alchemist"]
+    };
+
+    for (const [bookTitle, similarTitles] of Object.entries(similarBooksMap)) {
+        const bookId = books[bookTitle]?.id;
+        if (!bookId) continue;
+
+        const similarIds = similarTitles
+            .map(title => books[title]?.id)
+            .filter(id => id !== undefined);
+
+        if (similarIds.length > 0) {
+            await prisma.book.update({
+                where: { id: bookId },
+                data: {
+                    similarBooks: {
+                        connect: similarIds.map(id => ({ id }))
+                    }
+                }
+            });
+            console.log(`Linked similar books for: ${bookTitle}`);
+        }
+    }
+
 
     // --- Quotes ---
     const quotesData = [
@@ -271,15 +383,22 @@ export const seed = async () => {
             author: "Steve Jobs",
             user: "@clementqlf",
             theme: "Travail",
-            likesCount: 12
-        },
-        {
-            text: "Stay hungry, stay foolish.",
-            book: "Steve Jobs",
-            author: "Steve Jobs",
-            user: "@tom_tech",
-            theme: "Innovation",
-            likesCount: 45
+            likesCount: 12,
+            aiInterpretation: "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
+            definitions: JSON.stringify([
+                {
+                    term: "Passion",
+                    genre: "nom féminin",
+                    definition: "Un sentiment intense d'enthousiasme et d'intérêt pour une activité, souvent associé à la motivation intrinsèque.",
+                    example: "Sa passion pour la peinture l'a menée à devenir une artiste reconnue."
+                },
+                {
+                    term: "Amour du travail",
+                    genre: "nom masculin",
+                    definition: "État de bien-être et de satisfaction professionnelle.",
+                    example: "L'amour du travail bien fait est la clé du succès personnel."
+                }
+            ])
         },
         {
             text: "In the middle of difficulty lies opportunity.",
@@ -287,15 +406,22 @@ export const seed = async () => {
             author: "Albert Einstein",
             user: "@sophiereads",
             theme: "Résilience",
-            likesCount: 8
-        },
-        {
-            text: "Imagination is more important than knowledge.",
-            book: "Einstein: His Life and Universe",
-            author: "Albert Einstein",
-            user: "@emma_art",
-            theme: "Créativité",
-            likesCount: 156
+            likesCount: 8,
+            aiInterpretation: "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
+            definitions: JSON.stringify([
+                {
+                    term: "Défi",
+                    genre: "nom masculin",
+                    definition: "Situation difficile qui demande des efforts et de la persévérance pour être surmontée.",
+                    example: "Relever un défi stimule notre créativité et renforce notre confiance."
+                },
+                {
+                    term: "Opportunité",
+                    genre: "nom féminin",
+                    definition: "Circonstance favorable qui se présente et peut être exploitée à son avantage.",
+                    example: "Une opportunité de carrière s'est présentée à lui au moment opportun."
+                }
+            ])
         },
         {
             text: "It is our choices that show what we truly are, far more than our abilities.",
@@ -303,7 +429,54 @@ export const seed = async () => {
             author: "J.K. Rowling",
             user: "@clementqlf",
             theme: "Choix",
-            likesCount: 24
+            likesCount: 24,
+            aiInterpretation: "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
+            definitions: JSON.stringify([
+                {
+                    term: "Choix",
+                    genre: "nom masculin",
+                    definition: "Acte volontaire de sélection entre plusieurs options.",
+                    example: "Chaque choix que nous faisons façonne notre futur."
+                },
+                {
+                    term: "Caractère",
+                    genre: "nom masculin",
+                    definition: "Ensemble des qualités et défauts qui définissent la personnalité d'une personne.",
+                    example: "Le caractère d'une personne se révèle dans ses actions difficiles."
+                }
+            ])
+        },
+        {
+            text: "The only impossible journey is the one you never begin.",
+            book: "The Alchemist",
+            author: "Paulo Coelho",
+            user: "@sophiereads",
+            theme: "Aventure",
+            likesCount: 142
+        },
+        {
+            text: "It is never too late to be what you might have been.",
+            book: "Middlemarch",
+            author: "George Eliot",
+            user: "@lucas_books",
+            theme: "Espoir",
+            likesCount: 89
+        },
+        {
+            text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
+            book: "Einstein: His Life and Universe",
+            author: "Albert Einstein",
+            user: "@sophiereads",
+            theme: "Humour",
+            likesCount: 256
+        },
+        {
+            text: "The man who does not read has no advantage over the man who cannot read.",
+            book: "The Obstacle Is the Way",
+            author: "Ryan Holiday",
+            user: "@lucas_books",
+            theme: "Lecture",
+            likesCount: 112
         },
         {
             text: "I must not fear. Fear is the mind-killer.",
@@ -375,8 +548,10 @@ export const seed = async () => {
                     bookId: book.id,
                     userId: user.id,
                     theme: q.theme,
-                    likesCount: q.likesCount, // Initialize count for display
-                    date: new Date()
+                    likesCount: q.likesCount,
+                    date: new Date(),
+                    aiInterpretation: q.aiInterpretation,
+                    definitions: q.definitions
                 }
             });
             allQuotes.push(quote);
@@ -387,13 +562,10 @@ export const seed = async () => {
     }
 
     // --- Likes ---
-    // Distribute some real Likes relations to match the counts (approximately or partially)
     console.log("Seeding Likes...");
     const allUsers = Object.values(users);
 
-    // For each quote, create a few random likes
     for (const q of allQuotes) {
-        // Randomly pick 0-3 users to like each quote
         const numLikes = Math.floor(Math.random() * 4);
         const shuffledUsers = allUsers.sort(() => 0.5 - Math.random());
         const selectedUsers = shuffledUsers.slice(0, numLikes);
@@ -414,21 +586,10 @@ export const seed = async () => {
                     }
                 });
             } catch (e) {
-                // Ignore if already exists (shouldn't happen with upsert but good to be safe in loop)
+                // Ignore if exists
             }
         }
 
-        // Update the real count based on relations + arbitrary extra for "social proof" simulation if desired
-        // Or strictly strictly match relation count.
-        // Let's strictly update the count to match the relations we just created
-        // BUT user wanted "enriched" DB, so maybe the initial likesCount was fake "imported" likes.
-        // Let's keeping the initial likesCount as a base and ADD the relation count if we want?
-        // Actually, for consistency, the likesCount should ideally reflect relations. 
-        // But for "demo" purposes with high numbers (890 likes etc), we can keep the fake number + real relations.
-        // The implementation logic modifies likesCount on toggle.
-        // So let's just create relations for SOME users, and let the count be high.
-
-        // Ensure the Quote owner (User 1 / clementqlf) likes some quotes for testing "isLiked" true
         if (Math.random() > 0.5) {
             const mainUser = users["@clementqlf"];
             if (mainUser) {

@@ -19,6 +19,7 @@ export type Author = {
   image: string;
   birthDate: string;
   nationality: string;
+  similarAuthors?: Author[];
 };
 
 export type Book = {
@@ -32,6 +33,7 @@ export type Book = {
   genre: string;
   cover: string;
   buyLinks?: Array<{ store: string; url: string; price: string }>;
+  similarBooks?: Book[];
 };
 
 export type Quote = {
@@ -50,6 +52,8 @@ export type Quote = {
   time?: string; // keeping for compatibility with globalQuotesDB if needed, or unify to date
   notes?: string;
   blockData?: Record<string, any>;
+  aiInterpretation?: string;
+  definitions?: Array<{ term: string; genre: string; definition: string; example: string }>;
 };
 
 export type Review = {

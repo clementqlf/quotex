@@ -15,43 +15,90 @@ import {
 } from 'react-native';
 import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Star, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import {
-  aiInterpretations,
-  authorDetails,
-  bookDescriptions,
-  definitions,
-  similarBooks,
-  similarAuthors,
-} from '../data/staticData';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
 import { useData } from '../src/contexts/DataProvider';
-import { Quote, User } from '../types';
+import { Quote, User, Book, Author } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import { formatRelativeDate } from '../src/utils/dateUtils';
-
-
-// Local types removed in favor of imports from ../types
 import WordSelectionModal from './WordSelectionModal';
 import { fetchDefinition } from '../src/services/WiktionaryService';
+import { authorService } from '../src/services/AuthorService';
+import { quoteService } from '../src/services/QuoteService';
 
-// Le composant n'a plus besoin de props, il va tout chercher dans la route.
 export function QuoteDetailModal() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ params: { quote: Quote } }, 'params'>>();
   const { quote: initialQuote } = route.params ?? {};
+  const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
 
-  // On utilise un état local pour la citation afin de pouvoir la mettre à jour
-  const [quote, setQuote] = React.useState(initialQuote);
+  // Sync with global store to get latest data (e.g. user info)
+  const globalQuote = quotes.find(q => q.id === initialQuote?.id);
+  const [quote, setQuote] = React.useState(globalQuote || initialQuote);
 
-  // Persistence integration
-  const { getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
+  // State for rich data
+  const [fetchedBook, setFetchedBook] = React.useState<Book | null>(null);
+  const [fetchedAuthor, setFetchedAuthor] = React.useState<Author | null>(null);
   const [gridData, setGridData] = React.useState<string[]>([]);
   const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
 
+  React.useEffect(() => {
+    if (globalQuote) {
+      setQuote(globalQuote);
+    }
+  }, [globalQuote]);
+
+  React.useEffect(() => {
+    const loadData = async () => {
+      if (quote) {
+        // If user is missing, try to fetch the full quote details freshly
+        if (!quote.user && quote.id) {
+          try {
+            const freshQuote = await quoteService.getQuoteById(quote.id);
+            if (freshQuote && freshQuote.user) {
+              setQuote(freshQuote);
+              return; // Return to avoid double fetching book/author immediately, let the effect re-run
+            }
+          } catch (e) {
+            console.log('Failed to refresh quote details', e);
+          }
+        }
+
+        const bookTitle = getBookTitle(quote.book);
+        const authorName = getAuthorName(quote.author);
+
+        // Fetch rich data using services
+        const book = await authorService.getBookByTitle(bookTitle);
+        setFetchedBook(book || null);
+
+        const author = await authorService.getAuthorByName(authorName);
+        setFetchedAuthor(author || null);
+      }
+    };
+    loadData();
+  }, [quote?.id, quote?.user]); // Add quote.user to dependency to verify transition
+
+  // ... (keep existing tab/layout state)
+
+  const quoteAuthorName = quote ? getAuthorName(quote.author) : '';
+  const quoteBookTitle = quote ? getBookTitle(quote.book) : '';
+
+  // Data helpers based on fetched state
+  const aiInterpretation = quote?.aiInterpretation || "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
+
+  const authorInfo = fetchedAuthor;
+  const authorDesc = authorInfo?.description || `${quoteAuthorName} est un auteur reconnu.`;
+
+  const similarBookList = fetchedBook?.similarBooks || [];
+  const similarAuthorList = authorInfo?.similarAuthors || [];
+
+  const bookInfo = fetchedBook;
+  const quoteTheme = quote?.theme || 'Thème non renseigné';
+
+  // Tab Logic
   type TabType = 'description' | 'my_sheet';
   const [activeTab, setActiveTab] = React.useState<TabType>('description');
 
@@ -148,22 +195,6 @@ export function QuoteDetailModal() {
   const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });
   const onBookPress = (bookTitle: string) => navigation.navigate('BookDetail', { bookTitle });
 
-  const quoteAuthorName = getAuthorName(quote.author);
-  const quoteBookTitle = getBookTitle(quote.book);
-
-  // Data logic dependencies
-  const aiInterpretation =
-    aiInterpretations[quote.text] ||
-    "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
-  const authorInfo = authorDetails[quoteAuthorName];
-  const authorDesc = authorInfo?.description || `${quoteAuthorName} est un auteur reconnu.`;
-  const similarBookList =
-    similarBooks[quote.text] || [];
-  const bookAuthor = authorInfo ? quoteAuthorName : quoteAuthorName; // Simplified fallback
-  const similarAuthorList = similarAuthors[bookAuthor] || [];
-  const bookInfo = bookDescriptions[quoteBookTitle];
-  const quoteTheme = quote.theme || 'Thème non renseigné';
-
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // State and helpers for "Ajouter un bloc"
   const [isAddBlockModalVisible, setAddBlockModalVisible] = React.useState(false);
@@ -198,9 +229,6 @@ export function QuoteDetailModal() {
     setCurrentDefinitionBlockId(null);
   };
 
-
-
-
   const openAddBlockModal = () => setAddBlockModalVisible(true);
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
 
@@ -226,12 +254,13 @@ export function QuoteDetailModal() {
 
     switch (base) {
       case 'definition': {
-        // Check if we have data for this definition block
-        const blockDefinitionData = quote?.blockData?.[item] as { term: string, genre: string, definition: string, example: string }[] | undefined;
+        // ... (keep definition logic as is, assuming it uses quote.blockData or definitions from quote object)
+        // Actually, let's make sure it uses quote.definitions if available
+        const manualDefinitions = quote?.blockData?.[item] as { term: string, genre: string, definition: string, example: string }[] | undefined;
+        const serverDefinitions = quote.definitions;
+        const definitionsToRender = manualDefinitions || serverDefinitions;
 
-        // If no data (or legacy behavior check), render the placeholder state to select words
-        if (!blockDefinitionData || blockDefinitionData.length === 0) {
-          // Placeholder content for definition
+        if (!definitionsToRender || definitionsToRender.length === 0) {
           return (
             <TouchableOpacity
               style={styles.emptyBlockContainer}
@@ -254,17 +283,16 @@ export function QuoteDetailModal() {
               <Text style={styles.sectionTitle}>Définition</Text>
             </View>
             <View style={styles.definitionContent}>
-              {blockDefinitionData.map((dItem, defIndex) => (
+              {definitionsToRender.map((dItem, defIndex) => (
                 <View key={defIndex}>
                   <Text style={styles.definitionTerm}>{dItem.term}</Text>
                   <Text style={styles.definitionGenre}>{dItem.genre}</Text>
                   <Text style={styles.definitionDesc}>{dItem.definition}</Text>
                   <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
-                  {defIndex !== blockDefinitionData.length - 1 && <View style={styles.definitionDivider} />}
+                  {defIndex !== definitionsToRender.length - 1 && <View style={styles.definitionDivider} />}
                 </View>
               ))}
             </View>
-            {/* Button to edit selection */}
             <TouchableOpacity
               style={styles.editSelectionButton}
               onPress={() => {
@@ -279,6 +307,7 @@ export function QuoteDetailModal() {
       }
 
       case 'notes': {
+        // ... (keep notes logic)
         return (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -351,6 +380,7 @@ export function QuoteDetailModal() {
 
       case 'author': {
         if (!authorInfo && !authorDesc) {
+          // ... (keep fallback)
           return (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -387,16 +417,12 @@ export function QuoteDetailModal() {
             </View>
             {hasSimilarBooks ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                {similarBookList.map((bookTitle) => {
-                  const similarBookInfo = bookDescriptions[bookTitle];
-                  if (!similarBookInfo) return null;
-                  return (
-                    <TouchableOpacity key={bookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle })}>
-                      <Image source={{ uri: similarBookInfo.cover }} style={styles.similarBookCover} />
-                      <Text numberOfLines={2} style={styles.similarBookTitle}>{bookTitle}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {similarBookList.map((book) => (
+                  <TouchableOpacity key={book.id || book.title} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: book.title })}>
+                    <Image source={{ uri: book.cover }} style={styles.similarBookCover} />
+                    <Text numberOfLines={2} style={styles.similarBookTitle}>{book.title}</Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             ) : (
               <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
@@ -417,16 +443,12 @@ export function QuoteDetailModal() {
             </View>
             {hasSimilarAuthors ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                {similarAuthorList.map((authorName) => {
-                  const authorBook = Object.values(bookDescriptions).find(book => book.author === authorName);
-                  const authorCover = authorBook ? authorBook.cover : 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop';
-                  return (
-                    <TouchableOpacity key={authorName} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName })}>
-                      <Image source={{ uri: authorCover }} style={styles.similarBookCover} />
-                      <Text numberOfLines={2} style={styles.similarBookTitle}>{authorName}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {similarAuthorList.map((author) => (
+                  <TouchableOpacity key={author.id || author.name} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName: author.name })}>
+                    <Image source={{ uri: author.image || 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop' }} style={styles.similarBookCover} />
+                    <Text numberOfLines={2} style={styles.similarBookTitle}>{author.name}</Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             ) : (
               <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
@@ -437,6 +459,7 @@ export function QuoteDetailModal() {
         );
       }
 
+      // ... (keep add block)
       case 'addBlock':
         return (
           <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
@@ -513,19 +536,22 @@ export function QuoteDetailModal() {
                   <BookOpen size={16} color="#6B7280" />
                   <Text style={styles.metaTextBook}>{quoteBookTitle}</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quoteAuthorName)}>
                   <UserIcon size={16} color="#6B7280" />
                   <Text style={styles.metaTextAuthor}>{quoteAuthorName}</Text>
                 </TouchableOpacity>
+
                 {quote.user && (
                   <TouchableOpacity style={styles.metaRow} onPress={() => navigation.navigate('UserProfile', { user: quote.user })}>
                     <Image
                       source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
                       style={styles.publisherAvatar}
                     />
-                    <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>@{quote.user.username}</Text></Text>
+                    <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>{quote.user.username.startsWith('@') ? quote.user.username : '@' + quote.user.username}</Text></Text>
                   </TouchableOpacity>
                 )}
+
                 {quote.date && (
                   <View style={styles.metaRow}>
                     <Calendar size={16} color="#6B7280" />

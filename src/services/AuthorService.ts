@@ -10,8 +10,12 @@ class AuthorService {
             const response = await fetch(`${this.API_URL}/authors`);
             if (response.ok) {
                 const authors = await response.json();
-                await StorageService.setItem(STORAGE_KEYS.AUTHORS, authors);
-                return authors;
+                const mappedAuthors = authors.map((a: any) => ({
+                    ...a,
+                    similarAuthors: a.similarAuthors || []
+                }));
+                await StorageService.setItem(STORAGE_KEYS.AUTHORS, mappedAuthors);
+                return mappedAuthors;
             }
         } catch (error) {
             console.error('Error fetching authors from server:', error);
@@ -32,8 +36,13 @@ class AuthorService {
             if (response.ok) {
                 const allBooks = await response.json();
                 // Extract unique books and store them
-                await StorageService.setItem(STORAGE_KEYS.BOOKS, allBooks);
-                return allBooks.filter((b: any) =>
+                const mappedBooks = allBooks.map((b: any) => ({
+                    ...b,
+                    buyLinks: b.buyLinks ? JSON.parse(b.buyLinks) : undefined,
+                    similarBooks: b.similarBooks || []
+                }));
+                await StorageService.setItem(STORAGE_KEYS.BOOKS, mappedBooks);
+                return mappedBooks.filter((b: any) =>
                     (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
                 );
             }
@@ -54,6 +63,10 @@ class AuthorService {
             if (response.ok) {
                 const books = await response.json();
                 const book = books.find((b: any) => b.title === title);
+                if (book) {
+                    book.buyLinks = book.buyLinks ? JSON.parse(book.buyLinks) : undefined;
+                    book.similarBooks = book.similarBooks || [];
+                }
                 console.log(`[AuthorService] Found book: ${title}, rating: ${book?.rating}`);
                 return book;
             }

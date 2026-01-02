@@ -48,6 +48,45 @@ app.get('/quotes', async (req, res) => {
     }
 });
 
+// Get single quote by ID
+app.get('/quotes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = 1; // Assuming default user for now
+
+        const quote = await prisma.quote.findUnique({
+            where: { id: parseInt(id) },
+            include: {
+                author: true,
+                book: true,
+                user: true,
+                likes: {
+                    where: { userId: userId }
+                },
+                _count: {
+                    select: { likes: true }
+                }
+            }
+        });
+
+        if (!quote) {
+            res.status(404).json({ error: 'Quote not found' });
+            return;
+        }
+
+        const quoteWithLikeStatus = {
+            ...quote,
+            isLiked: quote.likes.length > 0,
+            likesCount: quote._count.likes
+        };
+
+        res.json(quoteWithLikeStatus);
+    } catch (e) {
+        console.error('Error fetching quote:', e);
+        res.status(500).json({ error: 'Failed to fetch quote' });
+    }
+});
+
 // Toggle like on a quote
 app.post('/quotes/:id/like', async (req, res) => {
     try {
@@ -100,7 +139,10 @@ app.post('/quotes/:id/like', async (req, res) => {
 app.get('/authors', async (req, res) => {
     try {
         const authors = await prisma.author.findMany({
-            include: { books: true }
+            include: {
+                books: true,
+                similarAuthors: true
+            }
         });
         res.json(authors);
     } catch (e) {
@@ -113,7 +155,10 @@ app.get('/books', async (req, res) => {
     try {
         console.log(`[Server] GET /books accessed`);
         const books = await prisma.book.findMany({
-            include: { author: true }
+            include: {
+                author: true,
+                similarBooks: true
+            }
         });
         if (books.length > 0) {
             console.log(`[Server] Returning ${books.length} books. Sample rating: ${books[0].title} = ${books[0].rating}`);
