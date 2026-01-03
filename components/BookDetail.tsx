@@ -32,7 +32,7 @@ export function BookDetailScreen() {
   const passedBook = params?.book;
   const bookTitle = passedBook?.title || params?.bookTitle;
 
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName } = useData();
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById } = useData();
 
   const [bookInfo, setBookInfo] = useState<Book | null>(passedBook || null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
@@ -45,11 +45,12 @@ export function BookDetailScreen() {
   type TabType = 'description' | 'my_sheet';
   const [activeTab, setActiveTab] = useState<TabType>('description');
 
-  const DESCRIPTION_BLOCKS = ['author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
+  const DESCRIPTION_BLOCKS = ['bookDescription', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
   const MYSHEET_BLOCKS = ['notes'];
 
   const blockOptions = [
     { key: 'reviews', label: 'Avis & Commentaires' },
+    { key: 'bookDescription', label: 'À propos du livre' },
     { key: 'buy', label: 'Acheter ce livre' },
     { key: 'notes', label: 'Notes' },
     { key: 'author', label: "À propos de l'auteur" },
@@ -95,6 +96,16 @@ export function BookDetailScreen() {
 
       if (currentBook) {
         console.log(`[BookDetail] Book info ready. Rating: ${currentBook.rating}`);
+
+        // Fetch full book data if it's new or missing description
+        if (currentBook.id && (!currentBook.description || currentBook.description.length < 50)) {
+          const fullBook = await getBookById(Number(currentBook.id));
+          if (fullBook) {
+            setBookInfo(fullBook);
+            currentBook = fullBook;
+          }
+        }
+
         const authorVal = currentBook.author;
         // Check if authorVal is object or string
         const authorName = typeof authorVal === 'string' ? authorVal : authorVal.name;
@@ -146,7 +157,12 @@ export function BookDetailScreen() {
   const currentBookQuotes = savedQuotes.map(mq => mq.text);
   // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
   const similarBookList = bookInfo?.similarBooks || [];
-  const uniqueSimilarBooks = [...new Set(similarBookList)];
+  const normalizedSimilarBooks = (similarBookList as any[]).map(b => {
+    if (typeof b === 'string') return b;
+    if (b && typeof b === 'object' && 'title' in b) return b.title;
+    return null;
+  }).filter(Boolean);
+  const uniqueSimilarBooks = [...new Set(normalizedSimilarBooks)];
 
 
   const handleUpdateBlockData = (blockId: string, data: any) => {
@@ -193,6 +209,18 @@ export function BookDetailScreen() {
     const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
 
     switch (base) {
+      case 'bookDescription': {
+        return (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>À propos du livre</Text>
+            </View>
+            <Text style={styles.bookDesc}>{bookInfo.description || "Description non disponible."}</Text>
+          </View>
+        );
+      }
+
       case 'author': {
         if (!authorInfo) {
           return (
@@ -532,7 +560,6 @@ export function BookDetailScreen() {
                 </View>
               </View>
             </View>
-            <Text style={styles.bookDesc}>{bookInfo.description}</Text>
           </View>
 
           {/* TABS */}
@@ -561,6 +588,7 @@ export function BookDetailScreen() {
             </View>
             {activeTab === 'description' ? (
               <View style={{ gap: 10 }}>
+                {renderBlockContent('bookDescription')}
                 {renderBlockContent('author')}
                 {renderBlockContent('savedQuotes')}
                 {renderBlockContent('reviews')}

@@ -13,7 +13,7 @@ type DataContextType = {
     toggleSaveQuote: (id: number) => Promise<void>;
     deleteQuote: (id: number) => Promise<void>;
     getAuthorByName: (name: string) => Promise<Author | undefined>;
-    getBooksByAuthor: (authorName: string) => Promise<Book[]>;
+    getBooksByAuthor: (authorName: string, authorId?: number) => Promise<Book[]>;
     updateQuote: (id: number, updates: Partial<Quote>) => Promise<void>;
     // Block management
     getBlockLayout: (parentId: string | number, parentType: 'quote' | 'book') => Promise<string[]>;
@@ -24,6 +24,7 @@ type DataContextType = {
     addQuote: (text: string, book: string, author: string) => Promise<void>;
     getUserByUsername: (username: string) => Promise<any>;
     getBookByTitle: (title: string) => Promise<Book | undefined>;
+    getBookById: (id: number) => Promise<Book | undefined>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -90,8 +91,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return authorService.getAuthorByName(name);
     }
 
-    const getBooksByAuthor = async (authorName: string) => {
-        return await authorService.getBooksByAuthor(authorName);
+    const getBooksByAuthor = async (authorName: string, authorId?: number) => {
+        return await authorService.getBooksByAuthor(authorName, authorId);
     };
 
     const getBlockLayout = async (parentId: string | number, parentType: 'quote' | 'book') => {
@@ -148,6 +149,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return await authorService.getBookByTitle(title);
     };
 
+    const getBookById = async (id: number) => {
+        return await authorService.getBookById(id);
+    };
+
     return (
         <DataContext.Provider value={{
             quotes,
@@ -167,6 +172,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             updateBookData,
             getUserByUsername,
             getBookByTitle,
+            getBookById,
         }}>
             {children}
         </DataContext.Provider>

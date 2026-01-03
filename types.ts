@@ -13,17 +13,18 @@ export type User = {
 };
 
 export type Author = {
-  id?: number | string; // added id
+  id?: number; // ensured number
   name: string;
   description: string;
   image: string;
   birthDate: string;
   nationality: string;
   similarAuthors?: Author[];
+  openLibraryId?: string;
 };
 
 export type Book = {
-  id?: number | string; // added id
+  id?: number; // ensured number
   title: string;
   description: string;
   year: number;

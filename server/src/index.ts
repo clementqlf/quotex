@@ -2,6 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { seed } from './seedData';
+import { enrichAuthor } from './services/authorEnrichment';
+import { searchHybrid } from './services/hybridSearch';
+import { getExternalAuthorBooks, searchExternalAuthors } from './services/externalAuthor';
+import { enrichBook } from './services/bookEnrichment';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -13,9 +17,19 @@ app.use(express.json());
 // Helper to format book (parse JSON fields)
 const formatBook = (book: any) => {
     if (!book) return null;
+    let buyLinks = [];
+    try {
+        if (book.buyLinks && typeof book.buyLinks === 'string' && book.buyLinks.trim().length > 0) {
+            buyLinks = JSON.parse(book.buyLinks);
+        } else if (Array.isArray(book.buyLinks)) {
+            buyLinks = book.buyLinks;
+        }
+    } catch (e) {
+        console.error(`Error parsing buyLinks for book ${book.id}:`, e);
+    }
     return {
         ...book,
-        buyLinks: book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : [],
+        buyLinks,
     };
 };
 
@@ -160,19 +174,154 @@ app.get('/authors', async (req, res) => {
     }
 });
 
-// Get all books
-app.get('/books', async (req, res) => {
+// Get or Create author by name
+app.get('/authors/by-name/:name', async (req, res) => {
     try {
-        console.log(`[Server] GET /books accessed`);
+        const { name } = req.params;
+        let authorRecord = await prisma.author.findUnique({
+            where: { name },
+            include: { books: true }
+        });
+
+        if (!authorRecord) {
+            console.log(`[Server] Author not found in DB: ${name}. Creating and enriching...`);
+            const newAuthor = await prisma.author.create({
+                data: { name }
+            });
+            // Enrich synchronously so the first load has data (or at least bio/image)
+            await enrichAuthor(newAuthor.id, newAuthor.name);
+            // Re-fetch with data
+            authorRecord = await prisma.author.findUnique({
+                where: { id: newAuthor.id },
+                include: { books: true }
+            });
+        }
+
+        if (!authorRecord) {
+            res.status(404).json({ error: 'Author not found and could not be created' });
+            return;
+        }
+
+        res.json(authorRecord);
+    } catch (e) {
+        console.error('Error in get-author-by-name:', e);
+        res.status(500).json({ error: 'Failed to fetch author' });
+    }
+});
+app.get('/authors/:id/books', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const authorId = parseInt(id);
+
+        let books = await prisma.book.findMany({
+            where: { authorId },
+            orderBy: { year: 'desc' }
+        });
+
+        const author = await prisma.author.findUnique({ where: { id: authorId } });
+
+        // If very few books, trigger enrichment in background if it hasn't been done recently/fully
+        // If very few books, trigger enrichment and WAIT for it to complete
+        if (books.length <= 1 && author) {
+            console.log(`[Server] Triggering enrichment (awaited) for author: ${author.name}`);
+            try {
+                await enrichAuthor(author.id, author.name);
+                // Refresh books after enrichment
+                books = await prisma.book.findMany({
+                    where: { authorId },
+                    orderBy: { year: 'desc' }
+                });
+            } catch (e: any) {
+                console.error("Enrichment failed", e);
+            }
+        }
+
+        res.json(books.map(formatBook));
+    } catch (e) {
+        console.error("Error fetching author books:", e);
+        res.status(500).json({ error: 'Failed to fetch author books' });
+    }
+});
+
+// Explicitly enrichment author
+app.post('/authors/:id/enrich', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const author = await prisma.author.findUnique({ where: { id: parseInt(id) } });
+        if (!author) return res.status(404).json({ error: 'Author not found' });
+
+        await enrichAuthor(author.id, author.name);
+
+        // Return updated books
         const books = await prisma.book.findMany({
+            where: { authorId: author.id },
+            orderBy: { year: 'desc' }
+        });
+        res.json({ success: true, books: books.map(formatBook) });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to enrich author' });
+    }
+});
+
+// Get single book by ID
+app.get('/books/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const book = await prisma.book.findUnique({
+            where: { id: parseInt(id) },
             include: {
                 author: true,
                 similarBooks: true
             }
         });
-        if (books.length > 0) {
-            console.log(`[Server] Returning ${books.length} books. Sample rating: ${books[0].title} = ${books[0].rating}`);
+
+        if (!book) {
+            res.status(404).json({ error: 'Book not found' });
+            return;
         }
+
+        // Enrich if description is missing or too short
+        if (!book.description || book.description.trim().length < 50) {
+            const authorName = typeof book.author === 'string' ? book.author : (book.author as any).name;
+            console.log(`[Server] Enriching book description for: ${book.title}...`);
+            const enrichedBook = await enrichBook(book.id, book.title, authorName);
+            if (enrichedBook) {
+                // Merge enriched fields into book object, preserving relations like 'author'
+                // enrichBook returns the Prisma Book object (scalars only)
+                Object.assign(book, enrichedBook);
+            }
+        }
+
+        res.json(formatBook(book));
+    } catch (e) {
+        console.error('Error fetching book:', e);
+        res.status(500).json({ error: 'Failed to fetch book' });
+    }
+});
+
+// Get all books
+app.get('/books', async (req, res) => {
+    try {
+        const { authorName } = req.query;
+        console.log(`[Server] GET /books accessed. Filter: ${authorName || 'None'}`);
+
+        const where: any = {};
+        if (authorName && typeof authorName === 'string') {
+            where.author = {
+                name: {
+                    equals: authorName
+                }
+            };
+        }
+
+        const books = await prisma.book.findMany({
+            where,
+            include: {
+                author: true,
+                similarBooks: true
+            }
+        });
+
         const formattedBooks = books.map(formatBook);
         res.json(formattedBooks);
     } catch (e) {
@@ -233,6 +382,10 @@ app.post('/quotes', async (req, res) => {
         let authorRecord = await prisma.author.findUnique({ where: { name: author } });
         if (!authorRecord) {
             authorRecord = await prisma.author.create({ data: { name: author } });
+            // Enrich author asynchronously
+            enrichAuthor(authorRecord.id, authorRecord.name).catch((err: any) =>
+                console.error(`[Server] Async enrichment failed for ${author}:`, err)
+            );
         }
 
         // 2. Find or Create Book
@@ -368,11 +521,6 @@ app.get('/reviews', async (req, res) => {
     }
 });
 
-// --- Google Books Integration ---
-
-// Search Google Books
-import { searchGoogleBooks } from './services/googleBooks';
-import { searchHybrid } from './services/hybridSearch';
 
 app.get('/google-books/search', async (req, res) => {
     try {
@@ -431,14 +579,15 @@ app.post('/books/import', async (req, res) => {
         }
 
         if (existingBook) {
-            console.log(`[Server] Book found: ${existingBook.title}. Updating metadata...`);
+            const book = existingBook as any;
+            console.log(`[Server] Book found: ${book.title}. Updating metadata...`);
 
             // If we found it via Title/GoogleId but now we have an OL ID, we should update it!
-            const shouldUpdateOlId = bookData.openLibraryId && !existingBook.openLibraryId;
-            const openLibraryId = shouldUpdateOlId ? bookData.openLibraryId : existingBook.openLibraryId;
+            const shouldUpdateOlId = bookData.openLibraryId && !book.openLibraryId;
+            const openLibraryId = shouldUpdateOlId ? bookData.openLibraryId : book.openLibraryId;
 
             // Generate buy links if missing
-            let buyLinksJson = existingBook.buyLinks;
+            let buyLinksJson = book.buyLinks;
             if (!buyLinksJson || buyLinksJson === '[]') {
                 // Helper to generate buy links
                 const buyLinks = [];
@@ -446,14 +595,14 @@ app.post('/books/import', async (req, res) => {
                     buyLinks.push({ store: 'Google Play', url: bookData.buyLink, price: bookData.price || '' });
                 }
 
-                const isbn = bookData.isbn || existingBook.isbn;
+                const isbn = bookData.isbn || book.isbn;
                 if (isbn) {
                     buyLinks.push({ store: 'Amazon', url: `https://www.amazon.fr/s?k=${isbn}`, price: '' });
                     buyLinks.push({ store: 'Fnac', url: `https://www.fnac.com/SearchResult/ResultList.aspx?Search=${isbn}`, price: '' });
                     buyLinks.push({ store: 'Chasse-aux-livres', url: `https://www.chasse-aux-livres.fr/pr/${isbn}`, price: '' });
                 } else {
                     // Fallback: Search by Title + Author
-                    const query = encodeURIComponent(`${existingBook.title} ${existingBook.author?.name || ''}`.trim());
+                    const query = encodeURIComponent(`${book.title} ${book.author?.name || ''}`.trim());
                     buyLinks.push({ store: 'Amazon', url: `https://www.amazon.fr/s?k=${query}`, price: '' });
                     buyLinks.push({ store: 'Fnac', url: `https://www.fnac.com/SearchResult/ResultList.aspx?Search=${query}`, price: '' });
                 }
@@ -461,18 +610,17 @@ app.post('/books/import', async (req, res) => {
             }
 
             const updatedBook = await prisma.book.update({
-                where: { id: existingBook.id },
+                where: { id: book.id },
                 data: {
-                    googleId: bookData.googleId || existingBook.googleId, // prefer new ID if available? or existing?
+                    googleId: bookData.googleId || book.googleId,
                     openLibraryId: openLibraryId,
-                    isbn: bookData.isbn || existingBook.isbn,
-                    description: existingBook.description || bookData.description, // prefer existing description if present? Actually OL/GB strategy says use GB description.
-                    // If existing description is empty, use new.
-                    cover: (existingBook.cover && existingBook.cover.length > 0) ? existingBook.cover : bookData.cover,
-                    pages: existingBook.pages || bookData.pages,
-                    year: existingBook.year || bookData.year,
-                    genre: existingBook.genre || bookData.genre,
-                    rating: (existingBook.rating === 0 || existingBook.rating === null) ? (bookData.rating || existingBook.rating) : existingBook.rating,
+                    isbn: bookData.isbn || book.isbn,
+                    description: book.description || bookData.description,
+                    cover: (book.cover && book.cover.length > 0) ? book.cover : bookData.cover,
+                    pages: book.pages || bookData.pages,
+                    year: book.year || bookData.year,
+                    genre: book.genre || bookData.genre,
+                    rating: (book.rating === 0 || book.rating === null) ? (bookData.rating || book.rating) : book.rating,
                     buyLinks: buyLinksJson
                 }
             });
@@ -491,6 +639,15 @@ app.post('/books/import', async (req, res) => {
             author = await prisma.author.create({
                 data: { name: authorName }
             });
+            // Enrich author asynchronously
+            enrichAuthor(author.id, author.name, bookData.authorOpenLibraryId).catch((err: any) =>
+                console.error(`[Server] Async enrichment failed for ${authorName}:`, err)
+            );
+        } else if (!author.description) {
+            // Even if author exists, if it has no description, try to enrich it
+            enrichAuthor(author.id, author.name, bookData.authorOpenLibraryId).catch((err: any) =>
+                console.error(`[Server] Async enrichment failed for ${authorName}:`, err)
+            );
         }
 
         // Helper to generate buy links
@@ -539,6 +696,29 @@ app.post('/books/import', async (req, res) => {
     }
 });
 
+// Endpoint to get external author books
+app.get('/external-authors/:id/books', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.query; // Pass name as query param if ID is OLID or just useful context
+
+        if (!name || typeof name !== 'string') {
+            res.status(400).json({ error: 'Author name is required as query param "name"' });
+            return;
+        }
+
+        console.log(`[Server] Fetching external books for: ${name} (ID: ${id})`);
+
+        // Use the new service
+        const books = await getExternalAuthorBooks(name, id);
+        res.json(books);
+
+    } catch (e) {
+        console.error('Error fetching external author books:', e);
+        res.status(500).json({ error: 'Failed to fetch external author books' });
+    }
+});
+
 
 // --- Search ---
 
@@ -570,13 +750,33 @@ app.get('/search', async (req, res) => {
             take: 20
         });
 
-        // 2. Search Authors
-        const authors = await prisma.author.findMany({
+        // 2. Search Authors (Local + Open Library)
+        const localAuthors = await prisma.author.findMany({
             where: {
                 name: { contains: query }
             },
             take: 10
         });
+
+        // USE THE NEW SERVICE
+        const externalAuthors = await searchExternalAuthors(query);
+
+        // Merge and deduplicate by name
+        const authorMap = new Map<string, any>();
+        localAuthors.forEach((a: any) => authorMap.set(a.name.toLowerCase(), a));
+        externalAuthors.forEach((a: any) => {
+            if (!authorMap.has(a.name.toLowerCase())) {
+                authorMap.set(a.name.toLowerCase(), {
+                    name: a.name,
+                    openLibraryId: a.key, // passing OL ID for later enrichment
+                    isExternal: true,
+                    topWork: a.topWork,
+                    birthDate: a.birthDate
+                });
+            }
+        });
+
+        const authors = Array.from(authorMap.values()).slice(0, 10);
 
         // 3. Search Books
         const books = await prisma.book.findMany({

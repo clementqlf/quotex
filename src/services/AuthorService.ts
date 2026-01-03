@@ -26,28 +26,42 @@ class AuthorService {
     }
 
     async getAuthorByName(name: string): Promise<Author | undefined> {
+        try {
+            const response = await fetch(`${this.API_URL}/authors/by-name/${encodeURIComponent(name)}`);
+            if (response.ok) {
+                const author = await response.json();
+                return {
+                    ...author,
+                    similarAuthors: author.similarAuthors || []
+                };
+            }
+        } catch (error) {
+            console.error('Error fetching author by name from server:', error);
+        }
+
         const authors = await this.getAuthors();
         return authors.find(a => a.name === name);
     }
 
-    async getBooksByAuthor(authorName: string): Promise<Book[]> {
+    async getBooksByAuthor(authorName: string, authorId?: number): Promise<Book[]> {
         try {
-            const response = await fetch(`${this.API_URL}/books`);
+            // If we have an ID, use the specialized endpoint
+            const url = authorId
+                ? `${this.API_URL}/authors/${authorId}/books`
+                : `${this.API_URL}/books?authorName=${encodeURIComponent(authorName)}`;
+
+            const response = await fetch(url);
             if (response.ok) {
-                const allBooks = await response.json();
-                // Extract unique books and store them
-                const mappedBooks = allBooks.map((b: any) => ({
+                const books = await response.json();
+                const mappedBooks = books.map((b: any) => ({
                     ...b,
-                    buyLinks: b.buyLinks ? JSON.parse(b.buyLinks) : undefined,
+                    buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
                     similarBooks: b.similarBooks || []
                 }));
-                await StorageService.setItem(STORAGE_KEYS.BOOKS, mappedBooks);
-                return mappedBooks.filter((b: any) =>
-                    (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
-                );
+                return mappedBooks;
             }
         } catch (error) {
-            console.error('Error fetching books from server:', error);
+            console.error('Error fetching author books from server:', error);
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
@@ -64,7 +78,7 @@ class AuthorService {
                 const books = await response.json();
                 const book = books.find((b: any) => b.title === title);
                 if (book) {
-                    book.buyLinks = book.buyLinks ? JSON.parse(book.buyLinks) : undefined;
+                    book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
                     book.similarBooks = book.similarBooks || [];
                 }
                 console.log(`[AuthorService] Found book: ${title}, rating: ${book?.rating}`);
@@ -78,8 +92,22 @@ class AuthorService {
         console.log('[AuthorService] Fallback to storage');
         return (storedBooks || []).find(b => b.title === title);
     }
+
+    async getBookById(id: number): Promise<Book | undefined> {
+        try {
+            const response = await fetch(`${this.API_URL}/books/${id}`);
+            if (response.ok) {
+                const book = await response.json();
+                book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
+                book.similarBooks = book.similarBooks || [];
+                return book;
+            }
+        } catch (error) {
+            console.error('Error fetching book by ID:', error);
+        }
+        return undefined;
+    }
 }
 
 
 export const authorService = new AuthorService();
-

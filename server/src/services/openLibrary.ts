@@ -9,6 +9,14 @@ export interface OpenLibraryWork {
     author_key?: string[];
 }
 
+export interface OpenLibraryAuthor {
+    key: string;
+    name: string;
+    birth_date?: string;
+    top_work?: string;
+    work_count?: number;
+}
+
 export const searchOpenLibraryWorks = async (query: string): Promise<OpenLibraryWork[]> => {
     if (!query) return [];
     try {
@@ -18,6 +26,19 @@ export const searchOpenLibraryWorks = async (query: string): Promise<OpenLibrary
         return data.docs || [];
     } catch (e) {
         console.error('Error searching OpenLibrary:', e);
+        return [];
+    }
+};
+
+export const searchOpenLibraryAuthors = async (query: string): Promise<OpenLibraryAuthor[]> => {
+    if (!query) return [];
+    try {
+        const response = await fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&limit=5`);
+        if (!response.ok) throw new Error(`OpenLibrary API error: ${response.statusText}`);
+        const data = await response.json();
+        return data.docs || [];
+    } catch (e) {
+        console.error('Error searching OpenLibrary authors:', e);
         return [];
     }
 };

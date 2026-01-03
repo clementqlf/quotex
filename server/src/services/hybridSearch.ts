@@ -66,6 +66,7 @@ export const searchHybrid = async (query: string): Promise<FormattedBook[]> => {
         return {
             googleId: bestMatch?.googleId || `ol-${olWork.key.replace('/works/', '')}`,
             openLibraryId: olWork.key,
+            authorOpenLibraryId: olWork.author_key ? olWork.author_key[0] : undefined,
             title: olWork.title,
             authors: olWork.author_name || (bestMatch?.authors || ['Unknown']),
             description: bestMatch?.description || '',

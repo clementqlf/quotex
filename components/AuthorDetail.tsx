@@ -6,22 +6,23 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Modal,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { getAuthorName, getBookTitle } from '../src/utils/dataHelpers';
 import { Author, Book, RootStackParamList } from '../types';
+import { wikidataService } from '../src/services/WikidataService';
 
 type AuthorDetailScreenRouteProp = RouteProp<RootStackParamList, 'AuthorDetail'>;
 
 export function AuthorDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<AuthorDetailScreenRouteProp>();
-  // Handle both cases: author object passed (Search) or maybe just name (Legacy?)
-  // types.ts says { author: Author }, so we should rely on that.
-  // But let's be safe if we need to fall back.
   const { author, authorName: paramAuthorName } = route.params;
   const nameToUse = author?.name || paramAuthorName;
 
@@ -30,21 +31,35 @@ export function AuthorDetailScreen() {
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
 
+  // New state for All Works Modal
+  const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);
+  const [allWorks, setAllWorks] = React.useState<Book[]>([]);
+  const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
+
   React.useEffect(() => {
     async function loadAuthorData() {
       if (!nameToUse) return;
 
       setIsLoadingAuthor(true);
       try {
-        const [books, fetchedAuthor] = await Promise.all([
-          getBooksByAuthor(nameToUse),
-          !authorInfo ? getAuthorByName(nameToUse) : Promise.resolve(null)
+        const currentAuthorId = authorInfo?.id;
+        const needsFetch = !authorInfo || !currentAuthorId;
+
+        console.log(`[AuthorDetail] Loading data for: ${nameToUse}`);
+
+        const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
+          getBooksByAuthor(nameToUse, currentAuthorId),
+          needsFetch ? getAuthorByName(nameToUse) : Promise.resolve(null),
+          wikidataService.getBooksByAuthor(nameToUse, authorInfo?.openLibraryId)
         ]);
 
-        setAuthorBooks(books);
+        const booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
+
         if (fetchedAuthor) {
           setAuthorInfo(fetchedAuthor);
         }
+
+        setAuthorBooks(booksToDisplay);
 
       } catch (error) {
         console.error("Error loading author data:", error);
@@ -53,21 +68,47 @@ export function AuthorDetailScreen() {
       }
     }
     loadAuthorData();
-  }, [nameToUse, getBooksByAuthor, getAuthorByName]);
+  }, [nameToUse, authorInfo?.id, getBooksByAuthor, getAuthorByName]);
+
+  const fetchAllWorks = async () => {
+    if (!nameToUse) return;
+    if (allWorks.length > 0) {
+      setShowAllWorksModal(true);
+      return;
+    }
+
+    setIsLoadingAllWorks(true);
+    setShowAllWorksModal(true);
+    try {
+      const works = await wikidataService.getAllWorks(nameToUse);
+      setAllWorks(works);
+    } catch (error) {
+      console.error("Error fetching all works:", error);
+    } finally {
+      setIsLoadingAllWorks(false);
+    }
+  };
 
   const authorName = authorInfo?.name || nameToUse || 'Inconnu';
   const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
-  // Compte le nombre total de citations pour cet auteur depuis la DB locale (qui contient tout en mode serveur)
   const totalQuotes = quotes.filter(q =>
     typeof q.author === 'string' ? q.author === authorName : q.author?.name === authorName
   ).length;
 
+  if (isLoadingAuthor) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#20B8CD" />
+        <Text style={{ color: '#6B7280', marginTop: 16 }}>Chargement des informations...</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -84,13 +125,11 @@ export function AuthorDetailScreen() {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Author Profile Header */}
           <View style={styles.profileHeader}>
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
           </View>
 
-          {/* About Author Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <User size={16} color="#20B8CD" />
@@ -99,7 +138,6 @@ export function AuthorDetailScreen() {
             <Text style={styles.authorDesc}>{authorDesc}</Text>
           </View>
 
-          {/* Details Section */}
           <View style={styles.section}>
             <View style={styles.detailsContainer}>
               <View style={styles.detailItem}>
@@ -115,11 +153,10 @@ export function AuthorDetailScreen() {
             </View>
           </View>
 
-          {/* Stats Section */}
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{authorBooks.length}</Text>
-              <Text style={styles.statLabel}>Livres</Text>
+              <Text style={styles.statLabel}>Œuvres Notables</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{totalQuotes}</Text>
@@ -127,37 +164,51 @@ export function AuthorDetailScreen() {
             </View>
           </View>
 
-          {/* Books by Author Section */}
-          {/* Books by Author Section */}
-          {authorBooks.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Livres de {authorName}</Text>
-              </View>
-              {authorBooks.map((book) => (
-                <TouchableOpacity
-                  key={book.title}
-                  style={styles.bookItem}
-                  onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title })}>
-                  <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                  <View style={styles.bookInfo}>
-                    <Text style={styles.bookTitle}>{book.title}</Text>
-                    <Text style={styles.bookMetaText}>{book.year}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <BookOpen size={16} color="#20B8CD" />
+              <Text style={styles.sectionTitle}>Œuvres Notables</Text>
             </View>
-          )}
 
-          {/* User's Saved Quotes Section */}
+            {authorBooks.length === 0 && !isLoadingAuthor && (
+              <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
+            )}
+
+            {authorBooks.map((book, index) => (
+              <TouchableOpacity
+                key={`${book.id || book.title}-${index}`}
+                style={styles.bookItem}
+                onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title })}>
+                <View style={styles.bookCoverContainer}>
+                  {book.cover ? (
+                    <Image source={{ uri: book.cover }} style={styles.bookCover} />
+                  ) : (
+                    <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
+                      <BookOpen size={20} color="#4B5563" />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.bookInfo}>
+                  <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
+                  {book.year > 0 && (
+                    <Text style={styles.bookMetaText}>{book.year}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.showAllButton}
+              onPress={fetchAllWorks}
+            >
+              <Text style={styles.showAllButtonText}>Afficher toutes les œuvres</Text>
+            </TouchableOpacity>
+          </View>
+
           {(() => {
             const userQuotes = quotes.filter(q => {
-              // Filter for "My Quotes" logic (user 1 or legacy local)
               const isMyQuote = q.user?.id == 1 || !q.user;
               if (!isMyQuote) return false;
-
-              // Match author
               const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
               return qAuthorName === authorName;
             });
@@ -180,7 +231,6 @@ export function AuthorDetailScreen() {
                       <Text style={styles.quoteText}>"{quote.text}"</Text>
                       <View style={styles.quoteMeta}>
                         <View style={styles.quoteMetaLeft}>
-                          {/* Auhtor is redundant here, so we only show book title */}
                           <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>
                         </View>
                         <View style={styles.quoteMetaRight}>
@@ -204,6 +254,61 @@ export function AuthorDetailScreen() {
             );
           })()}
         </ScrollView>
+
+        <Modal
+          visible={showAllWorksModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowAllWorksModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Toutes les œuvres</Text>
+              <TouchableOpacity onPress={() => setShowAllWorksModal(false)}>
+                <X size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {isLoadingAllWorks ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="large" color="#20B8CD" />
+              </View>
+            ) : (
+              <FlatList
+                data={allWorks}
+                keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
+                contentContainerStyle={{ padding: 16 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.bookItem}
+                    onPress={() => {
+                      setShowAllWorksModal(false);
+                      navigation.navigate('BookDetail', { bookTitle: item.title });
+                    }}>
+                    <View style={styles.bookCoverContainer}>
+                      {item.cover ? (
+                        <Image source={{ uri: item.cover }} style={styles.bookCover} />
+                      ) : (
+                        <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
+                          <BookOpen size={20} color="#4B5563" />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.bookInfo}>
+                      <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
+                      {item.year > 0 && (
+                        <Text style={styles.bookMetaText}>Publié en {item.year}</Text>
+                      )}
+                      {item.genre ? (
+                        <Text style={[styles.bookMetaText, { marginTop: 2 }]} numberOfLines={1}>{item.genre}</Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -342,11 +447,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2A2A2A',
   },
-  bookCover: {
-    width: 50,
-    height: 75,
-    borderRadius: 6,
+  bookCoverContainer: {
     marginRight: 16,
+  },
+  bookCover: {
+    width: 60,
+    height: 90,
+    borderRadius: 6,
+    backgroundColor: '#2A2A2A',
+  },
+  bookCoverPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginVertical: 10,
   },
   bookInfo: {
     flex: 1,
@@ -403,5 +522,42 @@ const styles = StyleSheet.create({
   likeCount: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+  showAllButton: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#20B8CD',
+    alignItems: 'center',
+  },
+  showAllButtonText: {
+    color: '#20B8CD',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0F0F0F',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1F1F1F',
+    marginTop: 40, // For safe area
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

@@ -31,6 +31,7 @@ interface GoogleBookVolume {
 export interface FormattedBook {
     googleId: string;
     openLibraryId?: string;
+    authorOpenLibraryId?: string;
     title: string;
     authors: string[];
     description: string;
