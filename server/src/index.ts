@@ -762,16 +762,26 @@ app.get('/search', async (req, res) => {
         const externalAuthors = await searchExternalAuthors(query);
 
         // Merge and deduplicate by name
+        const normalizeName = (name: string) => {
+            return name
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .trim();
+        };
+
         const authorMap = new Map<string, any>();
-        localAuthors.forEach((a: any) => authorMap.set(a.name.toLowerCase(), a));
+        localAuthors.forEach((a: any) => authorMap.set(normalizeName(a.name), a));
         externalAuthors.forEach((a: any) => {
-            if (!authorMap.has(a.name.toLowerCase())) {
-                authorMap.set(a.name.toLowerCase(), {
+            const normalizedExternalName = normalizeName(a.name);
+            if (!authorMap.has(normalizedExternalName)) {
+                authorMap.set(normalizedExternalName, {
                     name: a.name,
                     openLibraryId: a.key, // passing OL ID for later enrichment
                     isExternal: true,
                     topWork: a.topWork,
-                    birthDate: a.birthDate
+                    birthDate: a.birthDate,
+                    image: a.image
                 });
             }
         });

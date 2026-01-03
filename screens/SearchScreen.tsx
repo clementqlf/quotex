@@ -21,10 +21,10 @@ import { googleBooksService } from '../src/services/GoogleBooksService';
 
 type SearchSection =
     | { title: 'Citations'; data: Quote[]; type: 'quote' }
-    | { title: 'Livres'; data: Book[]; type: 'book' }
+    | { title: 'Mes Livres'; data: Book[]; type: 'book' }
     | { title: 'Auteurs'; data: Author[]; type: 'author' }
     | { title: 'Thèmes'; data: string[]; type: 'theme' }
-    | { title: 'Découvrir (Google Books)'; data: any[]; type: 'google_book' };
+    | { title: 'Livres'; data: any[]; type: 'google_book' };
 
 export default function SearchScreen() {
     const navigation = useNavigation<any>();
@@ -87,9 +87,9 @@ export default function SearchScreen() {
     const sections: SearchSection[] = [
         { title: 'Thèmes', data: results.themes, type: 'theme' },
         { title: 'Auteurs', data: results.authors, type: 'author' },
-        { title: 'Livres', data: results.books, type: 'book' },
+        { title: 'Mes Livres', data: results.books, type: 'book' },
         { title: 'Citations', data: results.quotes, type: 'quote' },
-        { title: 'Découvrir (Google Books)', data: googleResults, type: 'google_book' },
+        { title: 'Livres', data: googleResults, type: 'google_book' },
     ].filter(section => section.data.length > 0) as SearchSection[];
 
     const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
@@ -116,9 +116,9 @@ export default function SearchScreen() {
                     style={styles.resultItem}
                     onPress={() => navigation.navigate('BookDetail', { book })}
                 >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                    <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
                         {book.cover ? (
-                            <Image source={{ uri: book.cover }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                            <Image source={{ uri: book.cover }} style={styles.bookCover} />
                         ) : (
                             <BookOpen size={20} color="#3B82F6" />
                         )}
@@ -137,7 +137,11 @@ export default function SearchScreen() {
                     onPress={() => navigation.navigate('AuthorDetail', { author })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                        <User size={20} color="#10B981" />
+                        {author.image ? (
+                            <Image source={{ uri: author.image }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                        ) : (
+                            <User size={20} color="#10B981" />
+                        )}
                     </View>
                     <Text style={styles.itemTitle}>{author.name}</Text>
                 </TouchableOpacity>
@@ -161,9 +165,9 @@ export default function SearchScreen() {
                     style={styles.resultItem}
                     onPress={() => handleGoogleBookPress(item)}
                 >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.05)' }]}>
+                    <View style={item.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.05)' }]}>
                         {item.cover ? (
-                            <Image source={{ uri: item.cover }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                            <Image source={{ uri: item.cover }} style={styles.bookCover} />
                         ) : (
                             <BookOpen size={20} color="#3B82F6" />
                         )}
@@ -334,5 +338,20 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#6B7280',
         fontSize: 16,
+    },
+    bookCoverContainer: {
+        width: 45,
+        height: 70,
+        marginRight: 16,
+        borderRadius: 4,
+        overflow: 'hidden',
+        backgroundColor: '#2A2A2A',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    bookCover: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     }
 });

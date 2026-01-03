@@ -8,6 +8,7 @@ export interface ExternalAuthor {
     topWork?: string;
     workCount?: number;
     birthDate?: string;
+    image?: string;
 }
 
 export const searchExternalAuthors = async (query: string): Promise<ExternalAuthor[]> => {
@@ -17,7 +18,8 @@ export const searchExternalAuthors = async (query: string): Promise<ExternalAuth
         key: r.key,
         topWork: r.top_work,
         workCount: r.work_count,
-        birthDate: r.birth_date
+        birthDate: r.birth_date,
+        image: `https://covers.openlibrary.org/a/olid/${r.key}-M.jpg`
     }));
 };
 
