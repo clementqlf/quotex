@@ -106,6 +106,8 @@ export const enrichAuthor = async (authorId: number, authorName: string, olAutho
                     ]);
                     nationality = nat || undefined;
                     if (nationality) console.log(`[Enrichment] Found nationality for ${authorName}: ${nationality}`);
+                    console.log(`[Enrichment] Retrieved ${works.length} works from Wikidata for ${authorName}`);
+
                     for (const work of works) {
                         const existing = await prisma.book.findUnique({ where: { title: work.title } });
                         if (!existing) {

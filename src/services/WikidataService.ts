@@ -87,6 +87,7 @@ class WikidataService {
     }
 
     async getAllWorks(authorName: string): Promise<Book[]> {
+        console.log('[WikidataService] getAllWorks checking for:', authorName);
 
         const query = `
         SELECT ?oeuvre ?title ?openLibraryID ?cover ?pubDate ?genres WHERE {
@@ -130,6 +131,7 @@ class WikidataService {
         `;
 
         const results = await this.runSPARQL(query);
+        console.log('[WikidataService] getAllWorks found results:', results.length);
 
         const uniqueTitles = new Set();
         return results

@@ -63,6 +63,7 @@ export const getAuthorWorks = async (qid: string): Promise<WikidataWork[]> => {
         `;
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
 
+        console.log(`[Wikidata] Fetching works for QID: ${qid}`);
         const res = await fetch(url, {
             headers: {
                 'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
@@ -75,8 +76,10 @@ export const getAuthorWorks = async (qid: string): Promise<WikidataWork[]> => {
             return [];
         }
         const data = await res.json();
+        const results = data.results.bindings;
+        console.log(`[Wikidata] Found ${results.length} works for QID: ${qid}`);
 
-        return data.results.bindings.map((b: any) => ({
+        return results.map((b: any) => ({
             qid: b.oeuvre.value.split('/').pop() || '',
             title: b.title?.value || 'Sans titre',
             date: b.pubDate?.value,
