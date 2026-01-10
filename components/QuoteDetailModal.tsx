@@ -28,6 +28,8 @@ import WordSelectionModal from './WordSelectionModal';
 import { fetchDefinition } from '../src/services/WiktionaryService';
 import { authorService } from '../src/services/AuthorService';
 import { quoteService } from '../src/services/QuoteService';
+import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
+import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '../src/config/blocks';
 
 export function QuoteDetailModal() {
   const navigation = useNavigation<any>();
@@ -105,14 +107,10 @@ export function QuoteDetailModal() {
   const DESCRIPTION_BLOCKS = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
   const MYSHEET_BLOCKS = ['definition', 'notes'];
 
-  const blockOptions = [
-    { key: 'definition', label: 'Définition' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'bookInfo', label: "À propos du livre" },
-    { key: 'author', label: "À propos de l'auteur" },
-    { key: 'similarBooks', label: 'Livres similaires' },
-    { key: 'similarAuthors', label: 'Auteurs similaires' },
-  ];
+  const blockOptions = QUOTE_DETAIL_BLOCK_OPTIONS.map(key => ({
+    key,
+    label: BLOCK_CONFIGS[key].label
+  }));
 
   const isBlockInTab = (blockKey: string, tab: TabType) => {
     if (blockKey === 'addBlock') return true;
@@ -169,6 +167,22 @@ export function QuoteDetailModal() {
   if (!quote) return null;
 
   const onClose = () => navigation.goBack();
+
+  // Helper for Dispatcher Context
+  const getBlockContext = (): BlockContext => ({
+    quote,
+    book: fetchedBook,
+    author: fetchedAuthor,
+    onUpdateBlockData: handleUpdateBlockData,
+    onBookPress: (title) => navigation.navigate('BookDetail', { bookTitle: title }),
+    onAuthorPress: (name) => navigation.navigate('AuthorDetail', { authorName: name }),
+    onEditDefinitionSelection: (blockId) => {
+      setCurrentDefinitionBlockId(blockId);
+      setWordSelectionModalVisible(true);
+    },
+  });
+
+  const blockContext = getBlockContext();
 
   // Cette fonction met à jour l'état local ET appelle la fonction du contexte
   const handleToggleLike = () => {
@@ -248,250 +262,29 @@ export function QuoteDetailModal() {
     if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
   };
 
-  // Helper function to render block content without wrappers
-  const renderBlockContent = (item: string) => {
-    const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
 
-    switch (base) {
-      case 'definition': {
-        // ... (keep definition logic as is, assuming it uses quote.blockData or definitions from quote object)
-        // Actually, let's make sure it uses quote.definitions if available
-        const manualDefinitions = quote?.blockData?.[item] as { term: string, genre: string, definition: string, example: string }[] | undefined;
-        const serverDefinitions = quote.definitions;
-        const definitionsToRender = manualDefinitions || serverDefinitions;
-
-        if (!definitionsToRender || definitionsToRender.length === 0) {
-          return (
-            <TouchableOpacity
-              style={styles.emptyBlockContainer}
-              onPress={() => {
-                setCurrentDefinitionBlockId(item);
-                setWordSelectionModalVisible(true);
-              }}
-            >
-              <BookOpen size={24} color="#20B8CD" />
-              <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
-              <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
-            </TouchableOpacity>
-          );
-        }
-
-        return (
-          <View style={styles.definitionSection}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Définition</Text>
-            </View>
-            <View style={styles.definitionContent}>
-              {definitionsToRender.map((dItem, defIndex) => (
-                <View key={defIndex}>
-                  <Text style={styles.definitionTerm}>{dItem.term}</Text>
-                  <Text style={styles.definitionGenre}>{dItem.genre}</Text>
-                  <Text style={styles.definitionDesc}>{dItem.definition}</Text>
-                  <Text style={styles.definitionExample}><Text style={styles.exampleLabel}>Exemple : </Text>{dItem.example}</Text>
-                  {defIndex !== definitionsToRender.length - 1 && <View style={styles.definitionDivider} />}
-                </View>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={styles.editSelectionButton}
-              onPress={() => {
-                setCurrentDefinitionBlockId(item);
-                setWordSelectionModalVisible(true);
-              }}
-            >
-              <Text style={styles.editSelectionText}>Modifier la sélection</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      }
-
-      case 'notes': {
-        // ... (keep notes logic)
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Sparkles size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Notes</Text>
-            </View>
-            <TextInput
-              style={styles.notesInput}
-              placeholder="Écrire des notes..."
-              placeholderTextColor="#6B7280"
-              multiline
-              numberOfLines={6}
-              value={quote?.blockData?.[item] ?? ''}
-              onChangeText={(text) => handleUpdateBlockData(item, text)}
-              textAlignVertical="top"
-            />
-          </View>
-        );
-      }
-
-      case 'bookInfo': {
-        if (!bookInfo) {
-          return (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>À propos du livre</Text>
-              </View>
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Informations sur le livre non disponibles pour cette citation.
-              </Text>
-            </View>
-          );
-        }
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos du livre</Text>
-            </View>
-            <TouchableOpacity style={styles.bookContainer} onPress={() => onBookPress(quoteBookTitle)}>
-              <Image source={{ uri: bookInfo.cover }} style={styles.bookCover} />
-              <View style={styles.bookInfo}>
-                <TouchableOpacity onPress={() => onBookPress(quoteBookTitle)}>
-                  <Text style={styles.bookName}>{quoteBookTitle}</Text>
-                </TouchableOpacity>
-                <View style={styles.bookMeta}>
-                  <View style={styles.metaItem}>
-                    <Calendar size={14} color="#6B7280" />
-                    <Text style={styles.metaText}>{bookInfo.year}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <BookOpen size={14} color="#6B7280" />
-                    <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Star size={14} color="#20B8CD" fill="#20B8CD" />
-                    <Text style={styles.metaText}>{bookInfo.rating}/5</Text>
-                  </View>
-                </View>
-                <View style={styles.genreBadge}>
-                  <Text style={styles.genreText}>{bookInfo.genre}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.bookDesc}>{bookInfo.description}</Text>
-          </View>
-        );
-      }
-
-      case 'author': {
-        if (!authorInfo && !authorDesc) {
-          // ... (keep fallback)
-          return (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <UserIcon size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
-              </View>
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Informations sur l'auteur non disponibles.
-              </Text>
-            </View>
-          );
-        }
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <UserIcon size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
-            </View>
-            <TouchableOpacity onPress={() => onAuthorPress(quoteAuthorName)}>
-              <Text style={styles.authorName}>{quoteAuthorName}</Text>
-              <Text style={styles.authorDesc}>{authorDesc}</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      }
-
-      case 'similarBooks': {
-        const hasSimilarBooks = similarBookList && similarBookList.length > 0;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Livres similaires</Text>
-            </View>
-            {hasSimilarBooks ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                {similarBookList.map((book) => (
-                  <TouchableOpacity key={book.id || book.title} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: book.title })}>
-                    <Image source={{ uri: book.cover }} style={styles.similarBookCover} />
-                    <Text numberOfLines={2} style={styles.similarBookTitle}>{book.title}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Aucun livre similaire trouvé.
-              </Text>
-            )}
-          </View>
-        );
-      }
-
-      case 'similarAuthors': {
-        const hasSimilarAuthors = similarAuthorList && similarAuthorList.length > 0;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <UserIcon size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Auteurs similaires</Text>
-            </View>
-            {hasSimilarAuthors ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-                {similarAuthorList.map((author) => (
-                  <TouchableOpacity key={author.id || author.name} style={styles.similarBookItem} onPress={() => navigation.push('AuthorDetail', { authorName: author.name })}>
-                    <Image source={{ uri: author.image || 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop' }} style={styles.similarBookCover} />
-                    <Text numberOfLines={2} style={styles.similarBookTitle}>{author.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Aucun auteur similaire trouvé.
-              </Text>
-            )}
-          </View>
-        );
-      }
-
-      // ... (keep add block)
-      case 'addBlock':
-        return (
-          <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
-            <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
-            <Text style={styles.placeholderText}>Ajouter un bloc</Text>
-          </TouchableOpacity>
-        );
-
-      default:
-        return null;
-    }
-  };
 
   // Render function for sortable grid items (defined after data constants)
+  // Render function for sortable grid items (defined after data constants)
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
-    const content = renderBlockContent(item);
-    if (!content) return null;
-
     // We do NOT want to wrap 'addBlock' in the removable wrapper
     if (item === 'addBlock') {
-      return content; // It already has its own touchable style
+      return (
+        <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
+          <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
+          <Text style={styles.placeholderText}>Ajouter un bloc</Text>
+        </TouchableOpacity>
+      );
     }
 
     return (
-      <View style={styles.removableWrapper}>
-        {content}
-        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-          <X size={14} color="#EF4444" />
-        </TouchableOpacity>
-      </View>
+      <BlockDispatcher
+        blockId={item}
+        context={blockContext}
+        onRemove={() => handleRemoveBlock(item)}
+      />
     );
-  }, [renderBlockContent, handleRemoveBlock]);
+  }, [blockContext, handleRemoveBlock]);
 
   return (
     <View style={styles.container}>
@@ -632,10 +425,13 @@ export function QuoteDetailModal() {
             {activeTab === 'description' ? (
               <View style={{ gap: 10 }}>
                 {/* Description Fixed Blocks */}
-                {renderBlockContent('bookInfo')}
-                {renderBlockContent('author')}
-                {renderBlockContent('similarBooks')}
-                {renderBlockContent('similarAuthors')}
+                {DESCRIPTION_BLOCKS.map(blockKey => (
+                  <BlockDispatcher
+                    key={blockKey}
+                    blockId={blockKey}
+                    context={blockContext}
+                  />
+                ))}
               </View>
             ) : (
               // My Sheet Sortable Grid

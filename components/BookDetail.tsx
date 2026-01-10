@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen as BookIcon, Star, BookOpen, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
@@ -20,7 +20,8 @@ import AddBlockModal from './AddBlockModal';
 import BookDictionaryModal from './BookDictionaryModal';
 import { TextInput } from 'react-native';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-import ReviewBlock from './ReviewBlock';
+import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
+import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '../src/config/blocks';
 
 type BookDetailScreenRouteProp = RouteProp<{ params: { book?: Book; bookTitle?: string } }, 'params'>;
 
@@ -50,16 +51,10 @@ export function BookDetailScreen() {
   const DESCRIPTION_BLOCKS = ['bookDescription', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
   const MYSHEET_BLOCKS = ['notes', 'dictionary'];
 
-  const blockOptions = [
-    { key: 'reviews', label: 'Avis & Commentaires' },
-    { key: 'bookDescription', label: 'À propos du livre' },
-    { key: 'buy', label: 'Acheter ce livre' },
-    { key: 'notes', label: 'Notes' },
-    { key: 'author', label: "À propos de l'auteur" },
-    { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
-    { key: 'similarBooks', label: 'Livres similaires' },
-    { key: 'dictionary', label: 'Dictionnaire' },
-  ];
+  const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
+    key,
+    label: BLOCK_CONFIGS[key].label
+  }));
 
   const isBlockInTab = (blockKey: string, tab: TabType) => {
     // blockKey e.g. "author#123" or "addBlock"
@@ -172,6 +167,76 @@ export function BookDetailScreen() {
     setBlockData(current => ({ ...current, [blockId]: data }));
   };
 
+  const getBlockContext = (): BlockContext => {
+    // Dictionary aggregation logic for context
+    const aggregatedDefinitions: Array<{ term: string, genre: string, definition: string, example: string }> = [];
+    const seenTerms = new Set<string>();
+
+    savedQuotes.forEach(q => {
+      if (q.blockData) {
+        Object.keys(q.blockData).forEach(key => {
+          if (key.startsWith('definition')) {
+            const manualDefs = q.blockData![key] as Array<{ term: string, genre: string, definition: string, example: string }>;
+            if (Array.isArray(manualDefs)) {
+              manualDefs.forEach(d => {
+                if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
+                  seenTerms.add(d.term.toLowerCase());
+                  aggregatedDefinitions.push(d);
+                }
+              });
+            }
+          }
+        });
+      }
+      if (q.definitions) {
+        q.definitions.forEach(d => {
+          if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
+            seenTerms.add(d.term.toLowerCase());
+            aggregatedDefinitions.push(d);
+          }
+        });
+      }
+    });
+
+    const dictData = blockData?.['dictionary'] || { manualDefinitions: [], hiddenTerms: [] };
+    const manualDefs = dictData.manualDefinitions || [];
+    const hiddenTerms = new Set(dictData.hiddenTerms || []);
+
+    // We need to cast hiddenTerms to set of strings if it's not already
+    const hiddenTermsSet = new Set(hiddenTerms);
+
+    manualDefs.forEach((d: any) => {
+      if (!seenTerms.has(d.term.toLowerCase())) {
+        seenTerms.add(d.term.toLowerCase());
+        aggregatedDefinitions.push(d as any);
+      }
+    });
+
+    const visibleDefinitions = aggregatedDefinitions
+      .filter(d => !hiddenTermsSet.has(d.term.toLowerCase()))
+      .sort((a, b) => a.term.localeCompare(b.term));
+
+    return {
+      book: bookInfo,
+      author: authorInfo,
+      savedQuotes,
+      blockData,
+      onUpdateBlockData: handleUpdateBlockData,
+      onReviewAdded: loadMetadata,
+      onManageDictionary: () => setDictionaryModalVisible(true),
+      onBookPress: (title) => navigation.push('BookDetail', { bookTitle: title }),
+      onAuthorPress: (name) => navigation.navigate('AuthorDetail', { authorName: name }),
+      onQuotePress: (quote) => navigation.navigate('QuoteDetail', { quote }),
+      // Extra properties for dictionary block
+      ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
+    };
+  };
+
+  const blockContext = getBlockContext();
+
+  // Extract dictionary props for the Modal which sits outside Dispatcher
+  const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (blockContext as any);
+
 
 
 
@@ -206,357 +271,14 @@ export function BookDetailScreen() {
     if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
   };
 
-  // Helper function to render block content
-  const renderBlockContent = (item: string) => {
-    if (!bookInfo) return null;
-    const base = typeof item === 'string' && item.includes('#') ? item.split('#')[0] : item;
 
-    switch (base) {
-      case 'bookDescription': {
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos du livre</Text>
-            </View>
-            <Text style={styles.bookDesc}>{bookInfo.description || "Description non disponible."}</Text>
-          </View>
-        );
-      }
-
-      case 'author': {
-        if (!authorInfo) {
-          return (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <User size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
-              </View>
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Informations sur l'auteur non disponibles.
-              </Text>
-            </View>
-          );
-        }
-
-        const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <User size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
-            </View>
-            <TouchableOpacity onPress={() => navigation.navigate('AuthorDetail', { authorName })}>
-              <Text style={styles.authorName}>{authorName}</Text>
-            </TouchableOpacity>
-            <Text style={styles.authorDesc}>{authorInfo.description}</Text>
-          </View>
-        );
-      }
-
-      case 'notes': {
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Sparkles size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Notes</Text>
-            </View>
-            <TextInput
-              style={styles.notesInput}
-              placeholder="Écrire des notes sur ce livre..."
-              placeholderTextColor="#6B7280"
-              multiline
-              numberOfLines={6}
-              value={blockData?.[item] ?? ''}
-              onChangeText={(text) => handleUpdateBlockData(item, text)}
-              textAlignVertical="top"
-            />
-          </View>
-        );
-      }
-
-      case 'reviews': {
-        if (!bookInfo) return null;
-        const bookId = typeof bookInfo.id === 'string' ? parseInt(bookInfo.id) : bookInfo.id;
-        if (!bookId) return null;
-        return (
-          <ReviewBlock
-            bookId={bookId}
-            onReviewAdded={loadMetadata}
-          />
-        );
-      }
-
-      case 'savedQuotes': {
-        if (savedQuotes.length === 0) {
-          return (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Quote size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
-              </View>
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Aucune citation sauvegardée pour ce livre.
-              </Text>
-            </View>
-          );
-        }
-
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Quote size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Mes citations sauvegardées</Text>
-            </View>
-            <View style={styles.savedQuotesList}>
-              {savedQuotes.map(quote => (
-                <TouchableOpacity
-                  key={quote.id}
-                  style={styles.savedQuoteCard}
-                  activeOpacity={0.85}
-                  onPress={() => navigation.navigate('QuoteDetail', { quote })}
-                >
-                  <Text style={styles.savedQuoteText}>{quote.text}</Text>
-                  <View style={styles.savedQuoteMeta}>
-                    <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
-                    <Text style={styles.savedQuoteDate}>{quote.date}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        );
-      }
-
-      case 'buy': {
-        if (!bookInfo.buyLinks || bookInfo.buyLinks.length === 0) {
-          return (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <ShoppingCart size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Acheter ce livre</Text>
-              </View>
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Aucun lien d'achat disponible.
-              </Text>
-            </View>
-          );
-        }
-
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <ShoppingCart size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Acheter ce livre</Text>
-            </View>
-            <View style={styles.buyLinksList}>
-              {bookInfo.buyLinks.map((link, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.buyLinkItem}
-                  onPress={() => {
-                    Linking.openURL(link.url).catch(err => Alert.alert("Erreur", "Impossible d'ouvrir le lien"));
-                  }}
-                >
-                  <View style={styles.buyLinkInfo}>
-                    <Text style={styles.buyLinkStore}>{link.store}</Text>
-                    <ExternalLink size={12} color="#6B7280" />
-                  </View>
-                  <Text style={styles.buyLinkPrice}>{link.price}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        );
-      }
-
-      case 'similarBooks': {
-        if (uniqueSimilarBooks.length === 0) {
-          return (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Livres similaires</Text>
-              </View>
-              <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                Aucun livre similaire trouvé.
-              </Text>
-            </View>
-          );
-        }
-
-        return (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
-              <Text style={styles.sectionTitle}>Livres similaires</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarBooksContainer}>
-              {uniqueSimilarBooks.map((sBookTitle) => {
-                return (
-                  <TouchableOpacity key={sBookTitle} style={styles.similarBookItem} onPress={() => navigation.push('BookDetail', { bookTitle: sBookTitle })}>
-                    <View style={[styles.similarBookCover, { backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center' }]}>
-                      <BookIcon size={24} color="#4B5563" />
-                    </View>
-                    <Text numberOfLines={2} style={styles.similarBookTitle}>{sBookTitle}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        );
-      }
-
-      case 'dictionary': {
-        // Aggregate definitions from all saved quotes for this book
-        const aggregatedDefinitions: Array<{ term: string, genre: string, definition: string, example: string }> = [];
-        const seenTerms = new Set<string>();
-
-        // 1. Collect Quote Definitions
-        savedQuotes.forEach(q => {
-          if (q.blockData) {
-            Object.keys(q.blockData).forEach(key => {
-              if (key.startsWith('definition')) {
-                const manualDefs = q.blockData![key] as Array<{ term: string, genre: string, definition: string, example: string }>;
-                if (Array.isArray(manualDefs)) {
-                  manualDefs.forEach(d => {
-                    if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
-                      seenTerms.add(d.term.toLowerCase());
-                      aggregatedDefinitions.push(d);
-                    }
-                  });
-                }
-              }
-            });
-          }
-          if (q.definitions) {
-            q.definitions.forEach(d => {
-              if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
-                seenTerms.add(d.term.toLowerCase());
-                aggregatedDefinitions.push(d);
-              }
-            });
-          }
-        });
-
-        // 2. Determine visible definitions
-        // blockData['dictionary'] contains { manualDefinitions: [], hiddenTerms: [] }
-        const dictData = blockData?.['dictionary'] || { manualDefinitions: [], hiddenTerms: [] };
-        const manualDefs = dictData.manualDefinitions || [];
-        const hiddenTerms = new Set(dictData.hiddenTerms || []);
-
-        // Add manual definitions to aggregated list (deduplicated)
-        manualDefs.forEach((d: any) => {
-          if (!seenTerms.has(d.term.toLowerCase())) {
-            seenTerms.add(d.term.toLowerCase());
-            aggregatedDefinitions.push(d as any); // Type assertion if needed
-          }
-        });
-
-        // Filter hidden terms
-        const visibleDefinitions = aggregatedDefinitions.filter(d => !hiddenTerms.has(d.term.toLowerCase())).sort((a, b) => a.term.localeCompare(b.term));
-
-        if (visibleDefinitions.length === 0) {
-          return (
-            <>
-              <TouchableOpacity
-                style={styles.section}
-                onPress={() => setDictionaryModalVisible(true)}
-              >
-                <View style={styles.sectionHeader}>
-                  <BookOpen size={16} color="#20B8CD" />
-                  <Text style={styles.sectionTitle}>Dictionnaire</Text>
-                </View>
-                <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
-                  Aucune définition visible. Cliquez pour gérer.
-                </Text>
-              </TouchableOpacity>
-              <BookDictionaryModal
-                visible={isDictionaryModalVisible}
-                onClose={() => setDictionaryModalVisible(false)}
-                availableDefinitions={aggregatedDefinitions}
-                hiddenTerms={Array.from(hiddenTerms) as string[]}
-                currentManualDefinitions={manualDefs}
-                onUpdate={(newManuals, newHidden) => {
-                  handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
-                }}
-              />
-            </>
-          );
-        }
-
-        return (
-          <>
-            <TouchableOpacity style={styles.section} onPress={() => setDictionaryModalVisible(true)}>
-              <View style={styles.sectionHeader}>
-                <BookOpen size={16} color="#20B8CD" />
-                <Text style={styles.sectionTitle}>Dictionnaire</Text>
-              </View>
-              <View style={{ gap: 16 }}>
-                {visibleDefinitions.map((dItem, defIndex) => (
-                  <View key={defIndex}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 }}>{dItem.term}</Text>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginBottom: 4 }}>{dItem.genre}</Text>
-                    <Text style={{ fontSize: 14, color: '#D1D5DB', lineHeight: 20, marginBottom: 4 }}>{dItem.definition}</Text>
-                    {dItem.example ? (
-                      <Text style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic' }}>
-                        <Text style={{ color: '#20B8CD' }}>Ex : </Text>{dItem.example}
-                      </Text>
-                    ) : null}
-                    {defIndex !== visibleDefinitions.length - 1 && (
-                      <View style={{ height: 1, backgroundColor: '#2A2A2A', marginTop: 12 }} />
-                    )}
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-            <BookDictionaryModal
-              visible={isDictionaryModalVisible}
-              onClose={() => setDictionaryModalVisible(false)}
-              availableDefinitions={aggregatedDefinitions}
-              hiddenTerms={Array.from(hiddenTerms) as string[]}
-              currentManualDefinitions={manualDefs}
-              onUpdate={(newManuals, newHidden) => {
-                handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
-              }}
-            />
-          </>
-        );
-      }
-
-      default:
-        return null;
-    }
-  };
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
-    const content = renderBlockContent(item);
-    if (!content) return null;
-
-    // Don't wrap addBlock (though it's not in the main switch above, handled separately in modal logic, 
-    // but wait, addBlock isn't part of renderBlockContent. 
-    // Actually addBlock logic was separate. The previous code had addBlock filtering.
-    // Let's keep it clean. My Sheet only uses 'notes' usually + addBlock.
-    // But wait, the previous renderGridItem didn't handle 'addBlock' inside the switch?
-    // Ah, previous code logic:
-    // If item is 'addBlock', it might be rendered via renderGridItem depending on implementation?
-    // Actually addBlock IS in gridData.
-
+    // We do NOT want to wrap 'addBlock' in the removable wrapper if it's the button
+    // Actually, 'addBlock' is usually NOT in the grid data in my new design,
+    // but legacy data might have it.
+    // Also, previous implementation allowed 'addBlock' in the grid.
     if (item === 'addBlock') {
-      // Placeholder logic. But wait, in the new Code I put addBlock BUTTON explicitly below the grid for non-sortable?
-      // No, for 'my_sheet', I kept Sortable.Grid.
-      // And added the button explicitly BELOW it?
-      // In my replacement chunk for the grid section:
-      // I put:
-      // <Sortable.Grid ... />
-      // <TouchableOpacity ... addBlock ... />
-      // This implies addBlock is NOT in gridData? 
-      // But handleAddBlock adds it to gridData.
-      // If addBlock is in gridData, it will be rendered by renderGridItem.
-      // So I should check if item === 'addBlock' and return it.
-
-      // However, renderBlockContent doesn't handle 'addBlock'.
-
       return (
         <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
           <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
@@ -566,14 +288,13 @@ export function BookDetailScreen() {
     }
 
     return (
-      <View style={styles.removableWrapper}>
-        {content}
-        <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveBlock(item)}>
-          <X size={14} color="#EF4444" />
-        </TouchableOpacity>
-      </View>
+      <BlockDispatcher
+        blockId={item}
+        context={blockContext}
+        onRemove={() => handleRemoveBlock(item)}
+      />
     );
-  }, [renderBlockContent, handleRemoveBlock]);
+  }, [blockContext, handleRemoveBlock]);
 
   if (!bookTitle) {
     return (
@@ -665,7 +386,7 @@ export function BookDetailScreen() {
                     <Text style={styles.metaText}>{bookInfo.year}</Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <BookIcon size={14} color="#6B7280" />
+                    <BookOpen size={14} color="#6B7280" />
                     <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
                   </View>
                   <View style={styles.metaItem}>
@@ -708,12 +429,13 @@ export function BookDetailScreen() {
             </View>
             {activeTab === 'description' ? (
               <View style={{ gap: 10 }}>
-                {renderBlockContent('bookDescription')}
-                {renderBlockContent('author')}
-                {renderBlockContent('savedQuotes')}
-                {renderBlockContent('reviews')}
-                {renderBlockContent('buy')}
-                {renderBlockContent('similarBooks')}
+                {DESCRIPTION_BLOCKS.map(blockKey => (
+                  <BlockDispatcher
+                    key={blockKey}
+                    blockId={blockKey}
+                    context={blockContext}
+                  />
+                ))}
               </View>
             ) : (
               <>
@@ -812,6 +534,17 @@ export function BookDetailScreen() {
         </Animated.ScrollView>
 
         {/* Full Screen Reviews Modal */}
+
+        <BookDictionaryModal
+          visible={isDictionaryModalVisible}
+          onClose={() => setDictionaryModalVisible(false)}
+          availableDefinitions={aggregatedDefinitions || []}
+          hiddenTerms={(hiddenTerms || []) as string[]}
+          currentManualDefinitions={manualDefinitions || []}
+          onUpdate={(newManuals, newHidden) => {
+            handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
+          }}
+        />
 
       </View>
     </SafeAreaView>
