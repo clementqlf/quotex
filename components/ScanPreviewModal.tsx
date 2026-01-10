@@ -9,6 +9,9 @@ import {
     TouchableOpacity,
     View,
     ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Keyboard,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-react-native';
@@ -209,242 +212,258 @@ export default function ScanPreviewModal({
             visible={visible}
             onRequestClose={onClose}
         >
-            <Pressable style={styles.previewBackdrop} onPress={onClose}>
-                <Pressable style={styles.previewContainer} onPress={(e) => e.stopPropagation()}>
-                    <View style={styles.previewHeader}>
-                        <Text style={styles.previewTitle}>{initialBook ? "Modifier la citation" : "Aperçu de la citation"}</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <X size={24} color="#9CA3AF" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.previewScrollView} keyboardShouldPersistTaps="handled">
-                        <View style={styles.previewQuoteCard}>
-                            <Svg
-                                width={32}
-                                height={32}
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                style={styles.quoteIcon}
-                            >
-                                <Path
-                                    d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                                    fill="#20B8CD"
-                                    opacity={0.12}
-                                />
-                            </Svg>
-
-                            {isEditingQuote ? (
-                                <TextInput
-                                    style={styles.previewQuoteInput}
-                                    value={editedQuote}
-                                    defaultValue={scannedText}
-                                    autoFocus
-                                    multiline
-                                    onChangeText={setEditedQuote}
-                                    onBlur={() => setIsEditingQuote(false)}
-                                    placeholder="Modifier la citation"
-                                    placeholderTextColor="#6B7280"
-                                    returnKeyType="done"
-                                />
-                            ) : (
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setIsEditingQuote(true);
-                                        setEditedQuote(editedQuote || scannedText);
-                                    }}
-                                >
-                                    <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: '#6B7280', fontStyle: 'normal' }]}>
-                                        {editedQuote || scannedText || "Toucher pour ajouter une citation..."}
-                                    </Text>
+            <View style={{ flex: 1 }}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    <Pressable
+                        style={styles.previewBackdrop}
+                        onPress={onClose}
+                    >
+                        <Pressable
+                            style={styles.previewContainer}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                Keyboard.dismiss(); // Dismiss keyboard when tapping background
+                            }}
+                        >
+                            <View style={styles.previewHeader}>
+                                <Text style={styles.previewTitle}>{initialBook ? "Modifier la citation" : "Aperçu de la citation"}</Text>
+                                <TouchableOpacity onPress={onClose}>
+                                    <X size={24} color="#9CA3AF" />
                                 </TouchableOpacity>
-                            )}
+                            </View>
 
-                            <View style={styles.previewBookInfo}>
-                                <View style={styles.bookInfoLeft}>
-                                    <View style={{ zIndex: 20 }}>
-                                        {isEditingBook ? (
-                                            <View>
-                                                <TextInput
-                                                    style={styles.bookTitleInput}
-                                                    value={editedBook}
-                                                    autoFocus
-                                                    onChangeText={handleBookChange}
-                                                    onBlur={() => {
-                                                        // Delayed close to allow pressing suggestion
-                                                        setTimeout(() => {
-                                                            setIsEditingBook(false);
-                                                            setShowSuggestions(false);
-                                                        }, 200);
-                                                    }}
-                                                    placeholder="Titre du livre"
-                                                    placeholderTextColor="#6B7280"
-                                                    returnKeyType="done"
-                                                    onSubmitEditing={() => {
-                                                        setIsEditingBook(false);
-                                                        setShowSuggestions(false);
-                                                    }}
-                                                />
-                                                {showSuggestions && (
-                                                    <View style={styles.suggestionsContainer}>
-                                                        {isLoadingSuggestions && (
-                                                            <ActivityIndicator color="#20B8CD" size="small" style={{ padding: 8 }} />
-                                                        )}
-                                                        {suggestions.map((item, index) => (
-                                                            <TouchableOpacity
-                                                                key={`${item.title}-${index}`}
-                                                                style={styles.suggestionItem}
-                                                                onPress={async () => {
-                                                                    if (item.type === 'google' && item.data) {
-                                                                        setIsLoadingSuggestions(true);
-                                                                        await googleBooksService.importBook(item.data);
-                                                                        if (item.data.authors && item.data.authors.length > 0) {
-                                                                            setEditedAuthor(item.data.authors[0]);
-                                                                        }
-                                                                        setIsLoadingSuggestions(false);
-                                                                    }
-                                                                    setEditedBook(item.title);
+                            <ScrollView style={styles.previewScrollView} keyboardShouldPersistTaps="handled">
+                                <View style={styles.previewQuoteCard}>
+                                    <Svg
+                                        width={32}
+                                        height={32}
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        style={styles.quoteIcon}
+                                    >
+                                        <Path
+                                            d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                                            fill="#20B8CD"
+                                            opacity={0.12}
+                                        />
+                                    </Svg>
+
+                                    {isEditingQuote ? (
+                                        <TextInput
+                                            style={styles.previewQuoteInput}
+                                            value={editedQuote}
+                                            defaultValue={scannedText}
+                                            autoFocus
+                                            multiline
+                                            onChangeText={setEditedQuote}
+                                            onBlur={() => setIsEditingQuote(false)}
+                                            placeholder="Modifier la citation"
+                                            placeholderTextColor="#6B7280"
+                                            returnKeyType="done"
+                                        />
+                                    ) : (
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setIsEditingQuote(true);
+                                                setEditedQuote(editedQuote || scannedText);
+                                            }}
+                                        >
+                                            <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: '#6B7280', fontStyle: 'normal' }]}>
+                                                {editedQuote || scannedText || "Toucher pour ajouter une citation..."}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <View style={styles.previewBookInfo}>
+                                        <View style={styles.bookInfoLeft}>
+                                            <View style={{ zIndex: 20 }}>
+                                                {isEditingBook ? (
+                                                    <View>
+                                                        <TextInput
+                                                            style={styles.bookTitleInput}
+                                                            value={editedBook}
+                                                            autoFocus
+                                                            onChangeText={handleBookChange}
+                                                            onBlur={() => {
+                                                                // Delayed close to allow pressing suggestion
+                                                                setTimeout(() => {
                                                                     setIsEditingBook(false);
                                                                     setShowSuggestions(false);
-                                                                }}
-                                                            >
-                                                                <BookIcon size={14} color={item.type === 'google' ? '#20B8CD' : '#6B7280'} style={{ marginRight: 8 }} />
-                                                                <View style={{ flex: 1 }}>
-                                                                    <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
-                                                                    {item.type === 'google' && (
-                                                                        <Text style={{ fontSize: 10, color: '#20B8CD', fontStyle: 'italic' }}>Depuis Google Books</Text>
-                                                                    )}
-                                                                </View>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                        {suggestions.length === 0 && !isLoadingSuggestions && (
-                                                            <View style={styles.suggestionItem}>
-                                                                <Text style={styles.suggestionTextMeta}>Aucun livre trouvé</Text>
+                                                                }, 200);
+                                                            }}
+                                                            placeholder="Titre du livre"
+                                                            placeholderTextColor="#6B7280"
+                                                            returnKeyType="done"
+                                                            onSubmitEditing={() => {
+                                                                setIsEditingBook(false);
+                                                                setShowSuggestions(false);
+                                                            }}
+                                                        />
+                                                        {showSuggestions && (
+                                                            <View style={styles.suggestionsContainer}>
+                                                                {isLoadingSuggestions && (
+                                                                    <ActivityIndicator color="#20B8CD" size="small" style={{ padding: 8 }} />
+                                                                )}
+                                                                {suggestions.map((item, index) => (
+                                                                    <TouchableOpacity
+                                                                        key={`${item.title}-${index}`}
+                                                                        style={styles.suggestionItem}
+                                                                        onPress={async () => {
+                                                                            if (item.type === 'google' && item.data) {
+                                                                                setIsLoadingSuggestions(true);
+                                                                                await googleBooksService.importBook(item.data);
+                                                                                if (item.data.authors && item.data.authors.length > 0) {
+                                                                                    setEditedAuthor(item.data.authors[0]);
+                                                                                }
+                                                                                setIsLoadingSuggestions(false);
+                                                                            }
+                                                                            setEditedBook(item.title);
+                                                                            setIsEditingBook(false);
+                                                                            setShowSuggestions(false);
+                                                                        }}
+                                                                    >
+                                                                        <BookIcon size={14} color={item.type === 'google' ? '#20B8CD' : '#6B7280'} style={{ marginRight: 8 }} />
+                                                                        <View style={{ flex: 1 }}>
+                                                                            <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
+                                                                            {item.type === 'google' && (
+                                                                                <Text style={{ fontSize: 10, color: '#20B8CD', fontStyle: 'italic' }}>Depuis Google Books</Text>
+                                                                            )}
+                                                                        </View>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                                {suggestions.length === 0 && !isLoadingSuggestions && (
+                                                                    <View style={styles.suggestionItem}>
+                                                                        <Text style={styles.suggestionTextMeta}>Aucun livre trouvé</Text>
+                                                                    </View>
+                                                                )}
                                                             </View>
                                                         )}
                                                     </View>
-                                                )}
-                                            </View>
-                                        ) : (
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setIsEditingBook(true);
-                                                    setEditedBook(''); // Clear on click as requested
-                                                    setSuggestions(initialBooks.map(b => ({ type: 'local', title: b })));
-                                                    setShowSuggestions(true);
-                                                    // Close other dropdowns
-                                                    setIsEditingAuthor(false);
-                                                    setShowAuthorSuggestions(false);
-                                                }}
-                                            >
-                                                <Text style={styles.bookTitle}>{getBookTitle()}</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-
-                                    <View style={{ zIndex: 10, marginTop: 4 }}>
-                                        {isEditingAuthor ? (
-                                            <View>
-                                                <TextInput
-                                                    style={styles.authorInput}
-                                                    value={editedAuthor}
-                                                    autoFocus
-                                                    onChangeText={handleAuthorChange}
-                                                    onBlur={() => {
-                                                        setTimeout(() => {
+                                                ) : (
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            setIsEditingBook(true);
+                                                            setEditedBook(''); // Clear on click as requested
+                                                            setSuggestions(initialBooks.map(b => ({ type: 'local', title: b })));
+                                                            setShowSuggestions(true);
+                                                            // Close other dropdowns
                                                             setIsEditingAuthor(false);
                                                             setShowAuthorSuggestions(false);
-                                                        }, 200);
-                                                    }}
-                                                    placeholder="Nom de l'auteur"
-                                                    placeholderTextColor="#6B7280"
-                                                    returnKeyType="done"
-                                                    onSubmitEditing={() => {
-                                                        setIsEditingAuthor(false);
-                                                        setShowAuthorSuggestions(false);
-                                                    }}
-                                                />
-                                                {showAuthorSuggestions && (
-                                                    <View style={styles.suggestionsContainer}>
-                                                        {isLoadingAuthorSuggestions && (
-                                                            <ActivityIndicator color="#20B8CD" size="small" style={{ padding: 8 }} />
-                                                        )}
-                                                        {authorSuggestions.map((item, index) => (
-                                                            <TouchableOpacity
-                                                                key={`${item}-${index}`}
-                                                                style={styles.suggestionItem}
-                                                                onPress={() => {
-                                                                    setEditedAuthor(item);
+                                                        }}
+                                                    >
+                                                        <Text style={styles.bookTitle}>{getBookTitle()}</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+
+                                            <View style={{ zIndex: 10, marginTop: 4 }}>
+                                                {isEditingAuthor ? (
+                                                    <View>
+                                                        <TextInput
+                                                            style={styles.authorInput}
+                                                            value={editedAuthor}
+                                                            autoFocus
+                                                            onChangeText={handleAuthorChange}
+                                                            onBlur={() => {
+                                                                setTimeout(() => {
                                                                     setIsEditingAuthor(false);
                                                                     setShowAuthorSuggestions(false);
-                                                                }}
-                                                            >
-                                                                <UserIcon size={14} color="#6B7280" style={{ marginRight: 8 }} />
-                                                                <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
-                                                            </TouchableOpacity>
-                                                        ))}
-                                                        {authorSuggestions.length === 0 && !isLoadingAuthorSuggestions && (
-                                                            <View style={styles.suggestionItem}>
-                                                                <Text style={styles.suggestionTextMeta}>Aucun auteur trouvé</Text>
+                                                                }, 200);
+                                                            }}
+                                                            placeholder="Nom de l'auteur"
+                                                            placeholderTextColor="#6B7280"
+                                                            returnKeyType="done"
+                                                            onSubmitEditing={() => {
+                                                                setIsEditingAuthor(false);
+                                                                setShowAuthorSuggestions(false);
+                                                            }}
+                                                        />
+                                                        {showAuthorSuggestions && (
+                                                            <View style={styles.suggestionsContainer}>
+                                                                {isLoadingAuthorSuggestions && (
+                                                                    <ActivityIndicator color="#20B8CD" size="small" style={{ padding: 8 }} />
+                                                                )}
+                                                                {authorSuggestions.map((item, index) => (
+                                                                    <TouchableOpacity
+                                                                        key={`${item}-${index}`}
+                                                                        style={styles.suggestionItem}
+                                                                        onPress={() => {
+                                                                            setEditedAuthor(item);
+                                                                            setIsEditingAuthor(false);
+                                                                            setShowAuthorSuggestions(false);
+                                                                        }}
+                                                                    >
+                                                                        <UserIcon size={14} color="#6B7280" style={{ marginRight: 8 }} />
+                                                                        <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                                {authorSuggestions.length === 0 && !isLoadingAuthorSuggestions && (
+                                                                    <View style={styles.suggestionItem}>
+                                                                        <Text style={styles.suggestionTextMeta}>Aucun auteur trouvé</Text>
+                                                                    </View>
+                                                                )}
                                                             </View>
                                                         )}
                                                     </View>
+                                                ) : (
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            setIsEditingAuthor(true);
+                                                            setEditedAuthor(''); // Clear on click as requested
+                                                            setAuthorSuggestions(initialAuthors);
+                                                            setShowAuthorSuggestions(true);
+                                                            // Close other dropdowns
+                                                            setIsEditingBook(false);
+                                                            setShowSuggestions(false);
+                                                        }}
+                                                    >
+                                                        <Text style={styles.authorName}>{getAuthorName()}</Text>
+                                                    </TouchableOpacity>
                                                 )}
                                             </View>
-                                        ) : (
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    setIsEditingAuthor(true);
-                                                    setEditedAuthor(''); // Clear on click as requested
-                                                    setAuthorSuggestions(initialAuthors);
-                                                    setShowAuthorSuggestions(true);
-                                                    // Close other dropdowns
-                                                    setIsEditingBook(false);
-                                                    setShowSuggestions(false);
-                                                }}
-                                            >
-                                                <Text style={styles.authorName}>{getAuthorName()}</Text>
-                                            </TouchableOpacity>
-                                        )}
+                                        </View>
+                                        <Text style={styles.dateText}>
+                                            {new Date().toLocaleDateString('fr-FR', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                            })}
+                                        </Text>
+                                    </View>
+
+                                    <View style={styles.actions}>
+                                        <View style={styles.actionButton}>
+                                            <Heart size={20} color="#6B7280" fill="none" />
+                                            <Text style={styles.actionText}>0</Text>
+                                        </View>
+                                        <View style={styles.actionButton}>
+                                            <Share2 size={20} color="#6B7280" />
+                                            <Text style={styles.actionText}>Partager</Text>
+                                        </View>
                                     </View>
                                 </View>
-                                <Text style={styles.dateText}>
-                                    {new Date().toLocaleDateString('fr-FR', {
-                                        day: '2-digit',
-                                        month: 'short',
-                                    })}
-                                </Text>
-                            </View>
+                            </ScrollView>
 
-                            <View style={styles.actions}>
-                                <View style={styles.actionButton}>
-                                    <Heart size={20} color="#6B7280" fill="none" />
-                                    <Text style={styles.actionText}>0</Text>
-                                </View>
-                                <View style={styles.actionButton}>
-                                    <Share2 size={20} color="#6B7280" />
-                                    <Text style={styles.actionText}>Partager</Text>
-                                </View>
+                            <View style={styles.previewActions}>
+                                <TouchableOpacity
+                                    style={styles.previewCancelButton}
+                                    onPress={onClose}
+                                >
+                                    <Text style={styles.previewCancelButtonText}>Annuler</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.previewConfirmButton}
+                                    onPress={handleConfirm}
+                                >
+                                    <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                </TouchableOpacity>
                             </View>
-                        </View>
-                    </ScrollView>
-
-                    <View style={styles.previewActions}>
-                        <TouchableOpacity
-                            style={styles.previewCancelButton}
-                            onPress={onClose}
-                        >
-                            <Text style={styles.previewCancelButtonText}>Annuler</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.previewConfirmButton}
-                            onPress={handleConfirm}
-                        >
-                            <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
-                        </TouchableOpacity>
-                    </View>
-                </Pressable>
-            </Pressable>
+                        </Pressable>
+                    </Pressable>
+                </KeyboardAvoidingView>
+            </View>
         </Modal>
     );
 }
