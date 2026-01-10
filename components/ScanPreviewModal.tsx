@@ -22,6 +22,8 @@ type ScanPreviewModalProps = {
     onClose: () => void;
     onConfirm: (quote: string, book: string, author: string) => void;
     scannedText: string;
+    initialBook?: string;
+    initialAuthor?: string;
 };
 
 export default function ScanPreviewModal({
@@ -29,6 +31,8 @@ export default function ScanPreviewModal({
     onClose,
     onConfirm,
     scannedText,
+    initialBook = '',
+    initialAuthor = '',
 }: ScanPreviewModalProps) {
     const { quotes } = useData();
 
@@ -85,19 +89,28 @@ export default function ScanPreviewModal({
     // Reset state when modal opens or scannedText changes
     useEffect(() => {
         if (visible) {
-            setEditedQuote('');
-            setEditedBook('');
-            setEditedAuthor('');
+            setEditedQuote(''); // We'll let defaultValue handle it unless explicitly editing
+            setEditedBook(initialBook);
+            setEditedAuthor(initialAuthor);
             setIsEditingBook(false);
             setIsEditingAuthor(false);
+            // If we have initial valus, we might not want to start in edit mode for quote? 
+            // Actually existing logic checks scannedText.
+            // If it's an edit (initialBook provided), we probably want to treat it slightly differently?
+            // Existing logic: setIsEditingQuote(!scannedText);
+            // Let's keep it simple. If we are editing, we usually pass scannedText as the existing quote text.
             setIsEditingQuote(!scannedText);
             setShowSuggestions(false);
             setShowAuthorSuggestions(false);
         }
-    }, [visible, scannedText]);
+    }, [visible, scannedText, initialBook, initialAuthor]);
 
     const getBookTitle = () => {
         if (editedBook.trim()) return editedBook.trim();
+        // If we have initialBook, fallback to it? 
+        // Logic below falls back to finding via scannedText.
+        if (initialBook) return initialBook;
+
         return (
             Object.keys(bookDescriptions).find((title) =>
                 localQuotesDB.some((q) => q.text === scannedText && q.book === title)
@@ -107,7 +120,13 @@ export default function ScanPreviewModal({
 
     const getAuthorName = () => {
         if (editedAuthor.trim()) return editedAuthor.trim();
+        if (initialAuthor && !editedBook.trim()) return initialAuthor; // Use initial author if no manual edit and no book change triggers lookup?
+        // Actually, if we change the book, we might get a new author.
+
         const bookTitle = getBookTitle();
+        // If the book title matches the initial book, we can default to initial author
+        if (initialBook && bookTitle === initialBook && initialAuthor) return initialAuthor;
+
         return bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
     };
 
@@ -193,7 +212,7 @@ export default function ScanPreviewModal({
             <Pressable style={styles.previewBackdrop} onPress={onClose}>
                 <Pressable style={styles.previewContainer} onPress={(e) => e.stopPropagation()}>
                     <View style={styles.previewHeader}>
-                        <Text style={styles.previewTitle}>Aperçu de la citation</Text>
+                        <Text style={styles.previewTitle}>{initialBook ? "Modifier la citation" : "Aperçu de la citation"}</Text>
                         <TouchableOpacity onPress={onClose}>
                             <X size={24} color="#9CA3AF" />
                         </TouchableOpacity>
