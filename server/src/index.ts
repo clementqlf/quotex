@@ -165,10 +165,17 @@ app.get('/authors', async (req, res) => {
         const authors = await prisma.author.findMany({
             include: {
                 books: true,
-                similarAuthors: true
+                similarAuthors: true,
+                _count: {
+                    select: { quotes: true }
+                }
             }
         });
-        res.json(authors);
+        const formattedAuthors = authors.map((a: any) => ({
+            ...a,
+            quotesCount: a._count.quotes
+        }));
+        res.json(formattedAuthors);
     } catch (e) {
         res.status(500).json({ error: 'Failed to fetch authors' });
     }
@@ -180,7 +187,12 @@ app.get('/authors/by-name/:name', async (req, res) => {
         const { name } = req.params;
         let authorRecord = await prisma.author.findUnique({
             where: { name },
-            include: { books: true }
+            include: {
+                books: true,
+                _count: {
+                    select: { quotes: true }
+                }
+            }
         });
 
         if (!authorRecord) {
@@ -193,7 +205,12 @@ app.get('/authors/by-name/:name', async (req, res) => {
             // Re-fetch with data
             authorRecord = await prisma.author.findUnique({
                 where: { id: newAuthor.id },
-                include: { books: true }
+                include: {
+                    books: true,
+                    _count: {
+                        select: { quotes: true }
+                    }
+                }
             });
         }
 
@@ -202,7 +219,11 @@ app.get('/authors/by-name/:name', async (req, res) => {
             return;
         }
 
-        res.json(authorRecord);
+        const formattedAuthor = {
+            ...authorRecord,
+            quotesCount: (authorRecord as any)._count.quotes
+        };
+        res.json(formattedAuthor);
     } catch (e) {
         console.error('Error in get-author-by-name:', e);
         res.status(500).json({ error: 'Failed to fetch author' });
@@ -263,6 +284,53 @@ app.post('/authors/:id/enrich', async (req, res) => {
     }
 });
 
+// Toggle save status for an author
+app.post('/authors/:id/toggle-save', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const authorId = parseInt(id);
+
+        const author = await prisma.author.findUnique({
+            where: { id: authorId },
+            include: { _count: { select: { quotes: true } } }
+        });
+
+        if (!author) {
+            res.status(404).json({ error: 'Author not found' });
+            return;
+        }
+
+        // Rule: Authors with quotes are ALWAYS considered saved in the UI, 
+        // but we can still toggle the isSaved field if we want a separate explicit save.
+        // However, the requirement says authors with quotes "cannot be unsaved".
+        if ((author as any)._count.quotes > 0 && !(author as any).isSaved) {
+            // First time saving an author with quotes? Just ensure isSaved is true.
+            const updatedAuthor = await prisma.author.update({
+                where: { id: authorId },
+                data: { isSaved: true } as any
+            });
+            res.json({ isSaved: true });
+            return;
+        }
+
+        if ((author as any)._count.quotes > 0 && (author as any).isSaved) {
+            // Cannot unsave if there are quotes
+            res.json({ isSaved: true, message: 'Authors with quotes cannot be unsaved' });
+            return;
+        }
+
+        const updatedAuthor = await prisma.author.update({
+            where: { id: authorId },
+            data: { isSaved: !(author as any).isSaved } as any
+        });
+
+        res.json({ isSaved: (updatedAuthor as any).isSaved });
+    } catch (e) {
+        console.error('Error toggling author save status:', e);
+        res.status(500).json({ error: 'Failed to toggle author save status' });
+    }
+});
+
 // Get single book by ID
 app.get('/books/:id', async (req, res) => {
     try {
@@ -296,6 +364,50 @@ app.get('/books/:id', async (req, res) => {
     } catch (e) {
         console.error('Error fetching book:', e);
         res.status(500).json({ error: 'Failed to fetch book' });
+    }
+});
+
+// Toggle save status for a book
+app.post('/books/:id/toggle-save', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const bookId = parseInt(id);
+
+        const book = await prisma.book.findUnique({
+            where: { id: bookId },
+            include: { _count: { select: { quotes: true } } }
+        });
+
+        if (!book) {
+            res.status(404).json({ error: 'Book not found' });
+            return;
+        }
+
+        // Rule: Books with quotes (from any user, but usually we filter by user 1 in UI)
+        // Here we use the same rule as authors: if it has quotes, it's pinned to saved.
+        if ((book as any)._count.quotes > 0 && !(book as any).isSaved) {
+            const updatedBook = await prisma.book.update({
+                where: { id: bookId },
+                data: { isSaved: true } as any
+            });
+            res.json({ isSaved: true });
+            return;
+        }
+
+        if ((book as any)._count.quotes > 0 && (book as any).isSaved) {
+            res.json({ isSaved: true, message: 'Books with quotes cannot be unsaved' });
+            return;
+        }
+
+        const updatedAuthor = await prisma.book.update({
+            where: { id: bookId },
+            data: { isSaved: !(book as any).isSaved } as any
+        });
+
+        res.json({ isSaved: (updatedAuthor as any).isSaved });
+    } catch (e) {
+        console.error('Error toggling book save status:', e);
+        res.status(500).json({ error: 'Failed to toggle book save status' });
     }
 });
 

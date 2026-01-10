@@ -20,7 +20,7 @@ import { bookDescriptions } from '../data/staticData';
 import ScanPreviewModal from '../components/ScanPreviewModal';
 import { useTabIndex } from '../TabNavigator';
 import { useData } from '../src/contexts/DataProvider';
-import { Quote } from '../types';
+import { Quote, Book } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import { formatRelativeDate } from '../src/utils/dateUtils';
 import { useTheme } from '../src/contexts/ThemeContext';
@@ -34,7 +34,7 @@ export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { quotes: allQuotes, toggleLikeQuote, deleteQuote, refreshQuotes, addQuote, updateQuote } = useData();
+  const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks, addQuote, updateQuote } = useData();
 
   // Filter for "My Quotes" (current user is ID 1) or legacy local quotes
   const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id == 1 || !q.user), [allQuotes]);
@@ -53,6 +53,8 @@ export default function MyQuotesScreen() {
     if (isFocused) {
       setTabIndex(0);
       refreshQuotes();
+      refreshAuthors();
+      refreshBooks();
     }
   }, [isFocused]);
 
@@ -304,7 +306,7 @@ export default function MyQuotesScreen() {
   };
 
   const booksData = useMemo(() => {
-    const grouped = myQuotes.reduce<Record<string, { authors: Set<string>; quoteCount: number }>>((acc, quote) => {
+    const grouped = myQuotes.reduce<Record<string, { authors: Set<string>; quoteCount: number; bookObj?: Book }>>((acc, quote) => {
       const title = getBookTitle(quote.book);
       const author = getAuthorName(quote.author);
       if (!acc[title]) {
@@ -312,12 +314,27 @@ export default function MyQuotesScreen() {
       }
       acc[title].authors.add(author);
       acc[title].quoteCount += 1;
+      if (typeof quote.book !== 'string') {
+        acc[title].bookObj = quote.book;
+      }
       return acc;
     }, {});
 
+    // Ensure we include books who are explicitly saved by the user
+    allBooks.forEach(book => {
+      if (book.isSaved && !grouped[book.title]) {
+        const authorName = getAuthorName(book.author);
+        grouped[book.title] = {
+          authors: new Set([authorName]),
+          quoteCount: 0,
+          bookObj: book
+        };
+      }
+    });
+
     return Object.entries(grouped)
       .map(([bookTitle, data]) => {
-        const meta = bookDescriptions[bookTitle];
+        const meta = bookDescriptions[bookTitle] || data.bookObj;
         return {
           title: bookTitle,
           authors: Array.from(data.authors),
@@ -328,7 +345,7 @@ export default function MyQuotesScreen() {
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [myQuotes]);
+  }, [myQuotes, allBooks]);
 
   const authorsData = useMemo(() => {
     const grouped = myQuotes.reduce<Record<string, { author: any; quoteCount: number }>>((acc, quote) => {
@@ -343,14 +360,21 @@ export default function MyQuotesScreen() {
       return acc;
     }, {});
 
+    // Ensure we include authors who are explicitly saved by the user
+    allAuthors.forEach(author => {
+      if (author.isSaved && !grouped[author.name]) {
+        grouped[author.name] = { author: author, quoteCount: 0 };
+      }
+    });
+
     return Object.values(grouped)
-      .map((data) => ({
+      .map((data: any) => ({
         name: getAuthorName(data.author),
         image: typeof data.author !== 'string' ? data.author?.image : null,
         quoteCount: data.quoteCount,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [myQuotes]);
+  }, [myQuotes, allAuthors]);
   // Add Menu Modal
   const AddQuoteMenu = () => (
     <Modal

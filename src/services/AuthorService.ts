@@ -107,6 +107,52 @@ class AuthorService {
         }
         return undefined;
     }
+    async toggleSaveAuthor(id: number): Promise<boolean> {
+        try {
+            const response = await fetch(`${this.API_URL}/authors/${id}/toggle-save`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                const result = await response.json();
+                return result.isSaved;
+            }
+        } catch (error) {
+            console.error('Error toggling author save status:', error);
+        }
+        return false;
+    }
+
+    async toggleSaveBook(id: number): Promise<boolean> {
+        try {
+            const response = await fetch(`${this.API_URL}/books/${id}/toggle-save`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                const result = await response.json();
+                return result.isSaved;
+            }
+        } catch (error) {
+            console.error('Error toggling book save status:', error);
+        }
+        return false;
+    }
+
+    async getBooks(): Promise<Book[]> {
+        try {
+            const response = await fetch(`${this.API_URL}/books`);
+            if (response.ok) {
+                const books = await response.json();
+                return books.map((b: any) => ({
+                    ...b,
+                    buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
+                    similarBooks: b.similarBooks || []
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching books from server:', error);
+        }
+        return [];
+    }
 }
 
 

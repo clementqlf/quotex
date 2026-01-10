@@ -25,6 +25,8 @@ model Book {
   authorId    Int
   author      Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   
+  isSaved     Boolean  @default(false)
+
   // Relations
   quotes      Quote[]
   reviews     Review[]
@@ -44,6 +46,8 @@ model Author {
   nationality String?
   books       Book[]
   quotes      Quote[]
+
+  isSaved         Boolean  @default(false)
 
   // Self-relation for similar authors
   similarAuthors  Author[] @relation("SimilarAuthors")

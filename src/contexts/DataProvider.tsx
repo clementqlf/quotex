@@ -12,6 +12,8 @@ type DataContextType = {
     toggleLikeQuote: (id: number) => Promise<void>;
     toggleSaveQuote: (id: number) => Promise<void>;
     deleteQuote: (id: number) => Promise<void>;
+    refreshAuthors: () => Promise<void>;
+    refreshBooks: () => Promise<void>;
     getAuthorByName: (name: string) => Promise<Author | undefined>;
     getBooksByAuthor: (authorName: string, authorId?: number) => Promise<Book[]>;
     updateQuote: (id: number, updates: Partial<Quote>) => Promise<void>;
@@ -25,6 +27,9 @@ type DataContextType = {
     getUserByUsername: (username: string) => Promise<any>;
     getBookByTitle: (title: string) => Promise<Book | undefined>;
     getBookById: (id: number) => Promise<Book | undefined>;
+    toggleSaveAuthor: (id: number) => Promise<void>;
+    toggleSaveBook: (id: number) => Promise<void>;
+    books: Book[];
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -32,18 +37,21 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [authors, setAuthors] = useState<Author[]>([]);
+    const [books, setBooks] = useState<Book[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchData = async () => {
         try {
             setIsLoading(true);
-            const [fetchedQuotes, fetchedAuthors] = await Promise.all([
+            const [fetchedQuotes, fetchedAuthors, fetchedBooks] = await Promise.all([
                 quoteService.getQuotes(),
                 authorService.getAuthors(),
+                authorService.getBooks(),
             ]);
-            console.log('DataProvider fetched quotes:', fetchedQuotes.length);
+            console.log('DataProvider fetched data');
             setQuotes(fetchedQuotes);
             setAuthors(fetchedAuthors);
+            setBooks(fetchedBooks);
         } catch (error) {
             console.error("Failed to fetch data", error);
         } finally {
@@ -58,6 +66,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const refreshQuotes = async () => {
         const fetchedQuotes = await quoteService.getQuotes();
         setQuotes(fetchedQuotes);
+    }
+
+    const refreshAuthors = async () => {
+        const fetchedAuthors = await authorService.getAuthors();
+        setAuthors(fetchedAuthors);
+    }
+
+    const refreshBooks = async () => {
+        const fetchedBooks = await authorService.getBooks();
+        setBooks(fetchedBooks);
     }
 
     const toggleLikeQuote = async (id: number) => {
@@ -153,12 +171,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return await authorService.getBookById(id);
     };
 
+    const toggleSaveAuthor = async (id: number) => {
+        await authorService.toggleSaveAuthor(id);
+        await refreshAuthors();
+    };
+
+    const toggleSaveBook = async (id: number) => {
+        await authorService.toggleSaveBook(id);
+        await refreshBooks();
+    };
+
     return (
         <DataContext.Provider value={{
             quotes,
             authors,
+            books,
             isLoading,
             refreshQuotes,
+            refreshAuthors,
+            refreshBooks,
             toggleLikeQuote,
             toggleSaveQuote,
             deleteQuote,
@@ -173,6 +204,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             getUserByUsername,
             getBookByTitle,
             getBookById,
+            toggleSaveAuthor,
+            toggleSaveBook,
         }}>
             {children}
         </DataContext.Provider>

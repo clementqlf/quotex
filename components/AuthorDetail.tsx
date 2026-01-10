@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { getBookTitle } from '../src/utils/dataHelpers';
 import { Author, Book, RootStackParamList } from '../types';
@@ -30,7 +30,7 @@ export function AuthorDetailScreen() {
   const { author, authorName: paramAuthorName } = route.params;
   const nameToUse = author?.name || paramAuthorName;
 
-  const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote } = useData();
+  const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor } = useData();
   const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
@@ -97,9 +97,26 @@ export function AuthorDetailScreen() {
   const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
-  const totalQuotes = quotes.filter(q =>
+  const totalQuotes = useMemo(() => quotes.filter(q =>
     typeof q.author === 'string' ? q.author === authorName : q.author?.name === authorName
-  ).length;
+  ).length, [quotes, authorName]);
+
+  const userQuotesCount = useMemo(() => quotes.filter(q => {
+    const isMyQuote = q.user?.id == 1 || !q.user;
+    if (!isMyQuote) return false;
+    const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
+    return qAuthorName === authorName;
+  }).length, [quotes, authorName]);
+
+  const isSaved = authorInfo?.isSaved || userQuotesCount > 0;
+  const canToggleSave = userQuotesCount === 0;
+
+  const handleToggleSave = async () => {
+    if (!canToggleSave || !authorInfo?.id) return;
+    await toggleSaveAuthor(authorInfo.id);
+    // Refresh local state
+    setAuthorInfo(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
+  };
 
   if (isLoadingAuthor) {
     return (
@@ -121,7 +138,17 @@ export function AuthorDetailScreen() {
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{authorName}</Text>
-          <View style={styles.placeholder} />
+          <TouchableOpacity
+            style={[styles.saveButton, !canToggleSave && { opacity: 0.8 }]}
+            onPress={handleToggleSave}
+            disabled={!canToggleSave}
+          >
+            <Bookmark
+              size={24}
+              color={isSaved ? colors.primary : colors.text}
+              fill={isSaved ? colors.primary : 'none'}
+            />
+          </TouchableOpacity>
         </View>
 
         <ScrollView
@@ -345,8 +372,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     flex: 1, textAlign: 'center'
   },
-  placeholder: {
-    width: 28,
+  saveButton: {
+    padding: 4,
   },
   content: {
     flex: 1,

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { ThemeColors } from '../src/theme/theme';
@@ -38,7 +38,7 @@ export function BookDetailScreen() {
   const passedBook = params?.book;
   const bookTitle = passedBook?.title || params?.bookTitle;
 
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById } = useData();
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook } = useData();
 
   const [bookInfo, setBookInfo] = useState<Book | null>(passedBook || null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
@@ -153,6 +153,20 @@ export function BookDetailScreen() {
     return () => clearTimeout(timer);
   }, [blockData, bookTitle, updateBookData]);
 
+
+  const userQuotesCountForThisBook = useMemo(() => quotes.filter(q => {
+    const isMyQuote = q.user?.id == 1 || !q.user;
+    return isMyQuote && getBookTitle(q.book) === bookTitle;
+  }).length, [quotes, bookTitle]);
+
+  const isSaved = bookInfo?.isSaved || userQuotesCountForThisBook > 0;
+  const canToggleSave = userQuotesCountForThisBook === 0;
+
+  const handleToggleSave = async () => {
+    if (!canToggleSave || !bookInfo?.id) return;
+    await toggleSaveBook(bookInfo.id);
+    setBookInfo(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
+  };
 
   const savedQuotes = quotes.filter(q => getBookTitle(q.book) === bookTitle);
   // Logique pour trouver les livres similaires à partir des citations sauvegardées
@@ -319,7 +333,7 @@ export function BookDetailScreen() {
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
-            <View style={styles.placeholder} />
+            <View style={styles.saveButton} />
           </View>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <Text style={{ color: colors.textSecondary }}>Chargement des informations...</Text>
@@ -338,7 +352,7 @@ export function BookDetailScreen() {
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
-            <View style={styles.placeholder} />
+            <View style={styles.saveButton} />
           </View>
           <Text style={styles.errorText}>Livre non trouvé sur le serveur.</Text>
         </View>
@@ -361,7 +375,17 @@ export function BookDetailScreen() {
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
-          <View style={styles.placeholder} />
+          <TouchableOpacity
+            style={[styles.saveButton, !canToggleSave && { opacity: 0.8 }]}
+            onPress={handleToggleSave}
+            disabled={!canToggleSave}
+          >
+            <Bookmark
+              size={24}
+              color={isSaved ? colors.primary : colors.text}
+              fill={isSaved ? colors.primary : 'none'}
+            />
+          </TouchableOpacity>
         </View>
 
         <Animated.ScrollView
@@ -569,7 +593,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   backButton: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: colors.text, flex: 1, textAlign: 'center' },
-  placeholder: { width: 28 },
+  saveButton: { padding: 4, width: 32, alignItems: 'center' },
   content: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 32 },
   section: {
