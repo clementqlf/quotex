@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical } from 'lucide-react-native';
+import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { bookDescriptions } from '../data/staticData';
 import ScanPreviewModal from '../components/ScanPreviewModal';
@@ -53,6 +53,7 @@ export default function MyQuotesScreen() {
   }, [isFocused]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
@@ -336,6 +337,45 @@ export default function MyQuotesScreen() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [myQuotes]);
+  // Add Menu Modal
+  const AddQuoteMenu = () => (
+    <Modal
+      visible={showAddMenu}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowAddMenu(false)}
+    >
+      <Pressable style={styles.modalBackdrop} onPress={() => setShowAddMenu(false)}>
+        <View style={[styles.actionMenuContainer, { position: 'absolute', top: 60, right: 16, width: 220 }]}>
+          {/* Scan Option */}
+          <TouchableOpacity
+            style={styles.actionMenuItem}
+            onPress={() => {
+              setShowAddMenu(false);
+              navigation.navigate('Scan');
+            }}
+          >
+            <Camera size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <Text style={styles.actionMenuText}>Scanner une citation</Text>
+          </TouchableOpacity>
+
+          {/* Manual Add Option */}
+          <TouchableOpacity
+            style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
+            onPress={() => {
+              setShowAddMenu(false);
+              setEditingQuote(null);
+              setShowManualQuoteModal(true);
+            }}
+          >
+            <Edit3 size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <Text style={styles.actionMenuText}>Ajouter une citation</Text>
+          </TouchableOpacity>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -347,7 +387,7 @@ export default function MyQuotesScreen() {
           <Text style={styles.headerTitle}>Mes Citations</Text>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setShowManualQuoteModal(true)}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
             <Plus size={20} color="#20B8CD" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Search')}>
@@ -595,6 +635,7 @@ export default function MyQuotesScreen() {
         initialAuthor={editingQuote ? getAuthorName(editingQuote.author) : ""}
       />
       <QuoteActionModal />
+      <AddQuoteMenu />
     </SafeAreaView >
   );
 }
