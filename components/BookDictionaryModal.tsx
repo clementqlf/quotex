@@ -219,7 +219,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.7)',
+        backgroundColor: colors.backdrop,
     },
     content: {
         backgroundColor: colors.background,

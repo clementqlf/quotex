@@ -26,6 +26,7 @@ export const colors = {
         inputPlaceholder: '#6B7280',
         cardBackground: '#1A1A1A',
         buttonText: '#05252C',
+        backdrop: 'rgba(0, 0, 0, 0.45)',
     },
 
     light: {
@@ -43,6 +44,7 @@ export const colors = {
         inputPlaceholder: '#9CA3AF',
         cardBackground: '#FFFFFF',
         buttonText: '#FFFFFF',
+        backdrop: 'rgba(0, 0, 0, 0.45)',
     }
 };
 

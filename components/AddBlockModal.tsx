@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 export interface BlockOption {
   key: string;
@@ -14,6 +16,9 @@ interface AddBlockModalProps {
 }
 
 export default function AddBlockModal({ visible, onClose, onSelect, options }: AddBlockModalProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const opts: BlockOption[] = options ?? [
     { key: 'definition', label: 'Définition' },
     { key: 'bookInfo', label: "À propos du livre" },
@@ -42,25 +47,25 @@ export default function AddBlockModal({ visible, onClose, onSelect, options }: A
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.backdrop,
     justifyContent: 'center',
     alignItems: 'center',
   },
   addBlockModal: {
     width: '80%',
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
   },
   addBlockTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 12,
   },
   addBlockOption: {
@@ -68,12 +73,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1F1F1F',
+    borderColor: colors.surfaceHighlight,
     marginBottom: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
   },
   addBlockOptionText: {
-    color: '#E5E7EB',
+    color: colors.textSecondary,
     fontSize: 14,
   },
 });

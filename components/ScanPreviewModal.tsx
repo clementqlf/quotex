@@ -475,7 +475,7 @@ export default function ScanPreviewModal({
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     previewBackdrop: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        backgroundColor: colors.backdrop,
         justifyContent: 'center',
         alignItems: 'center',
     },

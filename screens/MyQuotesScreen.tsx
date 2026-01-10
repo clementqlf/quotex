@@ -855,7 +855,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.backdrop,
     justifyContent: 'center',
     alignItems: 'center',
   },

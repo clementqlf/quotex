@@ -445,7 +445,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end'
   },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.7)' },
   modalView: {
     backgroundColor: colors.background,
     borderTopLeftRadius: 24,

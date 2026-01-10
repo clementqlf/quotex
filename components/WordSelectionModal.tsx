@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import { X, Check } from 'lucide-react-native';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 interface WordSelectionModalProps {
     visible: boolean;
@@ -10,6 +12,8 @@ interface WordSelectionModalProps {
 }
 
 export default function WordSelectionModal({ visible, onClose, onConfirm, quoteText }: WordSelectionModalProps) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => createStyles(colors), [colors]);
     const [words, setWords] = useState<{ id: number; text: string; selected: boolean }[]>([]);
 
     useEffect(() => {
@@ -58,11 +62,16 @@ export default function WordSelectionModal({ visible, onClose, onConfirm, quoteT
             onRequestClose={onClose}
         >
             <View style={styles.container}>
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFill}
+                    activeOpacity={1}
+                    onPress={onClose}
+                />
                 <View style={styles.content}>
                     <View style={styles.header}>
                         <Text style={styles.title}>Sélectionner les mots à définir</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <X size={24} color="#9CA3AF" />
+                            <X size={24} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
 
@@ -92,7 +101,7 @@ export default function WordSelectionModal({ visible, onClose, onConfirm, quoteT
                             onPress={handleConfirm}
                             disabled={words.filter(w => w.selected).length === 0}
                         >
-                            <Check size={20} color={words.filter(w => w.selected).length === 0 ? "#6B7280" : "#05252C"} />
+                            <Check size={20} color={words.filter(w => w.selected).length === 0 ? colors.textTertiary : colors.buttonText} />
                             <Text style={[styles.confirmText, words.filter(w => w.selected).length === 0 && styles.confirmTextDisabled]}>
                                 Confirmer la sélection
                             </Text>
@@ -104,20 +113,20 @@ export default function WordSelectionModal({ visible, onClose, onConfirm, quoteT
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.7)',
+        backgroundColor: colors.backdrop,
     },
     content: {
-        backgroundColor: '#0F0F0F',
+        backgroundColor: colors.background,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         maxHeight: '80%',
         paddingBottom: 40,
         borderTopWidth: 1,
-        borderTopColor: '#1F1F1F',
+        borderTopColor: colors.border,
     },
     header: {
         flexDirection: 'row',
@@ -125,12 +134,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#1F1F1F',
+        borderBottomColor: colors.border,
     },
     title: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: colors.text,
     },
     closeButton: {
         padding: 4,
@@ -147,29 +156,29 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
     },
     wordChipSelected: {
-        backgroundColor: 'rgba(32, 184, 205, 0.2)',
-        borderColor: '#20B8CD',
+        backgroundColor: colors.primaryLight,
+        borderColor: colors.primary,
     },
     wordText: {
         fontSize: 16,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
     },
     wordTextSelected: {
-        color: '#20B8CD',
+        color: colors.primary,
         fontWeight: '600',
     },
     footer: {
         padding: 20,
         borderTopWidth: 1,
-        borderTopColor: '#1F1F1F',
+        borderTopColor: colors.border,
     },
     confirmButton: {
-        backgroundColor: '#20B8CD',
+        backgroundColor: colors.primary,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -178,16 +187,16 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     confirmButtonDisabled: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surfaceHighlight,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.border,
     },
     confirmText: {
-        color: '#05252C',
+        color: colors.buttonText,
         fontSize: 16,
         fontWeight: '600',
     },
     confirmTextDisabled: {
-        color: '#6B7280',
+        color: colors.textTertiary,
     },
 });

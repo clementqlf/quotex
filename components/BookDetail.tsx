@@ -12,6 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';

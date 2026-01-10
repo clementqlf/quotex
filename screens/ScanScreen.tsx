@@ -467,7 +467,7 @@ export default function ScanScreen() {
               <Rect
                 width={containerSize.width}
                 height={containerSize.height}
-                fill="rgba(0, 0, 0, 0.6)"
+                fill={colors.backdrop}
                 mask="url(#scanMask)"
               />
             </Svg>
@@ -703,7 +703,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: colors.backdrop,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 99,
