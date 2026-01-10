@@ -16,8 +16,9 @@ import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon } from '
 import { searchService, SearchResults } from '../src/services/SearchService';
 import { Quote, Book, Author } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-
 import { googleBooksService } from '../src/services/GoogleBooksService';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 type SearchSection =
     | { title: 'Citations'; data: Quote[]; type: 'quote' }
@@ -28,6 +29,9 @@ type SearchSection =
 
 export default function SearchScreen() {
     const navigation = useNavigation<any>();
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => createStyles(colors), [colors]);
+
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [] });
@@ -101,7 +105,7 @@ export default function SearchScreen() {
                     onPress={() => navigation.navigate('QuoteDetail', { quote })}
                 >
                     <View style={styles.quoteIconContainer}>
-                        <QuoteIcon size={16} color="#20B8CD" fill="#20B8CD" />
+                        <QuoteIcon size={16} color={colors.primary} fill={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
                         <Text numberOfLines={2} style={styles.quoteText}>"{quote.text}"</Text>
@@ -116,11 +120,11 @@ export default function SearchScreen() {
                     style={styles.resultItem}
                     onPress={() => navigation.navigate('BookDetail', { book })}
                 >
-                    <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                    <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                         {book.cover ? (
                             <Image source={{ uri: book.cover }} style={styles.bookCover} />
                         ) : (
-                            <BookOpen size={20} color="#3B82F6" />
+                            <BookOpen size={20} color={colors.primary} />
                         )}
                     </View>
                     <View>
@@ -165,11 +169,11 @@ export default function SearchScreen() {
                     style={styles.resultItem}
                     onPress={() => handleGoogleBookPress(item)}
                 >
-                    <View style={item.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.05)' }]}>
+                    <View style={item.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                         {item.cover ? (
                             <Image source={{ uri: item.cover }} style={styles.bookCover} />
                         ) : (
-                            <BookOpen size={20} color="#3B82F6" />
+                            <BookOpen size={20} color={colors.primary} />
                         )}
                     </View>
                     <View style={{ flex: 1 }}>
@@ -190,22 +194,22 @@ export default function SearchScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <ArrowLeft size={24} color="#FFFFFF" />
+                    <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
                 <View style={styles.searchBar}>
-                    <Search size={20} color="#9CA3AF" />
+                    <Search size={20} color={colors.textSecondary} />
                     <TextInput
                         ref={inputRef}
                         style={styles.input}
                         placeholder="Rechercher citations, livres..."
-                        placeholderTextColor="#6B7280"
+                        placeholderTextColor={colors.textSecondary}
                         value={query}
                         onChangeText={setQuery}
                         returnKeyType="search"
                     />
                     {query.length > 0 && (
                         <TouchableOpacity onPress={() => { setQuery(''); inputRef.current?.focus(); }}>
-                            <X size={18} color="#9CA3AF" />
+                            <X size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -214,7 +218,7 @@ export default function SearchScreen() {
             {/* Content */}
             {isLoading ? (
                 <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#20B8CD" />
+                    <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             ) : (
                 <SectionList
@@ -241,10 +245,10 @@ export default function SearchScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0F0F0F',
+        backgroundColor: colors.background,
     },
     header: {
         flexDirection: 'row',
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
         padding: 16,
         gap: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#1F1F1F',
+        borderBottomColor: colors.border,
     },
     backButton: {
         padding: 4,
@@ -261,7 +265,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.inputBackground,
         borderRadius: 12,
         paddingHorizontal: 12,
         height: 48,
@@ -269,7 +273,7 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        color: '#FFFFFF',
+        color: colors.inputText,
         fontSize: 16,
         height: '100%',
     },
@@ -279,10 +283,10 @@ const styles = StyleSheet.create({
     sectionHeader: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#0F0F0F', // sticky header background
+        backgroundColor: colors.background, // sticky header background
     },
     sectionTitle: {
-        color: '#20B8CD',
+        color: colors.primary,
         fontSize: 14,
         fontWeight: '700',
         textTransform: 'uppercase',
@@ -294,20 +298,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#1A1A1A',
+        borderBottomColor: colors.border,
     },
     itemTitle: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
     },
     subText: {
-        color: '#6B7280',
+        color: colors.textSecondary,
         fontSize: 14,
         marginTop: 2,
     },
     quoteText: {
-        color: '#E5E7EB',
+        color: colors.text,
         fontSize: 15,
         fontStyle: 'italic',
         marginBottom: 4,
@@ -324,7 +328,7 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(32, 184, 205, 0.1)',
+        backgroundColor: colors.primaryLight,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -336,7 +340,7 @@ const styles = StyleSheet.create({
         marginTop: 40,
     },
     emptyText: {
-        color: '#6B7280',
+        color: colors.textSecondary,
         fontSize: 16,
     },
     bookCoverContainer: {
@@ -345,7 +349,7 @@ const styles = StyleSheet.create({
         marginRight: 16,
         borderRadius: 4,
         overflow: 'hidden',
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight, // Used surfaceHighlight instead of colors.gray which doesn't exist
         justifyContent: 'center',
         alignItems: 'center',
     },

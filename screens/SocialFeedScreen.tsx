@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,13 @@ import { useTabIndex } from '../TabNavigator';
 import { globalQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 export default function SocialFeedScreen() {
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
   const feedQuotes = quotes.filter(q => q.user && q.user.id !== 1); // Global quotes except mine
 
@@ -44,7 +48,7 @@ export default function SocialFeedScreen() {
             <Text style={styles.headerTitle}>Feed</Text>
           </View>
           <TouchableOpacity style={styles.headerButton}>
-            <Zap size={20} color="#9CA3AF" />
+            <Zap size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -124,8 +128,8 @@ export default function SocialFeedScreen() {
                   >
                     <Heart
                       size={20}
-                      fill={quote.isLiked ? '#20B8CD' : 'transparent'}
-                      color={quote.isLiked ? '#20B8CD' : '#6B7280'}
+                      fill={quote.isLiked ? colors.primary : 'transparent'}
+                      color={quote.isLiked ? colors.primary : colors.textTertiary}
                     />
                     <Text
                       style={[
@@ -138,20 +142,20 @@ export default function SocialFeedScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.actionButton}>
-                    <MessageCircle size={20} color="#6B7280" />
+                    <MessageCircle size={20} color={colors.textTertiary} />
                     <Text style={styles.actionText}>{quote.comments}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.actionButton}>
-                    <Share2 size={20} color="#6B7280" />
+                    <Share2 size={20} color={colors.textTertiary} />
                   </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity onPress={() => toggleSaveQuote(quote.id)}>
                   <Bookmark
-                    fill={quote.isSaved ? '#20B8CD' : 'transparent'}
+                    fill={quote.isSaved ? colors.primary : 'transparent'}
                     size={20}
-                    color={quote.isSaved ? '#20B8CD' : '#6B7280'}
+                    color={quote.isSaved ? colors.primary : colors.textTertiary}
                   />
                 </TouchableOpacity>
               </View>
@@ -168,14 +172,14 @@ export default function SocialFeedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
     paddingTop: 16,
   },
   headerTop: {
@@ -192,15 +196,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#FFFFFF',
+    color: colors.text,
   },
   headerButton: {
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -215,7 +219,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
     borderColor: 'rgba(32, 184, 205, 0.2)',
     alignItems: 'center',
@@ -225,18 +229,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     alignItems: 'center',
   },
   tabTextActive: {
     fontSize: 14,
-    color: '#20B8CD',
+    color: colors.primary,
   },
   tabTextInactive: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -246,7 +250,7 @@ const styles = StyleSheet.create({
   },
   quoteCard: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
     padding: 16,
   },
   userInfo: {
@@ -259,7 +263,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
     borderColor: 'rgba(32, 184, 205, 0.2)',
     justifyContent: 'center',
@@ -267,18 +271,18 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 14,
-    color: '#20B8CD',
+    color: colors.primary,
   },
   userDetails: {
     flex: 1,
   },
   userName: {
     fontSize: 14,
-    color: '#E5E7EB',
+    color: colors.text,
   },
   userMeta: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   quoteContent: {
     marginBottom: 12,
@@ -291,7 +295,7 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#E5E7EB',
+    color: colors.text,
     marginBottom: 12,
   },
   bookTag: {
@@ -300,23 +304,23 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 8,
     alignSelf: 'flex-start',
   },
   bookName: {
     fontSize: 12,
-    color: '#20B8CD',
+    color: colors.primary,
   },
   separator: {
     fontSize: 12,
-    color: '#4B5563',
+    color: colors.textSecondary,
   },
   authorName: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   actions: {
     flexDirection: 'row',
@@ -335,10 +339,10 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   actionTextActive: {
-    color: '#20B8CD',
+    color: colors.primary,
   },
   fab: {
     position: 'absolute',
@@ -347,10 +351,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 12,
-    backgroundColor: '#20B8CD',
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#20B8CD',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import {
   ActivityIndicator,
@@ -22,8 +22,12 @@ import ScanWorkflow from './ScanWorkflow';
 import { useLiveOCR } from '../src/hooks/useLiveOCR';
 
 import QuotexLogo from '../components/QuotexLogo';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 export default function ScanScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
   const [ocrResult, setOcrResult] = React.useState<TextRecognitionResult | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -321,7 +325,7 @@ export default function ScanScreen() {
 
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#20B8CD" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
 
@@ -487,7 +491,7 @@ export default function ScanScreen() {
                   activeOpacity={0.9}
                 >
                   <View>
-                    <ScanLine size={28} color={isTextDetectedLive ? "#20B8CD" : "#444"} />
+                    <ScanLine size={28} color={isTextDetectedLive ? colors.primary : "#444"} />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -503,10 +507,10 @@ export default function ScanScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background, // Should adapt to light/dark for permission screen
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible',
@@ -546,7 +550,7 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     maxHeight: 450,
     borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.2)',
+    borderColor: 'rgba(32, 184, 205, 0.2)', // Keep hardcoded or use primary with opacity? Keeping hardcoded for camera overlay consistency
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
@@ -558,47 +562,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 32,
     height: 32,
-    borderColor: '#20B8CD',
-    shadowColor: '#20B8CD',
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 8,
     zIndex: 10,
   },
-  cornerTopLeft: {
-    top: -3,
-    left: -3,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 24,
-  },
-  cornerTopRight: {
-    top: -3,
-    right: -3,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 24,
-  },
-  cornerBottomLeft: {
-    bottom: -3,
-    left: -3,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 24,
-  },
-  cornerBottomRight: {
-    bottom: -3,
-    right: -3,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 24,
-  },
   scanLine: {
     position: 'absolute',
     width: '100%',
     height: 2,
-    backgroundColor: '#20B8CD',
-    shadowColor: '#20B8CD',
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 10,
@@ -620,7 +596,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   iconShadowWrapper: {
-    shadowColor: '#20B8CD',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 15,
@@ -633,10 +609,10 @@ const styles = StyleSheet.create({
   },
   instructionTextShadow: {
     fontSize: 15,
-    color: '#FFFFFF',
+    color: '#FFFFFF', // Maintain white for overlay visibility
     marginTop: 20,
     textAlign: 'center',
-    textShadowColor: '#20B8CD',
+    textShadowColor: colors.primary,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 15,
     overflow: 'visible',
@@ -662,7 +638,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 12,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1a1a1a', // Keep dark for overlay buttons
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -679,10 +655,10 @@ const styles = StyleSheet.create({
     borderRadius: 42,
     backgroundColor: 'transparent',
     borderWidth: 3,
-    borderColor: '#20B8CD',
+    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#20B8CD',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 15,
@@ -709,13 +685,13 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   permissionText: {
-    color: 'white',
+    color: colors.text,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
   },
   permissionButton: {
-    backgroundColor: '#20B8CD',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 8,

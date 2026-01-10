@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
+import { useTheme, ThemeColors } from '../src/contexts/ThemeContext';
 import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
@@ -29,6 +30,8 @@ export function BookDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<BookDetailScreenRouteProp>();
   const params = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Handle both cases
   const passedBook = params?.book;
@@ -294,7 +297,7 @@ export function BookDetailScreen() {
         onRemove={() => handleRemoveBlock(item)}
       />
     );
-  }, [blockContext, handleRemoveBlock]);
+  }, [blockContext, handleRemoveBlock, styles]);
 
   if (!bookTitle) {
     return (
@@ -551,9 +554,9 @@ export function BookDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0F0F0F' },
-  container: { flex: 1, backgroundColor: '#0F0F0F' },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -561,17 +564,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
   },
   backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.text, flex: 1, textAlign: 'center' },
   placeholder: { width: 28 },
   content: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 32 },
   section: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -593,12 +596,12 @@ const styles = StyleSheet.create({
   bookTitleText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 4,
   },
   bookAuthorText: {
     fontSize: 14,
-    color: '#20B8CD',
+    color: colors.primary,
     marginBottom: 12,
   },
   bookMeta: {
@@ -613,12 +616,12 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.textTertiary,
   },
   genreBadge: {
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.2)',
+    borderColor: 'rgba(32, 184, 205, 0.2)', // Keeping manual opacity for now as theme doesn't have it
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -626,13 +629,13 @@ const styles = StyleSheet.create({
   },
   genreText: {
     fontSize: 11,
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: '500',
   },
   bookDesc: {
     fontSize: 13,
     lineHeight: 20,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -643,33 +646,33 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   authorName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#20B8CD',
+    color: colors.primary,
     marginBottom: 8,
   },
   authorDesc: {
     fontSize: 13,
     lineHeight: 20,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   savedQuotesList: {
     gap: 12,
   },
   savedQuoteCard: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     padding: 12,
   },
   savedQuoteText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#E5E7EB',
+    color: colors.text, // Was #E5E7EB
     fontStyle: 'italic',
     marginBottom: 8,
   },
@@ -679,11 +682,11 @@ const styles = StyleSheet.create({
   },
   savedQuoteAuthor: {
     fontSize: 12,
-    color: '#20B8CD',
+    color: colors.primary,
   },
   savedQuoteDate: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary, // Was #6B7280
   },
   similarBooksContainer: {
     marginHorizontal: -8,
@@ -700,26 +703,26 @@ const styles = StyleSheet.create({
   },
   similarBookTitle: {
     fontSize: 12,
-    color: '#E5E7EB',
+    color: colors.text,
     textAlign: 'center',
     lineHeight: 16,
   },
   placeholderSection: {
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 24,
     minHeight: 140,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   placeholderIcon: {
     marginBottom: 8,
   },
   placeholderText: {
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -733,28 +736,28 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
   },
   gridSection: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 12,
     marginBottom: 16,
   },
-  errorText: { color: 'white', textAlign: 'center', marginTop: 50 },
+  errorText: { color: colors.text, textAlign: 'center', marginTop: 50 },
   notesInput: {
-    backgroundColor: '#0B0B0B',
+    backgroundColor: colors.inputBackground, // Was #0B0B0B, theme input prop has dark values
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
-    color: '#E5E7EB',
+    color: colors.inputText,
     fontSize: 13,
     minHeight: 120,
   },
@@ -764,7 +767,7 @@ const styles = StyleSheet.create({
   },
   subTitle: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     marginBottom: 8,
     alignSelf: 'flex-start',
   },
@@ -776,23 +779,23 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   commentInput: {
-    backgroundColor: '#0B0B0B',
+    backgroundColor: colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
-    color: '#E5E7EB',
+    color: colors.inputText,
     fontSize: 13,
     minHeight: 80,
   },
   reviewsList: {
     gap: 16,
     borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
+    borderTopColor: colors.border,
     paddingTop: 16,
   },
   reviewItem: {
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background, // Was #0F0F0F
     borderRadius: 12,
     padding: 12,
   },
@@ -813,12 +816,12 @@ const styles = StyleSheet.create({
   },
   reviewerName: {
     fontSize: 12,
-    color: '#E5E7EB',
+    color: colors.text,
     fontWeight: '500',
   },
   reviewDate: {
     fontSize: 11,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   reviewRating: {
     flexDirection: 'row',
@@ -827,14 +830,14 @@ const styles = StyleSheet.create({
   },
   reviewComment: {
     fontSize: 13,
-    color: '#D1D5DB',
+    color: colors.textSecondary, // Was #D1D5DB
     lineHeight: 18,
   },
   publishButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#20B8CD',
+    backgroundColor: colors.primary,
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 12,
@@ -843,7 +846,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   publishButtonText: {
-    color: '#000',
+    color: '#000', // Text on primary color. Theme doesn't specify 'onPrimary'. #000 is safe for #20B8CD.
     fontSize: 12,
     fontWeight: '600',
   },
@@ -851,18 +854,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
+    borderTopColor: colors.border,
     marginTop: 8,
   },
   seeAllReviewsText: {
-    color: '#20B8CD',
+    color: colors.primary,
     fontSize: 13,
     fontWeight: '500',
   },
   // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -870,12 +873,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.text,
   },
   modalCloseButton: {
     padding: 4,
@@ -885,11 +888,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   modalReviewItem: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
   },
   reviewerAvatarLarge: {
     width: 32,
@@ -899,11 +902,11 @@ const styles = StyleSheet.create({
   reviewerNameLarge: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFF',
+    color: colors.text,
   },
   reviewCommentLarge: {
     fontSize: 14,
-    color: '#E5E7EB',
+    color: colors.text,
     lineHeight: 22,
     marginTop: 8,
   },
@@ -914,11 +917,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: '#000', // Buy link might be specific black? Keep for now or use background.
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
   },
   buyLinkInfo: {
     flexDirection: 'row',
@@ -926,12 +929,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   buyLinkStore: {
-    color: '#FFF',
+    color: '#FFF', // Always white on black button? 
     fontSize: 14,
     fontWeight: '500',
   },
   buyLinkPrice: {
-    color: '#20B8CD',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -939,7 +942,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    borderBottomColor: colors.surfaceHighlight,
   },
   tabButton: {
     flex: 1,
@@ -949,15 +952,15 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTabButton: {
-    borderBottomColor: '#20B8CD',
+    borderBottomColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   activeTabText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '600',
   },
 });

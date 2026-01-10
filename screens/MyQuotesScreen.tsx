@@ -23,6 +23,8 @@ import { useData } from '../src/contexts/DataProvider';
 import { Quote } from '../types';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import { formatRelativeDate } from '../src/utils/dateUtils';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 const EDGE_SWIPE_ZONE = 28;
@@ -30,6 +32,8 @@ const SWIPE_ACTIVATION_THRESHOLD = 60;
 
 export default function MyQuotesScreen() {
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes: allQuotes, toggleLikeQuote, deleteQuote, refreshQuotes, addQuote, updateQuote } = useData();
 
   // Filter for "My Quotes" (current user is ID 1) or legacy local quotes
@@ -166,7 +170,7 @@ export default function MyQuotesScreen() {
   const QuoteCard = ({ quote }: { quote: Quote }) => {
     return (
       <View style={styles.cardWrapper}>
-        <View style={[styles.quoteCard, { backgroundColor: '#1A1A1A', borderRadius: 16, overflow: 'hidden' }]}>
+        <View style={styles.quoteCard}>
           {/* 3-Dots Menu Button - Top Left */}
           <TouchableOpacity
             style={styles.menuButton}
@@ -515,17 +519,17 @@ export default function MyQuotesScreen() {
               >
                 <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
                   {author.image ? (
-                    <Image source={{ uri: author.image }} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 16, backgroundColor: '#2A2A2A' }} />
+                    <Image source={{ uri: author.image }} style={styles.authorAvatar} />
                   ) : (
-                    <View style={{ width: 60, height: 60, borderRadius: 30, marginRight: 16, backgroundColor: '#20B8CD22', justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#20B8CD' }}>{author.name.charAt(0)}</Text>
+                    <View style={styles.authorAvatarPlaceholder}>
+                      <Text style={styles.authorAvatarText}>{author.name.charAt(0)}</Text>
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.bookCardTitle, { marginBottom: 4 }]}>{author.name}</Text>
                     <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
                   </View>
-                  <ChevronDown size={20} color="#6B7280" style={{ transform: [{ rotate: '-90deg' }] }} />
+                  <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
                 </View>
               </TouchableOpacity>
             ))
@@ -537,19 +541,16 @@ export default function MyQuotesScreen() {
             themes.map(theme => (
               <View key={theme.theme} style={styles.bookCard}>
                 <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center' }}
+                  style={[styles.bookCardContent, { alignItems: 'center' }]}
                   activeOpacity={0.85}
                   onPress={() => navigation.navigate('ThemeDetail', { themeName: theme.theme })}
                 >
-                  <View style={{
-                    width: 48, height: 48, borderRadius: 24, backgroundColor: '#20B8CD22',
-                    justifyContent: 'center', alignItems: 'center', marginRight: 16,
-                  }}>
-                    <Text style={{ color: '#20B8CD', fontWeight: 'bold', fontSize: 18 }}>{theme.theme[0]}</Text>
+                  <View style={styles.themeIconContainer}>
+                    <Text style={styles.themeIconText}>{theme.theme[0]}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 16 }}>{theme.theme}</Text>
-                    <Text style={{ color: '#6B7280', fontSize: 13 }}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
+                    <Text style={styles.themeTitle}>{theme.theme}</Text>
+                    <Text style={styles.themeSubText}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
                   </View>
                 </TouchableOpacity>
               </View>
@@ -656,10 +657,10 @@ export default function MyQuotesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -668,26 +669,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   headerTitle: {
     fontSize: 20,
-    color: '#FFFFFF',
+    color: colors.text,
   },
   headerRight: {
     flexDirection: 'row',
@@ -697,9 +689,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -710,24 +702,24 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
   },
   statItemActive: {
-    borderColor: '#20B8CD',
-    backgroundColor: 'rgba(32, 184, 205, 0.08)',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   statValue: {
     fontSize: 18,
-    color: '#20B8CD',
+    color: colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 4,
   },
   scrollView: {
@@ -749,11 +741,11 @@ const styles = StyleSheet.create({
   },
   actionMenuContainer: {
     width: '80%',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: colors.border,
   },
   actionMenuHeader: {
     flexDirection: 'row',
@@ -762,11 +754,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: colors.border,
   },
   actionMenuTitle: {
     fontSize: 18,
-    color: '#FFF',
+    color: colors.text,
     fontWeight: 'bold',
   },
   actionMenuItem: {
@@ -774,11 +766,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.surfaceHighlight, // approximating rgba(255,255,255,0.05)
   },
   actionMenuText: {
     fontSize: 16,
-    color: '#FFF',
+    color: colors.text,
   },
   cardContainer: {
     zIndex: 10,
@@ -786,86 +778,93 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   quoteCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+    overflow: 'hidden' // Added from inline style
   },
 
   quoteIcon: {
-    fontSize: 32,
-    color: 'rgba(32, 184, 205, 0.2)',
+    // fontSize: 32, // Svg style doesn't use fontSize usually, but it was there
+    color: 'rgba(32, 184, 205, 0.2)', // Hardcoded opacity for icon
     marginBottom: 8,
   },
   quoteText: {
     fontSize: 18,
     lineHeight: 28,
-    color: '#E5E7EB',
+    color: colors.text,
     marginBottom: 16,
     fontFamily: 'Times New Roman',
     fontStyle: 'italic',
     fontWeight: '100',
   },
   bookInfo: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceHighlight,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
   },
   bookInfoLeft: {
     flex: 1,
+    marginRight: 12,
   },
   bookTitle: {
     fontSize: 14,
-    color: '#20B8CD',
+    color: colors.text,
+    fontWeight: '600',
     marginBottom: 4,
   },
   authorName: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
   },
   dateText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   actions: {
     flexDirection: 'row',
-    gap: 16,
+    justifyContent: 'flex-start',
+    gap: 24,
+    marginTop: 16,
+    paddingTop: 16,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
 
   actionText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   actionTextActive: {
-    color: '#20B8CD',
+    color: colors.primary,
   },
   iconFilled: {
     // Pour simuler le fill, vous devrez utiliser une icône différente
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalView: {
-    margin: 20,
-    backgroundColor: '#1A1A1A',
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 25,
-    width: '80%',
-    maxHeight: '60%',
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -876,86 +875,86 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
     marginBottom: 15,
     textAlign: 'center',
+    color: colors.text,
   },
   filterSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    borderBottomColor: colors.surfaceHighlight,
   },
   filterSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#20B8CD',
+    color: colors.text,
   },
   filterOption: {
-    paddingVertical: 10,
-    paddingLeft: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
   filterOptionText: {
-    color: '#E5E7EB',
     fontSize: 14,
+    color: colors.textSecondary,
   },
   filterOptionTextSelected: {
-    color: '#20B8CD',
-    fontWeight: 'bold',
+    color: colors.primary,
+    fontWeight: '600',
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginTop: 20,
-    gap: 10,
+    gap: 12,
   },
   resetButton: {
-    flex: 1,
-    backgroundColor: '#2A2A2A',
-    borderRadius: 10,
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceHighlight,
   },
   resetButtonText: {
-    color: '#9CA3AF',
+    color: colors.text,
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   applyButton: {
-    flex: 1,
-    backgroundColor: '#20B8CD',
-    borderRadius: 10,
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
   },
   applyButtonText: {
-    color: '#0F0F0F',
+    color: '#000', // Assuming primary text color
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   filterContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'center',
     gap: 8,
     marginBottom: 16,
   },
   filterBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
-    borderColor: 'rgba(32, 184, 205, 0.2)',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 6,
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(32, 184, 205, 0.3)',
+    gap: 6,
   },
   filterBadgeText: {
-    color: '#20B8CD',
+    color: colors.primary,
     fontSize: 12,
+    fontWeight: '500',
   },
   deleteActionText: {
     color: '#F87171',
@@ -963,77 +962,83 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cardWrapper: {
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderRadius: 16,
+    width: '100%',
   },
   bookCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderColor: colors.surfaceHighlight,
+    overflow: 'hidden',
   },
   bookCardContent: {
     flexDirection: 'row',
-    gap: 16,
+    padding: 12,
   },
   bookCardCover: {
-    width: 72,
-    height: 108,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    backgroundColor: '#0F0F0F',
+    width: 60,
+    height: 90,
+    borderRadius: 4,
+    marginRight: 12,
+    backgroundColor: colors.surfaceHighlight,
   },
   bookCardCoverPlaceholder: {
-    width: 72,
-    height: 108,
-    borderRadius: 8,
+    width: 60,
+    height: 90,
+    borderRadius: 4,
+    marginRight: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
-    backgroundColor: '#131313',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceHighlight,
   },
   bookCardInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   bookCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
-    gap: 12,
+    marginBottom: 4,
+    gap: 8,
   },
   bookCardTitle: {
     flex: 1,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '600',
   },
   bookCardYear: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
+    backgroundColor: colors.surfaceHighlight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   bookCardAuthor: {
     fontSize: 14,
-    color: '#20B8CD',
-    marginBottom: 8,
+    color: colors.primary,
+    marginBottom: 6,
   },
   bookCardDescription: {
     fontSize: 13,
-    color: '#9CA3AF',
-    lineHeight: 20,
-    marginBottom: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 8,
   },
   bookCardCount: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
+    fontStyle: 'italic',
   },
   emptyStateText: {
-    color: '#6B7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 40,
+    fontSize: 16,
   },
   clearFilterButton: {
     paddingHorizontal: 12,
@@ -1042,8 +1047,52 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   clearFilterButtonText: {
-    color: '#6B7280',
+    color: colors.textSecondary,
     fontSize: 12,
     textDecorationLine: 'underline',
+  },
+  authorAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
+    backgroundColor: colors.surfaceHighlight,
+  },
+  authorAvatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 16,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authorAvatarText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  themeIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  themeIconText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 24,
+  },
+  themeTitle: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  themeSubText: {
+    color: colors.textSecondary,
+    fontSize: 13,
   },
 });

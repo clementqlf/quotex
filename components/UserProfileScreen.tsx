@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { RootStackParamList, Author, Book, User } from '../types';
 // import { globalQuotesDB } from '../data/staticData'; // Removed direct import
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import { useData } from '../src/contexts/DataProvider';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 interface UserRouteParam {
   id: number | string;
@@ -44,6 +46,8 @@ export function UserProfileScreen() {
   const route = useRoute<UserProfileScreenRouteProp>();
   const { user } = route.params;
   const { getUserByUsername } = useData();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [profileData, setProfileData] = useState<User | null>(null);
@@ -101,7 +105,7 @@ export function UserProfileScreen() {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{user.username}</Text>
           <View style={styles.placeholder} />
@@ -154,7 +158,7 @@ export function UserProfileScreen() {
             {profileData.website && profileData.website.length > 0 && (
               <View style={styles.linksContainer}>
                 <TouchableOpacity style={styles.linkItem}>
-                  <Link size={14} color="#20B8CD" />
+                  <Link size={14} color={colors.primary} />
                   <Text style={styles.linkText}>{profileData.website}</Text>
                 </TouchableOpacity>
               </View>
@@ -164,7 +168,7 @@ export function UserProfileScreen() {
           {/* User's Quotes */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Quote size={16} color="#20B8CD" />
+              <Quote size={16} color={colors.primary} />
               <Text style={styles.sectionTitle}>Citations partagées</Text>
             </View>
 
@@ -197,10 +201,10 @@ export function UserProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -212,14 +216,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
   },
   backButton: {
     padding: 4,
   },
   headerTitle: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: colors.text,
     flex: 1,
     textAlign: 'center',
     fontWeight: '600',
@@ -231,7 +235,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     padding: 16,
@@ -245,31 +249,31 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(32, 184, 205, 0.1)',
+    backgroundColor: colors.primaryLight,
     borderWidth: 2,
-    borderColor: '#20B8CD',
+    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   avatarText: {
     fontSize: 32,
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: 'bold',
   },
   userName: {
     fontSize: 20,
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   userUsername: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textTertiary,
     marginBottom: 16,
   },
   followButton: {
-    backgroundColor: '#20B8CD',
+    backgroundColor: colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 32,
     borderRadius: 8,
@@ -277,20 +281,20 @@ const styles = StyleSheet.create({
   followButtonActive: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#20B8CD',
+    borderColor: colors.primary,
   },
   followButtonText: {
-    color: '#0F0F0F',
+    color: '#000', // Assuming text on primary is black
     fontSize: 14,
     fontWeight: 'bold',
   },
   followButtonTextActive: {
-    color: '#20B8CD',
+    color: colors.primary,
   },
   section: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -298,7 +302,7 @@ const styles = StyleSheet.create({
   bioText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#E5E7EB',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -314,7 +318,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 12,
-    color: '#20B8CD',
+    color: colors.primary,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -323,26 +327,26 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
   },
   statValue: {
     fontSize: 18,
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: 'bold',
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 4,
   },
   sectionTitle: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '600',
   },
   sectionHeader: {
@@ -353,7 +357,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textTertiary,
     textAlign: 'center',
     paddingVertical: 24,
   },
@@ -361,16 +365,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   savedQuoteCard: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     padding: 12,
   },
   savedQuoteText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#E5E7EB',
+    color: colors.text,
     fontStyle: 'italic',
     marginBottom: 8,
   },
@@ -381,16 +385,16 @@ const styles = StyleSheet.create({
   },
   savedQuoteAuthor: {
     fontSize: 12,
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: '500',
   },
   savedQuoteBook: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.textTertiary,
     marginTop: 2,
   },
   savedQuoteDate: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
 });
