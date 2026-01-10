@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera } from 'lucide-react-native';
+import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { bookDescriptions } from '../data/staticData';
 import ScanPreviewModal from '../components/ScanPreviewModal';
@@ -59,6 +59,16 @@ export default function MyQuotesScreen() {
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [viewMode]);
 
   const authors = [...new Set(myQuotes.map(q => getAuthorName(q.author)))];
   const books = [...new Set(myQuotes.map(q => getBookTitle(q.book)))];
@@ -380,12 +390,18 @@ export default function MyQuotesScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.iconContainer}>
-            <BookOpen size={16} color="#20B8CD" />
-          </View>
-          <Text style={styles.headerTitle}>Mes Citations</Text>
-        </View>
+        <Animated.View style={[styles.headerLeft, { opacity: fadeAnim }]}>
+          {viewMode === 'quotes' && <QuoteIcon size={24} color="#FFFFFF" />}
+          {viewMode === 'books' && <BookIcon size={24} color="#FFFFFF" />}
+          {viewMode === 'authors' && <Users size={24} color="#FFFFFF" />}
+          {viewMode === 'themes' && <Hash size={24} color="#FFFFFF" />}
+          <Text style={styles.headerTitle}>
+            {viewMode === 'quotes' && 'Mes Citations'}
+            {viewMode === 'books' && 'Mes Livres'}
+            {viewMode === 'authors' && 'Mes Auteurs'}
+            {viewMode === 'themes' && 'Mes Thèmes'}
+          </Text>
+        </Animated.View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
             <Plus size={20} color="#20B8CD" />
