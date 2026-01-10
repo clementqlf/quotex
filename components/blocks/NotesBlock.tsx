@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TextInput, StyleSheet } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { BlockKey } from '../../src/config/blocks';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface NotesBlockProps {
     blockKey?: BlockKey;
@@ -20,12 +22,15 @@ export const NotesBlock: React.FC<NotesBlockProps> = ({
     isEditable = true,
     onRemove
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <BlockWrapper blockKey={blockKey} onRemove={onRemove}>
             <TextInput
                 style={styles.notesInput}
                 placeholder={placeholder}
-                placeholderTextColor="#6B7280"
+                placeholderTextColor={colors.inputPlaceholder}
                 multiline
                 numberOfLines={6}
                 value={content}
@@ -37,12 +42,12 @@ export const NotesBlock: React.FC<NotesBlockProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     notesInput: {
-        backgroundColor: '#1E1E1E',
+        backgroundColor: colors.inputBackground,
         borderRadius: 8,
         padding: 12,
-        color: '#E5E7EB',
+        color: colors.inputText,
         fontSize: 14,
         minHeight: 100,
     },

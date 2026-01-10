@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Quote } from '../../types';
 import { getAuthorName } from '../../src/utils/dataHelpers';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface SavedQuotesBlockProps {
     quotes: Quote[];
@@ -11,6 +13,9 @@ interface SavedQuotesBlockProps {
 }
 
 export const SavedQuotesBlock: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const hasQuotes = quotes && quotes.length > 0;
 
     if (!hasQuotes) {
@@ -45,9 +50,9 @@ export const SavedQuotesBlock: React.FC<SavedQuotesBlockProps> = ({ quotes, onQu
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
@@ -55,15 +60,15 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     savedQuoteCard: {
-        backgroundColor: '#1E1E1E', // Slightly lighter than block
+        backgroundColor: colors.surfaceHighlight,
         borderRadius: 12,
         padding: 16,
         borderWidth: 1,
-        borderColor: '#333',
+        borderColor: colors.border,
     },
     savedQuoteText: {
         fontSize: 15,
-        color: '#E5E7EB',
+        color: colors.text,
         lineHeight: 22,
         fontStyle: 'italic',
         marginBottom: 12,
@@ -74,16 +79,16 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         borderTopWidth: 1,
-        borderTopColor: '#333',
+        borderTopColor: colors.border,
         paddingTop: 8,
     },
     savedQuoteAuthor: {
         fontSize: 12,
-        color: '#9CA3AF',
+        color: colors.textSecondary,
         fontWeight: '600',
     },
     savedQuoteDate: {
         fontSize: 10,
-        color: '#6B7280',
+        color: colors.textTertiary,
     },
 });

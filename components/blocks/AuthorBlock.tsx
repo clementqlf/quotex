@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Author, Book } from '../../types';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface AuthorBlockProps {
     author: Author | null;
@@ -12,6 +14,9 @@ interface AuthorBlockProps {
 }
 
 export const AuthorBlock: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const authorName = nameOverride || (author?.name) || (typeof book?.author === 'string' ? book?.author : book?.author?.name);
     const description = author?.description;
 
@@ -42,21 +47,21 @@ export const AuthorBlock: React.FC<AuthorBlockProps> = ({ author, book, authorNa
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
     authorName: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: colors.text,
         marginBottom: 8,
     },
     authorDesc: {
         fontSize: 14,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         lineHeight: 22,
     },
 });

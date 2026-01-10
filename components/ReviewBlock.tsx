@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Image, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
 import { Star, User, Send, X } from 'lucide-react-native';
 import { Review, User as UserType } from '../types';
 import { ReviewService } from '../src/services/ReviewService';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 interface ReviewBlockProps {
     bookId: number;
@@ -11,6 +13,9 @@ interface ReviewBlockProps {
 }
 
 export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewBlockProps) {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const [reviews, setReviews] = useState<Review[]>([]);
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -42,7 +47,6 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
             return;
         }
 
-        // Optimistic update or wait for server? Let's wait for server for simplicity
         const newReview = await ReviewService.createReview({
             rating,
             comment,
@@ -55,9 +59,6 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
             setRating(0);
             setComment('');
             Alert.alert("Succès", "Votre avis a été publié !");
-            if (onRemove) {
-                // Optionally remove the block if it was a one-time thing, but usually we want to keep it to show the review
-            }
             if (onReviewAdded) {
                 onReviewAdded();
             }
@@ -66,19 +67,11 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
         }
     };
 
-    // Check if current user already posted a review? 
-    // For now, allow multiple or just show form.
-
-    const userReview = reviews.find(r => r.userId === 1);
-    // If user reviewed, maybe show their review instead of form? 
-    // For now, let's just show the form always if not simple to filter locally.
-    // Or better: separate "My Review" input from "Community Reviews".
-
     return (
         <View style={styles.removableWrapper}>
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                    <Star size={16} color="#20B8CD" />
+                    <Star size={16} color={colors.primary} />
                     <Text style={styles.sectionTitle}>Avis & Commentaires</Text>
                 </View>
 
@@ -90,8 +83,8 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                             <TouchableOpacity key={star} onPress={() => setRating(star)}>
                                 <Star
                                     size={24}
-                                    color={rating >= star ? "#20B8CD" : "#4B5563"}
-                                    fill={rating >= star ? "#20B8CD" : "none"}
+                                    color={rating >= star ? colors.primary : colors.textTertiary}
+                                    fill={rating >= star ? colors.primary : "none"}
                                 />
                             </TouchableOpacity>
                         ))}
@@ -103,13 +96,13 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                     <TextInput
                         style={styles.commentInput}
                         placeholder="Donnez votre avis sur ce livre..."
-                        placeholderTextColor="#6B7280"
+                        placeholderTextColor={colors.textTertiary}
                         multiline
                         value={comment}
                         onChangeText={setComment}
                     />
                     <TouchableOpacity style={styles.publishButton} onPress={handlePublishReview}>
-                        <Send size={14} color="#000" />
+                        <Send size={14} color="#FFF" />
                         <Text style={styles.publishButtonText}>Publier</Text>
                     </TouchableOpacity>
                 </View>
@@ -125,8 +118,8 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
                                         ) : (
-                                            <View style={[styles.reviewerAvatar, { backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }]}>
-                                                <User size={12} color="#9CA3AF" />
+                                            <View style={[styles.reviewerAvatar, { backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
+                                                <User size={12} color={colors.textTertiary} />
                                             </View>
                                         )}
                                         <Text style={styles.reviewerName}>{review.user.name || 'Utilisateur'}</Text>
@@ -135,7 +128,7 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                 </View>
                                 <View style={styles.reviewRating}>
                                     {[1, 2, 3, 4, 5].map(s => (
-                                        <Star key={s} size={10} color={review.rating >= s ? "#20B8CD" : "#4B5563"} fill={review.rating >= s ? "#20B8CD" : "none"} />
+                                        <Star key={s} size={10} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
                                     ))}
                                 </View>
                                 {review.comment && <Text style={styles.reviewComment}>{review.comment}</Text>}
@@ -151,7 +144,7 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
             </View>
             {onRemove && (
                 <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
-                    <X size={14} color="#EF4444" />
+                    <X size={14} color={colors.warning} />
                 </TouchableOpacity>
             )}
 
@@ -166,7 +159,7 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Avis ({reviews.length})</Text>
                         <TouchableOpacity onPress={() => setAllReviewsVisible(false)} style={styles.modalCloseButton}>
-                            <X size={24} color="#FFF" />
+                            <X size={24} color={colors.text} />
                         </TouchableOpacity>
                     </View>
                     <ScrollView contentContainerStyle={styles.modalContent}>
@@ -177,8 +170,8 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatarLarge} />
                                         ) : (
-                                            <View style={[styles.reviewerAvatarLarge, { backgroundColor: '#2A2A2A', alignItems: 'center', justifyContent: 'center' }]}>
-                                                <User size={16} color="#9CA3AF" />
+                                            <View style={[styles.reviewerAvatarLarge, { backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
+                                                <User size={16} color={colors.textTertiary} />
                                             </View>
                                         )}
                                         <View>
@@ -188,7 +181,7 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                     </View>
                                     <View style={styles.reviewRating}>
                                         {[1, 2, 3, 4, 5].map(s => (
-                                            <Star key={s} size={12} color={review.rating >= s ? "#20B8CD" : "#4B5563"} fill={review.rating >= s ? "#20B8CD" : "none"} />
+                                            <Star key={s} size={12} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
                                         ))}
                                     </View>
                                 </View>
@@ -202,11 +195,11 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     section: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,
@@ -220,7 +213,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: colors.text,
     },
     removableWrapper: {
         position: 'relative',
@@ -232,7 +225,7 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: '#0F0F0F',
+        backgroundColor: colors.surfaceHighlight,
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 10,
@@ -242,7 +235,7 @@ const styles = StyleSheet.create({
     },
     subTitle: {
         fontSize: 12,
-        color: '#9CA3AF',
+        color: colors.textSecondary,
         marginBottom: 8,
         fontWeight: '500',
     },
@@ -255,17 +248,17 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     commentInput: {
-        backgroundColor: '#121212',
+        backgroundColor: colors.inputBackground,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
         borderRadius: 12,
         padding: 12,
-        color: '#E5E7EB',
+        color: colors.inputText,
         minHeight: 80,
         textAlignVertical: 'top',
     },
     publishButton: {
-        backgroundColor: '#20B8CD',
+        backgroundColor: colors.primary,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -274,18 +267,18 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     publishButtonText: {
-        color: '#000',
+        color: '#FFF', // Primary button text usually white
         fontWeight: '600',
         fontSize: 14,
     },
     reviewsList: {
         gap: 12,
         borderTopWidth: 1,
-        borderTopColor: '#2A2A2A',
+        borderTopColor: colors.surfaceHighlight,
         paddingTop: 16,
     },
     reviewItem: {
-        backgroundColor: '#121212',
+        backgroundColor: colors.surfaceHighlight,
         borderRadius: 12,
         padding: 12,
     },
@@ -307,12 +300,12 @@ const styles = StyleSheet.create({
     },
     reviewerName: {
         fontSize: 13,
-        color: '#E5E7EB',
+        color: colors.text,
         fontWeight: '500',
     },
     reviewDate: {
         fontSize: 11,
-        color: '#6B7280',
+        color: colors.textTertiary,
     },
     reviewRating: {
         flexDirection: 'row',
@@ -320,7 +313,7 @@ const styles = StyleSheet.create({
     },
     reviewComment: {
         fontSize: 13,
-        color: '#9CA3AF',
+        color: colors.textSecondary,
         lineHeight: 20,
     },
     seeAllReviewsButton: {
@@ -328,13 +321,13 @@ const styles = StyleSheet.create({
         marginTop: 8,
     },
     seeAllReviewsText: {
-        color: '#20B8CD',
+        color: colors.primary,
         fontSize: 13,
         fontWeight: '500',
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.background,
     },
     modalHeader: {
         flexDirection: 'row',
@@ -342,12 +335,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#2A2A2A',
+        borderBottomColor: colors.border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: colors.text,
     },
     modalCloseButton: {
         padding: 4,
@@ -357,7 +350,7 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     modalReviewItem: {
-        backgroundColor: '#121212',
+        backgroundColor: colors.surfaceHighlight,
         borderRadius: 12,
         padding: 16,
     },
@@ -368,12 +361,12 @@ const styles = StyleSheet.create({
     },
     reviewerNameLarge: {
         fontSize: 14,
-        color: '#E5E7EB',
+        color: colors.text,
         fontWeight: '500',
     },
     reviewCommentLarge: {
         fontSize: 14,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         lineHeight: 22,
         marginTop: 8,
     },

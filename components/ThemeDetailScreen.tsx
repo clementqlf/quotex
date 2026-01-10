@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,15 @@ import { Quote as QuoteIcon, Heart, ChevronLeft } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
 import { Quote } from '../types';
 import { getAuthorName, getBookTitle } from '../src/utils/dataHelpers';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 type ThemeDetailScreenRouteProp = RouteProp<{ params: { themeName: string } }, 'params'>;
 
 export function ThemeDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const navigation = useNavigation<any>();
   const route = useRoute<ThemeDetailScreenRouteProp>();
   const themeName = route.params?.themeName;
@@ -49,7 +54,7 @@ export function ThemeDetailScreen() {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{themeName}</Text>
           <View style={styles.placeholder} />
@@ -75,7 +80,7 @@ export function ThemeDetailScreen() {
           {themeQuotes.length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <QuoteIcon size={16} color="#20B8CD" />
+                <QuoteIcon size={16} color={colors.primary} />
                 <Text style={styles.sectionTitle}>Citations du thème</Text>
               </View>
               <View style={styles.quotesList}>
@@ -99,8 +104,8 @@ export function ThemeDetailScreen() {
                         >
                           <Heart
                             size={16}
-                            color={quote.isLiked ? "#EF4444" : "#6B7280"}
-                            fill={quote.isLiked ? "#EF4444" : "none"}
+                            color={quote.isLiked ? colors.warning : colors.textTertiary}
+                            fill={quote.isLiked ? colors.warning : "none"}
                           />
                           <Text style={styles.likeCount}>{quote.likesCount}</Text>
                         </TouchableOpacity>
@@ -119,9 +124,9 @@ export function ThemeDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0F0F0F' },
-  container: { flex: 1, backgroundColor: '#0F0F0F' },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -129,18 +134,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
   },
   backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.text, flex: 1, textAlign: 'center' },
   placeholder: { width: 28 },
   content: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 32 },
 
   themeInfoSection: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -152,14 +157,14 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#20B8CD22',
+    backgroundColor: colors.primaryLight,
     borderWidth: 2,
-    borderColor: '#20B8CD44',
+    borderColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   themeIcon: {
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: 'bold',
     fontSize: 28,
   },
@@ -169,18 +174,18 @@ const styles = StyleSheet.create({
   themeNameText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 4,
   },
   themeCountText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
 
   section: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -194,23 +199,23 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
   },
 
   quotesList: {
     gap: 12,
   },
   quoteCard: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.surfaceHighlight,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.border,
     padding: 12,
   },
   quoteText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#E5E7EB',
+    color: colors.text,
     fontStyle: 'italic',
     marginBottom: 12,
   },
@@ -224,13 +229,13 @@ const styles = StyleSheet.create({
   },
   quoteAuthor: {
     fontSize: 12,
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: '500',
     marginBottom: 2,
   },
   quoteBook: {
     fontSize: 11,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   quoteMetaRight: {
     flexDirection: 'row',
@@ -243,19 +248,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#1F1F1F',
+    backgroundColor: colors.surface,
   },
   likeCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
 
   emptyStateText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginVertical: 32,
   },
 
-  errorText: { color: 'white', textAlign: 'center', marginTop: 50 },
+  errorText: { color: colors.text, textAlign: 'center', marginTop: 50 },
 });

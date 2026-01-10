@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { X, Check, Search, Trash2, Plus } from 'lucide-react-native';
 import { fetchDefinition } from '../src/services/WiktionaryService';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 export interface DefinitionItem {
     term: string;
@@ -32,6 +34,8 @@ export default function BookDictionaryModal({
     onUpdate,
     currentManualDefinitions
 }: BookDictionaryModalProps) {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const [localHiddenTerms, setLocalHiddenTerms] = useState<Set<string>>(new Set(hiddenTerms));
     const [localManualDefinitions, setLocalManualDefinitions] = useState<DefinitionItem[]>(currentManualDefinitions);
@@ -109,19 +113,8 @@ export default function BookDictionaryModal({
         onClose();
     };
 
-    // Combine definitions to display: Prop definitions (from quotes) + Local Manual Definitions
-    // We need to deduplicate by term. Priority to Manual? Or just merge.
-    // Actually the parent passes `availableDefinitions` which should *already* include manual ones?
-    // No, the parent passes `aggregate` which is derived from Props.
-    // Let's rely on `availableDefinitions` (from quotes) AND `localManualDefinitions`.
-
     // Combine logic:
     const combinedMap = new Map<string, DefinitionItem>();
-
-    // 1. Add definitions from QUOTES (passed via availableDefinitions, filtered to exclude previous manual ones if any?)
-    // Actually the parent logic aggregates everything. 
-    // To avoid confusion, let's assume `availableDefinitions` contains ONLY quote-derived definitions.
-    // The parent should pass `quoteDefinitions` as `availableDefinitions`.
 
     availableDefinitions.forEach(d => combinedMap.set(d.term.toLowerCase(), { ...d, source: 'quote' }));
     localManualDefinitions.forEach(d => combinedMap.set(d.term.toLowerCase(), { ...d, source: 'manual' }));
@@ -136,7 +129,7 @@ export default function BookDictionaryModal({
                     <View style={styles.header}>
                         <Text style={styles.title}>Gérer le dictionnaire</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <X size={24} color="#9CA3AF" />
+                            <X size={24} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
 
@@ -148,13 +141,13 @@ export default function BookDictionaryModal({
                                 <TextInput
                                     style={styles.searchInput}
                                     placeholder="Chercher un mot..."
-                                    placeholderTextColor="#6B7280"
+                                    placeholderTextColor={colors.inputPlaceholder}
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
                                     onSubmitEditing={handleSearch}
                                 />
                                 <TouchableOpacity style={styles.searchButton} onPress={handleSearch} disabled={isSearching}>
-                                    {isSearching ? <ActivityIndicator color="#05252C" size="small" /> : <Search size={20} color="#05252C" />}
+                                    {isSearching ? <ActivityIndicator color={colors.buttonText} size="small" /> : <Search size={20} color={colors.buttonText} />}
                                 </TouchableOpacity>
                             </View>
                             {searchResult && (
@@ -164,13 +157,13 @@ export default function BookDictionaryModal({
                                         <Text numberOfLines={2} style={styles.previewDef}>{searchResult.definition}</Text>
                                     </View>
                                     <TouchableOpacity style={styles.addButton} onPress={addManualDefinition}>
-                                        <Plus size={20} color="#FFFFFF" />
+                                        <Plus size={20} color={colors.buttonText} />
                                     </TouchableOpacity>
                                 </View>
                             )}
                         </View>
 
-                        <View style={{ height: 1, backgroundColor: '#1F1F1F', marginVertical: 16 }} />
+                        <View style={styles.divider} />
 
                         {/* List Section */}
                         <Text style={styles.sectionHeader}>Mots enregistrés ({sortedTerms.length})</Text>
@@ -185,7 +178,7 @@ export default function BookDictionaryModal({
                                             style={[styles.checkbox, !isHidden && styles.checkboxChecked]}
                                             onPress={() => toggleVisibility(item.term.toLowerCase())}
                                         >
-                                            {!isHidden && <Check size={14} color="#05252C" />}
+                                            {!isHidden && <Check size={14} color={colors.buttonText} />}
                                         </TouchableOpacity>
 
                                         <View style={styles.listItemContent}>
@@ -195,14 +188,14 @@ export default function BookDictionaryModal({
 
                                         {item.source === 'manual' && (
                                             <TouchableOpacity onPress={() => removeManualDefinition(item.term)}>
-                                                <Trash2 size={18} color="#EF4444" />
+                                                <Trash2 size={18} color={colors.warning} />
                                             </TouchableOpacity>
                                         )}
                                     </View>
                                 );
                             })}
                             {sortedTerms.length === 0 && (
-                                <Text style={{ color: '#6B7280', fontStyle: 'italic', textAlign: 'center', marginTop: 20 }}>
+                                <Text style={styles.emptyText}>
                                     Aucun mot dans le dictionnaire.
                                 </Text>
                             )}
@@ -222,19 +215,19 @@ export default function BookDictionaryModal({
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0,0,0,0.7)',
     },
     content: {
-        backgroundColor: '#0F0F0F',
+        backgroundColor: colors.background,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         height: '85%',
         borderTopWidth: 1,
-        borderTopColor: '#1F1F1F',
+        borderTopColor: colors.border,
     },
     header: {
         flexDirection: 'row',
@@ -242,12 +235,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#1F1F1F',
+        borderBottomColor: colors.border,
     },
     title: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: colors.text,
     },
     closeButton: {
         padding: 4,
@@ -259,12 +252,12 @@ const styles = StyleSheet.create({
     sectionHeader: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#FFFFFF',
+        color: colors.text,
         marginBottom: 12,
     },
     subHeader: {
         fontSize: 12,
-        color: '#9CA3AF',
+        color: colors.textSecondary,
         marginBottom: 12,
     },
     addSection: {
@@ -277,54 +270,59 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.inputBackground,
         borderRadius: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        color: '#FFFFFF',
+        color: colors.inputText,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
     },
     searchButton: {
         width: 48,
-        backgroundColor: '#20B8CD',
+        backgroundColor: colors.primary,
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
     resultPreview: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surfaceHighlight,
         borderRadius: 12,
         padding: 12,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
         borderWidth: 1,
-        borderColor: '#20B8CD',
+        borderColor: colors.primary,
     },
     previewTerm: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontWeight: '700',
         fontSize: 15,
     },
     previewGenre: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontSize: 12,
         fontWeight: '400',
         fontStyle: 'italic',
     },
     previewDef: {
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         fontSize: 13,
         marginTop: 2,
     },
     addButton: {
-        backgroundColor: '#20B8CD',
+        backgroundColor: colors.primary,
         width: 36,
         height: 36,
         borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: colors.border,
+        marginVertical: 16,
     },
     listArea: {
         flex: 1,
@@ -335,51 +333,57 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#1F1F1F',
+        borderBottomColor: colors.border,
     },
     checkbox: {
         width: 24,
         height: 24,
         borderRadius: 6,
         borderWidth: 2,
-        borderColor: '#6B7280',
+        borderColor: colors.textTertiary,
         alignItems: 'center',
         justifyContent: 'center',
     },
     checkboxChecked: {
-        backgroundColor: '#20B8CD',
-        borderColor: '#20B8CD',
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
     },
     listItemContent: {
         flex: 1,
     },
     itemTerm: {
-        color: '#FFFFFF',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
     },
     itemTermHidden: {
-        color: '#6B7280',
+        color: colors.textTertiary,
         textDecorationLine: 'line-through',
     },
     itemSource: {
-        color: '#6B7280',
+        color: colors.textTertiary,
         fontSize: 12,
+    },
+    emptyText: {
+        color: colors.textTertiary,
+        fontStyle: 'italic',
+        textAlign: 'center',
+        marginTop: 20,
     },
     footer: {
         padding: 20,
         borderTopWidth: 1,
-        borderTopColor: '#1F1F1F',
+        borderTopColor: colors.border,
     },
     confirmButton: {
-        backgroundColor: '#20B8CD',
+        backgroundColor: colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 16,
         borderRadius: 16,
     },
     confirmText: {
-        color: '#05252C',
+        color: colors.buttonText,
         fontSize: 16,
         fontWeight: '600',
     },

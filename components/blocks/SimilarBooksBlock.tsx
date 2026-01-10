@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet } from 'react-native';
 import { Book as BookIcon } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Book } from '../../types';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface SimilarBooksBlockProps {
     books: (Book | any)[]; // Flexible type as sometimes it's partial data or just strings
@@ -11,6 +13,9 @@ interface SimilarBooksBlockProps {
 }
 
 export const SimilarBooksBlock: React.FC<SimilarBooksBlockProps> = ({ books, onBookPress, onRemove }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const hasBooks = books && books.length > 0;
 
     if (!hasBooks) {
@@ -42,7 +47,7 @@ export const SimilarBooksBlock: React.FC<SimilarBooksBlockProps> = ({ books, onB
                             <Image source={{ uri: book.cover }} style={styles.cover} />
                         ) : (
                             <View style={[styles.cover, styles.placeholderCover]}>
-                                <BookIcon size={24} color="#4B5563" />
+                                <BookIcon size={24} color={colors.textTertiary} />
                             </View>
                         )}
                         <Text numberOfLines={2} style={styles.title}>{book.title}</Text>
@@ -53,9 +58,9 @@ export const SimilarBooksBlock: React.FC<SimilarBooksBlockProps> = ({ books, onB
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
@@ -70,7 +75,7 @@ const styles = StyleSheet.create({
         width: 100,
         height: 150,
         borderRadius: 8,
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight,
         marginBottom: 8,
     },
     placeholderCover: {
@@ -79,7 +84,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 12,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         textAlign: 'center',
     },
 });

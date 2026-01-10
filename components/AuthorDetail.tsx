@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
-import { getAuthorName, getBookTitle } from '../src/utils/dataHelpers';
+import { getBookTitle } from '../src/utils/dataHelpers';
 import { Author, Book, RootStackParamList } from '../types';
 import { wikidataService } from '../src/services/WikidataService';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 type AuthorDetailScreenRouteProp = RouteProp<RootStackParamList, 'AuthorDetail'>;
 
 export function AuthorDetailScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const navigation = useNavigation<any>();
   const route = useRoute<AuthorDetailScreenRouteProp>();
   const { author, authorName: paramAuthorName } = route.params;
@@ -100,8 +104,8 @@ export function AuthorDetailScreen() {
   if (isLoadingAuthor) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#20B8CD" />
-        <Text style={{ color: '#6B7280', marginTop: 16 }}>Chargement des informations...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>Chargement des informations...</Text>
       </View>
     );
   }
@@ -114,7 +118,7 @@ export function AuthorDetailScreen() {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{authorName}</Text>
           <View style={styles.placeholder} />
@@ -132,21 +136,21 @@ export function AuthorDetailScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <User size={16} color="#20B8CD" />
+              <User size={16} color={colors.primary} />
               <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
             </View>
             <Text style={styles.authorDesc}>{authorDesc}</Text>
           </View>
 
-          <View style={styles.section}>
+          <View style={styles.detailContainerSection}>
             <View style={styles.detailsContainer}>
               <View style={styles.detailItem}>
-                <Calendar size={16} color="#9CA3AF" />
+                <Calendar size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Naissance</Text>
                 <Text style={styles.detailValue}>{authorInfo?.birthDate || 'Inconnu'}</Text>
               </View>
               <View style={styles.detailItem}>
-                <Globe size={16} color="#9CA3AF" />
+                <Globe size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Nationalité</Text>
                 <Text style={styles.detailValue}>{authorInfo?.nationality || 'Inconnue'}</Text>
               </View>
@@ -166,7 +170,7 @@ export function AuthorDetailScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <BookOpen size={16} color="#20B8CD" />
+              <BookOpen size={16} color={colors.primary} />
               <Text style={styles.sectionTitle}>Œuvres Notables</Text>
             </View>
 
@@ -184,7 +188,7 @@ export function AuthorDetailScreen() {
                     <Image source={{ uri: book.cover }} style={styles.bookCover} />
                   ) : (
                     <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                      <BookOpen size={20} color="#4B5563" />
+                      <BookOpen size={20} color={colors.textTertiary} />
                     </View>
                   )}
                 </View>
@@ -218,7 +222,7 @@ export function AuthorDetailScreen() {
             return (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={[styles.sectionTitle, { color: '#20B8CD' }]}>Mes Citations</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.primary }]}>Mes Citations</Text>
                 </View>
                 <View style={{ gap: 12 }}>
                   {userQuotes.map((quote) => (
@@ -240,8 +244,8 @@ export function AuthorDetailScreen() {
                           >
                             <Heart
                               size={16}
-                              color={quote.isLiked ? "#EF4444" : "#6B7280"}
-                              fill={quote.isLiked ? "#EF4444" : "none"}
+                              color={quote.isLiked ? colors.warning : colors.textTertiary}
+                              fill={quote.isLiked ? colors.warning : "none"}
                             />
                             <Text style={styles.likeCount}>{quote.likesCount}</Text>
                           </TouchableOpacity>
@@ -265,13 +269,13 @@ export function AuthorDetailScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Toutes les œuvres</Text>
               <TouchableOpacity onPress={() => setShowAllWorksModal(false)}>
-                <X size={24} color="#FFFFFF" />
+                <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             {isLoadingAllWorks ? (
               <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#20B8CD" />
+                <ActivityIndicator size="large" color={colors.primary} />
               </View>
             ) : (
               <FlatList
@@ -290,7 +294,7 @@ export function AuthorDetailScreen() {
                         <Image source={{ uri: item.cover }} style={styles.bookCover} />
                       ) : (
                         <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                          <BookOpen size={20} color="#4B5563" />
+                          <BookOpen size={20} color={colors.textTertiary} />
                         </View>
                       )}
                     </View>
@@ -314,14 +318,14 @@ export function AuthorDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -330,7 +334,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
+    borderBottomColor: colors.border,
   },
   backButton: {
     padding: 4,
@@ -338,11 +342,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     flex: 1, textAlign: 'center'
   },
   placeholder: {
-    width: 28, // to balance the back button
+    width: 28,
   },
   content: {
     flex: 1,
@@ -359,13 +363,13 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: '#20B8CD',
+    borderColor: colors.primary,
     marginBottom: 12,
   },
   authorName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 16,
   },
   statsContainer: {
@@ -375,9 +379,9 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -385,18 +389,18 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 18,
-    color: '#20B8CD',
+    color: colors.primary,
     fontWeight: '600',
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
     marginTop: 4,
   },
   section: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
@@ -410,12 +414,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   authorDesc: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
+  },
+  detailContainerSection: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceHighlight,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
   },
   detailsContainer: {
     flexDirection: 'row',
@@ -428,24 +440,24 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
     fontWeight: '500',
   },
   detailValue: {
     fontSize: 13,
-    color: '#E5E7EB',
+    color: colors.text,
     fontWeight: '600',
     textAlign: 'center',
   },
   bookItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
     padding: 10,
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
   },
   bookCoverContainer: {
     marginRight: 16,
@@ -454,14 +466,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 90,
     borderRadius: 6,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: colors.surfaceHighlight,
   },
   bookCoverPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyText: {
-    color: '#6B7280',
+    color: colors.textTertiary,
     fontSize: 14,
     fontStyle: 'italic',
     textAlign: 'center',
@@ -473,24 +485,24 @@ const styles = StyleSheet.create({
   bookTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#E5E7EB',
+    color: colors.text,
     marginBottom: 4,
   },
   bookMetaText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   quoteCard: {
-    backgroundColor: '#121212',
+    backgroundColor: colors.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: colors.surfaceHighlight,
     padding: 12,
   },
   quoteText: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#E5E7EB',
+    color: colors.text,
     fontStyle: 'italic',
     marginBottom: 12,
   },
@@ -504,7 +516,7 @@ const styles = StyleSheet.create({
   },
   quoteBook: {
     fontSize: 11,
-    color: '#6B7280',
+    color: colors.textTertiary,
   },
   quoteMetaRight: {
     flexDirection: 'row',
@@ -517,29 +529,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#1F1F1F',
+    backgroundColor: colors.surface,
   },
   likeCount: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   showAllButton: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: colors.surface,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#20B8CD',
+    borderColor: colors.primary,
     alignItems: 'center',
   },
   showAllButtonText: {
-    color: '#20B8CD',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#0F0F0F',
+    backgroundColor: colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -547,13 +559,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F1F1F',
-    marginTop: 40, // For safe area
+    borderBottomColor: colors.border,
+    marginTop: 40,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   centered: {
     flex: 1,

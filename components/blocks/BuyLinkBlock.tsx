@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Alert, Linking, StyleSheet } from 'react-native';
 import { ExternalLink } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Book } from '../../types';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface BuyLinkBlockProps {
     book: Book;
@@ -10,6 +12,9 @@ interface BuyLinkBlockProps {
 }
 
 export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const hasLinks = book.buyLinks && book.buyLinks.length > 0;
 
     if (!hasLinks) {
@@ -35,7 +40,7 @@ export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) =>
                     >
                         <View style={styles.buyLinkInfo}>
                             <Text style={styles.buyLinkStore}>{link.store}</Text>
-                            <ExternalLink size={12} color="#6B7280" />
+                            <ExternalLink size={12} color={colors.textTertiary} />
                         </View>
                         <Text style={styles.buyLinkPrice}>{link.price}</Text>
                     </TouchableOpacity>
@@ -45,9 +50,9 @@ export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) =>
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
@@ -58,7 +63,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight,
         padding: 12,
         borderRadius: 8,
     },
@@ -68,12 +73,12 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     buyLinkStore: {
-        color: '#E5E7EB',
+        color: colors.text,
         fontWeight: '500',
         fontSize: 14,
     },
     buyLinkPrice: {
-        color: '#20B8CD',
+        color: colors.primary,
         fontWeight: '700',
         fontSize: 14,
     },

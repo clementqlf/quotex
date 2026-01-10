@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Calendar, BookOpen, Star } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Book } from '../../types';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface BookInfoBlockProps {
     book: Book | null;
@@ -12,6 +14,9 @@ interface BookInfoBlockProps {
 }
 
 export const BookInfoBlock: React.FC<BookInfoBlockProps> = ({ book, onBookPress, variant = 'info', onRemove }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     if (!book) {
         return (
             <BlockWrapper blockKey={variant === 'description' ? 'bookDescription' : 'bookInfo'} onRemove={onRemove}>
@@ -45,15 +50,15 @@ export const BookInfoBlock: React.FC<BookInfoBlockProps> = ({ book, onBookPress,
                     </TouchableOpacity>
                     <View style={styles.bookMeta}>
                         <View style={styles.metaItem}>
-                            <Calendar size={14} color="#6B7280" />
+                            <Calendar size={14} color={colors.textSecondary} />
                             <Text style={styles.metaText}>{book.year}</Text>
                         </View>
                         <View style={styles.metaItem}>
-                            <BookOpen size={14} color="#6B7280" />
+                            <BookOpen size={14} color={colors.textSecondary} />
                             <Text style={styles.metaText}>{book.pages} p.</Text>
                         </View>
                         <View style={styles.metaItem}>
-                            <Star size={14} color="#20B8CD" fill="#20B8CD" />
+                            <Star size={14} color={colors.primary} fill={colors.primary} />
                             <Text style={styles.metaText}>{book.rating}/5</Text>
                         </View>
                     </View>
@@ -67,15 +72,15 @@ export const BookInfoBlock: React.FC<BookInfoBlockProps> = ({ book, onBookPress,
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
     bookDesc: {
         fontSize: 14,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         lineHeight: 22,
     },
     bookContainer: {
@@ -87,7 +92,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 120,
         borderRadius: 8,
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight,
     },
     bookInfo: {
         flex: 1,
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
     bookName: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: colors.text,
         marginBottom: 8,
     },
     bookMeta: {
@@ -111,20 +116,20 @@ const styles = StyleSheet.create({
     },
     metaText: {
         fontSize: 12,
-        color: '#9CA3AF',
+        color: colors.textSecondary,
     },
     genreBadge: {
         alignSelf: 'flex-start',
-        backgroundColor: 'rgba(32, 184, 205, 0.1)',
+        backgroundColor: colors.primaryLight,
         borderRadius: 12,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderWidth: 1,
-        borderColor: 'rgba(32, 184, 205, 0.2)',
+        borderColor: colors.primaryLight,
     },
     genreText: {
         fontSize: 12,
-        color: '#20B8CD',
+        color: colors.primary,
         fontWeight: '500',
     },
 });

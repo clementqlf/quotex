@@ -12,6 +12,7 @@ import { DefinitionBlock } from './DefinitionBlock';
 import { SavedQuotesBlock } from './SavedQuotesBlock';
 import { BuyLinkBlock } from './BuyLinkBlock';
 import { BlockWrapper } from './BlockWrapper';
+import { useTheme } from '../../src/contexts/ThemeContext';
 
 // Defined context interface to pass necessary data to blocks
 export interface BlockContext {
@@ -51,6 +52,8 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         onUpdateBlockData, onBookPress, onAuthorPress, onQuotePress,
         onReviewAdded, onEditDefinitionSelection, onManageDictionary
     } = context;
+
+    const { colors } = useTheme();
 
     switch (baseKey) {
         case 'reviews':
@@ -170,7 +173,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         default:
             return (
                 <BlockWrapper blockKey={baseKey as BlockKey} onRemove={onRemove}>
-                    <View><Text style={{ color: 'red' }}>Unknown Block: {baseKey}</Text></View>
+                    <View><Text style={{ color: colors.warning }}>Unknown Block: {baseKey}</Text></View>
                 </BlockWrapper>
             );
     }

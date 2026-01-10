@@ -19,6 +19,8 @@ import { bookDescriptions, localQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { searchService } from '../src/services/SearchService';
 import { googleBooksService } from '../src/services/GoogleBooksService';
+import { useTheme } from '../src/contexts/ThemeContext';
+import { ThemeColors } from '../src/theme/theme';
 
 type ScanPreviewModalProps = {
     visible: boolean;
@@ -38,6 +40,8 @@ export default function ScanPreviewModal({
     initialAuthor = '',
 }: ScanPreviewModalProps) {
     const { quotes } = useData();
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     // State for editing
     const [isEditingBook, setIsEditingBook] = useState(false);
@@ -231,7 +235,7 @@ export default function ScanPreviewModal({
                             <View style={styles.previewHeader}>
                                 <Text style={styles.previewTitle}>{initialBook ? "Modifier la citation" : "Aperçu de la citation"}</Text>
                                 <TouchableOpacity onPress={onClose}>
-                                    <X size={24} color="#9CA3AF" />
+                                    <X size={24} color={colors.textSecondary} />
                                 </TouchableOpacity>
                             </View>
 
@@ -261,7 +265,7 @@ export default function ScanPreviewModal({
                                             onChangeText={setEditedQuote}
                                             onBlur={() => setIsEditingQuote(false)}
                                             placeholder="Modifier la citation"
-                                            placeholderTextColor="#6B7280"
+                                            placeholderTextColor={colors.textTertiary}
                                             returnKeyType="done"
                                         />
                                     ) : (
@@ -271,7 +275,7 @@ export default function ScanPreviewModal({
                                                 setEditedQuote(editedQuote || scannedText);
                                             }}
                                         >
-                                            <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: '#6B7280', fontStyle: 'normal' }]}>
+                                            <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: colors.textTertiary, fontStyle: 'normal' }]}>
                                                 {editedQuote || scannedText || "Toucher pour ajouter une citation..."}
                                             </Text>
                                         </TouchableOpacity>
@@ -295,7 +299,7 @@ export default function ScanPreviewModal({
                                                                 }, 200);
                                                             }}
                                                             placeholder="Titre du livre"
-                                                            placeholderTextColor="#6B7280"
+                                                            placeholderTextColor={colors.textTertiary}
                                                             returnKeyType="done"
                                                             onSubmitEditing={() => {
                                                                 setIsEditingBook(false);
@@ -305,7 +309,7 @@ export default function ScanPreviewModal({
                                                         {showSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
                                                                 {isLoadingSuggestions && (
-                                                                    <ActivityIndicator color="#20B8CD" size="small" style={{ padding: 8 }} />
+                                                                    <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
                                                                 )}
                                                                 {suggestions.map((item, index) => (
                                                                     <TouchableOpacity
@@ -325,11 +329,11 @@ export default function ScanPreviewModal({
                                                                             setShowSuggestions(false);
                                                                         }}
                                                                     >
-                                                                        <BookIcon size={14} color={item.type === 'google' ? '#20B8CD' : '#6B7280'} style={{ marginRight: 8 }} />
+                                                                        <BookIcon size={14} color={item.type === 'google' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
                                                                         <View style={{ flex: 1 }}>
                                                                             <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
                                                                             {item.type === 'google' && (
-                                                                                <Text style={{ fontSize: 10, color: '#20B8CD', fontStyle: 'italic' }}>Depuis Google Books</Text>
+                                                                                <Text style={{ fontSize: 10, color: colors.primary, fontStyle: 'italic' }}>Depuis Google Books</Text>
                                                                             )}
                                                                         </View>
                                                                     </TouchableOpacity>
@@ -374,7 +378,7 @@ export default function ScanPreviewModal({
                                                                 }, 200);
                                                             }}
                                                             placeholder="Nom de l'auteur"
-                                                            placeholderTextColor="#6B7280"
+                                                            placeholderTextColor={colors.textTertiary}
                                                             returnKeyType="done"
                                                             onSubmitEditing={() => {
                                                                 setIsEditingAuthor(false);
@@ -384,7 +388,7 @@ export default function ScanPreviewModal({
                                                         {showAuthorSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
                                                                 {isLoadingAuthorSuggestions && (
-                                                                    <ActivityIndicator color="#20B8CD" size="small" style={{ padding: 8 }} />
+                                                                    <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
                                                                 )}
                                                                 {authorSuggestions.map((item, index) => (
                                                                     <TouchableOpacity
@@ -396,7 +400,7 @@ export default function ScanPreviewModal({
                                                                             setShowAuthorSuggestions(false);
                                                                         }}
                                                                     >
-                                                                        <UserIcon size={14} color="#6B7280" style={{ marginRight: 8 }} />
+                                                                        <UserIcon size={14} color={colors.textTertiary} style={{ marginRight: 8 }} />
                                                                         <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
                                                                     </TouchableOpacity>
                                                                 ))}
@@ -435,11 +439,11 @@ export default function ScanPreviewModal({
 
                                     <View style={styles.actions}>
                                         <View style={styles.actionButton}>
-                                            <Heart size={20} color="#6B7280" fill="none" />
+                                            <Heart size={20} color={colors.textTertiary} fill="none" />
                                             <Text style={styles.actionText}>0</Text>
                                         </View>
                                         <View style={styles.actionButton}>
-                                            <Share2 size={20} color="#6B7280" />
+                                            <Share2 size={20} color={colors.textTertiary} />
                                             <Text style={styles.actionText}>Partager</Text>
                                         </View>
                                     </View>
@@ -464,11 +468,11 @@ export default function ScanPreviewModal({
                     </Pressable>
                 </KeyboardAvoidingView>
             </View>
-        </Modal>
+        </Modal >
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     previewBackdrop: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.85)',
@@ -478,10 +482,10 @@ const styles = StyleSheet.create({
     previewContainer: {
         width: '90%',
         maxHeight: '80%',
-        backgroundColor: '#0F0F0F',
+        backgroundColor: colors.background,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.border,
         overflow: 'hidden',
     },
     previewHeader: {
@@ -491,20 +495,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#1F1F1F',
+        borderBottomColor: colors.border,
     },
     previewTitle: {
         fontSize: 18,
-        color: '#FFFFFF',
+        color: colors.text,
         fontWeight: '600',
     },
     previewScrollView: {
         maxHeight: 400,
     },
     previewQuoteCard: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
         borderRadius: 16,
         padding: 20,
         margin: 16,
@@ -516,7 +520,7 @@ const styles = StyleSheet.create({
     previewQuoteText: {
         fontSize: 18,
         lineHeight: 28,
-        color: '#E5E7EB',
+        color: colors.text,
         marginBottom: 16,
         fontFamily: 'Times New Roman',
         fontStyle: 'italic',
@@ -525,9 +529,9 @@ const styles = StyleSheet.create({
     previewQuoteInput: {
         fontSize: 18,
         lineHeight: 28,
-        color: '#FFFFFF',
+        color: colors.text,
         marginBottom: 16,
-        backgroundColor: '#222',
+        backgroundColor: colors.inputBackground,
         borderRadius: 6,
         padding: 10,
     },
@@ -538,7 +542,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         paddingBottom: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#2A2A2A',
+        borderBottomColor: colors.surfaceHighlight,
         zIndex: 100, // Ensure dropdowns appear on top
     },
     bookInfoLeft: {
@@ -547,13 +551,13 @@ const styles = StyleSheet.create({
     },
     bookTitle: {
         fontSize: 14,
-        color: '#20B8CD',
+        color: colors.primary,
         marginBottom: 4,
     },
     bookTitleInput: {
         fontSize: 14,
-        color: '#20B8CD',
-        backgroundColor: '#222',
+        color: colors.primary,
+        backgroundColor: colors.inputBackground,
         borderRadius: 6,
         paddingHorizontal: 6,
         paddingVertical: 8,
@@ -561,19 +565,19 @@ const styles = StyleSheet.create({
     },
     authorName: {
         fontSize: 12,
-        color: '#6B7280',
+        color: colors.textSecondary,
     },
     authorInput: {
         fontSize: 12,
-        color: '#6B7280',
-        backgroundColor: '#222',
+        color: colors.textSecondary,
+        backgroundColor: colors.inputBackground,
         borderRadius: 6,
         paddingHorizontal: 6,
         paddingVertical: 8,
     },
     dateText: {
         fontSize: 12,
-        color: '#6B7280',
+        color: colors.textTertiary,
     },
     actions: {
         flexDirection: 'row',
@@ -586,26 +590,26 @@ const styles = StyleSheet.create({
     },
     actionText: {
         fontSize: 14,
-        color: '#6B7280',
+        color: colors.textTertiary,
     },
     previewActions: {
         flexDirection: 'row',
         gap: 12,
         padding: 16,
         borderTopWidth: 1,
-        borderTopColor: '#1F1F1F',
+        borderTopColor: colors.border,
     },
     previewCancelButton: {
         flex: 1,
         paddingVertical: 14,
         borderRadius: 12,
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
         alignItems: 'center',
     },
     previewCancelButtonText: {
-        color: '#9CA3AF',
+        color: colors.textSecondary,
         fontSize: 16,
         fontWeight: '600',
     },
@@ -613,11 +617,11 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 14,
         borderRadius: 12,
-        backgroundColor: '#20B8CD',
+        backgroundColor: colors.primary,
         alignItems: 'center',
     },
     previewConfirmButtonText: {
-        color: '#0F0F0F',
+        color: '#000', // Assuming primary text color
         fontSize: 16,
         fontWeight: 'bold',
     },
@@ -626,10 +630,10 @@ const styles = StyleSheet.create({
         top: '100%',
         left: 0,
         right: 0,
-        backgroundColor: '#222',
+        backgroundColor: colors.surface,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: '#333',
+        borderColor: colors.border,
         maxHeight: 150,
         zIndex: 1000,
         elevation: 5,
@@ -638,16 +642,16 @@ const styles = StyleSheet.create({
     suggestionItem: {
         padding: 10,
         borderBottomWidth: 1,
-        borderBottomColor: '#2A2A2A',
+        borderBottomColor: colors.surfaceHighlight,
         flexDirection: 'row',
         alignItems: 'center',
     },
     suggestionText: {
-        color: '#E5E7EB',
+        color: colors.text,
         fontSize: 14,
     },
     suggestionTextMeta: {
-        color: '#6B7280',
+        color: colors.textTertiary,
         fontSize: 12,
         fontStyle: 'italic',
     }

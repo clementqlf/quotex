@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { X } from 'lucide-react-native';
 import { BLOCK_CONFIGS, BlockKey } from '../../src/config/blocks';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface BlockWrapperProps {
     blockKey: BlockKey;
@@ -20,6 +22,8 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     fullWidth = false,
     rightElement
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const config = BLOCK_CONFIGS[blockKey];
     const Icon = config?.icon || (() => null);
     const displayTitle = title || config?.label || 'Block';
@@ -29,7 +33,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
             {!fullWidth && (
                 <View style={styles.sectionHeader}>
                     <View style={styles.headerLeft}>
-                        <Icon size={16} color="#20B8CD" />
+                        <Icon size={16} color={colors.primary} />
                         <Text style={styles.sectionTitle}>{displayTitle}</Text>
                     </View>
                     {rightElement}
@@ -40,21 +44,21 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
 
             {onRemove && (
                 <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
-                    <X size={14} color="#EF4444" />
+                    <X size={14} color={colors.warning} />
                 </TouchableOpacity>
             )}
         </View>
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     wrapperFull: {
         marginBottom: 10,
     },
     section: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: '#2A2A2A',
+        borderColor: colors.surfaceHighlight,
         borderRadius: 16,
         padding: 16,
         marginBottom: 10,
@@ -74,13 +78,13 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: colors.text,
     },
     removeButton: {
         position: 'absolute',
         top: 8,
         right: 8,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: colors.warningLight,
         borderRadius: 12,
         padding: 4,
     }

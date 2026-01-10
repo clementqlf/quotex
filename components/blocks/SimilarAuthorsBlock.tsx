@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet } from 'react-native';
 import { User } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Author } from '../../types';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface SimilarAuthorsBlockProps {
     authors: Author[];
@@ -11,6 +13,9 @@ interface SimilarAuthorsBlockProps {
 }
 
 export const SimilarAuthorsBlock: React.FC<SimilarAuthorsBlockProps> = ({ authors, onAuthorPress, onRemove }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const hasAuthors = authors && authors.length > 0;
 
     if (!hasAuthors) {
@@ -44,9 +49,9 @@ export const SimilarAuthorsBlock: React.FC<SimilarAuthorsBlockProps> = ({ author
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
@@ -61,12 +66,12 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50, // Circular for authors
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight,
         marginBottom: 8,
     },
     title: {
         fontSize: 12,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         textAlign: 'center',
     },
 });

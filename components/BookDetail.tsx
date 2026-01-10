@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink } from 'lucide-react-native';
 import { useData } from '../src/contexts/DataProvider';
-import { useTheme, ThemeColors } from '../src/contexts/ThemeContext';
+import { useTheme } from '../src/contexts/ThemeContext';
 import { Book, Author } from '../types';
 import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
@@ -315,13 +315,13 @@ export function BookDetailScreen() {
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={24} color="#FFFFFF" />
+              <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
             <View style={styles.placeholder} />
           </View>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ color: '#9CA3AF' }}>Chargement des informations...</Text>
+            <Text style={{ color: colors.textSecondary }}>Chargement des informations...</Text>
           </View>
         </View>
       </SafeAreaView>
@@ -334,7 +334,7 @@ export function BookDetailScreen() {
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <ChevronLeft size={24} color="#FFFFFF" />
+              <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
             <View style={styles.placeholder} />
@@ -357,7 +357,7 @@ export function BookDetailScreen() {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <ChevronLeft size={24} color="#FFFFFF" />
+            <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
           <View style={styles.placeholder} />
@@ -385,15 +385,15 @@ export function BookDetailScreen() {
                 {/* Book Meta Info */}
                 <View style={styles.bookMeta}>
                   <View style={styles.metaItem}>
-                    <Calendar size={14} color="#6B7280" />
+                    <Calendar size={14} color={colors.textTertiary} />
                     <Text style={styles.metaText}>{bookInfo.year}</Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <BookOpen size={14} color="#6B7280" />
+                    <BookOpen size={14} color={colors.textTertiary} />
                     <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <Star size={14} color="#20B8CD" fill="#20B8CD" />
+                    <Star size={14} color={colors.primary} fill={colors.primary} />
                     <Text style={styles.metaText}>{averageRating}/5</Text>
                   </View>
                 </View>

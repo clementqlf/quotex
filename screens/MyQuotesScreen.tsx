@@ -180,7 +180,7 @@ export default function MyQuotesScreen() {
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <MoreVertical size={20} color="#6B7280" />
+            <MoreVertical size={20} color={colors.textTertiary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -194,7 +194,7 @@ export default function MyQuotesScreen() {
             <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
               <Path
                 d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                fill="#20B8CD"
+                fill={colors.primary}
                 opacity={0.12}
               />
             </Svg>
@@ -222,8 +222,8 @@ export default function MyQuotesScreen() {
               >
                 <Heart
                   size={20}
-                  color={quote.isLiked ? '#20B8CD' : '#6B7280'}
-                  fill={quote.isLiked ? '#20B8CD' : 'none'}
+                  color={quote.isLiked ? colors.primary : colors.textTertiary}
+                  fill={quote.isLiked ? colors.primary : 'none'}
                 />
                 <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
                   {quote.likesCount}
@@ -243,7 +243,7 @@ export default function MyQuotesScreen() {
                 };
                 handleShare();
               }}>
-                <Share2 size={20} color="#6B7280" />
+                <Share2 size={20} color={colors.textTertiary} />
                 <Text style={styles.actionText}>Partager</Text>
               </TouchableOpacity>
             </View>
@@ -266,7 +266,7 @@ export default function MyQuotesScreen() {
           <View style={styles.actionMenuHeader}>
             <Text style={styles.actionMenuTitle}>Options</Text>
             <TouchableOpacity onPress={() => setActionMenuQuote(null)}>
-              <X size={20} color="#9CA3AF" />
+              <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -279,7 +279,7 @@ export default function MyQuotesScreen() {
               setActionMenuQuote(null);
             }}
           >
-            <Edit3 size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
             <Text style={styles.actionMenuText}>Modifier</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -291,8 +291,8 @@ export default function MyQuotesScreen() {
               setActionMenuQuote(null);
             }}
           >
-            <Trash2 size={20} color="#EF4444" style={{ marginRight: 12 }} />
-            <Text style={[styles.actionMenuText, { color: '#EF4444' }]}>Supprimer</Text>
+            <Trash2 size={20} color={colors.warning} style={{ marginRight: 12 }} />
+            <Text style={[styles.actionMenuText, { color: colors.warning }]}>Supprimer</Text>
           </TouchableOpacity>
         </View>
       </Pressable>
@@ -369,7 +369,7 @@ export default function MyQuotesScreen() {
               navigation.navigate('Scan');
             }}
           >
-            <Camera size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <Camera size={20} color={colors.text} style={{ marginRight: 12 }} />
             <Text style={styles.actionMenuText}>Scanner une citation</Text>
           </TouchableOpacity>
 
@@ -382,7 +382,7 @@ export default function MyQuotesScreen() {
               setShowManualQuoteModal(true);
             }}
           >
-            <Edit3 size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+            <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
             <Text style={styles.actionMenuText}>Ajouter une citation</Text>
           </TouchableOpacity>
         </View>
@@ -395,10 +395,10 @@ export default function MyQuotesScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Animated.View style={[styles.headerLeft, { opacity: fadeAnim }]}>
-          {viewMode === 'quotes' && <QuoteIcon size={24} color="#FFFFFF" />}
-          {viewMode === 'books' && <BookIcon size={24} color="#FFFFFF" />}
-          {viewMode === 'authors' && <Users size={24} color="#FFFFFF" />}
-          {viewMode === 'themes' && <Hash size={24} color="#FFFFFF" />}
+          {viewMode === 'quotes' && <QuoteIcon size={24} color={colors.text} />}
+          {viewMode === 'books' && <BookIcon size={24} color={colors.text} />}
+          {viewMode === 'authors' && <Users size={24} color={colors.text} />}
+          {viewMode === 'themes' && <Hash size={24} color={colors.text} />}
           <Text style={styles.headerTitle}>
             {viewMode === 'quotes' && 'Mes Citations'}
             {viewMode === 'books' && 'Mes Livres'}
@@ -408,13 +408,13 @@ export default function MyQuotesScreen() {
         </Animated.View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
-            <Plus size={20} color="#20B8CD" />
+            <Plus size={20} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Search')}>
-            <Search size={20} color="#9CA3AF" />
+            <Search size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>
-            <Filter size={20} color={activeFilters.length > 0 ? "#20B8CD" : "#9CA3AF"} />
+            <Filter size={20} color={activeFilters.length > 0 ? colors.primary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -472,7 +472,7 @@ export default function MyQuotesScreen() {
             {activeFilters.map((filter, index) => (
               <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
                 <Text style={styles.filterBadgeText}>{filter.type === 'author' ? 'Auteur' : filter.type === 'book' ? 'Livre' : 'Année'}: {filter.value}</Text>
-                <X size={12} color="#20B8CD" />
+                <X size={12} color={colors.primary} />
               </TouchableOpacity>
             ))}
             <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
@@ -578,7 +578,7 @@ export default function MyQuotesScreen() {
               <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('author')}>
                 <Text style={styles.filterSectionTitle}>Auteur</Text>
                 <View style={{ transform: [{ rotate: expandedSection === 'author' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color="#9CA3AF" />
+                  <ChevronDown size={20} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
               {expandedSection === 'author' && authors.map(author => (
@@ -591,7 +591,7 @@ export default function MyQuotesScreen() {
               <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('book')}>
                 <Text style={styles.filterSectionTitle}>Livre</Text>
                 <View style={{ transform: [{ rotate: expandedSection === 'book' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color="#9CA3AF" />
+                  <ChevronDown size={20} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
               {expandedSection === 'book' && books.map(book => (
@@ -604,7 +604,7 @@ export default function MyQuotesScreen() {
               <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('year')}>
                 <Text style={styles.filterSectionTitle}>Année</Text>
                 <View style={{ transform: [{ rotate: expandedSection === 'year' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color="#9CA3AF" />
+                  <ChevronDown size={20} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
               {expandedSection === 'year' && years.map(year => (
@@ -930,7 +930,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primary,
   },
   applyButtonText: {
-    color: '#000', // Assuming primary text color
+    color: colors.buttonText,
     textAlign: 'center',
     fontWeight: '600',
   },
@@ -948,7 +948,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.3)',
+    borderColor: colors.primaryLight,
     gap: 6,
   },
   filterBadgeText: {
@@ -957,7 +957,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '500',
   },
   deleteActionText: {
-    color: '#F87171',
+    color: colors.warning,
     fontSize: 14,
     fontWeight: '600',
   },

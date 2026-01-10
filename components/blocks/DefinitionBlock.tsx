@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BookOpen } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { BlockKey } from '../../src/config/blocks';
+import { useTheme } from '../../src/contexts/ThemeContext';
+import { ThemeColors } from '../../src/theme/theme';
 
 interface Definition {
     term: string;
@@ -28,6 +30,9 @@ export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
     isAggregated = false,
     onRemove
 }) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const hasDefinitions = definitions && definitions.length > 0;
 
     if (!hasDefinitions) {
@@ -47,7 +52,7 @@ export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
             // Quote Context
             return (
                 <TouchableOpacity style={styles.emptyBlockContainer} onPress={onEditSelection}>
-                    <BookOpen size={24} color="#20B8CD" />
+                    <BookOpen size={24} color={colors.primary} />
                     <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
                     <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
                 </TouchableOpacity>
@@ -97,17 +102,17 @@ export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
     // Empty State Styles
     emptyBlockContainer: {
-        backgroundColor: 'rgba(32, 184, 205, 0.05)',
+        backgroundColor: colors.primaryLight,
         borderWidth: 1,
-        borderColor: 'rgba(32, 184, 205, 0.2)',
+        borderColor: colors.primaryLight, // Using primaryLight alpha for border too or similar
         borderRadius: 16,
         padding: 24,
         alignItems: 'center',
@@ -118,13 +123,13 @@ const styles = StyleSheet.create({
     emptyBlockText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#20B8CD',
+        color: colors.primary,
         marginTop: 12,
         marginBottom: 4,
     },
     emptyBlockSubtext: {
         fontSize: 13,
-        color: '#6B7280',
+        color: colors.textSecondary,
         textAlign: 'center',
         paddingHorizontal: 20,
     },
@@ -136,32 +141,32 @@ const styles = StyleSheet.create({
     definitionTerm: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: colors.text,
         marginBottom: 2,
     },
     definitionGenre: {
         fontSize: 12,
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
         marginBottom: 4,
     },
     definitionDesc: {
         fontSize: 14,
-        color: '#D1D5DB',
+        color: colors.textSecondary,
         lineHeight: 20,
         marginBottom: 4,
     },
     definitionExample: {
         fontSize: 13,
-        color: '#9CA3AF',
+        color: colors.textTertiary,
         fontStyle: 'italic',
     },
     exampleLabel: {
-        color: '#20B8CD',
+        color: colors.primary,
     },
     definitionDivider: {
         height: 1,
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight,
         marginVertical: 12,
     },
     editSelectionButton: {
@@ -169,12 +174,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 8,
-        backgroundColor: '#2A2A2A',
+        backgroundColor: colors.surfaceHighlight,
         borderRadius: 8,
         marginTop: 8,
     },
     editSelectionText: {
-        color: '#E5E7EB',
+        color: colors.text,
         fontSize: 12,
         fontWeight: '500',
     },
