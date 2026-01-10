@@ -17,6 +17,7 @@ import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
+import BookDictionaryModal from './BookDictionaryModal';
 import { TextInput } from 'react-native';
 import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import ReviewBlock from './ReviewBlock';
@@ -41,12 +42,13 @@ export function BookDetailScreen() {
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
+  const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
 
   type TabType = 'description' | 'my_sheet';
   const [activeTab, setActiveTab] = useState<TabType>('description');
 
   const DESCRIPTION_BLOCKS = ['bookDescription', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
-  const MYSHEET_BLOCKS = ['notes'];
+  const MYSHEET_BLOCKS = ['notes', 'dictionary'];
 
   const blockOptions = [
     { key: 'reviews', label: 'Avis & Commentaires' },
@@ -56,6 +58,7 @@ export function BookDetailScreen() {
     { key: 'author', label: "À propos de l'auteur" },
     { key: 'savedQuotes', label: 'Mes citations sauvegardées' },
     { key: 'similarBooks', label: 'Livres similaires' },
+    { key: 'dictionary', label: 'Dictionnaire' },
   ];
 
   const isBlockInTab = (blockKey: string, tab: TabType) => {
@@ -401,6 +404,123 @@ export function BookDetailScreen() {
               })}
             </ScrollView>
           </View>
+        );
+      }
+
+      case 'dictionary': {
+        // Aggregate definitions from all saved quotes for this book
+        const aggregatedDefinitions: Array<{ term: string, genre: string, definition: string, example: string }> = [];
+        const seenTerms = new Set<string>();
+
+        // 1. Collect Quote Definitions
+        savedQuotes.forEach(q => {
+          if (q.blockData) {
+            Object.keys(q.blockData).forEach(key => {
+              if (key.startsWith('definition')) {
+                const manualDefs = q.blockData![key] as Array<{ term: string, genre: string, definition: string, example: string }>;
+                if (Array.isArray(manualDefs)) {
+                  manualDefs.forEach(d => {
+                    if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
+                      seenTerms.add(d.term.toLowerCase());
+                      aggregatedDefinitions.push(d);
+                    }
+                  });
+                }
+              }
+            });
+          }
+          if (q.definitions) {
+            q.definitions.forEach(d => {
+              if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
+                seenTerms.add(d.term.toLowerCase());
+                aggregatedDefinitions.push(d);
+              }
+            });
+          }
+        });
+
+        // 2. Determine visible definitions
+        // blockData['dictionary'] contains { manualDefinitions: [], hiddenTerms: [] }
+        const dictData = blockData?.['dictionary'] || { manualDefinitions: [], hiddenTerms: [] };
+        const manualDefs = dictData.manualDefinitions || [];
+        const hiddenTerms = new Set(dictData.hiddenTerms || []);
+
+        // Add manual definitions to aggregated list (deduplicated)
+        manualDefs.forEach((d: any) => {
+          if (!seenTerms.has(d.term.toLowerCase())) {
+            seenTerms.add(d.term.toLowerCase());
+            aggregatedDefinitions.push(d as any); // Type assertion if needed
+          }
+        });
+
+        // Filter hidden terms
+        const visibleDefinitions = aggregatedDefinitions.filter(d => !hiddenTerms.has(d.term.toLowerCase())).sort((a, b) => a.term.localeCompare(b.term));
+
+        if (visibleDefinitions.length === 0) {
+          return (
+            <>
+              <TouchableOpacity
+                style={styles.section}
+                onPress={() => setDictionaryModalVisible(true)}
+              >
+                <View style={styles.sectionHeader}>
+                  <BookOpen size={16} color="#20B8CD" />
+                  <Text style={styles.sectionTitle}>Dictionnaire</Text>
+                </View>
+                <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginTop: 8 }}>
+                  Aucune définition visible. Cliquez pour gérer.
+                </Text>
+              </TouchableOpacity>
+              <BookDictionaryModal
+                visible={isDictionaryModalVisible}
+                onClose={() => setDictionaryModalVisible(false)}
+                availableDefinitions={aggregatedDefinitions}
+                hiddenTerms={Array.from(hiddenTerms) as string[]}
+                currentManualDefinitions={manualDefs}
+                onUpdate={(newManuals, newHidden) => {
+                  handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
+                }}
+              />
+            </>
+          );
+        }
+
+        return (
+          <>
+            <TouchableOpacity style={styles.section} onPress={() => setDictionaryModalVisible(true)}>
+              <View style={styles.sectionHeader}>
+                <BookOpen size={16} color="#20B8CD" />
+                <Text style={styles.sectionTitle}>Dictionnaire</Text>
+              </View>
+              <View style={{ gap: 16 }}>
+                {visibleDefinitions.map((dItem, defIndex) => (
+                  <View key={defIndex}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 2 }}>{dItem.term}</Text>
+                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginBottom: 4 }}>{dItem.genre}</Text>
+                    <Text style={{ fontSize: 14, color: '#D1D5DB', lineHeight: 20, marginBottom: 4 }}>{dItem.definition}</Text>
+                    {dItem.example ? (
+                      <Text style={{ fontSize: 13, color: '#9CA3AF', fontStyle: 'italic' }}>
+                        <Text style={{ color: '#20B8CD' }}>Ex : </Text>{dItem.example}
+                      </Text>
+                    ) : null}
+                    {defIndex !== visibleDefinitions.length - 1 && (
+                      <View style={{ height: 1, backgroundColor: '#2A2A2A', marginTop: 12 }} />
+                    )}
+                  </View>
+                ))}
+              </View>
+            </TouchableOpacity>
+            <BookDictionaryModal
+              visible={isDictionaryModalVisible}
+              onClose={() => setDictionaryModalVisible(false)}
+              availableDefinitions={aggregatedDefinitions}
+              hiddenTerms={Array.from(hiddenTerms) as string[]}
+              currentManualDefinitions={manualDefs}
+              onUpdate={(newManuals, newHidden) => {
+                handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
+              }}
+            />
+          </>
         );
       }
 
