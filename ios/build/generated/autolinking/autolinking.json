@@ -1,26 +1,26 @@
 {
-  "root": "/Users/clementqlf/Quotex",
-  "reactNativePath": "/Users/clementqlf/Quotex/node_modules/react-native",
+  "root": "/Users/chantreau/quotex",
+  "reactNativePath": "/Users/chantreau/quotex/node_modules/react-native",
   "reactNativeVersion": "0.81",
   "dependencies": {
     "@react-native-async-storage/async-storage": {
-      "root": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage",
+      "root": "/Users/chantreau/quotex/node_modules/@react-native-async-storage/async-storage",
       "name": "@react-native-async-storage/async-storage",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage/RNCAsyncStorage.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/@react-native-async-storage/async-storage/RNCAsyncStorage.podspec",
           "version": "2.2.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/@react-native-async-storage/async-storage/android",
           "packageImportPath": "import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;",
           "packageInstance": "new AsyncStoragePackage()",
           "buildTypes": [],
           "libraryName": "rnasyncstorage",
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/@react-native-async-storage/async-storage/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -29,22 +29,22 @@
       }
     },
     "@react-native-ml-kit/text-recognition": {
-      "root": "/Users/clementqlf/Quotex/node_modules/@react-native-ml-kit/text-recognition",
+      "root": "/Users/chantreau/quotex/node_modules/@react-native-ml-kit/text-recognition",
       "name": "@react-native-ml-kit/text-recognition",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/@react-native-ml-kit/text-recognition/RNMLKitTextRecognition.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/@react-native-ml-kit/text-recognition/RNMLKitTextRecognition.podspec",
           "version": "2.0.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/@react-native-ml-kit/text-recognition/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/@react-native-ml-kit/text-recognition/android",
           "packageImportPath": "import com.rnmlkit.textrecognition.TextRecognitionPackage;",
           "packageInstance": "new TextRecognitionPackage()",
           "buildTypes": [],
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/@react-native-ml-kit/text-recognition/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/@react-native-ml-kit/text-recognition/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -53,17 +53,17 @@
       }
     },
     "react-native-gesture-handler": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-gesture-handler",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-gesture-handler",
       "name": "react-native-gesture-handler",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-gesture-handler/RNGestureHandler.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-gesture-handler/RNGestureHandler.podspec",
           "version": "2.29.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-gesture-handler/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-gesture-handler/android",
           "packageImportPath": "import com.swmansion.gesturehandler.RNGestureHandlerPackage;",
           "packageInstance": "new RNGestureHandlerPackage()",
           "buildTypes": [],
@@ -72,7 +72,7 @@
             "RNGestureHandlerButtonComponentDescriptor",
             "RNGestureHandlerRootViewComponentDescriptor"
           ],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -81,23 +81,23 @@
       }
     },
     "react-native-image-crop-picker": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-image-crop-picker",
       "name": "react-native-image-crop-picker",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker/RNImageCropPicker.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-image-crop-picker/RNImageCropPicker.podspec",
           "version": "0.51.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-image-crop-picker/android",
           "packageImportPath": "import com.reactnative.ivpusic.imagepicker.PickerPackage;",
           "packageInstance": "new PickerPackage()",
           "buildTypes": [],
           "libraryName": "RNCImageCropPickerSpec",
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-image-crop-picker/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -106,17 +106,17 @@
       }
     },
     "react-native-pager-view": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-pager-view",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-pager-view",
       "name": "react-native-pager-view",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-pager-view/react-native-pager-view.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-pager-view/react-native-pager-view.podspec",
           "version": "6.9.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-pager-view/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-pager-view/android",
           "packageImportPath": "import com.reactnativepagerview.PagerViewPackage;",
           "packageInstance": "new PagerViewPackage()",
           "buildTypes": [],
@@ -124,7 +124,7 @@
           "componentDescriptors": [
             "RNCViewPagerComponentDescriptor"
           ],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-pager-view/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-pager-view/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -133,23 +133,23 @@
       }
     },
     "react-native-reanimated": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-reanimated",
       "name": "react-native-reanimated",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated/RNReanimated.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-reanimated/RNReanimated.podspec",
           "version": "4.2.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-reanimated/android",
           "packageImportPath": "import com.swmansion.reanimated.ReanimatedPackage;",
           "packageInstance": "new ReanimatedPackage()",
           "buildTypes": [],
           "libraryName": "rnreanimated",
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-reanimated/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -158,17 +158,17 @@
       }
     },
     "react-native-safe-area-context": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-safe-area-context",
       "name": "react-native-safe-area-context",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/react-native-safe-area-context.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-safe-area-context/react-native-safe-area-context.podspec",
           "version": "5.6.2",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-safe-area-context/android",
           "packageImportPath": "import com.th3rdwave.safeareacontext.SafeAreaContextPackage;",
           "packageInstance": "new SafeAreaContextPackage()",
           "buildTypes": [],
@@ -177,7 +177,7 @@
             "RNCSafeAreaProviderComponentDescriptor",
             "RNCSafeAreaViewComponentDescriptor"
           ],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -186,17 +186,17 @@
       }
     },
     "react-native-screens": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-screens",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-screens",
       "name": "react-native-screens",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-screens/RNScreens.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-screens/RNScreens.podspec",
           "version": "3.37.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-screens/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-screens/android",
           "packageImportPath": "import com.swmansion.rnscreens.RNScreensPackage;",
           "packageInstance": "new RNScreensPackage()",
           "buildTypes": [],
@@ -212,7 +212,7 @@
             "RNSScreenComponentDescriptor",
             "RNSModalScreenComponentDescriptor"
           ],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-screens/android/src/main/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-screens/android/src/main/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -221,17 +221,17 @@
       }
     },
     "react-native-svg": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-svg",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-svg",
       "name": "react-native-svg",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-svg/RNSVG.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-svg/RNSVG.podspec",
           "version": "15.15.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-svg/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-svg/android",
           "packageImportPath": "import com.horcrux.svg.SvgPackage;",
           "packageInstance": "new SvgPackage()",
           "buildTypes": [],
@@ -267,7 +267,7 @@
             "RNSVGTSpanComponentDescriptor",
             "RNSVGUseComponentDescriptor"
           ],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-svg/android/src/main/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-svg/android/src/main/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -276,23 +276,23 @@
       }
     },
     "react-native-vector-icons": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-vector-icons",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-vector-icons",
       "name": "react-native-vector-icons",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-vector-icons/RNVectorIcons.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-vector-icons/RNVectorIcons.podspec",
           "version": "10.3.0",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-vector-icons/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-vector-icons/android",
           "packageImportPath": "import com.oblador.vectoricons.VectorIconsPackage;",
           "packageInstance": "new VectorIconsPackage()",
           "buildTypes": [],
           "libraryName": "RNVectorIconsSpec",
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-vector-icons/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -301,22 +301,22 @@
       }
     },
     "react-native-vision-camera": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-vision-camera",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-vision-camera",
       "name": "react-native-vision-camera",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-vision-camera/VisionCamera.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-vision-camera/VisionCamera.podspec",
           "version": "4.7.3",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-vision-camera/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-vision-camera/android",
           "packageImportPath": "import com.mrousavy.camera.react.CameraPackage;",
           "packageInstance": "new CameraPackage()",
           "buildTypes": [],
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-vision-camera/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-vision-camera/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -325,23 +325,23 @@
       }
     },
     "react-native-worklets": {
-      "root": "/Users/clementqlf/Quotex/node_modules/react-native-worklets",
+      "root": "/Users/chantreau/quotex/node_modules/react-native-worklets",
       "name": "react-native-worklets",
       "platforms": {
         "ios": {
-          "podspecPath": "/Users/clementqlf/Quotex/node_modules/react-native-worklets/RNWorklets.podspec",
+          "podspecPath": "/Users/chantreau/quotex/node_modules/react-native-worklets/RNWorklets.podspec",
           "version": "0.7.1",
           "configurations": [],
           "scriptPhases": []
         },
         "android": {
-          "sourceDir": "/Users/clementqlf/Quotex/node_modules/react-native-worklets/android",
+          "sourceDir": "/Users/chantreau/quotex/node_modules/react-native-worklets/android",
           "packageImportPath": "import com.swmansion.worklets.WorkletsPackage;",
           "packageInstance": "new WorkletsPackage()",
           "buildTypes": [],
           "libraryName": "rnworklets",
           "componentDescriptors": [],
-          "cmakeListsPath": "/Users/clementqlf/Quotex/node_modules/react-native-worklets/android/build/generated/source/codegen/jni/CMakeLists.txt",
+          "cmakeListsPath": "/Users/chantreau/quotex/node_modules/react-native-worklets/android/build/generated/source/codegen/jni/CMakeLists.txt",
           "cxxModuleCMakeListsModuleName": null,
           "cxxModuleCMakeListsPath": null,
           "cxxModuleHeaderName": null,
@@ -512,7 +512,7 @@
         {
           "name": "--path <path>",
           "description": "Path to the React Native project root.",
-          "default": "/Users/clementqlf/Quotex/ios"
+          "default": "/Users/chantreau/quotex/ios"
         },
         {
           "name": "--platform <string>",
@@ -569,7 +569,7 @@
         {
           "name": "--terminal <string>",
           "description": "Launches the Metro Bundler in a new window using the specified terminal path.",
-          "default": "vscode"
+          "default": "Apple_Terminal"
         },
         {
           "name": "--binary-path <string>",
@@ -737,7 +737,7 @@
         {
           "name": "--terminal <string>",
           "description": "Launches the Metro Bundler in a new window using the specified terminal path.",
-          "default": "vscode"
+          "default": "Apple_Terminal"
         },
         {
           "name": "--appId <string>",
@@ -814,7 +814,7 @@
   ],
   "project": {
     "ios": {
-      "sourceDir": "/Users/clementqlf/Quotex/ios",
+      "sourceDir": "/Users/chantreau/quotex/ios",
       "xcodeProject": {
         "name": "Quotex.xcworkspace",
         "path": ".",
@@ -823,7 +823,7 @@
       "assets": []
     },
     "android": {
-      "sourceDir": "/Users/clementqlf/Quotex/android",
+      "sourceDir": "/Users/chantreau/quotex/android",
       "appName": "app",
       "packageName": "com.quotex",
       "applicationId": "com.quotex",
