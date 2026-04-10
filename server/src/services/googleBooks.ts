@@ -45,11 +45,95 @@ export interface FormattedBook {
     price: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Rate-limiting helpers
+// ---------------------------------------------------------------------------
+
+/** Minimum delay between consecutive Google Books requests (ms) */
+const MIN_REQUEST_INTERVAL_MS = 500;
+
+/** How many requests can run in parallel */
+const MAX_CONCURRENT = 1;
+
+let activeRequests = 0;
+let lastRequestTime = 0;
+const requestQueue: Array<() => void> = [];
+
+const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+/**
+ * Acquire a "slot" before sending a request.
+ * Ensures MAX_CONCURRENT limit and MIN_REQUEST_INTERVAL_MS spacing.
+ */
+const acquireSlot = (): Promise<void> =>
+    new Promise(resolve => {
+        const tryAcquire = () => {
+            if (activeRequests < MAX_CONCURRENT) {
+                const now = Date.now();
+                const elapsed = now - lastRequestTime;
+                const delay = Math.max(0, MIN_REQUEST_INTERVAL_MS - elapsed);
+                activeRequests++;
+                lastRequestTime = now + delay;
+                wait(delay).then(resolve);
+            } else {
+                requestQueue.push(tryAcquire);
+            }
+        };
+        tryAcquire();
+    });
+
+const releaseSlot = () => {
+    activeRequests--;
+    const next = requestQueue.shift();
+    if (next) next();
+};
+
+// ---------------------------------------------------------------------------
+// Fetch with exponential backoff on 429
+// ---------------------------------------------------------------------------
+
+const MAX_RETRIES = 4;
+const BASE_BACKOFF_MS = 1000;
+
+const fetchWithBackoff = async (url: string): Promise<Response> => {
+    let attempt = 0;
+    while (true) {
+        await acquireSlot();
+        try {
+            const response = await fetch(url);
+            if (response.status === 429) {
+                releaseSlot();
+                if (attempt >= MAX_RETRIES) {
+                    throw new Error(`Google Books API error: Too Many Requests (gave up after ${MAX_RETRIES} retries)`);
+                }
+                const backoff = BASE_BACKOFF_MS * Math.pow(2, attempt);
+                console.warn(`[GoogleBooks] Rate limited (429). Retrying in ${backoff}ms… (attempt ${attempt + 1}/${MAX_RETRIES})`);
+                await wait(backoff);
+                attempt++;
+                continue;
+            }
+            releaseSlot();
+            return response;
+        } catch (err) {
+            releaseSlot();
+            throw err;
+        }
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 export const searchGoogleBooks = async (query: string): Promise<FormattedBook[]> => {
     if (!query) return [];
 
     try {
-        const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=20`);
+        const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
+        const keyParam = apiKey ? `&key=${apiKey}` : '';
+        const response = await fetchWithBackoff(
+            `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=20${keyParam}`
+        );
 
         if (!response.ok) {
             throw new Error(`Google Books API error: ${response.statusText}`);
@@ -112,6 +196,6 @@ export const getSimilarBooks = async (genre: string | null, author: string | nul
         return books.filter(b => b.googleId !== currentGoogleId).slice(0, 5);
     } catch (error) {
         console.error('Error fetching similar books:', error);
-        return [];
+        return []
     }
 };

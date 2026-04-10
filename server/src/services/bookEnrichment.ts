@@ -92,10 +92,6 @@ export const enrichBook = async (bookId: number, bookTitle: string, authorName: 
                     console.log(`[BookEnrichment] Updating pages to ${bestMatch.pages}`);
                     updateData.pages = bestMatch.pages;
                 }
-                if (bestMatch.cover) {
-                    console.log(`[BookEnrichment] Updating cover`);
-                    updateData.cover = bestMatch.cover;
-                }
                 if (bestMatch.genre) {
                     console.log(`[BookEnrichment] Updating genre to ${bestMatch.genre}`);
                     updateData.genre = bestMatch.genre;
