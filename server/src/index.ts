@@ -781,17 +781,25 @@ app.post('/books/import', async (req, res) => {
             }
         }
 
-        let existingBook = null;
+        let existingBook: any = null;
 
-        // 1. Check by OpenLibraryId (Best for de-duplication)
-        if (bookData.openLibraryId) {
+        // 1. Check by InventaireUri (Most canonical for Works)
+        if (bookData.inventaireUri) {
+            existingBook = await prisma.book.findUnique({
+                where: { inventaireUri: bookData.inventaireUri },
+                include: { author: true }
+            });
+        }
+
+        // 2. Check by OpenLibraryId
+        if (!existingBook && bookData.openLibraryId) {
             existingBook = await prisma.book.findUnique({
                 where: { openLibraryId: bookData.openLibraryId },
                 include: { author: true }
             });
         }
 
-        // 2. Check by GoogleId (Legacy / Fallback)
+        // 3. Check by GoogleId (Legacy / Fallback)
         if (!existingBook && bookData.googleId) {
             existingBook = await prisma.book.findUnique({
                 where: { googleId: bookData.googleId },

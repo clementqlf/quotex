@@ -32,6 +32,7 @@ export interface FormattedBook {
     googleId: string;
     openLibraryId?: string;
     authorOpenLibraryId?: string;
+    inventaireUri?: string;
     title: string;
     authors: string[];
     description: string;

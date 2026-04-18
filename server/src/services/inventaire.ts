@@ -69,7 +69,7 @@ export const searchInventaireWorks = async (
 ): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
     try {
-        const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(query)}&limit=${limit}`;
+        const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
         const data = await response.json();
@@ -113,8 +113,24 @@ export const searchInventaireWorks = async (
         // 3. Attach authors to results
         for (const result of basicResults) {
             const entity = workEntities[result.uri];
-            if (entity && entity.claims && entity.claims['wdt:P50']) {
-                result.authors = entity.claims['wdt:P50'].map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
+            if (entity) {
+                // Determine the best label for the work, prioritizing French
+                const entityLabels = entity.labels || {};
+                const frLabel = entityLabels['fr'] || (entity as any).label; // 'label' is sometimes at top level in Inventaire
+                
+                if (frLabel) {
+                    result.label = frLabel;
+                }
+                
+                // If there's a description in French, use it
+                const entityDescriptions = entity.descriptions || {};
+                if (entityDescriptions['fr']) {
+                    result.description = entityDescriptions['fr'];
+                }
+                
+                if (entity.claims && entity.claims['wdt:P50']) {
+                    result.authors = entity.claims['wdt:P50'].map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
+                }
             }
         }
 
@@ -134,7 +150,7 @@ export const searchInventaireAuthors = async (
 ): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
     try {
-        const url = `${INVENTAIRE_BASE}/api/search?types=humans&search=${encodeURIComponent(query)}&limit=${limit}`;
+        const url = `${INVENTAIRE_BASE}/api/search?types=humans&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
         const data = await response.json();
@@ -166,7 +182,7 @@ export const getInventaireEntities = async (
     try {
         // API accepts: ?action=by-uris&uris=uri1|uri2|...
         const uriParam = uris.join('|');
-        const url = `${INVENTAIRE_BASE}/api/entities?action=by-uris&uris=${encodeURIComponent(uriParam)}`;
+        const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire entities error: ${response.status}`);
         const data = await response.json();
