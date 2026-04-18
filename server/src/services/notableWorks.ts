@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { getBatchInventaireDetails } from './inventaire';
+import { getBatchInventaireDetails, getBestNativeCovers } from './inventaire';
 
 const prisma = new PrismaClient();
 
@@ -17,7 +17,7 @@ export interface NotableWork {
  */
 export const getNotableWorksDetailed = async (authorName: string): Promise<NotableWork[]> => {
     try {
-        console.log(`[NotableWorks] Fetching for ${authorName}`);
+        console.log(`[NotableWorks] Starting fetch for author: ${authorName}`);
         
         const sparql = `
           SELECT ?oeuvre ?oeuvreLabel ?openLibraryID ?cover WHERE {
@@ -62,8 +62,14 @@ export const getNotableWorksDetailed = async (authorName: string): Promise<Notab
 
         // Fetch enrichment from Inventaire
         let inventaireDetails: Record<string, any> = {};
+        let nativeCovers: Record<string, string | null> = {};
+
         if (uris.length > 0) {
-            inventaireDetails = await getBatchInventaireDetails(uris);
+            console.log(`[NotableWorks] Fetching details and native covers for ${uris.length} entities`);
+            [inventaireDetails, nativeCovers] = await Promise.all([
+                getBatchInventaireDetails(uris),
+                getBestNativeCovers(uris)
+            ]);
         }
 
         const uniqueWorks = new Map<string, NotableWork>();
@@ -76,15 +82,16 @@ export const getNotableWorksDetailed = async (authorName: string): Promise<Notab
             const title = invData?.title || item.oeuvreLabel?.value || 'Sans titre';
             if (uniqueWorks.has(title)) continue;
 
-            let coverUrl = invData?.image || '';
-            const slid = item.openLibraryID?.value;
+            const nativeCover = uri ? nativeCovers[uri] : null;
+            const fallbackCover = invData?.image || '';
+            const coverUrl = nativeCover || fallbackCover;
 
-            if (!coverUrl && slid) {
-                coverUrl = `https://covers.openlibrary.org/b/olid/${slid}-L.jpg`;
+            if (nativeCover) {
+                console.log(`[NotableWorks] Found native scan for "${title}": ${nativeCover}`);
             }
-            if (!coverUrl) {
-                coverUrl = item.cover?.value || '';
-            }
+
+            const slid = item.openLibraryID?.value;
+            console.log(`[NotableWorks] "${title}" → cover: ${coverUrl || '(none)'} | uri: ${uri}`);
 
             uniqueWorks.set(title, {
                 title,

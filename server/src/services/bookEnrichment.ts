@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 /**
  * Fetches a concise summary (max 3 sentences) from Wikipedia
  */
-const getWikipediaSummary = async (bookTitle: string, authorName: string): Promise<string | null> => {
+export const getWikipediaSummary = async (bookTitle: string, authorName: string): Promise<string | null> => {
     try {
         console.log(`[BookEnrichment] Fetching Wikipedia summary for ${bookTitle} by ${authorName}`);
 
@@ -169,8 +169,12 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
             if (enriched.year && (!book.year || book.year === 0)) {
                 updateData.year = enriched.year;
             }
-            if (enriched.image && !book.cover) {
-                updateData.cover = enriched.image;
+            if (enriched.image) {
+                const currentIsWiki = (!book.cover || book.cover.includes('wikimedia.org'));
+                const newIsInternal = enriched.image.includes('/img/entities/');
+                if (!book.cover || (currentIsWiki && newIsInternal)) {
+                    updateData.cover = enriched.image;
+                }
             }
 
             if (Object.keys(updateData).length > 0) {

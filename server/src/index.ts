@@ -2,12 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { seed } from './seedData';
-import { enrichAuthor } from './services/authorEnrichment';
 import { searchHybrid } from './services/hybridSearch';
 import { getExternalAuthorBooks, searchExternalAuthors } from './services/externalAuthor';
-import {
+import { 
     searchInventaireWorks,
     searchInventaireAuthors,
+    enrichAuthorWithInventaire as enrichAuthor,
     getWorkEditions,
     getInventaireWorkDetails,
     getInventaireAuthorDetails,
@@ -18,7 +18,7 @@ import {
     enrichWorkMetadata
 } from './services/inventaire';
 import { getNotableWorksDetailed } from './services/notableWorks';
-import { enrichBookWithInventaire } from './services/bookEnrichment';
+import { enrichBookWithInventaire, getWikipediaSummary } from './services/bookEnrichment';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -214,7 +214,7 @@ app.get('/authors/by-name/:name', async (req, res) => {
                 data: { name }
             });
             // Enrich synchronously so the first load has data (or at least bio/image)
-            await enrichAuthor(newAuthor.id, newAuthor.name);
+            await enrichAuthor(newAuthor.id);
             // Re-fetch with data
             authorRecord = await prisma.author.findUnique({
                 where: { id: newAuthor.id },
@@ -259,7 +259,7 @@ app.get('/authors/:id/books', async (req, res) => {
         if (books.length <= 1 && author) {
             console.log(`[Server] Triggering enrichment (awaited) for author: ${author.name}`);
             try {
-                await enrichAuthor(author.id, author.name);
+                await enrichAuthor(author.id);
                 // Refresh books after enrichment
                 books = await prisma.book.findMany({
                     where: { authorId },
@@ -319,20 +319,31 @@ app.get('/authors/:id/notable-works', async (req, res) => {
                     },
                     include: { author: true }
                 });
-            } else if (!book.inventaireUri && work.uri) {
-                // Update URI if missing
-                book = await prisma.book.update({
-                    where: { id: book.id },
-                    data: { inventaireUri: work.uri },
-                    include: { author: true }
-                });
+            } else {
+                // Update cover, year, and inventaireUri if missing on existing book
+                const updateData: any = {};
+                if (!book.inventaireUri && work.uri) updateData.inventaireUri = work.uri;
+                if (work.cover) updateData.cover = work.cover; // Always prefer Inventaire cover
+                if ((!book.year || book.year === 0) && work.year) updateData.year = work.year;
+
+                if (Object.keys(updateData).length > 0) {
+                    console.log(`[Server] Updating existing notable work "${work.title}":`, Object.keys(updateData));
+                    book = await prisma.book.update({
+                        where: { id: book.id },
+                        data: updateData,
+                        include: { author: true }
+                    });
+                }
             }
 
+
+            console.log(`[Server] Notable work found: "${work.title}" → cover: ${work.cover || '(none)'}`);
 
             results.push(formatBook(book));
 
             // Background enrichment for notable works that are missing description
             if (book && (book as any).inventaireUri && (!(book as any).description || (book as any).description.length < 50)) {
+                console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${book.title}`);
                 enrichBookWithInventaire(book.id).catch(err => 
                     console.error(`[Server] Background enrichment failed for ${(book as any).title}:`, err)
                 );
@@ -353,7 +364,7 @@ app.post('/authors/:id/enrich', async (req, res) => {
         const author = await prisma.author.findUnique({ where: { id: parseInt(id) } });
         if (!author) return res.status(404).json({ error: 'Author not found' });
 
-        await enrichAuthor(author.id, author.name);
+        await enrichAuthor(author.id);
 
         // Return updated books
         const books = await prisma.book.findMany({
@@ -432,22 +443,9 @@ app.get('/books/:id', async (req, res) => {
         }
 
 
-        // Enrichment: trigger if book has Inventaire URI but missing description
-        if ((book as any).inventaireUri && (!(book as any).description || (book as any).description.length < 50)) {
-            console.log(`[Server] Triggering synchronous Inventaire enrichment for: ${(book as any).title}`);
-            await enrichBookWithInventaire(book.id);
-            
-            // Re-fetch to get enriched data
-            const enrichedBook = await prisma.book.findUnique({
-                where: { id: book.id },
-                include: {
-                    author: true,
-                    similarBooks: true,
-                    editions: true
-                } as any
-            });
-            return res.json(formatBook(enrichedBook || book));
-        }
+        // We do not trigger async Inventaire enrichment here anymore 
+        // to avoid duplicate heavy workloads just because a description is missing.
+        // Import/creation correctly handles the first full enrichment.
 
         res.json(formatBook(book));
     } catch (e) {
@@ -584,7 +582,7 @@ app.post('/quotes', async (req, res) => {
         if (!authorRecord) {
             authorRecord = await prisma.author.create({ data: { name: author } });
             // Enrich author asynchronously
-            enrichAuthor(authorRecord.id, authorRecord.name).catch((err: any) =>
+            enrichAuthor(authorRecord.id).catch((err: any) =>
                 console.error(`[Server] Async enrichment failed for ${author}:`, err)
             );
         }
@@ -624,6 +622,89 @@ app.post('/quotes', async (req, res) => {
     } catch (e) {
         console.error('Error creating quote:', e);
         res.status(500).json({ error: 'Failed to create quote' });
+    }
+});
+
+// Update a quote
+app.patch('/quotes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { text, author, book, theme } = req.body;
+        const quoteId = parseInt(id);
+
+        console.log(`PATCH /quotes/${id} received:`, { text, author, book, theme });
+
+        const existingQuote = await prisma.quote.findUnique({
+            where: { id: quoteId },
+            include: { author: true, book: true }
+        });
+
+        if (!existingQuote) {
+            res.status(404).json({ error: 'Quote not found' });
+            return;
+        }
+
+        let authorId = existingQuote.authorId;
+        let bookId = existingQuote.bookId;
+
+        // 1. Handle Author update if name provided
+        if (author && typeof author === 'string' && author !== existingQuote.author.name) {
+            let authorRecord = await prisma.author.findUnique({ where: { name: author } });
+            if (!authorRecord) {
+                authorRecord = await prisma.author.create({ data: { name: author } });
+                enrichAuthor(authorRecord.id).catch((err: any) =>
+                    console.error(`[Server] Async enrichment failed for ${author}:`, err)
+                );
+            }
+            authorId = authorRecord.id;
+        }
+
+        // 2. Handle Book update if name provided
+        if (book && typeof book === 'string' && (!existingQuote.book || book !== existingQuote.book.title)) {
+            // Find or create book for THIS author
+            let bookRecord = await prisma.book.findFirst({ 
+                where: { 
+                    title: book,
+                    authorId: authorId
+                } 
+            });
+            if (!bookRecord) {
+                bookRecord = await prisma.book.create({
+                    data: {
+                        title: book,
+                        authorId: authorId
+                    }
+                });
+            }
+            bookId = bookRecord.id;
+        }
+
+        // 3. Update Quote
+        const updatedQuote = await prisma.quote.update({
+            where: { id: quoteId },
+            data: {
+                text: text !== undefined ? text : existingQuote.text,
+                theme: theme !== undefined ? theme : existingQuote.theme,
+                authorId,
+                bookId
+            },
+            include: {
+                author: true,
+                book: true,
+                user: true,
+                likes: {
+                    where: { userId: 1 } // Hardcoded for now
+                },
+                _count: {
+                    select: { likes: true }
+                }
+            }
+        });
+
+        res.json(formatQuote(updatedQuote));
+    } catch (e) {
+        console.error('Error updating quote:', e);
+        res.status(500).json({ error: 'Failed to update quote' });
     }
 });
 
@@ -755,37 +836,11 @@ app.post('/books/import', async (req, res) => {
 
         let extractedAuthorDescription: string | null = null;
 
-        // Fetch precise details from Inventaire API whenever we have an inventaireUri
-        if (bookData.inventaireUri) {
-            try {
-                const enriched = await enrichWorkMetadata(bookData.inventaireUri);
-                if (enriched) {
-                    console.log(`[Server] Applied centralized enrichment for: ${enriched.title}`);
-                    if (enriched.year) bookData.year = enriched.year;
-                    if (enriched.authors?.length > 0) bookData.authors = enriched.authors;
-                    if (enriched.description) bookData.description = enriched.description;
-                    if (enriched.pages) bookData.pages = enriched.pages;
-                    if (enriched.inventaireUri) bookData.inventaireUri = enriched.inventaireUri; // Resolved native URI
-                    
-                    // Specific logic for author synopsis if needed (keep for consistency with your existing patterns)
-                    if (enriched.authorUris?.length > 0 && !extractedAuthorDescription) {
-                        const authorDetails = await getInventaireAuthorDetails(enriched.authorUris[0]);
-                        if (authorDetails?.wikipediaTitle) {
-                             const authorSynopsis = await fetchWikipediaSynopsis(authorDetails.wikipediaTitle, 'fr');
-                             if (authorSynopsis) extractedAuthorDescription = authorSynopsis;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error(`[Server] Failed to enrich metadata via service`, err);
-            }
-        }
-
         let existingBook: any = null;
 
         // 1. Check by InventaireUri (Most canonical for Works)
         if (bookData.inventaireUri) {
-            existingBook = await prisma.book.findUnique({
+            existingBook = await (prisma.book as any).findFirst({
                 where: { inventaireUri: bookData.inventaireUri },
                 include: { author: true }
             });
@@ -854,7 +909,7 @@ app.post('/books/import', async (req, res) => {
                     inventaireUri: bookData.inventaireUri || book.inventaireUri,
                     isbn: bookData.isbn || book.isbn,
                     description: book.description || bookData.description,
-                    cover: (book.cover && book.cover.length > 0) ? book.cover : bookData.cover,
+                    cover: (!book.cover || (book.cover.includes('wikimedia.org') && bookData.cover?.includes('/img/entities/'))) ? bookData.cover : book.cover,
                     pages: book.pages || bookData.pages,
                     year: book.year || bookData.year,
                     genre: book.genre || bookData.genre,
@@ -866,6 +921,12 @@ app.post('/books/import', async (req, res) => {
                 where: { id: updatedBook.id },
                 include: { author: true }
             });
+            
+            // Ensure author is fully enriched (awaited to ensure bio is returned)
+            if (fullUpdatedBook?.author) {
+                await enrichAuthor(fullUpdatedBook.author.id).catch((e: any) => console.error(e));
+            }
+            
             res.json(formatBook(fullUpdatedBook));
             return;
         }
@@ -928,19 +989,40 @@ app.post('/books/import', async (req, res) => {
 
         console.log(`[Server] Created new book: ${newBook.title}`);
         
+        // Ensure author is enriched (awaited to ensure metadata is ready for first view)
+        if (author.id) {
+            await enrichAuthor(author.id).catch((e: any) => console.error(e));
+        }
+        
         // Trigger enrichment for Inventaire books during import to get editions and synopsis
         if ((newBook as any).inventaireUri) {
             console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${newBook.title}`);
             await enrichBookWithInventaire(newBook.id);
             
             // Re-fetch with editions
-            const fullyEnriched = await prisma.book.findUnique({
+            let fullyEnriched = await prisma.book.findUnique({
                 where: { id: newBook.id },
                 include: {
                     author: true,
                     editions: true
                 } as any
             });
+
+            // Fallback: If Wikipedia synopsis via Inventaire missed, do a direct title search
+            if (fullyEnriched && (!fullyEnriched.description || fullyEnriched.description.length < 50)) {
+                console.log(`[Server] Missing description after Inventaire enrichment for ${newBook.title}. Trying direct Wikipedia search...`);
+                // authorName is already available in scope from earlier: const authorName = ...
+                const fallbackSummary = await getWikipediaSummary(newBook.title, (fullyEnriched as any).author?.name || authorName);
+                if (fallbackSummary) {
+                    console.log(`[Server] Direct Wikipedia search succeeded for ${newBook.title}`);
+                    await prisma.book.update({
+                        where: { id: newBook.id },
+                        data: { description: fallbackSummary }
+                    });
+                    fullyEnriched.description = fallbackSummary;
+                }
+            }
+
             return res.json(formatBook(fullyEnriched || newBook));
         }
 
@@ -1121,10 +1203,10 @@ app.get('/books/:id/editions', async (req, res) => {
             return;
         }
 
-        const book = await prisma.book.findUnique({
+        const book = await (prisma.book as any).findUnique({
             where: { id: bookId },
             include: { editions: { orderBy: { publishDate: 'asc' } } }
-        }) as any;
+        });
 
         if (!book) {
             res.status(404).json({ error: 'Book not found' });

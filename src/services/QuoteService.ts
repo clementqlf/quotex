@@ -267,8 +267,37 @@ class QuoteService {
     }
 
     async updateQuote(id: number, updates: Partial<Quote>): Promise<void> {
-        await delay(300);
-        const quotes = await this.getQuotes();
+        // Prefer names for author and book in the payload to match backend "find or create" logic
+        const payload: any = { ...updates };
+        if (updates.author) {
+            payload.author = typeof updates.author === 'string' ? updates.author : updates.author.name;
+        }
+        if (updates.book) {
+            payload.book = typeof updates.book === 'string' ? updates.book : updates.book.title;
+        }
+
+        try {
+            console.log(`Updating quote ${id} on server...`, payload);
+            const response = await fetch(`${this.API_URL}/${id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                console.log('Quote updated on server successfully');
+            } else {
+                console.error('Failed to update quote on server:', await response.text());
+            }
+        } catch (error) {
+            console.error('Network error updating quote:', error);
+        }
+
+        // Maintain local cache update for offline/responsiveness
+        await delay(100);
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
         const quoteIndex = quotes.findIndex(q => q.id === id);
         if (quoteIndex > -1) {
             quotes[quoteIndex] = { ...quotes[quoteIndex], ...updates };

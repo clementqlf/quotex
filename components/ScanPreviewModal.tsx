@@ -18,7 +18,7 @@ import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-rea
 import { bookDescriptions, localQuotesDB } from '../data/staticData';
 import { useData } from '../src/contexts/DataProvider';
 import { searchService } from '../src/services/SearchService';
-import { googleBooksService } from '../src/services/GoogleBooksService';
+import { API_BASE_URL } from '../src/config/api';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { ThemeColors } from '../src/theme/theme';
 
@@ -53,7 +53,7 @@ export default function ScanPreviewModal({
     const [editedQuote, setEditedQuote] = useState('');
 
     // State for Book Suggestions
-    type SuggestionItem = { type: 'local' | 'google'; title: string; data?: any };
+    type SuggestionItem = { type: 'local' | 'inventaire'; title: string; data?: any };
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -155,30 +155,24 @@ export default function ScanPreviewModal({
 
         setIsLoadingSuggestions(true);
         try {
-            // Parallel search: Local + Google
-            const [localResults, googleResults] = await Promise.all([
-                searchService.search(text).catch(() => ({ books: [] })),
-                googleBooksService.search(text).catch(() => [])
-            ]);
+            // Recherche locale + Inventaire.io via le SearchService
+            const results = await searchService.search(text).catch(() => ({ books: [], inventaireWorks: [] }));
 
-            const bookTitles = localResults.books ? localResults.books.map(b => b.title) : [];
+            const bookTitles = results.books ? results.books.map((b: any) => b.title) : [];
             const localMatches = initialBooks.filter(b => b.toLowerCase().includes(text.toLowerCase()));
 
             // Local items (deduplicated)
             const uniqueLocalTitles = Array.from(new Set([...bookTitles, ...localMatches]));
             const localItems: SuggestionItem[] = uniqueLocalTitles.map(t => ({ type: 'local', title: t }));
 
-            // Google items
-            // Filter out Google results that exactly match a local title (to avoid duplicates if we already have it)?
-            // Or just show them as "Google" to indicate enhanced data?
-            // Let's show them.
-            const googleItems: SuggestionItem[] = googleResults.map(b => ({
-                type: 'google',
-                title: b.title,
-                data: b
+            // Inventaire.io items
+            const inventaireItems: SuggestionItem[] = ((results as any).inventaireWorks || []).map((w: any) => ({
+                type: 'inventaire',
+                title: w.label || w.title || '',
+                data: w
             }));
 
-            setSuggestions([...localItems, ...googleItems]);
+            setSuggestions([...localItems, ...inventaireItems]);
         } catch (error) {
             console.error("Error searching books", error);
         } finally {
@@ -316,11 +310,25 @@ export default function ScanPreviewModal({
                                                                         key={`${item.title}-${index}`}
                                                                         style={styles.suggestionItem}
                                                                         onPress={async () => {
-                                                                            if (item.type === 'google' && item.data) {
+                                                                            if (item.type === 'inventaire' && item.data) {
                                                                                 setIsLoadingSuggestions(true);
-                                                                                await googleBooksService.importBook(item.data);
-                                                                                if (item.data.authors && item.data.authors.length > 0) {
-                                                                                    setEditedAuthor(item.data.authors[0]);
+                                                                                try {
+                                                                                    await fetch(`${API_BASE_URL}/books/import`, {
+                                                                                        method: 'POST',
+                                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                                        body: JSON.stringify({
+                                                                                            title: item.title,
+                                                                                            inventaireUri: item.data.uri,
+                                                                                            authors: item.data.authors || [],
+                                                                                            cover: item.data.image || null,
+                                                                                            description: item.data.description || '',
+                                                                                        }),
+                                                                                    });
+                                                                                    if (item.data.authors && item.data.authors.length > 0) {
+                                                                                        setEditedAuthor(item.data.authors[0]);
+                                                                                    }
+                                                                                } catch (e) {
+                                                                                    console.error('[ScanPreviewModal] Failed to import Inventaire book:', e);
                                                                                 }
                                                                                 setIsLoadingSuggestions(false);
                                                                             }
@@ -329,12 +337,10 @@ export default function ScanPreviewModal({
                                                                             setShowSuggestions(false);
                                                                         }}
                                                                     >
-                                                                        <BookIcon size={14} color={item.type === 'google' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
+                                                                        <BookIcon size={14} color={item.type === 'inventaire' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
                                                                         <View style={{ flex: 1 }}>
                                                                             <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
-                                                                            {item.type === 'google' && (
-                                                                                <Text style={{ fontSize: 10, color: colors.primary, fontStyle: 'italic' }}>Depuis Google Books</Text>
-                                                                            )}
+
                                                                         </View>
                                                                     </TouchableOpacity>
                                                                 ))}

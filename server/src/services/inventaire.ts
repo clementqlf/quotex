@@ -1,3 +1,6 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 const INVENTAIRE_BASE = 'https://inventaire.io';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,15 +50,59 @@ export interface InventaireAuthorDetails {
 
 const resolveImageUrl = (raw: string | undefined): string | null => {
     if (!raw) return null;
-    if (raw.startsWith('http')) return raw;
     // Format: "/img/entities/<hash>" → prepend base
     if (raw.startsWith('/img/')) return `${INVENTAIRE_BASE}${raw}`;
-    // Format returned by entity detail: it's already a full Wikimedia URL via image.url
     return null;
+};
+
+export const getEntityImage = (imageObj: any): string | null => {
+    if (!imageObj) return null;
+
+    // 1. Native Inventaire user-uploaded image
+    if (imageObj.file && imageObj.file.startsWith('/img/')) {
+        return resolveImageUrl(imageObj.file);
+    }
+
+    // 2. Fallback to the external URL (usually Wikimedia Commons provided by Wikidata)
+    return resolveImageUrl(imageObj.url);
 };
 
 const safeFirstClaim = (claims: Record<string, any[]>, property: string): string | null => {
     return claims?.[property]?.[0] ?? null;
+};
+
+/**
+ * Standardizes a raw Inventaire entity into a consistent format used across the app.
+ */
+const formatInventaireWork = (entity: any, uri?: string): Partial<InventaireWorkDetails> & { label?: string, authors?: string[] } => {
+    if (!entity) return {};
+
+    const claims = entity.claims || {};
+    const labels = entity.labels || {};
+    const descriptions = entity.descriptions || {};
+
+    const label = labels['fr'] || labels['en'] || (entity as any).label || Object.values(labels)[0] || null;
+    const description = descriptions['fr'] || descriptions['en'] || Object.values(descriptions)[0] || null;
+
+    const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
+    const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
+
+    // Resolve Image
+    const imageUrl = getEntityImage(entity.image);
+
+    const sitelinks = entity.sitelinks || {};
+
+    return {
+        uri: entity.uri || uri,
+        title: label as string | null,
+        year,
+        image: imageUrl,
+        description: description as string | null,
+        authorUris: claims['wdt:P50'] || [],
+        genreUris: claims['wdt:P136'] || [],
+        wikipediaTitle: sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null,
+        label: label as string // For search result compatibility
+    };
 };
 
 // ─── Search ───────────────────────────────────────────────────────────────────
@@ -68,12 +115,13 @@ export const searchInventaireWorks = async (
     limit = 10
 ): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
+    console.log(`[Inventaire] Searching for books (works): "${query}"`);
     try {
         const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
         const data = await response.json();
-        
+
         const basicResults = (data.results || []).map((r: any) => ({
             id: r.id,
             uri: r.uri,
@@ -110,28 +158,30 @@ export const searchInventaireWorks = async (
             }
         }
 
-        // 3. Attach authors to results
+        // 3. Attach authors and better metadata to results
+        const bestCovers = await getBestNativeCovers(workUris);
+
         for (const result of basicResults) {
             const entity = workEntities[result.uri];
             if (entity) {
-                // Determine the best label for the work, prioritizing French
-                const entityLabels = entity.labels || {};
-                const frLabel = entityLabels['fr'] || (entity as any).label; // 'label' is sometimes at top level in Inventaire
+                const formatted = formatInventaireWork(entity, result.uri);
+
+                if (formatted.title && !result.label) result.label = formatted.title;
+                if (formatted.description && !result.description) result.description = formatted.description;
                 
-                if (frLabel) {
-                    result.label = frLabel;
-                }
-                
-                // If there's a description in French, use it
-                const entityDescriptions = entity.descriptions || {};
-                if (entityDescriptions['fr']) {
-                    result.description = entityDescriptions['fr'];
-                }
-                
-                if (entity.claims && entity.claims['wdt:P50']) {
-                    result.authors = entity.claims['wdt:P50'].map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
+                // Prioritize best cover found from editions, then fallback to entity image, then to search result image
+                const bestCover = bestCovers[result.uri];
+                result.image = bestCover || formatted.image || result.image;
+
+                if (formatted.authorUris && formatted.authorUris.length > 0) {
+                    result.authors = formatted.authorUris.map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
                 }
             }
+        }
+
+        console.log(`[Inventaire] Search complete. Found ${basicResults.length} works.`);
+        for (const res of basicResults) {
+            console.log(`[Inventaire] Result: "${res.label}" → cover: ${res.image || '(none)'}`);
         }
 
         return basicResults;
@@ -194,6 +244,51 @@ export const getInventaireEntities = async (
 };
 
 /**
+ * Fetch a batch of entities by URI from the SEARCH API to get representative covers.
+ * This is much more reliable for finding "the best" image than the entities API.
+ */
+export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<Record<string, { image: string | null, label: string | null }>> => {
+    if (!uris.length) return {};
+    
+    // Extract IDs and build the OR query
+    const ids = uris.map(uri => {
+        if (uri.startsWith('wd:')) return uri.substring(3);
+        if (uri.startsWith('inv:')) return uri.substring(4);
+        return null;
+    }).filter(Boolean);
+
+    if (ids.length === 0) return {};
+
+    const results: Record<string, { image: string | null, label: string | null }> = {};
+    const CHUNK_SIZE = 10;
+
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const searchQuery = chunk.map(id => `id:"${id}"`).join(' OR ');
+        
+        try {
+            const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(searchQuery)}&limit=${chunk.length}&lang=fr`;
+            const response = await fetch(url);
+            if (!response.ok) continue;
+            const data = await response.json();
+            
+            (data.results || []).forEach((r: any) => {
+                if (r.uri) {
+                    results[r.uri] = {
+                        image: resolveImageUrl(r.image),
+                        label: r.label || null
+                    };
+                }
+            });
+        } catch (e) {
+            console.error('[Inventaire] Error in batch search metadata:', e);
+        }
+    }
+
+    return results;
+};
+
+/**
  * Get work details from a URI
  */
 export const getInventaireWorkDetails = async (uri: string): Promise<InventaireWorkDetails | null> => {
@@ -201,27 +296,17 @@ export const getInventaireWorkDetails = async (uri: string): Promise<InventaireW
     const entity = entities[uri];
     if (!entity) return null;
 
-    const claims = entity.claims || {};
-    const labels = entity.labels || {};
-
-    const label = labels['fr'] || labels['en'] || Object.values(labels)[0] || null;
-    const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
-    const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
-    const imageUrl = entity.image?.url ?? resolveImageUrl(entity.image?.file);
-
-    // Extract Wikipedia title if available
-    const sitelinks = entity.sitelinks || {};
-    const wikipediaTitle = sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null;
+    const formatted = formatInventaireWork(entity, uri);
 
     return {
-        uri: entity.uri || uri, // Prefer native URI if available
-        title: label as string | null,
-        description: null,
-        image: imageUrl || null,
-        authorUris: claims['wdt:P50'] || [],
-        year,
-        genreUris: claims['wdt:P136'] || [],
-        wikipediaTitle,
+        uri: formatted.uri!,
+        title: formatted.title || null,
+        description: formatted.description || null,
+        image: formatted.image || null,
+        authorUris: formatted.authorUris || [],
+        year: formatted.year || null,
+        genreUris: formatted.genreUris || [],
+        wikipediaTitle: formatted.wikipediaTitle || null,
     };
 };
 
@@ -239,7 +324,7 @@ export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr')
         if (!pages) return null;
         const firstPageId = Object.keys(pages)[0];
         if (firstPageId === '-1') return null;
-        
+
         const extract = pages[firstPageId]?.extract;
         return extract && extract.trim().length > 0 ? extract.trim() : null;
     } catch (e) {
@@ -264,14 +349,7 @@ export const getInventaireAuthorDetails = async (uri: string): Promise<Inventair
     const birthDate = safeFirstClaim(claims, 'wdt:P569');
     const nationalityUri = safeFirstClaim(claims, 'wdt:P27');
 
-    let imageUrl: string | null = null;
-    if (entity.image?.url) {
-        imageUrl = entity.image.url;
-    } else if (entity.image?.file) {
-        // Wikimedia image file name — build a URL
-        const encoded = encodeURIComponent(entity.image.file.replace(/ /g, '_'));
-        imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=300`;
-    }
+    const imageUrl = getEntityImage(entity.image);
 
     const sitelinks = entity.sitelinks || {};
     const wikipediaTitle = sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null;
@@ -329,14 +407,7 @@ export const getEditionsDetails = async (editionUris: string[]): Promise<Inventa
             const pagesRaw = safeFirstClaim(claims, 'wdt:P1104');
 
             // Cover: entity.image can be { url } or path like /img/entities/<hash>
-            let cover: string | null = null;
-            if ((e as any).image?.url) {
-                const imgUrl = (e as any).image.url;
-                cover = imgUrl.startsWith('/img/') ? `${INVENTAIRE_BASE}${imgUrl}` : imgUrl;
-            } else if ((e as any).image?.file) {
-                const path = (e as any).image.file;
-                cover = path.startsWith('/img/') ? `${INVENTAIRE_BASE}${path}` : path;
-            }
+            const cover = getEntityImage((e as any).image);
 
             // Parsing pages if present
             const pages = pagesRaw ? parseInt(pagesRaw) : null;
@@ -377,33 +448,7 @@ export const getBatchInventaireDetails = async (uris: string[]): Promise<Record<
 
     for (const [uri, entity] of Object.entries(entities)) {
         if (!entity) continue;
-        const claims = (entity as any).claims || {};
-        const labels = (entity as any).labels || {};
-
-        const label = labels['fr'] || labels['en'] || Object.values(labels)[0] || null;
-        const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
-        const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
-
-        // Resolve Image
-        let imageUrl: string | null = null;
-        if ((entity as any).image?.url) {
-            imageUrl = (entity as any).image.url;
-        } else if ((entity as any).image?.file) {
-            const file = (entity as any).image.file;
-            if (file.startsWith('/img/')) {
-                imageUrl = `${INVENTAIRE_BASE}${file}`;
-            } else {
-                const encoded = encodeURIComponent(file.replace(/ /g, '_'));
-                imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=400`;
-            }
-        }
-
-        results[uri] = {
-            uri,
-            title: label,
-            year,
-            image: imageUrl
-        };
+        results[uri] = formatInventaireWork(entity, uri);
     }
     return results;
 };
@@ -449,17 +494,195 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
 
     // 3. Editions & Page count (from editions of the NATIVE URI)
     try {
+        // Try to get representative image from search first (it's often better)
+        const searchMetadata = await getBatchInventaireSearchMetadata([uri]);
+        if (searchMetadata[uri]?.image) {
+            result.image = searchMetadata[uri].image;
+            console.log(`[Inventaire] Prioritized representative search image: ${result.image}`);
+        }
+
         const editions = await getWorkEditions(nativeUri);
         result.editions = editions; // Store the full list
 
-        const editionWithPages = editions.find(e => e.pages && e.pages > 0);
-        if (editionWithPages) {
-            result.pages = editionWithPages.pages;
-            console.log(`[Inventaire] Found page count: ${result.pages}`);
+        if (editions.length > 0) {
+            // Find best cover and page count from editions
+            const scoredEds = editions.map(e => {
+                let score = 0;
+                if (e.languageUri === 'wd:Q150') score += 10;
+                if (e.cover?.includes('/img/entities/')) score += 5;
+                if (e.isbn) score += 2;
+                if (e.pages && e.pages > 0) score += 1;
+                return { ed: e, score };
+            }).sort((a, b) => b.score - a.score);
+
+            const bestEd = scoredEds[0].ed;
+            if (bestEd.cover) {
+                result.image = bestEd.cover;
+                console.log(`[Inventaire] Best cover found from editions: ${result.image}`);
+            }
+
+            const editionWithPages = editions.find(e => e.pages && e.pages > 0);
+            if (editionWithPages) {
+                result.pages = editionWithPages.pages;
+                console.log(`[Inventaire] Found page count: ${result.pages}`);
+            }
         }
     } catch (err) {
-        console.error(`[Inventaire] Failed to fetch editions for pages`, err);
+        console.error(`[Inventaire] Failed to fetch editions for pages/covers`, err);
     }
 
     return result;
+};
+
+/**
+ * Orchestrates complete enrichment for an author (metadata + biography + image)
+ */
+export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string): Promise<any> => {
+    try {
+        console.log(`[Inventaire] Starting enrichment for author ID: ${authorId}`);
+
+        // 1. Get author from DB
+        const author = await (prisma.author as any).findUnique({ where: { id: authorId } });
+        if (!author) return null;
+
+        const nameToSearch = authorName || author.name;
+        let uri = author.inventaireUri;
+
+        // 2. Resolve URI if missing
+        if (!uri) {
+            console.log(`[Inventaire] Searching for author: ${nameToSearch}`);
+            const searchResults = await searchInventaireAuthors(nameToSearch, 5);
+            if (searchResults.length > 0) {
+                // Pick the best match (case insensitive title match or just the first one)
+                const match = searchResults.find(r => r.label.toLowerCase() === nameToSearch.toLowerCase()) || searchResults[0];
+                uri = match.uri;
+                console.log(`[Inventaire] Resolved URI: ${uri}`);
+            }
+        }
+
+        if (!uri) {
+            console.log(`[Inventaire] Could not resolve Inventaire URI for ${nameToSearch}`);
+            return null;
+        }
+
+        // 3. Get Author Details
+        const details = await getInventaireAuthorDetails(uri);
+        if (!details) return null;
+
+        // 4. Fetch Biography from Wikipedia (FR)
+        let biography = author.description;
+        if (details.wikipediaTitle && (!biography || biography.length < 50)) {
+            console.log(`[Inventaire] Fetching biography from Wikipedia for: ${details.wikipediaTitle}`);
+            const synopsis = await fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
+            if (synopsis) {
+                biography = synopsis;
+                console.log(`[Inventaire] Successfully retrieved biography (${biography.length} chars)`);
+            }
+        }
+
+        // 5. Build update data
+        const updateData: any = {
+            inventaireUri: uri,
+            description: biography || author.description,
+            image: details.image || author.image,
+            birthDate: details.birthDate || author.birthDate,
+            nationality: details.nationality || author.nationality
+        };
+
+        if (details.image) {
+            console.log(`[Inventaire] Author image resolved: ${details.image}`);
+        } else {
+            console.log(`[Inventaire] No author image found on Inventaire for ${nameToSearch}`);
+        }
+
+        // 6. Resolve nationality label if it's a URI
+        if (updateData.nationality && (updateData.nationality.startsWith('wd:') || updateData.nationality.startsWith('inv:'))) {
+            try {
+                const natEntities = await getInventaireEntities([updateData.nationality]);
+                const natEntity = natEntities[updateData.nationality];
+                if (natEntity && natEntity.labels) {
+                    updateData.nationality = natEntity.labels['fr'] || natEntity.labels['en'] || Object.values(natEntity.labels)[0];
+                }
+            } catch (err) {
+                console.error(`[Inventaire] Failed to resolve nationality label`, err);
+            }
+        }
+
+        // 7. Update DB
+        const updatedAuthor = await prisma.author.update({
+            where: { id: authorId },
+            data: updateData
+        });
+
+        console.log(`[Inventaire] Enrichment complete for ${updatedAuthor.name}`);
+        return updatedAuthor;
+
+    } catch (e) {
+        console.error(`[Inventaire] Author enrichment error:`, e);
+        return null;
+    }
+};
+
+/**
+ * For a list of work URIs, finds the "best" native cover by looking at their editions.
+ * Prioritizes scans over Wikimedia fallbacks and editions with ISBNs.
+ */
+export const getBestNativeCovers = async (workUris: string[]): Promise<Record<string, string | null>> => {
+    if (!workUris.length) return {};
+    console.log(`[Inventaire] Searching for native covers for ${workUris.length} works...`);
+    
+    const results: Record<string, string | null> = {};
+    
+    try {
+        // 1. Fetch edition URIs for each work in parallel
+        const editionUrisPerWork = await Promise.all(workUris.map(async uri => {
+            const edUris = await getWorkEditionUris(uri);
+            return { workUri: uri, edUris };
+        }));
+
+        // 2. Collate top edition URIs to fetch details in batch
+        // We take up to 10 editions per work to find a good one
+        const allEdUris = editionUrisPerWork.flatMap(x => x.edUris.slice(0, 10));
+        if (allEdUris.length === 0) return results;
+
+        const allEdDetails = await getEditionsDetails(allEdUris);
+        
+        // 3. Selection logic per work with scoring
+        // Priority 0: Get representative images from search index
+        const searchMetadata = await getBatchInventaireSearchMetadata(workUris);
+
+        for (const { workUri, edUris } of editionUrisPerWork) {
+            // Priority 1: Search-indexed representative image
+            if (searchMetadata[workUri]?.image) {
+                results[workUri] = searchMetadata[workUri].image;
+                console.log(`[Inventaire] Using representative search cover for ${workUri}`);
+                continue;
+            }
+
+            const eds = allEdDetails.filter(d => edUris.includes(d.inventaireUri));
+            if (eds.length === 0) continue;
+
+            // Sorting logic based on score
+            // Native (+10), French (+5), ISBN (+2), Pages (+1)
+            const bestEd = eds.sort((a, b) => {
+                const getScore = (ed: any) => {
+                    let score = 0;
+                    if (ed.languageUri === 'wd:Q150') score += 10;
+                    if (ed.cover?.includes('/img/entities/')) score += 5;
+                    if (ed.isbn) score += 2;
+                    if ((ed.pages || 0) > 0) score += 1;
+                    return score;
+                };
+                return getScore(b) - getScore(a);
+            })[0];
+            
+            if (bestEd?.cover) {
+                results[workUri] = bestEd.cover;
+            }
+        }
+    } catch (err) {
+        console.error(`[Inventaire] Error in getBestNativeCovers:`, err);
+    }
+
+    return results;
 };
