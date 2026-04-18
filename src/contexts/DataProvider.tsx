@@ -27,8 +27,10 @@ type DataContextType = {
     getUserByUsername: (username: string) => Promise<any>;
     getBookByTitle: (title: string) => Promise<Book | undefined>;
     getBookById: (id: number) => Promise<Book | undefined>;
+    importBook: (bookData: Partial<Book>) => Promise<Book | undefined>;
     toggleSaveAuthor: (id: number) => Promise<void>;
     toggleSaveBook: (id: number) => Promise<void>;
+    getNotableWorks: (authorId: number) => Promise<Book[]>;
     books: Book[];
 };
 
@@ -171,6 +173,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return await authorService.getBookById(id);
     };
 
+    const importBook = async (bookData: Partial<Book>) => {
+        return await authorService.importBook(bookData);
+    };
+
     const toggleSaveAuthor = async (id: number) => {
         await authorService.toggleSaveAuthor(id);
         await refreshAuthors();
@@ -179,6 +185,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const toggleSaveBook = async (id: number) => {
         await authorService.toggleSaveBook(id);
         await refreshBooks();
+    };
+
+    const getNotableWorks = async (authorId: number) => {
+        return await authorService.getNotableWorks(authorId);
     };
 
     return (
@@ -204,8 +214,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             getUserByUsername,
             getBookByTitle,
             getBookById,
+            importBook,
             toggleSaveAuthor,
             toggleSaveBook,
+            getNotableWorks,
         }}>
             {children}
         </DataContext.Provider>

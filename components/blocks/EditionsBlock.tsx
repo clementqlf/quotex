@@ -62,7 +62,11 @@ export const EditionsBlock: React.FC<EditionsBlockProps> = ({ book, onRemove }) 
     const [fetched, setFetched] = useState(false);
 
     useEffect(() => {
-        if (!book?.id || fetched) return;
+        if (!book?.id) {
+            setEditions([]);
+            setFetched(false);
+            return;
+        }
 
         const fetchEditions = async () => {
             setIsLoading(true);
@@ -81,7 +85,14 @@ export const EditionsBlock: React.FC<EditionsBlockProps> = ({ book, onRemove }) 
         };
 
         fetchEditions();
-    }, [book?.id, fetched]);
+
+        // Cleanup: reset states when book changes
+        return () => {
+            setEditions([]);
+            setFetched(false);
+            setIsLoading(false);
+        };
+    }, [book?.id]);
 
     const handleOpenInventaire = (uri: string) => {
         // Build an inventaire.io URL from the URI

@@ -146,7 +146,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigation.navigate('AuthorDetail', { author })}
+                    onPress={() => navigation.navigate('AuthorDetail', { author, authorName: author.name })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {author.image ? (
@@ -196,9 +196,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    // For now, we just don't do anything or navigate to a specialized screen, or trigger an import. 
-                    // To keep it simple, we could also log and navigate. AuthorDetail requires an Author object.
-                    // We might not have it locally yet. To fix, one would create an importAuthor endpoint.
+                    onPress={() => navigation.navigate('AuthorDetail', { authorName: item.label })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {item.image ? (

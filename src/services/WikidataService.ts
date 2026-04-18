@@ -55,28 +55,65 @@ class WikidataService {
 
         const results = await this.runSPARQL(query);
 
+        // Extract QIDs for batch enrichment from Inventaire
+        const uris = results
+            .map((r: any) => {
+                const val = r.oeuvre?.value;
+                if (val && val.includes('/entity/')) {
+                    return `wd:${val.split('/entity/')[1]}`;
+                }
+                return null;
+            })
+            .filter(Boolean) as string[];
+
+        // Fetch enrichment from our backend
+        let inventaireDetails: Record<string, any> = {};
+        if (uris.length > 0) {
+            try {
+                console.log(`[WikidataService] Fetching enrichment for ${uris.length} works...`);
+                const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
+                if (response.ok) {
+                    inventaireDetails = await response.json();
+                }
+            } catch (err) {
+                console.error('[WikidataService] Failed to fetch enrichment:', err);
+            }
+        }
+
         const uniqueTitles = new Set();
         return results
             .map((item: any) => {
-                let coverUrl = item.cover?.value || '';
+                const qid = item.oeuvre?.value?.split('/entity/')[1];
+                const uri = qid ? `wd:${qid}` : null;
+                const invData = uri ? inventaireDetails[uri] : null;
+
+                // Priority: Inventaire Image > OpenLibrary Image (via SLID) > Wikidata Image
+                let coverUrl = invData?.image || '';
                 const slid = item.openLibraryID?.value;
 
-                // Prioritize Open Library cover if ID exists
-                if (slid) {
+                if (!coverUrl && slid) {
                     coverUrl = `https://covers.openlibrary.org/b/olid/${slid}-L.jpg`;
                 }
+                if (!coverUrl) {
+                    coverUrl = item.cover?.value || '';
+                }
+
+                // Title Priority: Inventaire > Wikidata
+                const title = invData?.title || item.oeuvreLabel?.value || 'Sans titre';
 
                 return {
                     id: 0,
-                    title: item.oeuvreLabel?.value || 'Sans titre',
+                    title: title,
                     author: authorName,
                     cover: coverUrl,
-                    year: 0,
+                    year: invData?.year || 0,
                     description: '',
                     pages: 0,
                     rating: 0,
                     genre: '',
-                    buyLinks: []
+                    buyLinks: [],
+                    inventaireUri: uri || undefined,
+                    openLibraryId: item.openLibraryID?.value || undefined
                 };
             })
             .filter((book: Book) => {

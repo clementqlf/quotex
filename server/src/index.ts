@@ -11,10 +11,14 @@ import {
     getWorkEditions,
     getInventaireWorkDetails,
     getInventaireAuthorDetails,
+    getBatchInventaireDetails,
     InventaireSearchResult,
     InventaireEdition,
-    fetchWikipediaSynopsis
+    fetchWikipediaSynopsis,
+    enrichWorkMetadata
 } from './services/inventaire';
+import { getNotableWorksDetailed } from './services/notableWorks';
+import { enrichBookWithInventaire } from './services/bookEnrichment';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -273,6 +277,75 @@ app.get('/authors/:id/books', async (req, res) => {
     }
 });
 
+// Endpoint to fetch and sync notable works for an author
+app.get('/authors/:id/notable-works', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const authorId = parseInt(id);
+
+        const author = await prisma.author.findUnique({ where: { id: authorId } });
+        if (!author) return res.status(404).json({ error: 'Author not found' });
+
+        console.log(`[Server] Syncing notable works for author: ${author.name}`);
+
+        const notableWorks = await getNotableWorksDetailed(author.name);
+        const results = [];
+
+        for (const work of notableWorks) {
+            // Check if book exists by inventaireUri or title
+            let book: any = await prisma.book.findFirst({
+                where: {
+                    OR: [
+                        { inventaireUri: work.uri },
+                        work.openLibraryId ? { openLibraryId: work.openLibraryId } : {},
+                        { AND: [{ title: work.title }, { authorId: author.id }] }
+                    ].filter(cond => Object.keys(cond).length > 0) as any
+                },
+                include: { author: true }
+            });
+
+            if (!book) {
+                console.log(`[Server] Importing new notable work: ${work.title}`);
+                book = await prisma.book.create({
+                    data: {
+                        title: work.title,
+                        authorId: author.id,
+                        inventaireUri: work.uri,
+                        cover: work.cover || '',
+                        year: work.year || 0,
+                        openLibraryId: work.openLibraryId || '',
+                        genre: 'Notable',
+                        description: '' // Will be enriched later on single book view or background
+                    },
+                    include: { author: true }
+                });
+            } else if (!book.inventaireUri && work.uri) {
+                // Update URI if missing
+                book = await prisma.book.update({
+                    where: { id: book.id },
+                    data: { inventaireUri: work.uri },
+                    include: { author: true }
+                });
+            }
+
+
+            results.push(formatBook(book));
+
+            // Background enrichment for notable works that are missing description
+            if (book && (book as any).inventaireUri && (!(book as any).description || (book as any).description.length < 50)) {
+                enrichBookWithInventaire(book.id).catch(err => 
+                    console.error(`[Server] Background enrichment failed for ${(book as any).title}:`, err)
+                );
+            }
+        }
+
+        res.json(results);
+    } catch (e) {
+        console.error("Error syncing notable works:", e);
+        res.status(500).json({ error: 'Failed to sync notable works' });
+    }
+});
+
 // Explicitly enrichment author
 app.post('/authors/:id/enrich', async (req, res) => {
     try {
@@ -348,8 +421,9 @@ app.get('/books/:id', async (req, res) => {
             where: { id: parseInt(id) },
             include: {
                 author: true,
-                similarBooks: true
-            }
+                similarBooks: true,
+                editions: true
+            } as any
         });
 
         if (!book) {
@@ -357,7 +431,23 @@ app.get('/books/:id', async (req, res) => {
             return;
         }
 
-        // Enrichment disabled
+
+        // Enrichment: trigger if book has Inventaire URI but missing description
+        if ((book as any).inventaireUri && (!(book as any).description || (book as any).description.length < 50)) {
+            console.log(`[Server] Triggering synchronous Inventaire enrichment for: ${(book as any).title}`);
+            await enrichBookWithInventaire(book.id);
+            
+            // Re-fetch to get enriched data
+            const enrichedBook = await prisma.book.findUnique({
+                where: { id: book.id },
+                include: {
+                    author: true,
+                    similarBooks: true,
+                    editions: true
+                } as any
+            });
+            return res.json(formatBook(enrichedBook || book));
+        }
 
         res.json(formatBook(book));
     } catch (e) {
@@ -668,52 +758,26 @@ app.post('/books/import', async (req, res) => {
         // Fetch precise details from Inventaire API whenever we have an inventaireUri
         if (bookData.inventaireUri) {
             try {
-                console.log(`[Server] Fetching external details to complete metadata for ${bookData.inventaireUri}`);
-                const workDetails = await getInventaireWorkDetails(bookData.inventaireUri);
-                if (workDetails) {
-                    if (workDetails.year) {
-                        bookData.year = workDetails.year;
-                        console.log(`[Server] Applied Publication Year from Inventaire: ${workDetails.year}`);
-                    }
-                    if (workDetails.authorUris && workDetails.authorUris.length > 0) {
-                        const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
-                        if (authorDetails && authorDetails.name) {
-                            bookData.authors = [authorDetails.name];
-                            console.log(`[Server] Applied Author Name from Inventaire: ${authorDetails.name}`);
-                            if (authorDetails.wikipediaTitle) {
-                                const authorSynopsis = await fetchWikipediaSynopsis(authorDetails.wikipediaTitle);
-                                if (authorSynopsis) extractedAuthorDescription = authorSynopsis;
-                            }
+                const enriched = await enrichWorkMetadata(bookData.inventaireUri);
+                if (enriched) {
+                    console.log(`[Server] Applied centralized enrichment for: ${enriched.title}`);
+                    if (enriched.year) bookData.year = enriched.year;
+                    if (enriched.authors?.length > 0) bookData.authors = enriched.authors;
+                    if (enriched.description) bookData.description = enriched.description;
+                    if (enriched.pages) bookData.pages = enriched.pages;
+                    if (enriched.inventaireUri) bookData.inventaireUri = enriched.inventaireUri; // Resolved native URI
+                    
+                    // Specific logic for author synopsis if needed (keep for consistency with your existing patterns)
+                    if (enriched.authorUris?.length > 0 && !extractedAuthorDescription) {
+                        const authorDetails = await getInventaireAuthorDetails(enriched.authorUris[0]);
+                        if (authorDetails?.wikipediaTitle) {
+                             const authorSynopsis = await fetchWikipediaSynopsis(authorDetails.wikipediaTitle, 'fr');
+                             if (authorSynopsis) extractedAuthorDescription = authorSynopsis;
                         }
-                    }
-
-                    // Extract synopsis from Wikipedia if available
-                    if (workDetails.wikipediaTitle && (!bookData.description || bookData.description.length < 50)) {
-                        try {
-                            const synopsis = await fetchWikipediaSynopsis(workDetails.wikipediaTitle);
-                            if (synopsis) {
-                                bookData.description = synopsis;
-                                console.log(`[Server] Applied Synopsis from Wikipedia: ${workDetails.wikipediaTitle}`);
-                            }
-                        } catch (err) {
-                            console.error(`[Server] Failed to fetch Wikipedia synopsis`, err);
-                        }
-                    }
-
-                    // Extract pages by fetching the first few editions
-                    try {
-                        const editions = await getWorkEditions(bookData.inventaireUri);
-                        const editionWithPages = editions.find(e => e.pages && e.pages > 0);
-                        if (editionWithPages) {
-                            bookData.pages = editionWithPages.pages;
-                            console.log(`[Server] Applied Page Count from Inventaire Edition: ${bookData.pages}`);
-                        }
-                    } catch (err) {
-                        console.error(`[Server] Failed to fetch editions for pages`, err);
                     }
                 }
             } catch (err) {
-                console.error(`[Server] Failed to recover external details from Inventaire`, err);
+                console.error(`[Server] Failed to enrich metadata via service`, err);
             }
         }
 
@@ -855,6 +919,23 @@ app.post('/books/import', async (req, res) => {
         });
 
         console.log(`[Server] Created new book: ${newBook.title}`);
+        
+        // Trigger enrichment for Inventaire books during import to get editions and synopsis
+        if ((newBook as any).inventaireUri) {
+            console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${newBook.title}`);
+            await enrichBookWithInventaire(newBook.id);
+            
+            // Re-fetch with editions
+            const fullyEnriched = await prisma.book.findUnique({
+                where: { id: newBook.id },
+                include: {
+                    author: true,
+                    editions: true
+                } as any
+            });
+            return res.json(formatBook(fullyEnriched || newBook));
+        }
+
         res.json(formatBook(newBook));
 
     } catch (e) {
@@ -1090,6 +1171,23 @@ app.get('/books/:id/editions', async (req, res) => {
     } catch (e) {
         console.error('Error fetching book editions:', e);
         res.status(500).json({ error: 'Failed to fetch book editions' });
+    }
+});
+
+// ─── Batch fetch Inventaire details ───
+app.get('/inventaire/entities', async (req, res) => {
+    try {
+        const { uris } = req.query;
+        if (!uris || typeof uris !== 'string') {
+            return res.status(400).json({ error: 'Missing or invalid uris parameter' });
+        }
+        const uriList = uris.split('|');
+        console.log(`[Server] Batch fetching Inventaire details for ${uriList.length} URIs`);
+        const details = await getBatchInventaireDetails(uriList);
+        res.json(details);
+    } catch (e) {
+        console.error('Error batch fetching Inventaire details:', e);
+        res.status(500).json({ error: 'Failed to fetch batch details' });
     }
 });
 

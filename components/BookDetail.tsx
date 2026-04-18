@@ -38,11 +38,28 @@ export function BookDetailScreen() {
   const passedBook = params?.book;
   const bookTitle = passedBook?.title || params?.bookTitle;
 
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook } = useData();
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, importBook, toggleSaveBook } = useData();
 
   const [bookInfo, setBookInfo] = useState<Book | null>(passedBook || null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(!passedBook);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(!passedBook || (passedBook.id === 0) || !passedBook.description);
+
+  // Sync state with params when they change
+  React.useEffect(() => {
+    if (passedBook) {
+      setBookInfo(passedBook);
+      setIsLoadingMetadata((passedBook.id === 0) || !passedBook.description);
+    } else {
+      setBookInfo(null);
+      setIsLoadingMetadata(true);
+    }
+    // Also reset author info to avoid showing previous author
+    setAuthorInfo(null);
+    setGridData([]);
+    setBlockData({});
+    setIsLoadingLayout(true);
+    setActiveTab('description');
+  }, [passedBook, bookTitle]);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
@@ -89,25 +106,39 @@ export function BookDetailScreen() {
     if (!passedBook) setIsLoadingMetadata(true);
 
     try {
-      // If we already have the book, rely on it but ensure we have the author
       let currentBook = passedBook;
-      if (!currentBook) {
-        currentBook = await getBookByTitle(bookTitle);
-        if (currentBook) setBookInfo(currentBook);
+      
+      // If we don't have a book, or we have a "placeholder" book from external source (id=0)
+      if (!currentBook || currentBook.id === 0) {
+        console.log(`[BookDetail] Searching for/Importing book: ${bookTitle}`);
+        // First try by title in our DB
+        const dbBook = await getBookByTitle(bookTitle);
+        if (dbBook) {
+          currentBook = dbBook;
+          setBookInfo(dbBook);
+        } else if (passedBook) {
+          // Import it
+          const imported = await importBook(passedBook);
+          if (imported) {
+            currentBook = imported;
+            setBookInfo(imported);
+          }
+        }
       }
 
-      if (currentBook) {
-        console.log(`[BookDetail] Book info ready. Rating: ${currentBook.rating}`);
-
-        // Fetch full book data if it's new or missing description
-        if (currentBook.id && (!currentBook.description || currentBook.description.length < 50)) {
+      if (currentBook && currentBook.id !== 0) {
+        // We have a book from DB, check if it needs full detail enrichment
+        if (!currentBook.description || currentBook.description.length < 50) {
+          console.log(`[BookDetail] Fetching full details for book ID: ${currentBook.id}`);
           const fullBook = await getBookById(Number(currentBook.id));
           if (fullBook) {
             setBookInfo(fullBook);
             currentBook = fullBook;
           }
         }
+      } 
 
+      if (currentBook) {
         const authorVal = currentBook.author;
         // Check if authorVal is object or string
         const authorName = typeof authorVal === 'string' ? authorVal : authorVal.name;

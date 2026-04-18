@@ -16,7 +16,6 @@ import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark } from
 import { useData } from '../src/contexts/DataProvider';
 import { getBookTitle } from '../src/utils/dataHelpers';
 import { Author, Book, RootStackParamList } from '../types';
-import { wikidataService } from '../src/services/WikidataService';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { ThemeColors } from '../src/theme/theme';
 
@@ -30,7 +29,7 @@ export function AuthorDetailScreen() {
   const { author, authorName: paramAuthorName } = route.params;
   const nameToUse = author?.name || paramAuthorName;
 
-  const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor } = useData();
+  const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor, getNotableWorks } = useData();
   const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
@@ -54,7 +53,7 @@ export function AuthorDetailScreen() {
         const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
           getBooksByAuthor(nameToUse, currentAuthorId),
           needsFetch ? getAuthorByName(nameToUse) : Promise.resolve(null),
-          wikidataService.getBooksByAuthor(nameToUse, authorInfo?.openLibraryId)
+          currentAuthorId ? getNotableWorks(currentAuthorId) : Promise.resolve([])
         ]);
 
         const booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
@@ -84,7 +83,11 @@ export function AuthorDetailScreen() {
     setIsLoadingAllWorks(true);
     setShowAllWorksModal(true);
     try {
-      const works = await wikidataService.getAllWorks(nameToUse);
+      // For now, "All Works" still uses external service or we could also move it to backend
+      // Using existing backend enrichment logic for consistency
+      const currentAuthorId = authorInfo?.id;
+      if (!currentAuthorId) throw new Error("Artist ID missing");
+      const works = await getNotableWorks(currentAuthorId);
       setAllWorks(works);
     } catch (error) {
       console.error("Error fetching all works:", error);
@@ -209,7 +212,7 @@ export function AuthorDetailScreen() {
               <TouchableOpacity
                 key={`${book.id || book.title}-${index}`}
                 style={styles.bookItem}
-                onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title })}>
+                onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title, book })}>
                 <View style={styles.bookCoverContainer}>
                   {book.cover ? (
                     <Image source={{ uri: book.cover }} style={styles.bookCover} />

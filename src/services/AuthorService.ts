@@ -137,6 +137,37 @@ class AuthorService {
         return false;
     }
 
+    async importBook(bookData: Partial<Book>): Promise<Book | undefined> {
+        try {
+            console.log(`[AuthorService] Importing book: ${bookData.title}`);
+            const response = await fetch(`${this.API_URL}/books/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: bookData.title,
+                    authors: typeof bookData.author === 'string' ? [bookData.author] : (bookData.author?.name ? [bookData.author.name] : []),
+                    description: bookData.description,
+                    cover: bookData.cover,
+                    inventaireUri: bookData.inventaireUri,
+                    openLibraryId: bookData.openLibraryId,
+                    googleId: bookData.googleId,
+                    year: bookData.year,
+                    pages: bookData.pages,
+                    genre: bookData.genre
+                })
+            });
+            if (response.ok) {
+                const book = await response.json();
+                book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
+                book.similarBooks = book.similarBooks || [];
+                return book;
+            }
+        } catch (error) {
+            console.error('Error importing book:', error);
+        }
+        return undefined;
+    }
+
     async getBooks(): Promise<Book[]> {
         try {
             const response = await fetch(`${this.API_URL}/books`);
@@ -150,6 +181,24 @@ class AuthorService {
             }
         } catch (error) {
             console.error('Error fetching books from server:', error);
+        }
+        return [];
+    }
+
+    async getNotableWorks(authorId: number): Promise<Book[]> {
+        try {
+            console.log(`[AuthorService] Fetching/Syncing notable works for author: ${authorId}`);
+            const response = await fetch(`${this.API_URL}/authors/${authorId}/notable-works`);
+            if (response.ok) {
+                const books = await response.json();
+                return books.map((b: any) => ({
+                    ...b,
+                    buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
+                    similarBooks: b.similarBooks || []
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching notable works:', error);
         }
         return [];
     }

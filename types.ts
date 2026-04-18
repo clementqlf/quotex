@@ -38,6 +38,9 @@ export type Book = {
   buyLinks?: Array<{ store: string; url: string; price: string }>;
   similarBooks?: Book[];
   isSaved?: boolean;
+  inventaireUri?: string;
+  openLibraryId?: string;
+  googleId?: string;
 };
 
 export type Quote = {

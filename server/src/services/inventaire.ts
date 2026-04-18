@@ -198,9 +198,9 @@ export const getInventaireWorkDetails = async (uri: string): Promise<InventaireW
     const wikipediaTitle = sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null;
 
     return {
-        uri,
+        uri: entity.uri || uri, // Prefer native URI if available
         title: label as string | null,
-        description: null, // Works usually don't have descriptions on Inventaire
+        description: null,
         image: imageUrl || null,
         authorUris: claims['wdt:P50'] || [],
         year,
@@ -350,4 +350,100 @@ export const getWorkEditions = async (workUri: string): Promise<InventaireEditio
     if (!uris.length) return [];
     const limited = uris.slice(0, 30);
     return getEditionsDetails(limited);
+};
+/**
+ * Fetch a batch of entities and return formatted details (title, cover, year, etc.)
+ */
+export const getBatchInventaireDetails = async (uris: string[]): Promise<Record<string, Partial<InventaireWorkDetails>>> => {
+    if (!uris.length) return {};
+    const entities = await getInventaireEntities(uris);
+    const results: Record<string, Partial<InventaireWorkDetails>> = {};
+
+    for (const [uri, entity] of Object.entries(entities)) {
+        if (!entity) continue;
+        const claims = (entity as any).claims || {};
+        const labels = (entity as any).labels || {};
+
+        const label = labels['fr'] || labels['en'] || Object.values(labels)[0] || null;
+        const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
+        const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
+
+        // Resolve Image
+        let imageUrl: string | null = null;
+        if ((entity as any).image?.url) {
+            imageUrl = (entity as any).image.url;
+        } else if ((entity as any).image?.file) {
+            const file = (entity as any).image.file;
+            if (file.startsWith('/img/')) {
+                imageUrl = `${INVENTAIRE_BASE}${file}`;
+            } else {
+                const encoded = encodeURIComponent(file.replace(/ /g, '_'));
+                imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encoded}?width=400`;
+            }
+        }
+
+        results[uri] = {
+            uri,
+            title: label,
+            year,
+            image: imageUrl
+        };
+    }
+    return results;
+};
+
+/**
+ * Orchestrates complete enrichment for a work (metadata + description + pages)
+ */
+export const enrichWorkMetadata = async (uri: string): Promise<any> => {
+    console.log(`[Inventaire] Starting full enrichment for ${uri}`);
+    const details = await getInventaireWorkDetails(uri);
+    if (!details) return null;
+
+    const nativeUri = details.uri;
+    const result: any = {
+        title: details.title,
+        year: details.year,
+        image: details.image,
+        inventaireUri: nativeUri,
+        authorUris: details.authorUris,
+        wikipediaTitle: details.wikipediaTitle,
+        description: null,
+        pages: 0,
+        authors: []
+    };
+
+    // 1. Authors names
+    if (details.authorUris.length > 0) {
+        const authorEntities = await getInventaireEntities([details.authorUris[0]]);
+        const authorEntry = authorEntities[details.authorUris[0]];
+        if (authorEntry && authorEntry.labels) {
+            result.authors = [authorEntry.labels['fr'] || authorEntry.labels['en'] || Object.values(authorEntry.labels)[0]];
+        }
+    }
+
+    // 2. Wikipedia Synopsis (FR only)
+    if (details.wikipediaTitle) {
+        const synopsis = await fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
+        if (synopsis) {
+            result.description = synopsis;
+            console.log(`[Inventaire] Found Wikipedia (FR) synopsis`);
+        }
+    }
+
+    // 3. Editions & Page count (from editions of the NATIVE URI)
+    try {
+        const editions = await getWorkEditions(nativeUri);
+        result.editions = editions; // Store the full list
+
+        const editionWithPages = editions.find(e => e.pages && e.pages > 0);
+        if (editionWithPages) {
+            result.pages = editionWithPages.pages;
+            console.log(`[Inventaire] Found page count: ${result.pages}`);
+        }
+    } catch (err) {
+        console.error(`[Inventaire] Failed to fetch editions for pages`, err);
+    }
+
+    return result;
 };
