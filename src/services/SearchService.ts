@@ -6,6 +6,8 @@ export interface SearchResults {
     authors: Author[];
     books: Book[];
     themes: string[];
+    inventaireWorks?: any[];
+    inventaireAuthors?: any[];
 }
 
 class SearchService {
@@ -13,7 +15,7 @@ class SearchService {
 
     async search(query: string): Promise<SearchResults> {
         if (!query.trim()) {
-            return { quotes: [], authors: [], books: [], themes: [] };
+            return { quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] };
         }
 
         try {
@@ -26,11 +28,11 @@ class SearchService {
                 return results;
             } else {
                 console.error('[SearchService] Search failed:', response.status);
-                return { quotes: [], authors: [], books: [], themes: [] };
+                return { quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] };
             }
         } catch (error) {
             console.error('[SearchService] Network error:', error);
-            return { quotes: [], authors: [], books: [], themes: [] };
+            return { quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] };
         }
     }
 }

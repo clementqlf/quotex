@@ -11,6 +11,7 @@ import { SimilarAuthorsBlock } from './SimilarAuthorsBlock';
 import { DefinitionBlock } from './DefinitionBlock';
 import { SavedQuotesBlock } from './SavedQuotesBlock';
 import { BuyLinkBlock } from './BuyLinkBlock';
+import { EditionsBlock } from './EditionsBlock';
 import { BlockWrapper } from './BlockWrapper';
 import { useTheme } from '../../src/contexts/ThemeContext';
 
@@ -79,6 +80,9 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         case 'buy':
             if (!book) return null;
             return <BuyLinkBlock book={book} onRemove={onRemove} />;
+
+        case 'editions':
+            return <EditionsBlock book={book || null} onRemove={onRemove} />;
 
         case 'notes':
             return (

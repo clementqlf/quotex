@@ -5,7 +5,16 @@ import { seed } from './seedData';
 import { enrichAuthor } from './services/authorEnrichment';
 import { searchHybrid } from './services/hybridSearch';
 import { getExternalAuthorBooks, searchExternalAuthors } from './services/externalAuthor';
-import { enrichBook } from './services/bookEnrichment';
+import {
+    searchInventaireWorks,
+    searchInventaireAuthors,
+    getWorkEditions,
+    getInventaireWorkDetails,
+    getInventaireAuthorDetails,
+    InventaireSearchResult,
+    InventaireEdition,
+    fetchWikipediaSynopsis
+} from './services/inventaire';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -348,17 +357,7 @@ app.get('/books/:id', async (req, res) => {
             return;
         }
 
-        // Enrich if description is missing or too short
-        if (!book.description || book.description.trim().length < 50) {
-            const authorName = typeof book.author === 'string' ? book.author : (book.author as any).name;
-            console.log(`[Server] Enriching book description for: ${book.title}...`);
-            const enrichedBook = await enrichBook(book.id, book.title, authorName);
-            if (enrichedBook) {
-                // Merge enriched fields into book object, preserving relations like 'author'
-                // enrichBook returns the Prisma Book object (scalars only)
-                Object.assign(book, enrichedBook);
-            }
-        }
+        // Enrichment disabled
 
         res.json(formatBook(book));
     } catch (e) {
@@ -664,6 +663,60 @@ app.post('/books/import', async (req, res) => {
         console.log(`[Server] Importing book: ${bookData.title}`);
         console.log(`[Server] Received bookData:`, JSON.stringify(bookData, null, 2));
 
+        let extractedAuthorDescription: string | null = null;
+
+        // Fetch precise details from Inventaire API whenever we have an inventaireUri
+        if (bookData.inventaireUri) {
+            try {
+                console.log(`[Server] Fetching external details to complete metadata for ${bookData.inventaireUri}`);
+                const workDetails = await getInventaireWorkDetails(bookData.inventaireUri);
+                if (workDetails) {
+                    if (workDetails.year) {
+                        bookData.year = workDetails.year;
+                        console.log(`[Server] Applied Publication Year from Inventaire: ${workDetails.year}`);
+                    }
+                    if (workDetails.authorUris && workDetails.authorUris.length > 0) {
+                        const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
+                        if (authorDetails && authorDetails.name) {
+                            bookData.authors = [authorDetails.name];
+                            console.log(`[Server] Applied Author Name from Inventaire: ${authorDetails.name}`);
+                            if (authorDetails.wikipediaTitle) {
+                                const authorSynopsis = await fetchWikipediaSynopsis(authorDetails.wikipediaTitle);
+                                if (authorSynopsis) extractedAuthorDescription = authorSynopsis;
+                            }
+                        }
+                    }
+
+                    // Extract synopsis from Wikipedia if available
+                    if (workDetails.wikipediaTitle && (!bookData.description || bookData.description.length < 50)) {
+                        try {
+                            const synopsis = await fetchWikipediaSynopsis(workDetails.wikipediaTitle);
+                            if (synopsis) {
+                                bookData.description = synopsis;
+                                console.log(`[Server] Applied Synopsis from Wikipedia: ${workDetails.wikipediaTitle}`);
+                            }
+                        } catch (err) {
+                            console.error(`[Server] Failed to fetch Wikipedia synopsis`, err);
+                        }
+                    }
+
+                    // Extract pages by fetching the first few editions
+                    try {
+                        const editions = await getWorkEditions(bookData.inventaireUri);
+                        const editionWithPages = editions.find(e => e.pages && e.pages > 0);
+                        if (editionWithPages) {
+                            bookData.pages = editionWithPages.pages;
+                            console.log(`[Server] Applied Page Count from Inventaire Edition: ${bookData.pages}`);
+                        }
+                    } catch (err) {
+                        console.error(`[Server] Failed to fetch editions for pages`, err);
+                    }
+                }
+            } catch (err) {
+                console.error(`[Server] Failed to recover external details from Inventaire`, err);
+            }
+        }
+
         let existingBook = null;
 
         // 1. Check by OpenLibraryId (Best for de-duplication)
@@ -726,6 +779,7 @@ app.post('/books/import', async (req, res) => {
                 data: {
                     googleId: bookData.googleId || book.googleId,
                     openLibraryId: openLibraryId,
+                    inventaireUri: bookData.inventaireUri || book.inventaireUri,
                     isbn: bookData.isbn || book.isbn,
                     description: book.description || bookData.description,
                     cover: (book.cover && book.cover.length > 0) ? book.cover : bookData.cover,
@@ -745,21 +799,21 @@ app.post('/books/import', async (req, res) => {
         }
 
         // 3. Create New Book
-        const authorName = bookData.authors && bookData.authors.length > 0 ? bookData.authors[0] : 'Unknown';
+        let authorName = bookData.authors && bookData.authors.length > 0 ? bookData.authors[0] : 'Unknown';
+
         let author = await prisma.author.findUnique({ where: { name: authorName } });
         if (!author) {
             author = await prisma.author.create({
-                data: { name: authorName }
+                data: { 
+                    name: authorName,
+                    description: extractedAuthorDescription || null
+                }
             });
-            // Enrich author asynchronously
-            enrichAuthor(author.id, author.name, bookData.authorOpenLibraryId).catch((err: any) =>
-                console.error(`[Server] Async enrichment failed for ${authorName}:`, err)
-            );
-        } else if (!author.description) {
-            // Even if author exists, if it has no description, try to enrich it
-            enrichAuthor(author.id, author.name, bookData.authorOpenLibraryId).catch((err: any) =>
-                console.error(`[Server] Async enrichment failed for ${authorName}:`, err)
-            );
+        } else if (!author.description && extractedAuthorDescription) {
+            author = await prisma.author.update({
+                where: { id: author.id },
+                data: { description: extractedAuthorDescription }
+            });
         }
 
         // Helper to generate buy links
@@ -784,6 +838,7 @@ app.post('/books/import', async (req, res) => {
                 title: bookData.title,
                 googleId: bookData.googleId,
                 openLibraryId: bookData.openLibraryId,
+                inventaireUri: bookData.inventaireUri,
                 isbn: bookData.isbn,
                 description: bookData.description || '',
                 year: bookData.year || 0,
@@ -834,10 +889,45 @@ app.get('/external-authors/:id/books', async (req, res) => {
 
 // --- Search ---
 
+// ─── Cache helpers ────────────────────────────────────────────────────────────
+const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+async function getCachedSearch(query: string, type: string): Promise<any[] | null> {
+    const cache = await prisma.searchCache.findUnique({
+        where: { query_type: { query: query.toLowerCase(), type } }
+    });
+    if (!cache) return null;
+    if (new Date() > cache.expiresAt) {
+        // Expired — delete and return null
+        await prisma.searchCache.delete({ where: { id: cache.id } }).catch(() => {});
+        return null;
+    }
+    try {
+        return JSON.parse(cache.results);
+    } catch {
+        return null;
+    }
+}
+
+async function setCachedSearch(query: string, type: string, results: any[]): Promise<void> {
+    const expiresAt = new Date(Date.now() + SEARCH_CACHE_TTL_MS);
+    const key = { query: query.toLowerCase(), type };
+    try {
+        await prisma.searchCache.upsert({
+            where: { query_type: key },
+            create: { ...key, results: JSON.stringify(results), expiresAt },
+            update: { results: JSON.stringify(results), expiresAt },
+        });
+    } catch (e) {
+        console.error('[Cache] Failed to store search cache:', e);
+    }
+}
+
+// ─── /search (unified local + Inventaire) ────────────────────────────────────
 app.get('/search', async (req, res) => {
     try {
         const { q } = req.query;
-        if (!q || typeof q !== 'string') { // Fixed logic here as well
+        if (!q || typeof q !== 'string') {
             res.status(400).json({ error: 'Missing or invalid query parameter "q"' });
             return;
         }
@@ -845,7 +935,7 @@ app.get('/search', async (req, res) => {
         const query = q.toLowerCase();
         console.log(`[Server] Search query: "${query}"`);
 
-        // 1. Search Quotes (text or theme)
+        // 1. Search Quotes (text or theme) — always local
         const quotes = await prisma.quote.findMany({
             where: {
                 OR: [
@@ -862,80 +952,144 @@ app.get('/search', async (req, res) => {
             take: 20
         });
 
-        // 2. Search Authors (Local + Open Library)
+        // 2. Search Local Authors (Saved only)
         const localAuthors = await prisma.author.findMany({
-            where: {
-                name: { contains: query }
+            where: { 
+                name: { contains: query },
+                isSaved: true
             },
             take: 10
         });
 
-        // USE THE NEW SERVICE
-        const externalAuthors = await searchExternalAuthors(query);
-
-        // Merge and deduplicate by name
-        const normalizeName = (name: string) => {
-            return name
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .trim();
-        };
-
-        const authorMap = new Map<string, any>();
-        localAuthors.forEach((a: any) => authorMap.set(normalizeName(a.name), a));
-        externalAuthors.forEach((a: any) => {
-            const normalizedExternalName = normalizeName(a.name);
-            if (!authorMap.has(normalizedExternalName)) {
-                authorMap.set(normalizedExternalName, {
-                    name: a.name,
-                    openLibraryId: a.key, // passing OL ID for later enrichment
-                    isExternal: true,
-                    topWork: a.topWork,
-                    birthDate: a.birthDate,
-                    image: a.image
-                });
-            }
-        });
-
-        const authors = Array.from(authorMap.values()).slice(0, 10);
-
-        // 3. Search Books
+        // 3. Search Local Books (Saved only)
         const books = await prisma.book.findMany({
-            where: {
-                title: { contains: query }
+            where: { 
+                title: { contains: query },
+                isSaved: true
             },
             include: { author: true },
             take: 10
         });
 
-        // 4. Search Themes (Derived from Quotes)
+        // 4. Search Themes (local)
         const themesRaw = await prisma.quote.findMany({
-            where: {
-                theme: { contains: query }
-            },
+            where: { theme: { contains: query } },
             select: { theme: true },
             distinct: ['theme'],
             take: 10
         });
-        const themes = themesRaw.map(t => t.theme).filter(t => t !== null);
+        const themes = themesRaw.map((t: any) => t.theme).filter((t: any) => t !== null);
 
-        // Process quotes
+        // 5. External Inventaire Works (with cache)
+        let inventaireWorks: InventaireSearchResult[] = [];
+        const cachedWorks = await getCachedSearch(query, 'works');
+        if (cachedWorks) {
+            inventaireWorks = cachedWorks;
+            console.log(`[Search] Cache hit — works for "${query}"`);
+        } else {
+            inventaireWorks = await searchInventaireWorks(query, 10);
+            await setCachedSearch(query, 'works', inventaireWorks);
+        }
+
+        // 6. External Inventaire Authors (with cache)
+        let inventaireAuthors: InventaireSearchResult[] = [];
+        const cachedAuthors = await getCachedSearch(query, 'humans');
+        if (cachedAuthors) {
+            inventaireAuthors = cachedAuthors;
+            console.log(`[Search] Cache hit — humans for "${query}"`);
+        } else {
+            inventaireAuthors = await searchInventaireAuthors(query, 10);
+            await setCachedSearch(query, 'humans', inventaireAuthors);
+        }
+
         const formattedQuotes = quotes.map(formatQuote);
-
-        // Process books
         const formattedBooks = books.map(formatBook);
 
         res.json({
             quotes: formattedQuotes,
-            authors,
+            authors: localAuthors,
             books: formattedBooks,
-            themes
+            themes,
+            inventaireWorks,
+            inventaireAuthors,
         });
 
     } catch (e) {
         console.error('Error performing search:', e);
         res.status(500).json({ error: 'Failed to perform search' });
+    }
+});
+
+// ─── GET /books/:id/editions ──────────────────────────────────────────────────
+const EDITIONS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+app.get('/books/:id/editions', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const bookId = parseInt(id);
+        if (isNaN(bookId)) {
+            res.status(400).json({ error: 'Invalid book ID' });
+            return;
+        }
+
+        const book = await prisma.book.findUnique({
+            where: { id: bookId },
+            include: { editions: { orderBy: { publishDate: 'asc' } } }
+        }) as any;
+
+        if (!book) {
+            res.status(404).json({ error: 'Book not found' });
+            return;
+        }
+
+        // If we have recent cached editions, return them
+        if (book.editions && book.editions.length > 0) {
+            const oldest = book.editions.reduce((min: any, e: any) =>
+                e.createdAt < min.createdAt ? e : min, book.editions[0]);
+            const ageMs = Date.now() - new Date(oldest.createdAt).getTime();
+            if (ageMs < EDITIONS_CACHE_TTL_MS) {
+                console.log(`[Editions] Cache hit for book ${bookId}`);
+                return res.json(book.editions);
+            }
+        }
+
+        // Need to fetch from Inventaire — we need inventaireUri
+        if (!book.inventaireUri) {
+            // Return whatever we have (may be empty)
+            return res.json(book.editions || []);
+        }
+
+        console.log(`[Editions] Fetching from Inventaire for book ${bookId} (${book.inventaireUri})`);
+        const editions = await getWorkEditions(book.inventaireUri);
+
+        if (editions.length > 0) {
+            // Delete old cached editions
+            await prisma.edition.deleteMany({ where: { bookId } });
+
+            // Store new editions
+            await prisma.edition.createMany({
+                data: editions.map((e: InventaireEdition) => ({
+                    inventaireUri: e.inventaireUri,
+                    isbn: e.isbn,
+                    title: e.title,
+                    publishDate: e.publishDate,
+                    publisherUri: e.publisherUri,
+                    languageUri: e.languageUri,
+                    cover: e.cover,
+                    bookId,
+                })),
+            });
+        }
+
+        const freshEditions = await prisma.edition.findMany({
+            where: { bookId },
+            orderBy: { publishDate: 'asc' }
+        });
+        res.json(freshEditions);
+
+    } catch (e) {
+        console.error('Error fetching book editions:', e);
+        res.status(500).json({ error: 'Failed to fetch book editions' });
     }
 });
 

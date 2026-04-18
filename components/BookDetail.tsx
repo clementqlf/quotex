@@ -52,7 +52,7 @@ export function BookDetailScreen() {
   type TabType = 'description' | 'my_sheet';
   const [activeTab, setActiveTab] = useState<TabType>('description');
 
-  const DESCRIPTION_BLOCKS = ['bookDescription', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
+  const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
   const MYSHEET_BLOCKS = ['notes', 'dictionary'];
 
   const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({

@@ -19,13 +19,15 @@ import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
 import { googleBooksService } from '../src/services/GoogleBooksService';
 import { useTheme } from '../src/contexts/ThemeContext';
 import { ThemeColors } from '../src/theme/theme';
+import { API_BASE_URL } from '../src/config/api';
 
 type SearchSection =
     | { title: 'Citations'; data: Quote[]; type: 'quote' }
     | { title: 'Mes Livres'; data: Book[]; type: 'book' }
     | { title: 'Auteurs'; data: Author[]; type: 'author' }
     | { title: 'Thèmes'; data: string[]; type: 'theme' }
-    | { title: 'Livres'; data: any[]; type: 'google_book' };
+    | { title: 'Livres'; data: any[]; type: 'inventaire_book' }
+    | { title: 'Auteurs (Inventaire)'; data: any[]; type: 'inventaire_author' };
 
 export default function SearchScreen() {
     const navigation = useNavigation<any>();
@@ -34,8 +36,7 @@ export default function SearchScreen() {
 
     const [query, setQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [] });
-    const [googleResults, setGoogleResults] = useState<any[]>([]);
+    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] });
     const inputRef = useRef<TextInput>(null);
 
     useEffect(() => {
@@ -50,8 +51,7 @@ export default function SearchScreen() {
             if (query.trim().length > 1) { // Search after 2 chars
                 performSearch(query);
             } else {
-                setResults({ quotes: [], authors: [], books: [], themes: [] });
-                setGoogleResults([]);
+                setResults({ quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] });
             }
         }, 500); // 500ms debounce
 
@@ -61,12 +61,8 @@ export default function SearchScreen() {
     const performSearch = async (text: string) => {
         setIsLoading(true);
         try {
-            const [localData, googleData] = await Promise.all([
-                searchService.search(text),
-                googleBooksService.search(text).catch(() => [])
-            ]);
-            setResults(localData);
-            setGoogleResults(googleData);
+            const data = await searchService.search(text);
+            setResults(data);
         } catch (error) {
             console.error('Search error:', error);
         } finally {
@@ -74,15 +70,26 @@ export default function SearchScreen() {
         }
     };
 
-    const handleGoogleBookPress = async (bookData: any) => {
+    const handleImportBook = async (bookData: any) => {
         setIsLoading(true);
         try {
-            const importedBook = await googleBooksService.importBook(bookData);
-            if (importedBook) {
+            const response = await fetch(`${API_BASE_URL}/books/import`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: bookData.label,
+                    description: bookData.description || '',
+                    cover: bookData.image || '',
+                    inventaireUri: bookData.uri,
+                    authors: bookData.authors || [],
+                })
+            });
+            if (response.ok) {
+                const importedBook = await response.json();
                 navigation.navigate('BookDetail', { book: importedBook });
             }
         } catch (error) {
-            console.error("Failed to import book", error);
+            console.error("Failed to import work", error);
         } finally {
             setIsLoading(false);
         }
@@ -90,10 +97,11 @@ export default function SearchScreen() {
 
     const sections: SearchSection[] = [
         { title: 'Thèmes', data: results.themes, type: 'theme' },
-        { title: 'Auteurs', data: results.authors, type: 'author' },
+        { title: 'Mes Auteurs', data: results.authors, type: 'author' },
         { title: 'Mes Livres', data: results.books, type: 'book' },
         { title: 'Citations', data: results.quotes, type: 'quote' },
-        { title: 'Livres', data: googleResults, type: 'google_book' },
+        { title: 'Livres', data: results.inventaireWorks || [], type: 'inventaire_book' },
+        { title: 'Auteurs', data: results.inventaireAuthors || [], type: 'inventaire_author' },
     ].filter(section => section.data.length > 0) as SearchSection[];
 
     const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
@@ -163,25 +171,45 @@ export default function SearchScreen() {
                     <Text style={styles.itemTitle}>{theme}</Text>
                 </TouchableOpacity>
             );
-        } else if (section.type === 'google_book') {
+        } else if (section.type === 'inventaire_book') {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => handleGoogleBookPress(item)}
+                    onPress={() => handleImportBook(item)}
                 >
-                    <View style={item.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-                        {item.cover ? (
-                            <Image source={{ uri: item.cover }} style={styles.bookCover} />
+                    <View style={item.image ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+                        {item.image ? (
+                            <Image source={{ uri: item.image }} style={styles.bookCover} />
                         ) : (
                             <BookOpen size={20} color={colors.primary} />
                         )}
                     </View>
                     <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={styles.itemTitle}>{item.title}</Text>
-                            {/* <Text style={{fontSize: 10, color: '#20B8CD'}}>Google</Text> */}
+                            <Text style={styles.itemTitle}>{item.label}</Text>
                         </View>
-                        <Text style={styles.subText}>{item.authors ? item.authors.join(', ') : 'Auteur inconnu'}</Text>
+                        <Text style={styles.subText} numberOfLines={1}>{item.authors && item.authors.length > 0 ? item.authors.join(', ') : 'Auteur inconnu'}</Text>
+                    </View>
+                </TouchableOpacity>
+            )
+        } else if (section.type === 'inventaire_author') {
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    // For now, we just don't do anything or navigate to a specialized screen, or trigger an import. 
+                    // To keep it simple, we could also log and navigate. AuthorDetail requires an Author object.
+                    // We might not have it locally yet. To fix, one would create an importAuthor endpoint.
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                        {item.image ? (
+                            <Image source={{ uri: item.image }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                        ) : (
+                            <User size={20} color="#10B981" />
+                        )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle}>{item.label}</Text>
+                        <Text style={styles.subText} numberOfLines={2}>{item.description || 'Auteur'}</Text>
                     </View>
                 </TouchableOpacity>
             )

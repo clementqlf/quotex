@@ -20,6 +20,7 @@ model Book {
   buyLinks    String?  // JSON string: Array<{ store: string; url: string; price: string }>
   googleId    String?  @unique
   openLibraryId String? @unique
+  inventaireUri String? @unique // URI Inventaire/Wikidata: ex. "wd:Q34670" ou "inv:abc123"
   isbn        String?
   
   authorId    Int
@@ -30,6 +31,7 @@ model Book {
   // Relations
   quotes      Quote[]
   reviews     Review[]
+  editions    Edition[]
 
   // Self-relation for similar books
   similarBooks    Book[]  @relation("SimilarBooks")
@@ -44,6 +46,7 @@ model Author {
   image       String?
   birthDate   String?
   nationality String?
+  inventaireUri String? @unique // URI Wikidata: ex. "wd:Q34670"
   books       Book[]
   quotes      Quote[]
 
@@ -117,4 +120,32 @@ model Review {
   
   bookId    Int
   book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+// Cache for Inventaire search results
+model SearchCache {
+  id        Int      @id @default(autoincrement())
+  query     String
+  type      String   // "works" | "humans"
+  results   String   // JSON string
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([query, type])
+}
+
+// Cached editions from Inventaire.io for a given work
+model Edition {
+  id            Int      @id @default(autoincrement())
+  inventaireUri String   @unique // ex. "isbn:9782070364770" or "inv:abc123"
+  isbn          String?
+  title         String?
+  publishDate   String?
+  publisherUri  String?  // Wikidata URI of publisher, ex. "wd:Q273819"
+  publisherName String?  // Resolved human-readable name
+  languageUri   String?  // ex. "wd:Q150" for French
+  cover         String?  // Full URL to cover image
+  bookId        Int
+  book          Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
 }

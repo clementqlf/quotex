@@ -1,4 +1,4 @@
-import { Share2, MessageSquare, BookOpen, ShoppingCart, Sparkles, User, Quote, Book as BookIcon } from 'lucide-react-native';
+import { Share2, MessageSquare, BookOpen, ShoppingCart, Sparkles, User, Quote, Book as BookIcon, Library } from 'lucide-react-native';
 
 export type BlockKey =
     | 'reviews'
@@ -11,6 +11,7 @@ export type BlockKey =
     | 'similarAuthors'
     | 'dictionary'
     | 'definition'
+    | 'editions'    // Inventaire.io editions block
     | 'bookInfo'; // bookInfo is usually for QuoteDetail to show book, whereas bookDescription is for BookDetail
 
 export interface BlockConfig {
@@ -75,13 +76,19 @@ export const BLOCK_CONFIGS: Record<BlockKey, BlockConfig> = {
         key: 'definition',
         label: 'Définition',
         icon: BookOpen,
-    }
+    },
+    editions: {
+        key: 'editions',
+        label: 'Éditions',
+        icon: Library,
+    },
 };
 
 // Lists of available blocks for specific contexts to replace local lists
 export const BOOK_DETAIL_BLOCK_OPTIONS: BlockKey[] = [
     'reviews',
     'bookDescription',
+    'editions',
     'buy',
     'notes',
     'author',
