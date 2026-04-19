@@ -53,33 +53,34 @@ export default function ScanPreviewModal({
     const [editedQuote, setEditedQuote] = useState('');
 
     // State for Book Suggestions
-    type SuggestionItem = { type: 'local' | 'inventaire'; title: string; data?: any };
+    type SuggestionItem = { type: 'local' | 'inventaire' | 'database'; title: string; author?: string; data?: any };
     const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
     // State for Author Suggestions
-    const [authorSuggestions, setAuthorSuggestions] = useState<string[]>([]);
+    type AuthorSuggestionItem = { type: 'local' | 'database' | 'inventaire'; name: string; data?: any };
+    const [authorSuggestions, setAuthorSuggestions] = useState<AuthorSuggestionItem[]>([]);
     const [showAuthorSuggestions, setShowAuthorSuggestions] = useState(false);
     const [isLoadingAuthorSuggestions, setIsLoadingAuthorSuggestions] = useState(false);
 
     // Initial books fro local data (quotes)
     const initialBooks = useMemo(() => {
-        const books = new Set<string>();
+        const bookMap = new Map<string, string>(); // title -> author
         quotes.forEach(q => {
             if (q.book) {
-                if (typeof q.book === 'string') {
-                    books.add(q.book);
-                } else if (q.book.title) {
-                    books.add(q.book.title);
+                const title = typeof q.book === 'string' ? q.book : q.book.title;
+                const author = typeof q.author === 'string' ? q.author : (q.author?.name || '');
+                if (title && !bookMap.has(title)) {
+                    bookMap.set(title, author);
                 }
             }
         });
-        return Array.from(books);
+        return Array.from(bookMap.entries()).map(([title, author]) => ({ title, author }));
     }, [quotes]);
 
     // Initial authors from local data (quotes)
-    const initialAuthors = useMemo(() => {
+    const initialAuthors = useMemo((): AuthorSuggestionItem[] => {
         const authors = new Set<string>();
         quotes.forEach(q => {
             if (q.author) {
@@ -90,7 +91,7 @@ export default function ScanPreviewModal({
                 }
             }
         });
-        return Array.from(authors);
+        return Array.from(authors).map(name => ({ type: 'local' as const, name }));
     }, [quotes]);
 
     // Reset state when modal opens or scannedText changes
@@ -149,7 +150,7 @@ export default function ScanPreviewModal({
         setEditedBook(text);
 
         if (!text.trim()) {
-            setSuggestions(initialBooks.map(b => ({ type: 'local', title: b })));
+            setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
             return;
         }
 
@@ -158,21 +159,39 @@ export default function ScanPreviewModal({
             // Recherche locale + Inventaire.io via le SearchService
             const results = await searchService.search(text).catch(() => ({ books: [], inventaireWorks: [] }));
 
-            const bookTitles = results.books ? results.books.map((b: any) => b.title) : [];
-            const localMatches = initialBooks.filter(b => b.toLowerCase().includes(text.toLowerCase()));
+            const dbItems: SuggestionItem[] = (results.books || []).map((b: any) => ({
+                type: 'database',
+                title: b.title,
+                author: b.authors && b.authors.length > 0 
+                    ? b.authors[0] 
+                    : (typeof b.author === 'object' ? b.author.name : (b.author || '')),
+                data: b
+            }));
 
-            // Local items (deduplicated)
-            const uniqueLocalTitles = Array.from(new Set([...bookTitles, ...localMatches]));
-            const localItems: SuggestionItem[] = uniqueLocalTitles.map(t => ({ type: 'local', title: t }));
+            const localMatches: SuggestionItem[] = initialBooks
+                .filter(b => b.title.toLowerCase().includes(text.toLowerCase()))
+                .map(b => ({ type: 'local' as const, title: b.title, author: b.author }));
 
             // Inventaire.io items
             const inventaireItems: SuggestionItem[] = ((results as any).inventaireWorks || []).map((w: any) => ({
                 type: 'inventaire',
                 title: w.label || w.title || '',
+                author: w.authors && w.authors.length > 0 ? w.authors[0] : undefined,
                 data: w
             }));
 
-            setSuggestions([...localItems, ...inventaireItems]);
+            // Deduplicate by title
+            const seenTitles = new Set<string>();
+            const combined: SuggestionItem[] = [];
+
+            [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
+                if (!seenTitles.has(item.title.toLowerCase())) {
+                    seenTitles.add(item.title.toLowerCase());
+                    combined.push(item);
+                }
+            });
+
+            setSuggestions(combined);
         } catch (error) {
             console.error("Error searching books", error);
         } finally {
@@ -191,10 +210,33 @@ export default function ScanPreviewModal({
         setIsLoadingAuthorSuggestions(true);
         try {
             const results = await searchService.search(text);
-            // Search service returns authors array
-            const authorNames = results.authors.map(a => a.name);
-            const localMatches = initialAuthors.filter(a => a.toLowerCase().includes(text.toLowerCase()));
-            const combined = Array.from(new Set([...authorNames, ...localMatches]));
+            
+            const dbItems: AuthorSuggestionItem[] = (results.authors || []).map((a: any) => ({
+                type: 'database' as const,
+                name: a.name,
+                data: a
+            }));
+
+            const localMatches: AuthorSuggestionItem[] = initialAuthors
+                .filter(a => a.name.toLowerCase().includes(text.toLowerCase()));
+
+            const inventaireItems: AuthorSuggestionItem[] = ((results as any).inventaireAuthors || []).map((a: any) => ({
+                type: 'inventaire' as const,
+                name: a.label || a.name || '',
+                data: a
+            }));
+
+            // Deduplicate by name
+            const seenNames = new Set<string>();
+            const combined: AuthorSuggestionItem[] = [];
+
+            [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
+                if (!seenNames.has(item.name.toLowerCase())) {
+                    seenNames.add(item.name.toLowerCase());
+                    combined.push(item);
+                }
+            });
+
             setAuthorSuggestions(combined);
         } catch (error) {
             console.error("Error searching authors", error);
@@ -302,53 +344,59 @@ export default function ScanPreviewModal({
                                                         />
                                                         {showSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
-                                                                {isLoadingSuggestions && (
-                                                                    <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
-                                                                )}
-                                                                {suggestions.map((item, index) => (
-                                                                    <TouchableOpacity
-                                                                        key={`${item.title}-${index}`}
-                                                                        style={styles.suggestionItem}
-                                                                        onPress={async () => {
-                                                                            if (item.type === 'inventaire' && item.data) {
-                                                                                setIsLoadingSuggestions(true);
-                                                                                try {
-                                                                                    await fetch(`${API_BASE_URL}/books/import`, {
-                                                                                        method: 'POST',
-                                                                                        headers: { 'Content-Type': 'application/json' },
-                                                                                        body: JSON.stringify({
-                                                                                            title: item.title,
-                                                                                            inventaireUri: item.data.uri,
-                                                                                            authors: item.data.authors || [],
-                                                                                            cover: item.data.image || null,
-                                                                                            description: item.data.description || '',
-                                                                                        }),
-                                                                                    });
-                                                                                    if (item.data.authors && item.data.authors.length > 0) {
-                                                                                        setEditedAuthor(item.data.authors[0]);
+                                                                <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 150 }}>
+                                                                    {isLoadingSuggestions && (
+                                                                        <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
+                                                                    )}
+                                                                    {suggestions.map((item, index) => (
+                                                                        <TouchableOpacity
+                                                                            key={`${item.title}-${index}`}
+                                                                            style={styles.suggestionItem}
+                                                                            onPress={async () => {
+                                                                                if (item.type === 'inventaire' && item.data) {
+                                                                                    setIsLoadingSuggestions(true);
+                                                                                    try {
+                                                                                        await fetch(`${API_BASE_URL}/books/import`, {
+                                                                                            method: 'POST',
+                                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                                            body: JSON.stringify({
+                                                                                                title: item.title,
+                                                                                                inventaireUri: item.data.uri,
+                                                                                                authors: item.data.authors || [],
+                                                                                                cover: item.data.image || null,
+                                                                                                description: item.data.description || '',
+                                                                                            }),
+                                                                                        });
+                                                                                        if (item.data.authors && item.data.authors.length > 0) {
+                                                                                            setEditedAuthor(item.data.authors[0]);
+                                                                                        }
+                                                                                    } catch (e) {
+                                                                                        console.error('[ScanPreviewModal] Failed to import Inventaire book:', e);
                                                                                     }
-                                                                                } catch (e) {
-                                                                                    console.error('[ScanPreviewModal] Failed to import Inventaire book:', e);
+                                                                                    setIsLoadingSuggestions(false);
                                                                                 }
-                                                                                setIsLoadingSuggestions(false);
-                                                                            }
-                                                                            setEditedBook(item.title);
-                                                                            setIsEditingBook(false);
-                                                                            setShowSuggestions(false);
-                                                                        }}
-                                                                    >
-                                                                        <BookIcon size={14} color={item.type === 'inventaire' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
-                                                                        <View style={{ flex: 1 }}>
-                                                                            <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
-
+                                                                                setEditedBook(item.title);
+                                                                                setIsEditingBook(false);
+                                                                                setShowSuggestions(false);
+                                                                            }}
+                                                                        >
+                                                                            <BookIcon size={14} color={item.type === 'inventaire' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
+                                                                            <View style={{ flex: 1 }}>
+                                                                                <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
+                                                                                {item.author ? (
+                                                                                    <Text style={styles.suggestionAuthorText} numberOfLines={1}>
+                                                                                        {typeof item.author === 'string' ? item.author : (item.author as any)?.name || 'Auteur inconnu'}
+                                                                                    </Text>
+                                                                                ) : null}
+                                                                            </View>
+                                                                        </TouchableOpacity>
+                                                                    ))}
+                                                                    {suggestions.length === 0 && !isLoadingSuggestions && (
+                                                                        <View style={styles.suggestionItem}>
+                                                                            <Text style={styles.suggestionTextMeta}>Aucun livre trouvé</Text>
                                                                         </View>
-                                                                    </TouchableOpacity>
-                                                                ))}
-                                                                {suggestions.length === 0 && !isLoadingSuggestions && (
-                                                                    <View style={styles.suggestionItem}>
-                                                                        <Text style={styles.suggestionTextMeta}>Aucun livre trouvé</Text>
-                                                                    </View>
-                                                                )}
+                                                                    )}
+                                                                </ScrollView>
                                                             </View>
                                                         )}
                                                     </View>
@@ -357,7 +405,7 @@ export default function ScanPreviewModal({
                                                         onPress={() => {
                                                             setIsEditingBook(true);
                                                             setEditedBook(''); // Clear on click as requested
-                                                            setSuggestions(initialBooks.map(b => ({ type: 'local', title: b })));
+                                                            setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
                                                             setIsEditingAuthor(false);
@@ -393,28 +441,30 @@ export default function ScanPreviewModal({
                                                         />
                                                         {showAuthorSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
-                                                                {isLoadingAuthorSuggestions && (
-                                                                    <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
-                                                                )}
-                                                                {authorSuggestions.map((item, index) => (
-                                                                    <TouchableOpacity
-                                                                        key={`${item}-${index}`}
-                                                                        style={styles.suggestionItem}
-                                                                        onPress={() => {
-                                                                            setEditedAuthor(item);
-                                                                            setIsEditingAuthor(false);
-                                                                            setShowAuthorSuggestions(false);
-                                                                        }}
-                                                                    >
-                                                                        <UserIcon size={14} color={colors.textTertiary} style={{ marginRight: 8 }} />
-                                                                        <Text style={styles.suggestionText} numberOfLines={1}>{item}</Text>
-                                                                    </TouchableOpacity>
-                                                                ))}
-                                                                {authorSuggestions.length === 0 && !isLoadingAuthorSuggestions && (
-                                                                    <View style={styles.suggestionItem}>
-                                                                        <Text style={styles.suggestionTextMeta}>Aucun auteur trouvé</Text>
-                                                                    </View>
-                                                                )}
+                                                                <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 150 }}>
+                                                                    {isLoadingAuthorSuggestions && (
+                                                                        <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
+                                                                    )}
+                                                                    {authorSuggestions.map((item, index) => (
+                                                                        <TouchableOpacity
+                                                                            key={`${item.name}-${index}`}
+                                                                            style={styles.suggestionItem}
+                                                                            onPress={() => {
+                                                                                setEditedAuthor(item.name);
+                                                                                setIsEditingAuthor(false);
+                                                                                setShowAuthorSuggestions(false);
+                                                                            }}
+                                                                        >
+                                                                            <UserIcon size={14} color={item.type === 'inventaire' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
+                                                                            <Text style={styles.suggestionText} numberOfLines={1}>{item.name}</Text>
+                                                                        </TouchableOpacity>
+                                                                    ))}
+                                                                    {authorSuggestions.length === 0 && !isLoadingAuthorSuggestions && (
+                                                                        <View style={styles.suggestionItem}>
+                                                                            <Text style={styles.suggestionTextMeta}>Aucun auteur trouvé</Text>
+                                                                        </View>
+                                                                    )}
+                                                                </ScrollView>
                                                             </View>
                                                         )}
                                                     </View>
@@ -655,6 +705,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     suggestionText: {
         color: colors.text,
         fontSize: 14,
+        fontWeight: '500',
+    },
+    suggestionAuthorText: {
+        color: colors.textTertiary,
+        fontSize: 11,
+        marginTop: 1,
     },
     suggestionTextMeta: {
         color: colors.textTertiary,

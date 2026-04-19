@@ -82,6 +82,7 @@ export default function SearchScreen() {
                     cover: bookData.image || '',
                     inventaireUri: bookData.uri,
                     authors: bookData.authors || [],
+                    authorUris: bookData.authorUris || [],
                 })
             });
             if (response.ok) {

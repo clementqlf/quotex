@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from './lib/prisma';
 import { seed } from './seedData';
 import { searchHybrid } from './services/hybridSearch';
 import { getExternalAuthorBooks, searchExternalAuthors } from './services/externalAuthor';
@@ -18,10 +18,9 @@ import {
     enrichWorkMetadata
 } from './services/inventaire';
 import { getNotableWorksDetailed } from './services/notableWorks';
-import { enrichBookWithInventaire, getWikipediaSummary } from './services/bookEnrichment';
+import { enrichBookWithInventaire } from './services/bookEnrichment';
 
 const app = express();
-const prisma = new PrismaClient();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
@@ -914,7 +913,8 @@ app.post('/books/import', async (req, res) => {
             
             // Ensure author is fully enriched (awaited to ensure bio is returned)
             if (fullUpdatedBook?.author) {
-                await enrichAuthor(fullUpdatedBook.author.id).catch((e: any) => console.error(e));
+                const authorUri = (bookData.authorUris && bookData.authorUris.length > 0) ? bookData.authorUris[0] : undefined;
+                await enrichAuthor(fullUpdatedBook.author.id, undefined, authorUri).catch((e: any) => console.error(e));
             }
             
             res.json(formatBook(fullUpdatedBook));
@@ -979,44 +979,28 @@ app.post('/books/import', async (req, res) => {
 
         console.log(`[Server] Created new book: ${newBook.title}`);
         
-        // Ensure author is enriched (awaited to ensure metadata is ready for first view)
-        if (author.id) {
-            await enrichAuthor(author.id).catch((e: any) => console.error(e));
-        }
-        
-        // Trigger enrichment for Inventaire books during import to get editions and synopsis
+        // 1. Trigger enrichment for Inventaire books during import to get editions and synopsis
         if ((newBook as any).inventaireUri) {
             console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${newBook.title}`);
             await enrichBookWithInventaire(newBook.id);
-            
-            // Re-fetch with editions
-            let fullyEnriched = await prisma.book.findUnique({
-                where: { id: newBook.id },
-                include: {
-                    author: true,
-                    editions: true
-                } as any
-            });
-
-            // Fallback: If Wikipedia synopsis via Inventaire missed, do a direct title search
-            if (fullyEnriched && (!fullyEnriched.description || fullyEnriched.description.length < 50)) {
-                console.log(`[Server] Missing description after Inventaire enrichment for ${newBook.title}. Trying direct Wikipedia search...`);
-                // authorName is already available in scope from earlier: const authorName = ...
-                const fallbackSummary = await getWikipediaSummary(newBook.title, (fullyEnriched as any).author?.name || authorName);
-                if (fallbackSummary) {
-                    console.log(`[Server] Direct Wikipedia search succeeded for ${newBook.title}`);
-                    await prisma.book.update({
-                        where: { id: newBook.id },
-                        data: { description: fallbackSummary }
-                    });
-                    fullyEnriched.description = fallbackSummary;
-                }
-            }
-
-            return res.json(formatBook(fullyEnriched || newBook));
         }
 
-        res.json(formatBook(newBook));
+        // 2. Ensure author is enriched (awaited to ensure metadata is ready for first view)
+        if (author.id) {
+            const authorUri = (bookData.authorUris && bookData.authorUris.length > 0) ? bookData.authorUris[0] : undefined;
+            await enrichAuthor(author.id, undefined, authorUri).catch((e: any) => console.error(e));
+        }
+        
+        // 3. Final fetch to get fully enriched state (author + editions)
+        const fullyEnriched = await prisma.book.findUnique({
+            where: { id: newBook.id },
+            include: {
+                author: true,
+                editions: true
+            } as any
+        });
+
+        res.json(formatBook(fullyEnriched || newBook));
 
     } catch (e) {
         console.error('Error importing book:', e);
@@ -1144,12 +1128,22 @@ app.get('/search', async (req, res) => {
         // 5. External Inventaire Works (with cache)
         let inventaireWorks: InventaireSearchResult[] = [];
         const cachedWorks = await getCachedSearch(query, 'works');
-        if (cachedWorks) {
+        
+        // Detect stale cache (missing authorUris or other new fields)
+        const isWorksCacheStale = cachedWorks && cachedWorks.length > 0 && typeof cachedWorks[0].authorUris === 'undefined';
+
+        if (cachedWorks && !isWorksCacheStale) {
             inventaireWorks = cachedWorks;
             console.log(`[Search] Cache hit — works for "${query}"`);
         } else {
+            console.log(`[Search] ${isWorksCacheStale ? 'Cache stale (missing authorUris)' : 'Cache miss'} — searching Inventaire works for "${query}"`);
             inventaireWorks = await searchInventaireWorks(query, 10);
             await setCachedSearch(query, 'works', inventaireWorks);
+        }
+
+        // Debug log sample
+        if (inventaireWorks.length > 0) {
+            console.log(`[Search] Sample result for "${query}": ${inventaireWorks[0].label} (authorUris: ${JSON.stringify(inventaireWorks[0].authorUris)})`);
         }
 
         // 6. External Inventaire Authors (with cache)

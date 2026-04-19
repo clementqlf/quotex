@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
-const prisma = new PrismaClient();
 const INVENTAIRE_BASE = 'https://inventaire.io';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -10,9 +10,9 @@ export interface InventaireSearchResult {
     uri: string;         // ex. "wd:Q34670" or "inv:abc123"
     type: string;        // "works" | "humans"
     label: string;
-    description?: string;
     image?: string;      // Full URL, resolved from /img/entities/<hash>
     authors?: string[];  // Author names natively attached
+    authorUris?: string[]; // Author URIs (wdt:P50) for direct enrichment
 }
 
 export interface InventaireEdition {
@@ -29,7 +29,6 @@ export interface InventaireEdition {
 export interface InventaireWorkDetails {
     uri: string;
     title: string | null;
-    description: string | null;
     image: string | null;
     authorUris: string[];
     year: number | null;
@@ -92,7 +91,6 @@ const formatInventaireWork = (entity: any, uri?: string): Partial<InventaireWork
     const descriptions = entity.descriptions || {};
 
     const label = labels['fr'] || labels['en'] || (entity as any).label || Object.values(labels)[0] || null;
-    const description = descriptions['fr'] || descriptions['en'] || Object.values(descriptions)[0] || null;
 
     const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
     const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
@@ -107,7 +105,6 @@ const formatInventaireWork = (entity: any, uri?: string): Partial<InventaireWork
         title: label as string | null,
         year,
         image: imageUrl,
-        description: description as string | null,
         authorUris: claims['wdt:P50'] || [],
         genreUris: claims['wdt:P136'] || [],
         wikipediaTitle: sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null,
@@ -137,7 +134,6 @@ export const searchInventaireWorks = async (
             uri: r.uri,
             type: 'works',
             label: r.label || '',
-            description: r.description || '',
             image: resolveImageUrl(r.image),
             authors: []
         }));
@@ -175,13 +171,14 @@ export const searchInventaireWorks = async (
                 const formatted = formatInventaireWork(entity, result.uri);
 
                 if (formatted.title && !result.label) result.label = formatted.title;
-                if (formatted.description && !result.description) result.description = formatted.description;
                 
                 // Use entity image if available, otherwise keep the search result image
                 result.image = formatted.image || result.image;
 
                 if (formatted.authorUris && formatted.authorUris.length > 0) {
                     result.authors = formatted.authorUris.map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
+                    result.authorUris = formatted.authorUris;
+                    console.log(`[Inventaire] Found ${result.authorUris.length} author URIs for result: ${result.label}`);
                 }
             }
         }
@@ -214,7 +211,6 @@ export const searchInventaireAuthors = async (
             uri: r.uri,
             type: 'humans',
             label: r.label || '',
-            description: r.description || '',
             image: null, // Will fetch entities to resolve full image URLs
         }));
 
@@ -234,10 +230,7 @@ export const searchInventaireAuthors = async (
                 const labels = entity.labels || {};
                 const descriptions = entity.descriptions || {};
                 const label = labels['fr'] || labels['en'] || Object.values(labels)[0];
-                const description = descriptions['fr'] || descriptions['en'] || Object.values(descriptions)[0];
 
-                if (label) result.label = label;
-                if (description) result.description = description;
             }
         }
 
@@ -331,7 +324,6 @@ export const getInventaireWorkDetails = async (uri: string): Promise<InventaireW
     return {
         uri: formatted.uri!,
         title: formatted.title || null,
-        description: formatted.description || null,
         image: formatted.image || null,
         authorUris: formatted.authorUris || [],
         year: formatted.year || null,
@@ -346,6 +338,7 @@ export const getInventaireWorkDetails = async (uri: string): Promise<InventaireW
 export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr'): Promise<string | null> => {
     if (!title) return null;
     try {
+        console.log(`[Wikipedia] Fetching synopsis for: ${title} (${lang})`);
         const url = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=4&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json`;
         const response = await fetch(url);
         if (!response.ok) return null;
@@ -360,6 +353,7 @@ export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr')
             console.log(`[Wikipedia] No extract found for title: ${title}`);
             return null;
         }
+        console.log(`[Wikipedia] Successfully fetched synopsis for ${title} (${extract.length} chars)`);
         return extract.trim();
     } catch (e) {
         console.error('[Wikipedia] Error fetching synopsis:', e);
@@ -587,7 +581,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
 /**
  * Orchestrates complete enrichment for an author (metadata + biography + image)
  */
-export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string): Promise<any> => {
+export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string, authorUri?: string): Promise<any> => {
     try {
         console.log(`[Inventaire] Starting enrichment for author ID: ${authorId}`);
 
@@ -596,7 +590,7 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         if (!author) return null;
 
         const nameToSearch = authorName || author.name;
-        let uri = author.inventaireUri;
+        let uri = authorUri || author.inventaireUri;
 
         // 2. Resolve URI if missing
         if (!uri) {
@@ -693,29 +687,62 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
                     const bestCover = bestCovers[wUri];
                     const finalCover = bestCover || details.image || null;
                     
+                    const bookTitle = details.title.trim();
+                    
                     // Check if book exists
                     const existingBook = await prisma.book.findFirst({
                         where: {
                             OR: [
                                 { inventaireUri: wUri },
-                                { AND: [{ title: details.title }, { authorId: author.id }] }
+                                { AND: [{ title: bookTitle }, { authorId: author.id }] }
                             ]
                         }
                     });
 
                     if (!existingBook) {
-                        console.log(`[Inventaire] Auto-importing discovered work: ${details.title}`);
-                        await prisma.book.create({
-                            data: {
-                                title: details.title,
-                                authorId: author.id,
-                                inventaireUri: wUri,
-                                cover: finalCover,
-                                year: details.year || 0,
-                                description: details.description || '',
-                                genre: ''
+                        console.log(`[Inventaire] Auto-importing discovered work: ${bookTitle} for Author ID: ${author.id}`);
+                        try {
+                            await prisma.book.create({
+                                data: {
+                                    title: bookTitle,
+                                    authorId: author.id,
+                                    inventaireUri: wUri,
+                                    cover: finalCover,
+                                    year: details.year || 0,
+                                    description: '',
+                                    genre: ''
+                                }
+                            });
+                        } catch (err) {
+                            if (err instanceof Prisma.PrismaClientKnownRequestError) {
+                                if (err.code === 'P2002') {
+                                    console.log(`[Inventaire] Book "${bookTitle}" already exists (race condition), skipping.`);
+                                    // Optional: link URI if missing
+                                    if (err.meta?.target && (err.meta.target as string[]).includes('title')) {
+                                        const conflictBook = await prisma.book.findFirst({
+                                            where: { title: bookTitle, authorId: author.id }
+                                        });
+                                        if (conflictBook && !conflictBook.inventaireUri) {
+                                            await prisma.book.update({
+                                                where: { id: conflictBook.id },
+                                                data: { inventaireUri: wUri }
+                                            }).catch(() => {});
+                                        }
+                                    }
+                                } else if (err.code === 'P2003') {
+                                    console.warn(`[Inventaire] Foreign key violation for "${bookTitle}" (Author ID: ${author.id}). Check if author still exists.`);
+                                    // Verify author exists
+                                    const stillExists = await prisma.author.findUnique({ where: { id: author.id } });
+                                    if (!stillExists) {
+                                        console.error(`[Inventaire] CRITICAL: Author ${author.id} no longer exists in DB!`);
+                                    }
+                                } else {
+                                    console.error(`[Inventaire] Failed to auto-import work "${bookTitle}":`, err);
+                                }
+                            } else {
+                                console.error(`[Inventaire] Unexpected error auto-importing "${bookTitle}":`, err);
                             }
-                        });
+                        }
                         // Background enrichment will be triggered when someone views the book 
                         // or we could trigger it here, but let's keep it lean for the initial discovery.
                     } else if (!existingBook.inventaireUri) {
