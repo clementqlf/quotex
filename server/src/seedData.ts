@@ -316,7 +316,13 @@ export const seed = async () => {
         }
 
         const book = await prisma.book.upsert({
-            where: { title: b.title },
+            where: { 
+                title_authorId: {
+                    title: b.title,
+                    authorId: author.id
+                }
+            },
+
             update: {
                 year: b.year,
                 pages: b.pages,

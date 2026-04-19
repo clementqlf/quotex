@@ -50,9 +50,19 @@ export interface InventaireAuthorDetails {
 
 const resolveImageUrl = (raw: string | undefined): string | null => {
     if (!raw) return null;
+    // If it's already a full URL (like Wikimedia Commons), return as is
+    if (raw.startsWith('http')) return raw;
     // Format: "/img/entities/<hash>" → prepend base
     if (raw.startsWith('/img/')) return `${INVENTAIRE_BASE}${raw}`;
     return null;
+};
+
+/**
+ * Checks if an image URL is a native Inventaire scan (hosted on their servers)
+ * rather than a fallback to Wikimedia Commons.
+ */
+export const isNativeScan = (url: string | null | undefined): boolean => {
+    return !!(url && url.includes('/img/entities/'));
 };
 
 export const getEntityImage = (imageObj: any): string | null => {
@@ -326,7 +336,11 @@ export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr')
         if (firstPageId === '-1') return null;
 
         const extract = pages[firstPageId]?.extract;
-        return extract && extract.trim().length > 0 ? extract.trim() : null;
+        if (!extract || extract.trim().length === 0) {
+            console.log(`[Wikipedia] No extract found for title: ${title}`);
+            return null;
+        }
+        return extract.trim();
     } catch (e) {
         console.error('[Wikipedia] Error fetching synopsis:', e);
         return null;
@@ -378,6 +392,22 @@ export const getWorkEditionUris = async (workUri: string): Promise<string[]> => 
         return data.uris || [];
     } catch (e) {
         console.error('[Inventaire] Error fetching edition URIs:', e);
+        return [];
+    }
+};
+
+/**
+ * Get all work URIs for a given author URI (reverse claim P50)
+ */
+export const getAuthorWorkUris = async (authorUri: string): Promise<string[]> => {
+    try {
+        const url = `${INVENTAIRE_BASE}/api/entities?action=reverse-claims&property=wdt:P50&value=${encodeURIComponent(authorUri)}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Inventaire reverse-claims error (wdt:P50): ${response.status}`);
+        const data = await response.json();
+        return data.uris || [];
+    } catch (e) {
+        console.error('[Inventaire] Error fetching author work URIs:', e);
         return [];
     }
 };
@@ -488,7 +518,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
         const synopsis = await fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
         if (synopsis) {
             result.description = synopsis;
-            console.log(`[Inventaire] Found Wikipedia (FR) synopsis`);
+            console.log(`[Inventaire] Found Wikipedia (FR) synopsis: ${synopsis}`);
         }
     }
 
@@ -496,7 +526,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
     try {
         // Try to get representative image from search first (it's often better)
         const searchMetadata = await getBatchInventaireSearchMetadata([uri]);
-        if (searchMetadata[uri]?.image) {
+        if (isNativeScan(searchMetadata[uri]?.image)) {
             result.image = searchMetadata[uri].image;
             console.log(`[Inventaire] Prioritized representative search image: ${result.image}`);
         }
@@ -576,7 +606,9 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
             const synopsis = await fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
             if (synopsis) {
                 biography = synopsis;
-                console.log(`[Inventaire] Successfully retrieved biography (${biography.length} chars)`);
+                console.log(`[Inventaire] Successfully retrieved biography (${biography.length} chars): ${biography.substring(0, 500)}...`);
+            } else {
+                console.log(`[Inventaire] Wikipedia fetch returned no synopsis for: ${details.wikipediaTitle}`);
             }
         }
 
@@ -615,6 +647,68 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         });
 
         console.log(`[Inventaire] Enrichment complete for ${updatedAuthor.name}`);
+
+        // 8. DISCOVERY: Fetch all works by this author and ensure they exist in DB
+        console.log(`[Inventaire] Discovering all works for author: ${updatedAuthor.name} (${uri})`);
+        const workUris = await getAuthorWorkUris(uri);
+        
+        if (workUris.length > 0) {
+            console.log(`[Inventaire] Found ${workUris.length} works for author ${updatedAuthor.name}`);
+            
+            // Limit to 100 works for now to avoid massive stalls, though they are processed in batches
+            const limitedUris = workUris.slice(0, 100);
+            
+            // Fetch basic metadata (labels) AND best covers for all these works in chunks
+            const CHUNK_SIZE = 25;
+            for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
+                const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
+                const [workEntities, bestCovers] = await Promise.all([
+                    getBatchInventaireDetails(chunk),
+                    getBestNativeCovers(chunk)
+                ]);
+                
+                for (const [wUri, details] of Object.entries(workEntities)) {
+                    if (!details || !details.title) continue;
+                    
+                    const bestCover = bestCovers[wUri];
+                    const finalCover = bestCover || details.image || null;
+                    
+                    // Check if book exists
+                    const existingBook = await prisma.book.findFirst({
+                        where: {
+                            OR: [
+                                { inventaireUri: wUri },
+                                { AND: [{ title: details.title }, { authorId: author.id }] }
+                            ]
+                        }
+                    });
+
+                    if (!existingBook) {
+                        console.log(`[Inventaire] Auto-importing discovered work: ${details.title}`);
+                        await prisma.book.create({
+                            data: {
+                                title: details.title,
+                                authorId: author.id,
+                                inventaireUri: wUri,
+                                cover: finalCover,
+                                year: details.year || 0,
+                                description: details.description || '',
+                                genre: ''
+                            }
+                        });
+                        // Background enrichment will be triggered when someone views the book 
+                        // or we could trigger it here, but let's keep it lean for the initial discovery.
+                    } else if (!existingBook.inventaireUri) {
+                        // Link existing book to Inventaire URI if missing
+                        await prisma.book.update({
+                            where: { id: existingBook.id },
+                            data: { inventaireUri: wUri }
+                        });
+                    }
+                }
+            }
+        }
+
         return updatedAuthor;
 
     } catch (e) {
@@ -652,9 +746,10 @@ export const getBestNativeCovers = async (workUris: string[]): Promise<Record<st
         const searchMetadata = await getBatchInventaireSearchMetadata(workUris);
 
         for (const { workUri, edUris } of editionUrisPerWork) {
-            // Priority 1: Search-indexed representative image
-            if (searchMetadata[workUri]?.image) {
-                results[workUri] = searchMetadata[workUri].image;
+            // Priority 1: Search-indexed representative image (ONLY IF NATIVE)
+            const searchImg = searchMetadata[workUri]?.image;
+            if (isNativeScan(searchImg)) {
+                results[workUri] = searchImg;
                 console.log(`[Inventaire] Using representative search cover for ${workUri}`);
                 continue;
             }

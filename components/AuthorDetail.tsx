@@ -87,7 +87,7 @@ export function AuthorDetailScreen() {
       // Using existing backend enrichment logic for consistency
       const currentAuthorId = authorInfo?.id;
       if (!currentAuthorId) throw new Error("Artist ID missing");
-      const works = await getNotableWorks(currentAuthorId);
+      const works = await getBooksByAuthor(nameToUse, currentAuthorId);
       setAllWorks(works);
     } catch (error) {
       console.error("Error fetching all works:", error);

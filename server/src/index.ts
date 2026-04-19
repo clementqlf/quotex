@@ -288,7 +288,13 @@ app.get('/authors/:id/notable-works', async (req, res) => {
 
         console.log(`[Server] Syncing notable works for author: ${author.name}`);
 
+        // This now returns only { title, uri } from Wikidata
         const notableWorks = await getNotableWorksDetailed(author.name);
+        if (notableWorks.length === 0) {
+            console.log(`[Server] No notable works found for ${author.name}`);
+            return res.json([]);
+        }
+
         const results = [];
 
         for (const work of notableWorks) {
@@ -297,55 +303,33 @@ app.get('/authors/:id/notable-works', async (req, res) => {
                 where: {
                     OR: [
                         { inventaireUri: work.uri },
-                        work.openLibraryId ? { openLibraryId: work.openLibraryId } : {},
                         { AND: [{ title: work.title }, { authorId: author.id }] }
-                    ].filter(cond => Object.keys(cond).length > 0) as any
+                    ]
                 },
                 include: { author: true }
             });
 
             if (!book) {
-                console.log(`[Server] Importing new notable work: ${work.title}`);
+                console.log(`[Server] Notable work "${work.title}" not in DB yet. Creating basic record...`);
                 book = await prisma.book.create({
                     data: {
                         title: work.title,
                         authorId: author.id,
                         inventaireUri: work.uri,
-                        cover: work.cover || '',
-                        year: work.year || 0,
-                        openLibraryId: work.openLibraryId || '',
-                        genre: 'Notable',
-                        description: '' // Will be enriched later on single book view or background
+                        genre: '',
+                        description: ''
                     },
                     include: { author: true }
                 });
-            } else {
-                // Update cover, year, and inventaireUri if missing on existing book
-                const updateData: any = {};
-                if (!book.inventaireUri && work.uri) updateData.inventaireUri = work.uri;
-                if (work.cover) updateData.cover = work.cover; // Always prefer Inventaire cover
-                if ((!book.year || book.year === 0) && work.year) updateData.year = work.year;
-
-                if (Object.keys(updateData).length > 0) {
-                    console.log(`[Server] Updating existing notable work "${work.title}":`, Object.keys(updateData));
-                    book = await prisma.book.update({
-                        where: { id: book.id },
-                        data: updateData,
-                        include: { author: true }
-                    });
-                }
             }
 
-
-            console.log(`[Server] Notable work found: "${work.title}" → cover: ${work.cover || '(none)'}`);
-
+            console.log(`[Server] Notable work matched: "${work.title}"`);
             results.push(formatBook(book));
 
-            // Background enrichment for notable works that are missing description
-            if (book && (book as any).inventaireUri && (!(book as any).description || (book as any).description.length < 50)) {
-                console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${book.title}`);
+            // Background enrichment ONLY if we lack basic data (description or cover)
+            if (book && (book.inventaireUri) && (!book.description || book.description.length < 50 || !book.cover)) {
                 enrichBookWithInventaire(book.id).catch(err => 
-                    console.error(`[Server] Background enrichment failed for ${(book as any).title}:`, err)
+                    console.error(`[Server] Background enrichment failed for ${book.title}:`, err)
                 );
             }
         }
@@ -588,7 +572,13 @@ app.post('/quotes', async (req, res) => {
         }
 
         // 2. Find or Create Book
-        let bookRecord = await prisma.book.findUnique({ where: { title: book } });
+        let bookRecord = await prisma.book.findFirst({ 
+            where: { 
+                title: book,
+                authorId: authorRecord.id
+            } 
+        });
+
         if (!bookRecord) {
             bookRecord = await prisma.book.create({
                 data: {
@@ -862,9 +852,9 @@ app.post('/books/import', async (req, res) => {
             });
         }
 
-        // 3. Check by Title (Last resort for legacy)
+        // 4. Check by Title (Last resort for legacy)
         if (!existingBook && bookData.title) {
-            existingBook = await prisma.book.findUnique({
+            existingBook = await prisma.book.findFirst({
                 where: { title: bookData.title },
                 include: { author: true }
             });
