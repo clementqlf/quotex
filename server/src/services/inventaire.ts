@@ -168,9 +168,7 @@ export const searchInventaireWorks = async (
             }
         }
 
-        // 3. Attach authors and better metadata to results
-        const bestCovers = await getBestNativeCovers(workUris);
-
+        // 3. Attach authors and metadata to results
         for (const result of basicResults) {
             const entity = workEntities[result.uri];
             if (entity) {
@@ -179,9 +177,8 @@ export const searchInventaireWorks = async (
                 if (formatted.title && !result.label) result.label = formatted.title;
                 if (formatted.description && !result.description) result.description = formatted.description;
                 
-                // Prioritize best cover found from editions, then fallback to entity image, then to search result image
-                const bestCover = bestCovers[result.uri];
-                result.image = bestCover || formatted.image || result.image;
+                // Use entity image if available, otherwise keep the search result image
+                result.image = formatted.image || result.image;
 
                 if (formatted.authorUris && formatted.authorUris.length > 0) {
                     result.authors = formatted.authorUris.map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
@@ -190,10 +187,6 @@ export const searchInventaireWorks = async (
         }
 
         console.log(`[Inventaire] Search complete. Found ${basicResults.length} works.`);
-        for (const res of basicResults) {
-            console.log(`[Inventaire] Result: "${res.label}" → cover: ${res.image || '(none)'}`);
-        }
-
         return basicResults;
     } catch (e) {
         console.error('[Inventaire] Error searching works:', e);
@@ -209,20 +202,47 @@ export const searchInventaireAuthors = async (
     limit = 10
 ): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
+    console.log(`[Inventaire] Searching for authors (humans): "${query}"`);
     try {
         const url = `${INVENTAIRE_BASE}/api/search?types=humans&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
         const data = await response.json();
-        return (data.results || []).map((r: any) => ({
+        
+        const basicResults = (data.results || []).map((r: any) => ({
             id: r.id,
             uri: r.uri,
             type: 'humans',
             label: r.label || '',
             description: r.description || '',
-            // Author images in search results are plain filenames (Wikimedia), we can't use them here without resolving
-            image: r.image && r.image.startsWith('/img/') ? resolveImageUrl(r.image) : null,
+            image: null, // Will fetch entities to resolve full image URLs
         }));
+
+        if (basicResults.length === 0) return [];
+
+        // Fetch full entities to get proper image URLs (including Wikimedia) and richer descriptions
+        const uris = basicResults.map((r: any) => r.uri);
+        const entities = await getInventaireEntities(uris);
+
+        for (const result of basicResults) {
+            const entity = entities[result.uri];
+            if (entity) {
+                // Resolve image (native or Wikimedia)
+                result.image = getEntityImage(entity.image);
+
+                // Richer labels and descriptions from the full entity
+                const labels = entity.labels || {};
+                const descriptions = entity.descriptions || {};
+                const label = labels['fr'] || labels['en'] || Object.values(labels)[0];
+                const description = descriptions['fr'] || descriptions['en'] || Object.values(descriptions)[0];
+
+                if (label) result.label = label;
+                if (description) result.description = description;
+            }
+        }
+
+        console.log(`[Inventaire] Author search complete. Found ${basicResults.length} humans.`);
+        return basicResults;
     } catch (e) {
         console.error('[Inventaire] Error searching humans:', e);
         return [];

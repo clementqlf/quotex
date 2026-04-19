@@ -150,12 +150,15 @@ export default function SearchScreen() {
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {author.image ? (
-                            <Image source={{ uri: author.image }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                            <Image source={{ uri: author.image }} style={styles.authorImage} />
                         ) : (
                             <User size={20} color="#10B981" />
                         )}
                     </View>
-                    <Text style={styles.itemTitle}>{author.name}</Text>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle}>{author.name}</Text>
+                        <Text style={styles.subText} numberOfLines={2}>{author.description || 'Mon auteur'}</Text>
+                    </View>
                 </TouchableOpacity>
             );
         } else if (section.type === 'theme') {
@@ -200,7 +203,7 @@ export default function SearchScreen() {
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {item.image ? (
-                            <Image source={{ uri: item.image }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                            <Image source={{ uri: item.image }} style={styles.authorImage} />
                         ) : (
                             <User size={20} color="#10B981" />
                         )}
@@ -383,5 +386,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         width: '100%',
         height: '100%',
         resizeMode: 'cover',
+    },
+    authorImage: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
     }
 });
