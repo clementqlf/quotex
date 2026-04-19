@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { searchGoogleBooks } from './googleBooks';
-import { enrichWorkMetadata, enrichAuthorWithInventaire } from './inventaire';
+import { enrichWorkMetadata, enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor } from './inventaire';
 
 export const bookEnrichmentQueue: Set<number> = new Set();
 
@@ -96,3 +96,49 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
         bookEnrichmentQueue.delete(bookId);
     }
 };
+
+/**
+ * Intermediate function that discovers the Inventaire URI for a book 
+ * (by title + author) and then triggers full enrichment.
+ */
+export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
+    console.log(`[BookEnrichment/Discovery] Starting discovery for Book ID: ${bookId}`);
+    
+    try {
+        const book = await prisma.book.findUnique({
+            where: { id: bookId },
+            include: { author: true }
+        });
+
+        if (!book) {
+            console.log(`[BookEnrichment/Discovery] ❌ Book with ID ${bookId} not found in database.`);
+            return;
+        }
+
+        if ((book as any).inventaireUri) {
+            console.log(`[BookEnrichment/Discovery] Book already has URI: ${(book as any).inventaireUri}. Skipping discovery, going to enrichment.`);
+            await enrichBookWithInventaire(bookId);
+            return;
+        }
+
+        const authorName = book.author?.name || 'Unknown';
+        console.log(`[BookEnrichment/Discovery] Attempting to resolve URI for "${book.title}" by "${authorName}"`);
+        
+        const uri = await findWorkUriByTitleAndAuthor(book.title, authorName);
+        
+        if (uri) {
+            console.log(`[BookEnrichment/Discovery] ✅ URI resolved: ${uri}. Updating book record...`);
+            await prisma.book.update({
+                where: { id: bookId },
+                data: { inventaireUri: uri } as any
+            });
+            console.log(`[BookEnrichment/Discovery] Database updated. Launching full enrichment...`);
+            await enrichBookWithInventaire(bookId);
+        } else {
+            console.log(`[BookEnrichment/Discovery] ❌ Could not resolve URI for "${book.title}". Enrichment aborted.`);
+        }
+    } catch (e) {
+        console.error(`[BookEnrichment/Discovery] ❌ Error during discovery for book ${bookId}:`, e);
+    }
+};
+

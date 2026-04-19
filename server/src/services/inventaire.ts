@@ -171,7 +171,7 @@ export const searchInventaireWorks = async (
                 const formatted = formatInventaireWork(entity, result.uri);
 
                 if (formatted.title && !result.label) result.label = formatted.title;
-                
+
                 // Use entity image if available, otherwise keep the search result image
                 result.image = formatted.image || result.image;
 
@@ -192,6 +192,58 @@ export const searchInventaireWorks = async (
 };
 
 /**
+ * Finds a specific work URI on Inventaire.io based on a title and author name.
+ * Used for "discovery" when we only have text data.
+ */
+export const findWorkUriByTitleAndAuthor = async (
+    title: string,
+    authorName: string
+): Promise<string | null> => {
+    if (!title || !authorName) return null;
+
+    console.log(`[Inventaire/Discovery] Searching for Work: "${title}" by "${authorName}"`);
+
+    // Search for "Title Author" to improve relevance
+    const searchQuery = `"${title}" ${authorName}`;
+    const results = await searchInventaireWorks(searchQuery, 20
+    );
+
+    console.log(`[Inventaire/Discovery] Found ${results.length} potential matches.`);
+
+    if (results.length === 0) {
+        console.log(`[Inventaire/Discovery] ❌ No results found for "${searchQuery}"`);
+        return null;
+    }
+
+    // Try to find the best match
+    // 1. Exact title match (case insensitive) among results that have the author
+    for (const res of results) {
+        const titleMatch = res.label.toLowerCase() === title.toLowerCase();
+        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(authorName.toLowerCase())) || false;
+
+        console.log(`[Inventaire/Discovery] Checking: "${res.label}" | Author Match: ${authorMatch} | Title Match: ${titleMatch}`);
+
+        if (titleMatch && authorMatch) {
+            console.log(`[Inventaire/Discovery] ✅ High-confidence match found: ${res.label} (${res.uri})`);
+            return res.uri;
+        }
+    }
+
+    // 2. Fallback: If title is very similar and author matches
+    for (const res of results) {
+        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(authorName.toLowerCase())) || false;
+        if (authorMatch) {
+            console.log(`[Inventaire/Discovery] ⚠️ Partial match found (Author match): ${res.label} (${res.uri})`);
+            return res.uri;
+        }
+    }
+
+    console.log(`[Inventaire/Discovery] ❌ No reliable match found for "${title}" by "${authorName}"`);
+    return null;
+};
+
+
+/**
  * Search for authors (humans) on Inventaire.io
  */
 export const searchInventaireAuthors = async (
@@ -205,7 +257,7 @@ export const searchInventaireAuthors = async (
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
         const data = await response.json();
-        
+
         const basicResults = (data.results || []).map((r: any) => ({
             id: r.id,
             uri: r.uri,
@@ -272,7 +324,7 @@ export const getInventaireEntities = async (
  */
 export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<Record<string, { image: string | null, label: string | null }>> => {
     if (!uris.length) return {};
-    
+
     // Extract IDs and build the OR query
     const ids = uris.map(uri => {
         if (uri.startsWith('wd:')) return uri.substring(3);
@@ -288,13 +340,13 @@ export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<
     for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
         const chunk = ids.slice(i, i + CHUNK_SIZE);
         const searchQuery = chunk.map(id => `id:"${id}"`).join(' OR ');
-        
+
         try {
             const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(searchQuery)}&limit=${chunk.length}&lang=fr`;
             const response = await fetch(url);
             if (!response.ok) continue;
             const data = await response.json();
-            
+
             (data.results || []).forEach((r: any) => {
                 if (r.uri) {
                     results[r.uri] = {
@@ -665,13 +717,13 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         // 8. DISCOVERY: Fetch all works by this author and ensure they exist in DB
         console.log(`[Inventaire] Discovering all works for author: ${updatedAuthor.name} (${uri})`);
         const workUris = await getAuthorWorkUris(uri);
-        
+
         if (workUris.length > 0) {
             console.log(`[Inventaire] Found ${workUris.length} works for author ${updatedAuthor.name}`);
-            
+
             // Limit to 100 works for now to avoid massive stalls, though they are processed in batches
             const limitedUris = workUris.slice(0, 100);
-            
+
             // Fetch basic metadata (labels) AND best covers for all these works in chunks
             const CHUNK_SIZE = 25;
             for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
@@ -680,15 +732,15 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
                     getBatchInventaireDetails(chunk),
                     getBestNativeCovers(chunk)
                 ]);
-                
+
                 for (const [wUri, details] of Object.entries(workEntities)) {
                     if (!details || !details.title) continue;
-                    
+
                     const bestCover = bestCovers[wUri];
                     const finalCover = bestCover || details.image || null;
-                    
+
                     const bookTitle = details.title.trim();
-                    
+
                     // Check if book exists
                     const existingBook = await prisma.book.findFirst({
                         where: {
@@ -726,7 +778,7 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
                                             await prisma.book.update({
                                                 where: { id: conflictBook.id },
                                                 data: { inventaireUri: wUri }
-                                            }).catch(() => {});
+                                            }).catch(() => { });
                                         }
                                     }
                                 } else if (err.code === 'P2003') {
@@ -771,9 +823,9 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
 export const getBestNativeCovers = async (workUris: string[]): Promise<Record<string, string | null>> => {
     if (!workUris.length) return {};
     console.log(`[Inventaire] Searching for native covers for ${workUris.length} works...`);
-    
+
     const results: Record<string, string | null> = {};
-    
+
     try {
         // 1. Fetch edition URIs for each work in parallel
         const editionUrisPerWork = await Promise.all(workUris.map(async uri => {
@@ -787,7 +839,7 @@ export const getBestNativeCovers = async (workUris: string[]): Promise<Record<st
         if (allEdUris.length === 0) return results;
 
         const allEdDetails = await getEditionsDetails(allEdUris);
-        
+
         // 3. Selection logic per work with scoring
         // Priority 0: Get representative images from search index
         const searchMetadata = await getBatchInventaireSearchMetadata(workUris);
@@ -817,7 +869,7 @@ export const getBestNativeCovers = async (workUris: string[]): Promise<Record<st
                 };
                 return getScore(b) - getScore(a);
             })[0];
-            
+
             if (bestEd?.cover) {
                 results[workUri] = bestEd.cover;
             }

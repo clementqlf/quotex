@@ -18,7 +18,7 @@ import {
     enrichWorkMetadata
 } from './services/inventaire';
 import { getNotableWorksDetailed } from './services/notableWorks';
-import { enrichBookWithInventaire } from './services/bookEnrichment';
+import { enrichBookWithInventaire, discoverAndEnrichBook } from './services/bookEnrichment';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -587,6 +587,16 @@ app.post('/quotes', async (req, res) => {
             });
         }
 
+        
+        // 2.5 Trigger Book Enrichment/Discovery
+        // We trigger it if the book is newly created OR if it lacks basic data
+        if (!bookRecord || !(bookRecord as any).description || !(bookRecord as any).inventaireUri) {
+            console.log(`[Server] Quote added for book: "${book}". Triggering background discovery/enrichment.`);
+            discoverAndEnrichBook(bookRecord.id).catch(err => 
+                console.error(`[Server] Background discovery failed for ${book}:`, err)
+            );
+        }
+
         // 3. Create Quote
         const newQuote = await prisma.quote.create({
             data: {
@@ -983,6 +993,11 @@ app.post('/books/import', async (req, res) => {
         if ((newBook as any).inventaireUri) {
             console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${newBook.title}`);
             await enrichBookWithInventaire(newBook.id);
+        } else {
+            console.log(`[Server] No URI for imported book: ${newBook.title}. Triggering background discovery.`);
+            discoverAndEnrichBook(newBook.id).catch(e => 
+                console.error(`[Server] Background discovery for imported book failed:`, e)
+            );
         }
 
         // 2. Ensure author is enriched (awaited to ensure metadata is ready for first view)
