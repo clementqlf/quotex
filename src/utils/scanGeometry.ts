@@ -12,6 +12,11 @@ export const PATH_SAMPLE_STEP = 1;
 export const calculateTextRotation = (cornerPoints: Array<{ x: number; y: number }>): number => {
     if (!cornerPoints || cornerPoints.length < 4) return 0;
 
+    // Reliability check: narrow characters (like '!') have noisy orientation
+    const w = Math.sqrt((cornerPoints[1].x - cornerPoints[0].x) ** 2 + (cornerPoints[1].y - cornerPoints[0].y) ** 2);
+    const h = Math.sqrt((cornerPoints[2].x - cornerPoints[1].x) ** 2 + (cornerPoints[2].y - cornerPoints[1].y) ** 2);
+    if (w < h * 0.6) return 0;
+
     let minVerticalVariance = Infinity;
     let bestAngle = 0;
 
@@ -35,6 +40,11 @@ export const calculateTextRotation = (cornerPoints: Array<{ x: number; y: number
             }
         }
     }
+
+    // Normalize to [-90, 90] to avoid 180 degree flips (upside down detection)
+    // which would mess up the global coordinate system and sorting.
+    while (bestAngle > 90) bestAngle -= 180;
+    while (bestAngle < -90) bestAngle += 180;
 
     return bestAngle;
 };

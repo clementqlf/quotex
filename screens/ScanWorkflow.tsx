@@ -24,8 +24,10 @@ type ScanWorkflowProps = {
 };
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }) => {
-  console.log('ScanWorkflow: Mounting with photo path:', photo.path);
-  console.log('ScanWorkflow: OCR blocks count:', ocrResult?.blocks?.length);
+  useEffect(() => {
+    console.log('ScanWorkflow: Loaded with photo:', photo.path);
+    console.log('ScanWorkflow: OCR blocks count:', ocrResult?.blocks?.length);
+  }, [photo.path, ocrResult?.blocks?.length]);
 
   const navigation = useNavigation<any>();
   const { addQuote } = useData();
@@ -35,6 +37,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
   const previewScale = useRef(new Animated.Value(1)).current;
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showDebugAngles, setShowDebugAngles] = useState(false);
+  const [showAngleValues, setShowAngleValues] = useState(true);
 
   useEffect(() => {
     const uri = `file://${photo.path}`;
@@ -49,13 +52,13 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
   const {
     wordBlocks,
     selectedBlocks,
+    sortedSelectedBlocks,
     setSelectedBlocks,
     scannedText,
-    setScannedText,
     panResponder,
-    getBlockKey
+    getBlockKey,
+    globalAngle
   } = useScanSelection(photo, ocrResult, imageSize, photoDimensions);
-
 
   useEffect(() => {
     Animated.spring(previewScale, {
@@ -82,7 +85,6 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
     await addQuote(quote, book, author);
 
     setShowPreviewModal(false);
-    setScannedText('');
     setSelectedBlocks([]);
 
     navigation.navigate('MyQuotes');
@@ -122,11 +124,23 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
             offsetX = (containerWidth - displayedWidth) / 2;
           }
 
-          setImageSize({
+          const nextSize = {
             width: displayedWidth,
             height: displayedHeight,
             offsetX,
             offsetY,
+          };
+
+          setImageSize(prev => {
+            if (
+              prev.width === nextSize.width &&
+              prev.height === nextSize.height &&
+              prev.offsetX === nextSize.offsetX &&
+              prev.offsetY === nextSize.offsetY
+            ) {
+              return prev;
+            }
+            return nextSize;
           });
         }}
       >
@@ -137,11 +151,37 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
             resizeMode="contain"
           />
           <View style={styles.blocksOverlay} {...panResponder.panHandlers}>
+            {showDebugAngles && (
+              <>
+                {/* Repère Fixe (Écran) */}
+                <View style={[styles.debugAxesContainer, { zIndex: 899 }]}>
+                  <View style={[styles.debugAxisX, { backgroundColor: 'rgba(255, 0, 0, 0.3)' }]} />
+                  <View style={[styles.debugAxisY, { backgroundColor: 'rgba(255, 0, 0, 0.3)' }]} />
+                  <Text style={[styles.axisLabel, { position: 'absolute', right: -120, top: 10, color: 'rgba(255, 0, 0, 0.6)' }]}>ECRAN X →</Text>
+                  <Text style={[styles.axisLabel, { position: 'absolute', top: 110, right: 10, color: 'rgba(255, 0, 0, 0.6)' }]}>ECRAN Y ↓</Text>
+                </View>
+
+                {/* Repère Mobile (Texte / Local) */}
+                <View style={[
+                  styles.debugAxesContainer,
+                  { transform: [{ rotate: `${globalAngle}deg` }] }
+                ]}>
+                  <View style={[styles.debugAxisX, { backgroundColor: '#20B8CD' }]} />
+                  <View style={[styles.debugAxisY, { backgroundColor: '#20B8CD' }]} />
+                  <Text style={[styles.axisLabel, { position: 'absolute', right: -120, top: -20, color: '#20B8CD' }]}>TEXTE X →</Text>
+                  <Text style={[styles.axisLabel, { position: 'absolute', top: -120, right: -20, color: '#20B8CD' }]}>TEXTE Y ↑</Text>
+                </View>
+              </>
+            )}
             {imageSize.width > 0 && wordBlocks.map((block, index) => {
               const rect = getBlockRectOnScreen(block, imageSize, { width: photo.width, height: photo.height }, orientation);
               if (!rect) return null;
 
-              const isSelected = selectedBlocks.some(b => getBlockKey(b) === getBlockKey(block));
+              const blockKey = getBlockKey(block);
+              const isSelected = selectedBlocks.some(b => getBlockKey(b) === blockKey);
+              const sortedIndex = isSelected 
+                ? sortedSelectedBlocks.findIndex(b => getBlockKey(b) === blockKey) 
+                : -1;
 
               return (
                 <View
@@ -159,8 +199,18 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
                   ]}
                   pointerEvents="none"
                 >
-                  {showDebugAngles && rect.rotation ? (
-                    <Text style={styles.blockDebugText}>{rect.rotation.toFixed(1)}°</Text>
+                  {showDebugAngles && (
+                    <View style={styles.blockBaseline} />
+                  )}
+                  {showDebugAngles && sortedIndex !== -1 && (
+                    <View style={styles.debugOrderContainer}>
+                      <Text style={styles.debugOrderText}>{sortedIndex + 1}</Text>
+                    </View>
+                  )}
+                  {showDebugAngles && showAngleValues && rect.rotation ? (
+                    <View style={styles.debugAngleContainer}>
+                      <Text style={styles.blockDebugText}>{rect.rotation.toFixed(1)}°</Text>
+                    </View>
                   ) : null}
                 </View>
               );
@@ -176,7 +226,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
               {wordBlocks.length} bloc(s) détecté(s)
               {selectedBlocks.length > 0 && ` • ${selectedBlocks.length} sélectionné(s)`}
             </Text>
-            {showDebugAngles && selectedBlocks.length > 0 && selectedBlocks.some(b => b.rotation) && (
+            {showDebugAngles && showAngleValues && selectedBlocks.length > 0 && selectedBlocks.some(b => b.rotation) && (
               <Text style={styles.blocksInfo}>
                 Angles: {selectedBlocks
                   .filter(b => b.rotation !== undefined)
@@ -185,12 +235,22 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
               </Text>
             )}
           </View>
-          <TouchableOpacity
-            style={styles.debugButton}
-            onPress={() => setShowDebugAngles(prev => !prev)}
-          >
-            <Text style={{ fontSize: 14 }}>🐛</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row' }}>
+            {showDebugAngles && (
+              <TouchableOpacity
+                style={[styles.debugButton, { marginRight: 8, backgroundColor: showAngleValues ? 'rgba(32, 184, 205, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
+                onPress={() => setShowAngleValues(prev => !prev)}
+              >
+                <Text style={{ fontSize: 14 }}>📐</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.debugButton, { backgroundColor: showDebugAngles ? 'rgba(32, 184, 205, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
+              onPress={() => setShowDebugAngles(prev => !prev)}
+            >
+              <Text style={{ fontSize: 14 }}>🐛</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.instructionText}>
           {selectedBlocks.length > 0
@@ -211,7 +271,6 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
             style={styles.trashButton}
             onPress={() => {
               setSelectedBlocks([]);
-              setScannedText('');
             }}
           >
             <Trash2 size={20} color="#E5E7EB" />
@@ -273,6 +332,70 @@ const styles = StyleSheet.create({
   },
   textBlockSelected: {
     backgroundColor: 'rgba(0, 255, 0, 0.5)',
+  },
+  blockBaseline: {
+    position: 'absolute',
+    bottom: -1,
+    left: -2,
+    right: -2,
+    height: 1.5,
+    backgroundColor: '#20B8CD',
+    borderRadius: 1,
+    opacity: 0.8,
+  },
+  debugAngleContainer: {
+    backgroundColor: 'rgba(15, 15, 15, 0.7)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  debugOrderContainer: {
+    position: 'absolute',
+    top: -14,
+    left: 0,
+    backgroundColor: '#00FF00',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    minWidth: 16,
+    alignItems: 'center',
+    zIndex: 1100,
+  },
+  debugOrderText: {
+    color: '#000000',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  debugAxesContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 1,
+    height: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 900,
+  },
+  debugAxisX: {
+    position: 'absolute',
+    width: 2000,
+    height: 1.5,
+    backgroundColor: '#FF0000',
+    opacity: 0.6,
+  },
+  debugAxisY: {
+    position: 'absolute',
+    width: 1.5,
+    height: 2000,
+    backgroundColor: '#FF0000',
+    opacity: 0.6,
+  },
+  axisLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
   },
   blockDebugText: {
     color: '#FFFFFF',

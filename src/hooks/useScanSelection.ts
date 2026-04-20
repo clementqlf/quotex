@@ -15,6 +15,17 @@ import {
 
 const HIGHLIGHT_PADDING = 1;
 
+const NATURAL_HYPHEN_PARTS = new Set([
+    // Pronouns
+    'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles', 'le', 'la', 'les', 'lui', 'leur', 'moi', 'toi', 'soi', 'y', 'en', 'ce', 't', 'm', 's',
+    // Prefixes
+    'anti', 'archi', 'après', 'avant', 'auto', 'bien', 'co', 'contre', 'demi', 'ex', 'extra', 'grand', 'haut', 'hyper', 'infra', 'inter', 'intra', 'mi', 'micro', 'mini', 'multi', 'non', 'néo', 'poly', 'post', 'pré', 'pseudo', 'quasi', 'retro', 'sans', 'semi', 'sous', 'super', 'supra', 'sur', 'télé', 'trans', 'ultra', 'vice',
+    // Common comp
+    'peut', 'est', 'dit', 'rendez', 'arc', 'chou', 'faire', 'porte', 'garde', 'passe', 'tire', 'serre', 'tourne', 'bas', 'arrière', 'extrême',
+    // Numbers
+    'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'cent', 'mille'
+]);
+
 export const useScanSelection = (
     photo: PhotoFile | null,
     ocrResult: TextRecognitionResult | null,
@@ -22,7 +33,6 @@ export const useScanSelection = (
     photoDimensions: { width: number; height: number }
 ) => {
     const [selectedBlocks, setSelectedBlocks] = useState<MLKitText[]>([]);
-    const [scannedText, setScannedText] = useState('');
 
     // Refs for PanResponder to access fresh state without re-render
     const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
@@ -62,22 +72,31 @@ export const useScanSelection = (
         selectedBlocksRef.current = selectedBlocks;
     }, [selectedBlocks]);
 
-    // Logic to sort blocks and build text
-    useEffect(() => {
+    // Calculate global angle using weighted average (wider blocks have more weight)
+    const angleWeights = selectedBlocks
+        .filter(b => b.rotation !== undefined && b.rotation !== 0 && b.frame !== undefined)
+        .map(b => ({
+            angle: b.rotation!,
+            weight: b.frame!.width
+        }));
+
+    const totalWeight = angleWeights.reduce((sum, item) => sum + item.weight, 0);
+    const globalAngle = totalWeight > 0
+        ? angleWeights.reduce((sum, item) => sum + item.angle * item.weight, 0) / totalWeight
+        : 0;
+
+    // Logic to sort blocks and build text (Derive from state using useMemo)
+    const { sortedSelectedBlocks, scannedText, sortedData } = useMemo(() => {
+        if (selectedBlocks.length === 0) {
+            return { sortedSelectedBlocks: [], scannedText: '', sortedData: [] };
+        }
+
         type PositionedBlock = {
             block: MLKitText;
             rect: { left: number; top: number; width: number; height: number; rotation?: number };
             alignedX: number;
             alignedY: number;
         };
-
-        const angles = selectedBlocks
-            .map(block => block.rotation || 0)
-            .filter(angle => angle !== 0);
-
-        const globalAngle = angles.length > 0
-            ? angles.reduce((a, b) => a + b, 0) / angles.length
-            : 0;
 
         const orientation = getPhotoOrientation(photo);
 
@@ -87,22 +106,22 @@ export const useScanSelection = (
                 const rect = getBlockRectOnScreen(block, imageSize, { width: photo.width, height: photo.height }, orientation);
                 if (!rect) return null;
 
+                const centerX = imageSize.offsetX + imageSize.width / 2;
+                const centerY = imageSize.offsetY + imageSize.height / 2;
+                const dx = rect.left + rect.width / 2 - centerX;
+                const dy = rect.top + rect.height / 2 - centerY;
+
                 let alignedX = rect.left + rect.width / 2;
                 let alignedY = rect.top + rect.height / 2;
 
                 if (globalAngle !== 0) {
-                    const centerX = imageSize.offsetX + imageSize.width / 2;
-                    const centerY = imageSize.offsetY + imageSize.height / 2;
-
-                    const dx = alignedX - centerX;
-                    const dy = alignedY - centerY;
-
                     const angleRad = (globalAngle * Math.PI) / 180;
                     const cosA = Math.cos(angleRad);
                     const sinA = Math.sin(angleRad);
 
+                    // X increases Left -> Right, Y increases Bottom -> Top
                     alignedX = centerX + (dx * cosA + dy * sinA);
-                    alignedY = centerY + (-dx * sinA + dy * cosA);
+                    alignedY = centerY - (-dx * sinA + dy * cosA);
                 }
 
                 return { block, rect, alignedX, alignedY };
@@ -124,11 +143,62 @@ export const useScanSelection = (
             line.words.push(item);
         });
 
-        lines.sort((a, b) => a.centerY - b.centerY);
-        const sortedWords = lines.flatMap(line => line.words.sort((a, b) => a.alignedX - b.alignedX));
-        const newText = sortedWords.map(item => item.block.text).join(' ');
-        setScannedText(newText);
-    }, [selectedBlocks, imageSize, photo, photoDimensions]);
+        // Top line has HIGHEST Y in the new system (bottom to top), so sort descending
+        lines.sort((a, b) => b.centerY - a.centerY);
+        const sorted = lines.flatMap(line => line.words.sort((a, b) => a.alignedX - b.alignedX));
+        const finalSortedBlocks = sorted.map(item => item.block);
+        
+        const scannedText = finalSortedBlocks.reduce((acc, block, index) => {
+            if (index === 0) return block.text;
+
+            const prevBlock = finalSortedBlocks[index - 1];
+            const prevText = prevBlock.text;
+
+            // If previous word ends with a hyphen, we might need to merge
+            if (prevText.endsWith('-') && prevText.length > 1) {
+                const part1 = prevText.slice(0, -1).toLowerCase();
+                const part2 = block.text.toLowerCase().replace(/[.,!?;:]/g, '');
+
+                const isNaturalHyphen = NATURAL_HYPHEN_PARTS.has(part1) || NATURAL_HYPHEN_PARTS.has(part2);
+
+                if (isNaturalHyphen) {
+                    // It's a natural hyphenated word (like rendez-vous), keep the hyphen but no space
+                    return acc + block.text;
+                } else {
+                    // It's likely a word split across lines, remove the hyphen and no space
+                    return acc.slice(0, -1) + block.text;
+                }
+            }
+
+            return acc + ' ' + block.text;
+        }, '');
+
+        return {
+            sortedSelectedBlocks: finalSortedBlocks,
+            scannedText,
+            sortedData: sorted
+        };
+    }, [selectedBlocks, imageSize, photo, photoDimensions, globalAngle]);
+
+    const lastLoggedRef = useRef<string>('');
+
+    // Debug Logs Effect (Runs only when the sorted data actually changes)
+    useEffect(() => {
+        if (sortedData.length === 0) {
+            lastLoggedRef.current = '';
+            return;
+        }
+
+        // Create a unique key for the current sorting state
+        const logKey = `${scannedText}-${globalAngle.toFixed(1)}`;
+        if (logKey === lastLoggedRef.current) return;
+        lastLoggedRef.current = logKey;
+
+        console.log(`--- Word Sorting (Cartesian Repère: X →, Y ↑, Angle: ${globalAngle.toFixed(1)}°) ---`);
+        sortedData.forEach((item, index) => {
+            console.log(`Order ${index + 1}: "${item.block.text}" at (x: ${item.alignedX.toFixed(1)}, y: ${item.alignedY.toFixed(1)})`);
+        });
+    }, [sortedData, globalAngle, scannedText]);
 
     // Helpers for interactions
     const getBlockKey = (block: MLKitText): string => {
@@ -251,10 +321,11 @@ export const useScanSelection = (
     return {
         wordBlocks,
         selectedBlocks,
+        sortedSelectedBlocks,
         setSelectedBlocks,
         scannedText,
-        setScannedText,
         panResponder,
         getBlockKey,
+        globalAngle,
     };
 };
