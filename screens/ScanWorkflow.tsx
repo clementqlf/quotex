@@ -21,9 +21,10 @@ type ScanWorkflowProps = {
   photo: PhotoFile;
   ocrResult: TextRecognitionResult;
   onReset: () => void;
+  isGallery?: boolean;
 };
 
-const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }) => {
+const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, isGallery }) => {
   useEffect(() => {
     console.log('ScanWorkflow: Loaded with photo:', photo.path);
     console.log('ScanWorkflow: OCR blocks count:', ocrResult?.blocks?.length);
@@ -61,13 +62,14 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset }
   } = useScanSelection(photo, ocrResult, imageSize, photoDimensions);
 
   useEffect(() => {
+    const targetScale = isGallery ? 1 : 1.4;
     Animated.spring(previewScale, {
-      toValue: photo && ocrResult ? 1.4 : 1,
+      toValue: photo && ocrResult ? targetScale : 1,
       useNativeDriver: true,
       friction: 8,
       tension: 50,
     }).start();
-  }, [photo, ocrResult, previewScale]);
+  }, [photo, ocrResult, previewScale, isGallery]);
 
 
   const getPhotoDims = () => {

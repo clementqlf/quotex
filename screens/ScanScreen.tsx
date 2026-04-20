@@ -30,6 +30,7 @@ export default function ScanScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
   const [ocrResult, setOcrResult] = React.useState<TextRecognitionResult | null>(null);
+  const [isFromGallery, setIsFromGallery] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [scanFrameLayout, setScanFrameLayout] = React.useState<{
@@ -198,6 +199,7 @@ export default function ScanScreen() {
         return;
       }
 
+      setIsFromGallery(false);
       setPhoto(photoFile);
       setOcrResult(result);
     } catch (error) {
@@ -213,6 +215,7 @@ export default function ScanScreen() {
   const handleResetCapture = () => {
     setPhoto(null);
     setOcrResult(null);
+    setIsFromGallery(false);
     setIsTextDetectedLive(false);
   };
 
@@ -258,6 +261,7 @@ export default function ScanScreen() {
         metadata: { Orientation: 1 } as any, // Default orientation
       } as PhotoFile;
 
+      setIsFromGallery(true);
       setPhoto(pickedPhoto);
       setOcrResult(result || { blocks: [] } as any);
 
@@ -308,7 +312,7 @@ export default function ScanScreen() {
       )}
 
       {photo && ocrResult ? (
-        <ScanWorkflow photo={photo} ocrResult={ocrResult} onReset={handleResetCapture} />
+        <ScanWorkflow photo={photo} ocrResult={ocrResult} onReset={handleResetCapture} isGallery={isFromGallery} />
       ) : isFocused && !photo ? (
         <Camera
           style={StyleSheet.absoluteFill}
