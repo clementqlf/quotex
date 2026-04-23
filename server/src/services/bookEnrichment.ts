@@ -5,6 +5,38 @@ import { enrichWorkMetadata, enrichAuthorWithInventaire, findWorkUriByTitleAndAu
 export const bookEnrichmentQueue: Set<number> = new Set();
 
 /**
+ * Merges a source book into a target book, moving all quotes and reviews,
+ * then deleting the source book.
+ */
+async function mergeBooks(sourceId: number, targetId: number) {
+    console.log(`[BookEnrichment] Merging book ${sourceId} into ${targetId}...`);
+    try {
+        await prisma.$transaction([
+            // Move quotes
+            prisma.quote.updateMany({
+                where: { bookId: sourceId },
+                data: { bookId: targetId }
+            }),
+            // Move reviews
+            prisma.review.updateMany({
+                where: { bookId: sourceId },
+                data: { bookId: targetId }
+            }),
+            // Move editions (individual updates because of uniqueness)
+            // Note: We don't merge editions strictly yet as they might conflict on URI.
+            // Deleting the source book will handle his editions via cascade or they remain orphans.
+            
+            // Delete source book
+            prisma.book.delete({ where: { id: sourceId } })
+        ]);
+        console.log(`[BookEnrichment] Merge successful. Source book ${sourceId} deleted.`);
+    } catch (e) {
+        console.error(`[BookEnrichment] Merge failed between ${sourceId} and ${targetId}:`, e);
+        throw e;
+    }
+}
+
+/**
  * Specifically enriches a book using Inventaire.io data
  */
 export const enrichBookWithInventaire = async (bookId: number): Promise<any | null> => {
@@ -12,16 +44,43 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
     bookEnrichmentQueue.add(bookId);
 
     try {
+        await prisma.book.update({ where: { id: bookId }, data: { isEnriching: true } as any }).catch(() => {});
         const book = await prisma.book.findUnique({ where: { id: bookId } });
         if (!book || !(book as any).inventaireUri) return null;
 
         console.log(`[BookEnrichment] Starting Inventaire enrichment for: ${(book as any).title} (${(book as any).inventaireUri})`);
         const enriched = await enrichWorkMetadata((book as any).inventaireUri);
-
+        
         if (enriched) {
             const updateData: any = {};
-            
-            // Only update if current data is missing or obviously shorter (like a placeholder)
+
+            // 1. Standardize Title with Merge logic
+            if (enriched.title && book.title !== enriched.title) {
+                const targetBook = await prisma.book.findFirst({
+                    where: {
+                        title: enriched.title,
+                        authorId: (book as any).authorId,
+                        NOT: { id: bookId }
+                    }
+                });
+
+                if (targetBook) {
+                    await mergeBooks(bookId, targetBook.id);
+                    
+                    // If target book didn't have a URI, give it the one we found
+                    if (!(targetBook as any).inventaireUri) {
+                        await prisma.book.update({
+                            where: { id: targetBook.id },
+                            data: { inventaireUri: (book as any).inventaireUri } as any
+                        }).catch(() => {});
+                    }
+                    return true;
+                } else {
+                    updateData.title = enriched.title;
+                }
+            }
+
+            // 2. Metadata updates (only if book wasn't deleted by merge)
             if (enriched.description) {
                 updateData.description = enriched.description;
             }
@@ -93,18 +152,18 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
         console.error(`[BookEnrichment] Inventaire enrichment error for book ${bookId}:`, e);
         return null;
     } finally {
+        await prisma.book.update({ where: { id: bookId }, data: { isEnriching: false } as any }).catch(() => {});
         bookEnrichmentQueue.delete(bookId);
     }
 };
 
 /**
  * Intermediate function that discovers the Inventaire URI for a book 
- * (by title + author) and then triggers full enrichment.
  */
 export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
     console.log(`[BookEnrichment/Discovery] Starting discovery for Book ID: ${bookId}`);
-    
     try {
+        await prisma.book.update({ where: { id: bookId }, data: { isEnriching: true } as any }).catch(() => {});
         const book = await prisma.book.findUnique({
             where: { id: bookId },
             include: { author: true }
@@ -127,7 +186,19 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
         const uri = await findWorkUriByTitleAndAuthor(book.title, authorName);
         
         if (uri) {
-            console.log(`[BookEnrichment/Discovery] ✅ URI resolved: ${uri}. Updating book record...`);
+            console.log(`[BookEnrichment/Discovery] ✅ URI resolved: ${uri}. Checking for conflicts...`);
+            const existingBook = await prisma.book.findUnique({
+                where: { inventaireUri: uri }
+            });
+
+            if (existingBook && existingBook.id !== bookId) {
+                console.log(`[BookEnrichment/Discovery] ⚠️ Conflict detected: Book ${existingBook.id} already has URI ${uri}. Merging...`);
+                await mergeBooks(bookId, existingBook.id);
+                // Enrichment for the survivor
+                await enrichBookWithInventaire(existingBook.id);
+                return;
+            }
+
             await prisma.book.update({
                 where: { id: bookId },
                 data: { inventaireUri: uri } as any

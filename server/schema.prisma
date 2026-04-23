@@ -26,6 +26,7 @@ model Book {
   authorId    Int
   author      Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   
+  isEnriching  Boolean  @default(false)
   isSaved     Boolean  @default(false)
 
   // Relations
@@ -52,6 +53,7 @@ model Author {
   books       Book[]
   quotes      Quote[]
 
+  isEnriching     Boolean  @default(false)
   isSaved         Boolean  @default(false)
 
   // Self-relation for similar authors

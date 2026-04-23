@@ -4,7 +4,7 @@ import { prisma } from './lib/prisma';
 import { seed } from './seedData';
 import { searchHybrid } from './services/hybridSearch';
 import { getExternalAuthorBooks, searchExternalAuthors } from './services/externalAuthor';
-import { 
+import {
     searchInventaireWorks,
     searchInventaireAuthors,
     enrichAuthorWithInventaire as enrichAuthor,
@@ -327,7 +327,7 @@ app.get('/authors/:id/notable-works', async (req, res) => {
 
             // Background enrichment ONLY if we lack basic data (description or cover)
             if (book && (book.inventaireUri) && (!book.description || book.description.length < 50 || !book.cover)) {
-                enrichBookWithInventaire(book.id).catch(err => 
+                enrichBookWithInventaire(book.id).catch(err =>
                     console.error(`[Server] Background enrichment failed for ${book.title}:`, err)
                 );
             }
@@ -563,7 +563,7 @@ app.post('/quotes', async (req, res) => {
         // 1. Find or Create Author
         let authorRecord = await prisma.author.findUnique({ where: { name: author } });
         if (!authorRecord) {
-            authorRecord = await prisma.author.create({ data: { name: author } });
+            authorRecord = await prisma.author.create({ data: { name: author, isEnriching: true } as any });
             // Enrich author asynchronously
             enrichAuthor(authorRecord.id).catch((err: any) =>
                 console.error(`[Server] Async enrichment failed for ${author}:`, err)
@@ -571,28 +571,29 @@ app.post('/quotes', async (req, res) => {
         }
 
         // 2. Find or Create Book
-        let bookRecord = await prisma.book.findFirst({ 
-            where: { 
+        let bookRecord = await prisma.book.findFirst({
+            where: {
                 title: book,
                 authorId: authorRecord.id
-            } 
+            }
         });
 
         if (!bookRecord) {
             bookRecord = await prisma.book.create({
                 data: {
                     title: book,
-                    authorId: authorRecord.id
-                }
+                    authorId: authorRecord.id,
+                    isEnriching: true
+                } as any
             });
         }
 
-        
+
         // 2.5 Trigger Book Enrichment/Discovery
         // We trigger it if the book is newly created OR if it lacks basic data
         if (!bookRecord || !(bookRecord as any).description || !(bookRecord as any).inventaireUri) {
             console.log(`[Server] Quote added for book: "${book}". Triggering background discovery/enrichment.`);
-            discoverAndEnrichBook(bookRecord.id).catch(err => 
+            discoverAndEnrichBook(bookRecord.id).catch(err =>
                 console.error(`[Server] Background discovery failed for ${book}:`, err)
             );
         }
@@ -650,7 +651,7 @@ app.patch('/quotes/:id', async (req, res) => {
         if (author && typeof author === 'string' && author !== existingQuote.author.name) {
             let authorRecord = await prisma.author.findUnique({ where: { name: author } });
             if (!authorRecord) {
-                authorRecord = await prisma.author.create({ data: { name: author } });
+                authorRecord = await prisma.author.create({ data: { name: author, isEnriching: true } as any });
                 enrichAuthor(authorRecord.id).catch((err: any) =>
                     console.error(`[Server] Async enrichment failed for ${author}:`, err)
                 );
@@ -661,21 +662,30 @@ app.patch('/quotes/:id', async (req, res) => {
         // 2. Handle Book update if name provided
         if (book && typeof book === 'string' && (!existingQuote.book || book !== existingQuote.book.title)) {
             // Find or create book for THIS author
-            let bookRecord = await prisma.book.findFirst({ 
-                where: { 
+            let bookRecord = await prisma.book.findFirst({
+                where: {
                     title: book,
                     authorId: authorId
-                } 
+                }
             });
             if (!bookRecord) {
                 bookRecord = await prisma.book.create({
                     data: {
                         title: book,
-                        authorId: authorId
-                    }
+                        authorId: authorId,
+                        isEnriching: true
+                    } as any
                 });
             }
             bookId = bookRecord.id;
+
+            // Trigger discovery/enrichment for the updated book
+            if (!bookRecord || !(bookRecord as any).description || !(bookRecord as any).inventaireUri) {
+                console.log(`[Server] Quote updated with new/incomplete book: "${book}". Triggering background discovery/enrichment.`);
+                discoverAndEnrichBook(bookId).catch(err =>
+                    console.error(`[Server] Background discovery failed for ${book}:`, err)
+                );
+            }
         }
 
         // 3. Update Quote
@@ -920,13 +930,13 @@ app.post('/books/import', async (req, res) => {
                 where: { id: updatedBook.id },
                 include: { author: true }
             });
-            
+
             // Ensure author is fully enriched (awaited to ensure bio is returned)
             if (fullUpdatedBook?.author) {
                 const authorUri = (bookData.authorUris && bookData.authorUris.length > 0) ? bookData.authorUris[0] : undefined;
                 await enrichAuthor(fullUpdatedBook.author.id, undefined, authorUri).catch((e: any) => console.error(e));
             }
-            
+
             res.json(formatBook(fullUpdatedBook));
             return;
         }
@@ -937,7 +947,7 @@ app.post('/books/import', async (req, res) => {
         let author = await prisma.author.findUnique({ where: { name: authorName } });
         if (!author) {
             author = await prisma.author.create({
-                data: { 
+                data: {
                     name: authorName,
                     description: extractedAuthorDescription || null
                 }
@@ -988,14 +998,14 @@ app.post('/books/import', async (req, res) => {
         });
 
         console.log(`[Server] Created new book: ${newBook.title}`);
-        
+
         // 1. Trigger enrichment for Inventaire books during import to get editions and synopsis
         if ((newBook as any).inventaireUri) {
             console.log(`[Server] Triggering full Inventaire enrichment for imported book: ${newBook.title}`);
             await enrichBookWithInventaire(newBook.id);
         } else {
             console.log(`[Server] No URI for imported book: ${newBook.title}. Triggering background discovery.`);
-            discoverAndEnrichBook(newBook.id).catch(e => 
+            discoverAndEnrichBook(newBook.id).catch(e =>
                 console.error(`[Server] Background discovery for imported book failed:`, e)
             );
         }
@@ -1005,7 +1015,7 @@ app.post('/books/import', async (req, res) => {
             const authorUri = (bookData.authorUris && bookData.authorUris.length > 0) ? bookData.authorUris[0] : undefined;
             await enrichAuthor(author.id, undefined, authorUri).catch((e: any) => console.error(e));
         }
-        
+
         // 3. Final fetch to get fully enriched state (author + editions)
         const fullyEnriched = await prisma.book.findUnique({
             where: { id: newBook.id },
@@ -1059,7 +1069,7 @@ async function getCachedSearch(query: string, type: string): Promise<any[] | nul
     if (!cache) return null;
     if (new Date() > cache.expiresAt) {
         // Expired — delete and return null
-        await prisma.searchCache.delete({ where: { id: cache.id } }).catch(() => {});
+        await prisma.searchCache.delete({ where: { id: cache.id } }).catch(() => { });
         return null;
     }
     try {
@@ -1114,7 +1124,7 @@ app.get('/search', async (req, res) => {
 
         // 2. Search Local Authors (Saved only)
         const localAuthors = await prisma.author.findMany({
-            where: { 
+            where: {
                 name: { contains: query },
                 isSaved: true
             },
@@ -1123,7 +1133,7 @@ app.get('/search', async (req, res) => {
 
         // 3. Search Local Books (Saved only)
         const books = await prisma.book.findMany({
-            where: { 
+            where: {
                 title: { contains: query },
                 isSaved: true
             },
@@ -1140,20 +1150,20 @@ app.get('/search', async (req, res) => {
         });
         const themes = themesRaw.map((t: any) => t.theme).filter((t: any) => t !== null);
 
-        // 5. External Inventaire Works (with cache)
+        // 5. External Inventaire Sujets (with cache)
         let inventaireWorks: InventaireSearchResult[] = [];
-        const cachedWorks = await getCachedSearch(query, 'works');
-        
-        // Detect stale cache (missing authorUris or other new fields)
-        const isWorksCacheStale = cachedWorks && cachedWorks.length > 0 && typeof cachedWorks[0].authorUris === 'undefined';
+        const cachedSujets = await getCachedSearch(query, 'sujets');
 
-        if (cachedWorks && !isWorksCacheStale) {
-            inventaireWorks = cachedWorks;
-            console.log(`[Search] Cache hit — works for "${query}"`);
+        // Detect stale cache (missing authorUris or other new fields)
+        const isSujetsCacheStale = cachedSujets && cachedSujets.length > 0 && typeof cachedSujets[0].authorUris === 'undefined';
+
+        if (cachedSujets && !isSujetsCacheStale) {
+            inventaireWorks = cachedSujets;
+            console.log(`[Search] Cache hit — sujets for "${query}"`);
         } else {
-            console.log(`[Search] ${isWorksCacheStale ? 'Cache stale (missing authorUris)' : 'Cache miss'} — searching Inventaire works for "${query}"`);
+            console.log(`[Search] ${isSujetsCacheStale ? 'Cache stale' : 'Cache miss'} — searching Inventaire sujets for "${query}"`);
             inventaireWorks = await searchInventaireWorks(query, 10);
-            await setCachedSearch(query, 'works', inventaireWorks);
+            await setCachedSearch(query, 'sujets', inventaireWorks);
         }
 
         // Debug log sample

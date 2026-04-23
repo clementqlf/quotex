@@ -22,6 +22,7 @@ export type Author = {
   similarAuthors?: Author[];
   openLibraryId?: string;
   isSaved?: boolean;
+  isEnriching?: boolean;
   quotesCount?: number;
 };
 
@@ -38,6 +39,7 @@ export type Book = {
   buyLinks?: Array<{ store: string; url: string; price: string }>;
   similarBooks?: Book[];
   isSaved?: boolean;
+  isEnriching?: boolean;
   inventaireUri?: string;
   openLibraryId?: string;
   googleId?: string;

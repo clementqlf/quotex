@@ -115,16 +115,19 @@ const formatInventaireWork = (entity: any, uri?: string): Partial<InventaireWork
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 /**
- * Search for books (works) on Inventaire.io
+ * Generic search for entities on Inventaire.io
  */
-export const searchInventaireWorks = async (
+export const searchInventaire = async (
     query: string,
+    types: string = 'works',
     limit = 10
 ): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
-    console.log(`[Inventaire] Searching for books (works): "${query}"`);
+    console.log(`[Inventaire] Searching for "${query}" (types: ${types})`);
     try {
-        const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
+        const typesList = types.split(',');
+        const typesParam = typesList.map(t => `types=${encodeURIComponent(t.trim())}`).join('&');
+        const url = `${INVENTAIRE_BASE}/api/search?${typesParam}&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
         const data = await response.json();
@@ -132,7 +135,7 @@ export const searchInventaireWorks = async (
         const basicResults = (data.results || []).map((r: any) => ({
             id: r.id,
             uri: r.uri,
-            type: 'works',
+            type: r.type,
             label: r.label || '',
             image: resolveImageUrl(r.image),
             authors: []
@@ -141,12 +144,13 @@ export const searchInventaireWorks = async (
         if (basicResults.length === 0) return [];
 
         // 1. Fetch work entities to get Author URIs (wdt:P50)
-        const workUris = basicResults.map((r: any) => r.uri);
-        const workEntities = await getInventaireEntities(workUris);
+        // We filter for results that ARE works or might have author claims
+        const urisToFetch = basicResults.map((r: any) => r.uri);
+        const entities = await getInventaireEntities(urisToFetch);
 
         const authorUrisToFetch = new Set<string>();
-        for (const uri of workUris) {
-            const entity = workEntities[uri];
+        for (const uri of urisToFetch) {
+            const entity = entities[uri];
             if (entity && entity.claims && entity.claims['wdt:P50']) {
                 entity.claims['wdt:P50'].forEach((aUri: string) => authorUrisToFetch.add(aUri));
             }
@@ -166,29 +170,41 @@ export const searchInventaireWorks = async (
 
         // 3. Attach authors and metadata to results
         for (const result of basicResults) {
-            const entity = workEntities[result.uri];
+            const entity = entities[result.uri];
             if (entity) {
-                const formatted = formatInventaireWork(entity, result.uri);
+                // Formatting for works specifically (but safe for others)
+                const claims = entity.claims || {};
+                const labels = entity.labels || {};
+                const label = labels['fr'] || labels['en'] || entity.label || Object.values(labels)[0] || result.label;
 
-                if (formatted.title && !result.label) result.label = formatted.title;
+                result.label = label;
+                result.image = getEntityImage(entity.image) || result.image;
 
-                // Use entity image if available, otherwise keep the search result image
-                result.image = formatted.image || result.image;
-
-                if (formatted.authorUris && formatted.authorUris.length > 0) {
-                    result.authors = formatted.authorUris.map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
-                    result.authorUris = formatted.authorUris;
-                    console.log(`[Inventaire] Found ${result.authorUris.length} author URIs for result: ${result.label}`);
+                if (claims['wdt:P50'] && claims['wdt:P50'].length > 0) {
+                    result.authors = claims['wdt:P50'].map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
+                    result.authorUris = claims['wdt:P50'];
                 }
             }
         }
 
-        console.log(`[Inventaire] Search complete. Found ${basicResults.length} works.`);
+        console.log(`[Inventaire] Search complete. Found ${basicResults.length} results.`);
         return basicResults;
     } catch (e) {
-        console.error('[Inventaire] Error searching works:', e);
+        console.error('[Inventaire] Error searching:', e);
         return [];
     }
+};
+
+/**
+ * Search for books (works) on Inventaire.io.
+ * Now uses "Sujets" (works, genres, movements) by default to improve discoverability.
+ */
+export const searchInventaireWorks = async (
+    query: string,
+    limit = 10
+): Promise<InventaireSearchResult[]> => {
+    // Defaulting to subjects (works + genres + movements) as requested by the user
+    return searchInventaire(query, 'works,genres,movements', limit);
 };
 
 /**
@@ -200,11 +216,13 @@ export const findWorkUriByTitleAndAuthor = async (
     authorName: string
 ): Promise<string | null> => {
     if (!title || !authorName) return null;
+    const cleanTitle = title.trim();
+    const cleanAuthor = authorName.trim();
 
-    console.log(`[Inventaire/Discovery] Searching for Work: "${title}" by "${authorName}"`);
+    console.log(`[Inventaire/Discovery] Searching for Work: "${cleanTitle}" by "${cleanAuthor}"`);
 
     // Search for "Title Author" to improve relevance
-    const searchQuery = `"${title}" ${authorName}`;
+    const searchQuery = `"${cleanTitle}" ${cleanAuthor}`;
     const results = await searchInventaireWorks(searchQuery, 20
     );
 
@@ -218,8 +236,8 @@ export const findWorkUriByTitleAndAuthor = async (
     // Try to find the best match
     // 1. Exact title match (case insensitive) among results that have the author
     for (const res of results) {
-        const titleMatch = res.label.toLowerCase() === title.toLowerCase();
-        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(authorName.toLowerCase())) || false;
+        const titleMatch = res.label.toLowerCase().trim() === cleanTitle.toLowerCase();
+        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(cleanAuthor.toLowerCase())) || false;
 
         console.log(`[Inventaire/Discovery] Checking: "${res.label}" | Author Match: ${authorMatch} | Title Match: ${titleMatch}`);
 
@@ -231,7 +249,7 @@ export const findWorkUriByTitleAndAuthor = async (
 
     // 2. Fallback: If title is very similar and author matches
     for (const res of results) {
-        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(authorName.toLowerCase())) || false;
+        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(cleanAuthor.toLowerCase())) || false;
         if (authorMatch) {
             console.log(`[Inventaire/Discovery] ⚠️ Partial match found (Author match): ${res.label} (${res.uri})`);
             return res.uri;
@@ -250,48 +268,7 @@ export const searchInventaireAuthors = async (
     query: string,
     limit = 10
 ): Promise<InventaireSearchResult[]> => {
-    if (!query.trim()) return [];
-    console.log(`[Inventaire] Searching for authors (humans): "${query}"`);
-    try {
-        const url = `${INVENTAIRE_BASE}/api/search?types=humans&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
-        const data = await response.json();
-
-        const basicResults = (data.results || []).map((r: any) => ({
-            id: r.id,
-            uri: r.uri,
-            type: 'humans',
-            label: r.label || '',
-            image: null, // Will fetch entities to resolve full image URLs
-        }));
-
-        if (basicResults.length === 0) return [];
-
-        // Fetch full entities to get proper image URLs (including Wikimedia) and richer descriptions
-        const uris = basicResults.map((r: any) => r.uri);
-        const entities = await getInventaireEntities(uris);
-
-        for (const result of basicResults) {
-            const entity = entities[result.uri];
-            if (entity) {
-                // Resolve image (native or Wikimedia)
-                result.image = getEntityImage(entity.image);
-
-                // Richer labels and descriptions from the full entity
-                const labels = entity.labels || {};
-                const descriptions = entity.descriptions || {};
-                const label = labels['fr'] || labels['en'] || Object.values(labels)[0];
-
-            }
-        }
-
-        console.log(`[Inventaire] Author search complete. Found ${basicResults.length} humans.`);
-        return basicResults;
-    } catch (e) {
-        console.error('[Inventaire] Error searching humans:', e);
-        return [];
-    }
+    return searchInventaire(query, 'humans', limit);
 };
 
 // ─── Entity Details ───────────────────────────────────────────────────────────
@@ -635,6 +612,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
  */
 export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string, authorUri?: string): Promise<any> => {
     try {
+        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: true } as any }).catch(() => {});
         console.log(`[Inventaire] Starting enrichment for author ID: ${authorId}`);
 
         // 1. Get author from DB
@@ -665,9 +643,12 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         const details = await getInventaireAuthorDetails(uri);
         if (!details) return null;
 
+        const isNewEntity = uri !== author.inventaireUri;
+
         // 4. Fetch Biography from Wikipedia (FR)
-        let biography = author.description;
-        if (details.wikipediaTitle && (!biography || biography.length < 50)) {
+        let biography = isNewEntity ? null : author.description;
+        // Force fetch if it's a new entity, or if biography is missing/short
+        if (details.wikipediaTitle && (isNewEntity || !biography || biography.length < 50)) {
             console.log(`[Inventaire] Fetching biography from Wikipedia for: ${details.wikipediaTitle}`);
             const synopsis = await fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
             if (synopsis) {
@@ -679,13 +660,24 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         }
 
         // 5. Build update data
+        // If it's a new entity, we overwrite everything. If same entity, we only fill missing fields.
         const updateData: any = {
             inventaireUri: uri,
-            description: biography || author.description,
-            image: details.image || author.image,
-            birthDate: details.birthDate || author.birthDate,
-            nationality: details.nationality || author.nationality
         };
+
+        // Standardize name if different and no conflict
+        if (details.name && author.name !== details.name) {
+            const conflict = await prisma.author.findUnique({ where: { name: details.name } });
+            if (!conflict) {
+                updateData.name = details.name;
+                console.log(`[Inventaire] Standardizing author name: "${author.name}" -> "${details.name}"`);
+            }
+        }
+
+        updateData.description = isNewEntity ? biography : (biography || author.description);
+        updateData.image = isNewEntity ? details.image : (details.image || author.image);
+        updateData.birthDate = isNewEntity ? details.birthDate : (details.birthDate || author.birthDate);
+        updateData.nationality = isNewEntity ? details.nationality : (details.nationality || author.nationality);
 
         if (details.image) {
             console.log(`[Inventaire] Author image resolved: ${details.image}`);
@@ -813,6 +805,8 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
     } catch (e) {
         console.error(`[Inventaire] Author enrichment error:`, e);
         return null;
+    } finally {
+        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } as any }).catch(() => {});
     }
 };
 

@@ -126,7 +126,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const updateQuote = async (id: number, updates: Partial<Quote>) => {
         // Optimistic update
         setQuotes(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+        
+        // Call service
         await quoteService.updateQuote(id, updates);
+        
+        // REFRESH FROM SERVER
+        // Since enrichment is backgrounded, the first refresh might be too fast, 
+        // but it's better than nothing. We could also add a small delay or poll.
+        await refreshQuotes();
     };
 
     const getBookData = async (bookTitle: string) => {

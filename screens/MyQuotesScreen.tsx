@@ -11,6 +11,7 @@ import {
   PanResponder,
   Animated,
   Share,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -48,6 +49,22 @@ export default function MyQuotesScreen() {
   // Edit State
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [actionMenuQuote, setActionMenuQuote] = useState<Quote | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refreshQuotes(),
+        refreshAuthors(),
+        refreshBooks()
+      ]);
+    } catch (error) {
+      console.error("Refresh failed", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshQuotes, refreshAuthors, refreshBooks]);
 
   useEffect(() => {
     if (isFocused) {
@@ -57,6 +74,27 @@ export default function MyQuotesScreen() {
       refreshBooks();
     }
   }, [isFocused]);
+
+  // Polling logic to automatically clear skeletons when enrichment is done
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    const hasEnrichingItems = myQuotes.some(q => 
+      (q.book && typeof q.book === 'object' && q.book.isEnriching) || 
+      (q.author && typeof q.author === 'object' && q.author.isEnriching)
+    );
+
+    if (hasEnrichingItems && isFocused) {
+      interval = setInterval(() => {
+        refreshQuotes();
+        // Optionnel: refreshAuthors/Books si on veut aussi mettre à jour les onglets stats
+      }, 3000); 
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [myQuotes, isFocused, refreshQuotes]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -167,9 +205,38 @@ export default function MyQuotesScreen() {
     }
   };
 
+  const isEnriching = (item: any) => {
+    if (item && typeof item === 'object') return !!item.isEnriching;
+    return false;
+  };
+
+  const EnrichingSkeleton = ({ width = 120, height = 14 }: { width?: number, height?: number }) => {
+    const pulseAnim = useRef(new Animated.Value(0.4)).current;
+
+    useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
+        ])
+      ).start();
+    }, []);
+
+    return (
+      <Animated.View
+        style={[
+          styles.skeleton,
+          { width, height, opacity: pulseAnim }
+        ]}
+      />
+    );
+  };
 
   // Quote Card without Swipe
   const QuoteCard = ({ quote }: { quote: Quote }) => {
+    const isBookEnriching = isEnriching(quote.book);
+    const isAuthorEnriching = isEnriching(quote.author);
+
     return (
       <View style={styles.cardWrapper}>
         <View style={styles.quoteCard}>
@@ -207,11 +274,19 @@ export default function MyQuotesScreen() {
             {/* Book Info */}
             <View style={styles.bookInfo}>
               <View style={styles.bookInfoLeft}>
-                <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
-                {/* Le nom de l'auteur n'est plus cliquable ici */}
-                <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
-                  {getAuthorName(quote.author)}
-                </Text>
+                {isBookEnriching ? (
+                  <EnrichingSkeleton width={140} />
+                ) : (
+                  <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
+                )}
+                
+                {isAuthorEnriching ? (
+                  <EnrichingSkeleton width={80} height={12} />
+                ) : (
+                  <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
+                    {getAuthorName(quote.author)}
+                  </Text>
+                )}
               </View>
               <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>
             </View>
@@ -487,6 +562,14 @@ export default function MyQuotesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         onScrollBeginDrag={() => {
           // Fermer le menu si besoin (optionnel)
         }}
@@ -894,9 +977,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  skeleton: {
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: 4,
+    marginVertical: 4,
   },
   modalTitle: {
     fontSize: 20,
