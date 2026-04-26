@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon } from 'lucide-react-native';
 import { searchService, SearchResults } from '@/src/services/SearchService';
 import { Quote, Book, Author } from '@/types';
@@ -31,6 +32,7 @@ type SearchSection =
 
 export default function SearchScreen() {
     const router = useRouter();
+    const { navigateToBook, navigateToAuthor } = useSmartNavigation();
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
@@ -87,7 +89,7 @@ export default function SearchScreen() {
             });
             if (response.ok) {
                 const importedBook = await response.json();
-                router.push({ pathname: '/book-detail', params: { book: JSON.stringify(importedBook) } });
+                navigateToBook(importedBook.title, importedBook);
             }
         } catch (error) {
             console.error("Failed to import work", error);
@@ -127,7 +129,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => router.push({ pathname: '/book-detail', params: { book: JSON.stringify(book) } })}
+                    onPress={() => navigateToBook(book.title, book)}
                 >
                     <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                         {book.cover ? (
@@ -147,7 +149,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => router.push({ pathname: '/author-detail', params: { author: JSON.stringify(author), authorName: author.name } })}
+                    onPress={() => navigateToAuthor(author.name, author)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {author.image ? (
@@ -200,7 +202,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => router.push({ pathname: '/author-detail', params: { authorName: item.label } })}
+                    onPress={() => navigateToAuthor(item.label)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {item.image ? (

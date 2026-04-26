@@ -13,6 +13,7 @@ import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus 
 import Svg, { Path } from 'react-native-svg';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
@@ -33,6 +34,7 @@ export function QuoteDetailModal() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
+  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const rawParams = useLocalSearchParams<{ quote?: string }>();
   const initialQuote: Quote | undefined = rawParams.quote ? JSON.parse(rawParams.quote as string) : undefined;
   const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
@@ -126,17 +128,23 @@ export function QuoteDetailModal() {
   }, [quote?.id]);
 
   // Autosave notes/blockData
+  const lastSavedBlockData = React.useRef<string>('');
+
   React.useEffect(() => {
+    if (!quote?.id || !quote.blockData) return;
+
+    const currentDataStr = JSON.stringify(quote.blockData);
+    if (currentDataStr === lastSavedBlockData.current) return;
+
     const timer = setTimeout(() => {
-      if (quote?.id && quote.blockData) {
-        updateQuote(quote.id, { blockData: quote.blockData });
-      }
+      updateQuote(quote.id, { blockData: quote.blockData });
+      lastSavedBlockData.current = currentDataStr;
     }, 1000);
     return () => clearTimeout(timer);
-  }, [quote?.blockData, quote?.id]);
+  }, [quote?.blockData, quote?.id, updateQuote]);
 
   const handleUpdateBlockData = (blockId: string, data: any) => {
-    setQuote(current => {
+    setQuote((current: Quote | undefined) => {
       if (!current) return current;
       const newBlockData = { ...current.blockData, [blockId]: data };
       return { ...current, blockData: newBlockData };
@@ -153,8 +161,8 @@ export function QuoteDetailModal() {
     book: fetchedBook,
     author: fetchedAuthor,
     onUpdateBlockData: handleUpdateBlockData,
-    onBookPress: (title) => router.push({ pathname: '/book-detail', params: { bookTitle: title } }),
-    onAuthorPress: (name) => router.push({ pathname: '/author-detail', params: { authorName: name } }),
+    onBookPress: (title) => navigateToBook(title),
+    onAuthorPress: (name) => navigateToAuthor(name),
     onEditDefinitionSelection: (blockId) => {
       setCurrentDefinitionBlockId(blockId);
       setWordSelectionModalVisible(true);
@@ -164,7 +172,7 @@ export function QuoteDetailModal() {
   const blockContext = getBlockContext();
 
   const handleToggleLike = () => {
-    setQuote(currentQuote => {
+    setQuote((currentQuote: Quote | undefined) => {
       if (!currentQuote) return currentQuote;
       return { ...currentQuote, isLiked: !currentQuote.isLiked, likesCount: currentQuote.isLiked ? currentQuote.likesCount - 1 : currentQuote.likesCount + 1 };
     });
@@ -182,8 +190,8 @@ export function QuoteDetailModal() {
     }
   };
 
-  const onAuthorPress = (authorName: string) => router.push({ pathname: '/author-detail', params: { authorName } });
-  const onBookPress = (bookTitle: string) => router.push({ pathname: '/book-detail', params: { bookTitle } });
+  const onAuthorPress = (authorName: string) => navigateToAuthor(authorName);
+  const onBookPress = (bookTitle: string) => navigateToBook(bookTitle);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // State and helpers for "Ajouter un bloc"
@@ -297,7 +305,7 @@ export function QuoteDetailModal() {
                 </TouchableOpacity>
 
                 {quote.user && (
-                  <TouchableOpacity style={styles.metaRow} onPress={() => router.push({ pathname: '/user-profile', params: { user: JSON.stringify(quote.user) } })}>
+                  <TouchableOpacity style={styles.metaRow} onPress={() => router.navigate(`/user-profile?user=${encodeURIComponent(JSON.stringify(quote.user))}`)}>
                     <Image
                       source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
                       style={styles.publisherAvatar}

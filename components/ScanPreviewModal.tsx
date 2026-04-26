@@ -21,6 +21,7 @@ import { searchService } from '@/src/services/SearchService';
 import { API_BASE_URL } from '@/src/config/api';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemeColors } from '@/src/theme/theme';
+import { getAuthorName, getBookTitle } from '@/src/utils/dataHelpers';
 
 type ScanPreviewModalProps = {
     visible: boolean;
@@ -70,7 +71,7 @@ export default function ScanPreviewModal({
         quotes.forEach(q => {
             if (q.book) {
                 const title = typeof q.book === 'string' ? q.book : q.book.title;
-                const author = typeof q.author === 'string' ? q.author : (q.author?.name || '');
+                const author = getAuthorName(q.author);
                 if (title && !bookMap.has(title)) {
                     bookMap.set(title, author);
                 }
@@ -86,7 +87,7 @@ export default function ScanPreviewModal({
             if (q.author) {
                 if (typeof q.author === 'string') {
                     authors.add(q.author);
-                } else if (q.author.name) {
+                } else if (q.author?.name) {
                     authors.add(q.author.name);
                 }
             }
@@ -113,7 +114,7 @@ export default function ScanPreviewModal({
         }
     }, [visible, scannedText, initialBook, initialAuthor]);
 
-    const getBookTitle = () => {
+    const resolveBookTitle = () => {
         if (editedBook.trim()) return editedBook.trim();
         // If we have initialBook, fallback to it? 
         // Logic below falls back to finding via scannedText.
@@ -126,12 +127,12 @@ export default function ScanPreviewModal({
         );
     };
 
-    const getAuthorName = () => {
+    const resolveAuthorName = () => {
         if (editedAuthor.trim()) return editedAuthor.trim();
         if (initialAuthor && !editedBook.trim()) return initialAuthor; // Use initial author if no manual edit and no book change triggers lookup?
         // Actually, if we change the book, we might get a new author.
 
-        const bookTitle = getBookTitle();
+        const bookTitle = resolveBookTitle();
         // If the book title matches the initial book, we can default to initial author
         if (initialBook && bookTitle === initialBook && initialAuthor) return initialAuthor;
 
@@ -141,8 +142,8 @@ export default function ScanPreviewModal({
     const handleConfirm = () => {
         const finalText = editedQuote.trim() || scannedText;
         if (!finalText) return;
-        const finalBook = editedBook.trim() || getBookTitle();
-        const finalAuthor = editedAuthor.trim() || getAuthorName();
+        const finalBook = editedBook.trim() || resolveBookTitle();
+        const finalAuthor = editedAuthor.trim() || resolveAuthorName();
         onConfirm(finalText, finalBook, finalAuthor);
     };
 
@@ -164,7 +165,7 @@ export default function ScanPreviewModal({
                 title: b.title,
                 author: b.authors && b.authors.length > 0 
                     ? b.authors[0] 
-                    : (typeof b.author === 'object' ? b.author.name : (b.author || '')),
+                    : getAuthorName(b.author),
                 data: b
             }));
 
@@ -385,7 +386,7 @@ export default function ScanPreviewModal({
                                                                                 <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
                                                                                 {item.author ? (
                                                                                     <Text style={styles.suggestionAuthorText} numberOfLines={1}>
-                                                                                        {typeof item.author === 'string' ? item.author : (item.author as any)?.name || 'Auteur inconnu'}
+                                                                                        {getAuthorName(item.author)}
                                                                                     </Text>
                                                                                 ) : null}
                                                                             </View>
@@ -412,7 +413,7 @@ export default function ScanPreviewModal({
                                                             setShowAuthorSuggestions(false);
                                                         }}
                                                     >
-                                                        <Text style={styles.bookTitle}>{getBookTitle()}</Text>
+                                                        <Text style={styles.bookTitle}>{resolveBookTitle()}</Text>
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
@@ -480,7 +481,7 @@ export default function ScanPreviewModal({
                                                             setShowSuggestions(false);
                                                         }}
                                                     >
-                                                        <Text style={styles.authorName}>{getAuthorName()}</Text>
+                                                        <Text style={styles.authorName}>{resolveAuthorName()}</Text>
                                                     </TouchableOpacity>
                                                 )}
                                             </View>

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark } from 'lucide-react-native';
 import { useData } from '@/src/contexts/DataProvider';
 import { getBookTitle } from '@/src/utils/dataHelpers';
@@ -23,6 +24,7 @@ export function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
+  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string }>();
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
@@ -211,7 +213,7 @@ export function AuthorDetailScreen() {
               <TouchableOpacity
                 key={`${book.id || book.title}-${index}`}
                 style={styles.bookItem}
-                onPress={() => router.push({ pathname: '/book-detail', params: { bookTitle: book.title, book: JSON.stringify(book) } })}>
+                onPress={() => navigateToBook(book.title)}>
                 <View style={styles.bookCoverContainer}>
                   {book.cover ? (
                     <Image source={{ uri: book.cover }} style={styles.bookCover} />
@@ -259,7 +261,7 @@ export function AuthorDetailScreen() {
                       key={quote.id}
                       style={styles.quoteCard}
                       activeOpacity={0.85}
-                      onPress={() => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
+                      onPress={() => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
                     >
                       <Text style={styles.quoteText}>"{quote.text}"</Text>
                       <View style={styles.quoteMeta}>
@@ -316,7 +318,7 @@ export function AuthorDetailScreen() {
                     style={styles.bookItem}
                     onPress={() => {
                       setShowAllWorksModal(false);
-                      router.push({ pathname: '/book-detail', params: { bookTitle: item.title } });
+                      navigateToBook(item.title);
                     }}>
                     <View style={styles.bookCoverContainer}>
                       {item.cover ? (

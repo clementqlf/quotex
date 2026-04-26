@@ -176,7 +176,7 @@ export function UserProfileScreen() {
                   <TouchableOpacity
                     key={quote.id}
                     style={styles.savedQuoteCard}
-                    onPress={() => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
+                    onPress={() => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
                   >
                     <Text style={styles.savedQuoteText} numberOfLines={3}>"{quote.text}"</Text>
                     <View style={styles.savedQuoteMeta}>

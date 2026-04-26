@@ -39,7 +39,7 @@ export function ThemeDetailScreen() {
 
 
   const openQuoteDetail = (quote: Quote) => {
-    router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } });
+    router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } });
   };
 
   return (

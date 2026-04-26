@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark } from 'lucide-react-native';
 import { useData } from '@/src/contexts/DataProvider';
 import { useTheme } from '@/src/contexts/ThemeContext';
@@ -25,19 +26,38 @@ import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
 import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
 import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/config/blocks';
 
+const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
+const MYSHEET_BLOCKS = ['notes', 'dictionary'];
+type TabType = 'description' | 'my_sheet';
+
+const isBlockInTab = (blockKey: string, tab: TabType) => {
+  // blockKey e.g. "author#123" or "addBlock"
+  if (blockKey === 'addBlock') return true;
+  const base = blockKey.split('#')[0];
+  if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
+  if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
+  return false;
+};
+
+const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
+  key,
+  label: BLOCK_CONFIGS[key].label
+}));
+
 export function BookDetailScreen() {
+  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ book?: string; bookTitle?: string }>();
-  const params = {
+  const params = useMemo(() => ({
     book: rawParams.book ? JSON.parse(rawParams.book as string) as Book : undefined,
     bookTitle: rawParams.bookTitle as string | undefined,
-  };
+  }), [rawParams.book, rawParams.bookTitle]);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Handle both cases
   const passedBook = params?.book;
-  const bookTitle = passedBook?.title || params?.bookTitle;
+  const bookTitle = useMemo(() => passedBook?.title || params?.bookTitle, [passedBook?.title, params?.bookTitle]);
 
   const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, importBook, toggleSaveBook } = useData();
 
@@ -67,31 +87,17 @@ export function BookDetailScreen() {
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
 
-  type TabType = 'description' | 'my_sheet';
   const [activeTab, setActiveTab] = useState<TabType>('description');
 
-  const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
-  const MYSHEET_BLOCKS = ['notes', 'dictionary'];
 
-  const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
-    key,
-    label: BLOCK_CONFIGS[key].label
-  }));
 
-  const isBlockInTab = (blockKey: string, tab: TabType) => {
-    // blockKey e.g. "author#123" or "addBlock"
-    if (blockKey === 'addBlock') return true;
-    const base = blockKey.split('#')[0];
-    if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
-    if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
-    return false;
-  };
 
-  const currentTabBlocks = (gridData || []).filter(key => isBlockInTab(key, activeTab));
 
-  const filteredBlockOptions = activeTab === 'description'
+  const currentTabBlocks = useMemo(() => (gridData || []).filter(key => isBlockInTab(key, activeTab)), [gridData, activeTab]);
+
+  const filteredBlockOptions = useMemo(() => activeTab === 'description'
     ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key) && (opt.key !== 'buy' || (bookInfo?.buyLinks && bookInfo.buyLinks.length > 0)))
-    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key));
+    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key)), [activeTab, blockOptions, bookInfo?.buyLinks]);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
@@ -141,8 +147,7 @@ export function BookDetailScreen() {
 
       if (currentBook) {
         const authorVal = currentBook.author;
-        // Check if authorVal is object or string
-        const authorName = typeof authorVal === 'string' ? authorVal : authorVal.name;
+        const authorName = getAuthorName(authorVal);
 
         // Always try to fetch full author details if we don't have them
         const fetchedAuthor = await getAuthorByName(authorName);
@@ -176,11 +181,17 @@ export function BookDetailScreen() {
   }, [bookTitle, getBlockLayout, getBookData]);
 
   // Autosave blockData
+  const lastSavedBookBlockData = React.useRef<string>('');
+
   React.useEffect(() => {
+    if (!bookTitle || !blockData) return;
+
+    const dataStr = JSON.stringify(blockData);
+    if (dataStr === lastSavedBookBlockData.current) return;
+
     const timer = setTimeout(() => {
-      if (bookTitle && blockData) {
-        updateBookData(bookTitle, blockData);
-      }
+      updateBookData(bookTitle, blockData);
+      lastSavedBookBlockData.current = dataStr;
     }, 1000);
     return () => clearTimeout(timer);
   }, [blockData, bookTitle, updateBookData]);
@@ -213,11 +224,11 @@ export function BookDetailScreen() {
   const uniqueSimilarBooks = [...new Set(normalizedSimilarBooks)];
 
 
-  const handleUpdateBlockData = (blockId: string, data: any) => {
+  const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setBlockData(current => ({ ...current, [blockId]: data }));
-  };
+  }, []);
 
-  const getBlockContext = (): BlockContext => {
+  const blockContext = useMemo((): BlockContext => {
     // Dictionary aggregation logic for context
     const aggregatedDefinitions: Array<{ term: string, genre: string, definition: string, example: string }> = [];
     const seenTerms = new Set<string>();
@@ -274,15 +285,13 @@ export function BookDetailScreen() {
       onUpdateBlockData: handleUpdateBlockData,
       onReviewAdded: loadMetadata,
       onManageDictionary: () => setDictionaryModalVisible(true),
-      onBookPress: (title) => router.push({ pathname: '/book-detail', params: { bookTitle: title } }),
-      onAuthorPress: (name) => router.push({ pathname: '/author-detail', params: { authorName: name } }),
-      onQuotePress: (quote) => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } }),
+      onBookPress: (title) => navigateToBook(title),
+      onAuthorPress: (name) => navigateToAuthor(name),
+      onQuotePress: (quote) => router.navigate(`/quote-detail?quote=${encodeURIComponent(JSON.stringify(quote))}`),
       // Extra properties for dictionary block
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
-  };
-
-  const blockContext = getBlockContext();
+  }, [bookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, loadMetadata, router]);
 
   // Extract dictionary props for the Modal which sits outside Dispatcher
   const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (blockContext as any);
@@ -361,7 +370,7 @@ export function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => require('expo-router').router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
@@ -380,7 +389,7 @@ export function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => require('expo-router').router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
@@ -402,7 +411,7 @@ export function BookDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => require('expo-router').router.back()}
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -433,10 +442,10 @@ export function BookDetailScreen() {
               <View style={styles.bookInfo}>
                 <Text style={styles.bookTitleText}>{bookTitle}</Text>
                 <TouchableOpacity onPress={() => {
-                  const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
-                  router.push({ pathname: '/author-detail', params: { authorName } });
+                  const authorName = getAuthorName(bookInfo.author);
+                  navigateToAuthor(authorName);
                 }}>
-                  <Text style={styles.bookAuthorText}>{typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name}</Text>
+                  <Text style={styles.bookAuthorText}>{getAuthorName(bookInfo.author)}</Text>
                 </TouchableOpacity>
 
                 {/* Book Meta Info */}

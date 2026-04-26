@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { Quote, Author, Book } from '../../types';
 import { quoteService } from '../services/QuoteService';
 import { authorService } from '../services/AuthorService';
@@ -65,22 +65,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         fetchData();
     }, []);
 
-    const refreshQuotes = async () => {
+    const refreshQuotes = useCallback(async () => {
         const fetchedQuotes = await quoteService.getQuotes();
         setQuotes(fetchedQuotes);
-    }
+    }, []);
 
-    const refreshAuthors = async () => {
+    const refreshAuthors = useCallback(async () => {
         const fetchedAuthors = await authorService.getAuthors();
         setAuthors(fetchedAuthors);
-    }
+    }, []);
 
-    const refreshBooks = async () => {
+    const refreshBooks = useCallback(async () => {
         const fetchedBooks = await authorService.getBooks();
         setBooks(fetchedBooks);
-    }
+    }, []);
 
-    const toggleLikeQuote = async (id: number) => {
+    const toggleLikeQuote = useCallback(async (id: number) => {
         // Optimistic update
         setQuotes(prevQuotes =>
             prevQuotes.map(q =>
@@ -92,38 +92,35 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
         // Call service
         await quoteService.toggleLike(id);
-        // In a real app we might re-fetch or validate the response here
-    };
+    }, []);
 
-    const toggleSaveQuote = async (id: number) => {
+    const toggleSaveQuote = useCallback(async (id: number) => {
         setQuotes(prev => prev.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q));
-        // await quoteService.toggleSave(id); // If we had it
-    }
+    }, []);
 
-    const deleteQuote = async (id: number) => {
+    const deleteQuote = useCallback(async (id: number) => {
         // Optimistic
         setQuotes(prev => prev.filter(q => q.id !== id));
         await quoteService.deleteQuote(id);
-    }
+    }, []);
 
-    const getAuthorByName = async (name: string) => {
-        // Check cache first if we want, or just call service
+    const getAuthorByName = useCallback(async (name: string) => {
         return authorService.getAuthorByName(name);
-    }
+    }, []);
 
-    const getBooksByAuthor = async (authorName: string, authorId?: number) => {
+    const getBooksByAuthor = useCallback(async (authorName: string, authorId?: number) => {
         return await authorService.getBooksByAuthor(authorName, authorId);
-    };
+    }, []);
 
-    const getBlockLayout = async (parentId: string | number, parentType: 'quote' | 'book') => {
+    const getBlockLayout = useCallback(async (parentId: string | number, parentType: 'quote' | 'book') => {
         return await BlockService.getLayout(parentId, parentType);
-    };
+    }, []);
 
-    const updateBlockLayout = async (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+    const updateBlockLayout = useCallback(async (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
         await BlockService.saveLayout(parentId, parentType, layout);
-    };
+    }, []);
 
-    const updateQuote = async (id: number, updates: Partial<Quote>) => {
+    const updateQuote = useCallback(async (id: number, updates: Partial<Quote>) => {
         // Optimistic update
         setQuotes(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
         
@@ -131,21 +128,18 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await quoteService.updateQuote(id, updates);
         
         // REFRESH FROM SERVER
-        // Since enrichment is backgrounded, the first refresh might be too fast, 
-        // but it's better than nothing. We could also add a small delay or poll.
         await refreshQuotes();
-    };
+    }, [refreshQuotes]);
 
-    const getBookData = async (bookTitle: string) => {
+    const getBookData = useCallback(async (bookTitle: string) => {
         return await BlockService.getBlockData(bookTitle, 'book');
-    };
+    }, []);
 
-    const updateBookData = async (bookTitle: string, data: Record<string, any>) => {
+    const updateBookData = useCallback(async (bookTitle: string, data: Record<string, any>) => {
         await BlockService.saveBlockData(bookTitle, 'book', data);
-    };
+    }, []);
 
-    const addQuote = async (text: string, book: string, author: string) => {
-        // Optimistic update (with temp ID)
+    const addQuote = useCallback(async (text: string, book: string, author: string) => {
         const tempId = Date.now();
         const newQuote: Quote = {
             id: tempId,
@@ -161,71 +155,76 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         };
         setQuotes(prev => [newQuote, ...prev]);
 
-        // Call service
         await quoteService.addQuote(text, book, author);
-
-        // Re-fetch to get real ID and server data
         await refreshQuotes();
-    };
+    }, [refreshQuotes]);
 
-    const getUserByUsername = async (username: string) => {
+    const getUserByUsername = useCallback(async (username: string) => {
         return await quoteService.getUserByUsername(username);
-    };
+    }, []);
 
-    const getBookByTitle = async (title: string) => {
+    const getBookByTitle = useCallback(async (title: string) => {
         return await authorService.getBookByTitle(title);
-    };
+    }, []);
 
-    const getBookById = async (id: number) => {
+    const getBookById = useCallback(async (id: number) => {
         return await authorService.getBookById(id);
-    };
+    }, []);
 
-    const importBook = async (bookData: Partial<Book>) => {
+    const importBook = useCallback(async (bookData: Partial<Book>) => {
         return await authorService.importBook(bookData);
-    };
+    }, []);
 
-    const toggleSaveAuthor = async (id: number) => {
+    const toggleSaveAuthor = useCallback(async (id: number) => {
         await authorService.toggleSaveAuthor(id);
         await refreshAuthors();
-    };
+    }, [refreshAuthors]);
 
-    const toggleSaveBook = async (id: number) => {
+    const toggleSaveBook = useCallback(async (id: number) => {
         await authorService.toggleSaveBook(id);
         await refreshBooks();
-    };
+    }, [refreshBooks]);
 
-    const getNotableWorks = async (authorId: number) => {
+    const getNotableWorks = useCallback(async (authorId: number) => {
         return await authorService.getNotableWorks(authorId);
-    };
+    }, []);
+
+    const contextValue = useMemo(() => ({
+        quotes,
+        authors,
+        books,
+        isLoading,
+        refreshQuotes,
+        refreshAuthors,
+        refreshBooks,
+        toggleLikeQuote,
+        toggleSaveQuote,
+        deleteQuote,
+        addQuote,
+        getAuthorByName,
+        getBooksByAuthor,
+        getBlockLayout,
+        updateBlockLayout,
+        updateQuote,
+        getBookData,
+        updateBookData,
+        getUserByUsername,
+        getBookByTitle,
+        getBookById,
+        importBook,
+        toggleSaveAuthor,
+        toggleSaveBook,
+        getNotableWorks,
+    }), [
+        quotes, authors, books, isLoading, refreshQuotes, refreshAuthors, refreshBooks,
+        toggleLikeQuote, toggleSaveQuote, deleteQuote, addQuote, getAuthorByName,
+        getBooksByAuthor, getBlockLayout, updateBlockLayout, updateQuote, getBookData,
+        updateBookData, getUserByUsername, getBookByTitle, getBookById, importBook,
+        toggleSaveAuthor, toggleSaveBook, getNotableWorks
+    ]);
 
     return (
-        <DataContext.Provider value={{
-            quotes,
-            authors,
-            books,
-            isLoading,
-            refreshQuotes,
-            refreshAuthors,
-            refreshBooks,
-            toggleLikeQuote,
-            toggleSaveQuote,
-            deleteQuote,
-            addQuote,
-            getAuthorByName,
-            getBooksByAuthor,
-            getBlockLayout,
-            updateBlockLayout,
-            updateQuote,
-            getBookData,
-            updateBookData,
-            getUserByUsername,
-            getBookByTitle,
-            getBookById,
-            importBook,
-            toggleSaveAuthor,
-            toggleSaveBook,
-            getNotableWorks,
-        }}>
+        <DataContext.Provider value={contextValue}>
             {children}
         </DataContext.Provider>
     );

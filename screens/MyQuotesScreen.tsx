@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { bookDescriptions } from '../data/staticData';
@@ -35,6 +36,7 @@ const SWIPE_ACTIVATION_THRESHOLD = 60;
 
 export default function MyQuotesScreen() {
   const router = useRouter();
+  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks, addQuote, updateQuote } = useData();
@@ -259,7 +261,7 @@ export default function MyQuotesScreen() {
             activeOpacity={0.8}
             onPress={() => {
               const currentQuote = quotesToDisplay.find(q => q.id === quote.id) || quote;
-              router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(currentQuote) } });
+              router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(currentQuote) } });
             }}
           >
             {/* Quote Icon (custom SVG) */}
@@ -468,7 +470,7 @@ export default function MyQuotesScreen() {
             style={styles.actionMenuItem}
             onPress={() => {
               setShowAddMenu(false);
-              router.push('/scan');
+              router.navigate('/scan');
             }}
           >
             <Camera size={20} color={colors.text} style={{ marginRight: 12 }} />
@@ -512,7 +514,7 @@ export default function MyQuotesScreen() {
           <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
             <Plus size={20} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/search')}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.navigate('/search')}>
             <Search size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>
@@ -595,7 +597,7 @@ export default function MyQuotesScreen() {
                 key={book.title}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/book-detail', params: { bookTitle: book.title } })}
+                onPress={() => navigateToBook(book.title)}
               >
                 <View style={styles.bookCardContent}>
                   {book.cover ? (
@@ -625,7 +627,7 @@ export default function MyQuotesScreen() {
                 key={author.name}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/author-detail', params: { authorName: author.name } })}
+                onPress={() => navigateToAuthor(author.name)}
               >
                 <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
                   {author.image ? (
@@ -653,7 +655,7 @@ export default function MyQuotesScreen() {
                 <TouchableOpacity
                   style={[styles.bookCardContent, { alignItems: 'center' }]}
                   activeOpacity={0.85}
-                  onPress={() => router.push({ pathname: '/theme-detail', params: { themeName: theme.theme } })}
+                  onPress={() => router.navigate({ pathname: '/theme-detail', params: { themeName: theme.theme } })}
                 >
                   <View style={styles.themeIconContainer}>
                     <Text style={styles.themeIconText}>{theme.theme[0]}</Text>

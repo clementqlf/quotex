@@ -34,6 +34,12 @@ function RootLayoutNav() {
   const navigationTheme = {
     ...baseTheme,
     dark: isDark,
+    fonts: baseTheme.fonts || {
+      regular: { fontFamily: 'System', fontWeight: '400' },
+      medium: { fontFamily: 'System', fontWeight: '500' },
+      bold: { fontFamily: 'System', fontWeight: '700' },
+      heavy: { fontFamily: 'System', fontWeight: '800' },
+    },
     colors: {
       ...baseTheme.colors,
       primary: themeColors.primary,
@@ -52,11 +58,41 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen
           name="author-detail"
-          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+            animation: 'slide_from_right',
+            // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
+            getId: ({ params }) => {
+              let name = params?.authorName || params?.name;
+              if (!name && params?.author) {
+                try {
+                  const p = JSON.parse(params.author);
+                  name = p.name;
+                } catch { name = params.author; }
+              }
+              return name ? String(name).toLowerCase().trim() : undefined;
+            },
+          }}
         />
         <Stack.Screen
           name="book-detail"
-          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+            animation: 'slide_from_right',
+            // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
+            getId: ({ params }) => {
+              let title = params?.bookTitle || params?.title;
+              if (!title && params?.book) {
+                try {
+                  const p = JSON.parse(params.book);
+                  title = p.title;
+                } catch { title = params.book; }
+              }
+              return title ? String(title).toLowerCase().trim() : undefined;
+            },
+          }}
         />
         <Stack.Screen
           name="user-profile"
