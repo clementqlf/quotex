@@ -18,16 +18,49 @@
 
 namespace facebook::react {
 
-JSI_EXPORT extern const char RNSFullWindowOverlayComponentName[];
+JSI_EXPORT extern const char RNSBottomTabsScreenComponentName[];
 
 /*
- * `ShadowNode` for <RNSFullWindowOverlay> component.
+ * `ShadowNode` for <RNSBottomTabsScreen> component.
  */
-using RNSFullWindowOverlayShadowNode = ConcreteViewShadowNode<
-    RNSFullWindowOverlayComponentName,
-    RNSFullWindowOverlayProps,
-    RNSFullWindowOverlayEventEmitter,
-    RNSFullWindowOverlayState>;
+using RNSBottomTabsScreenShadowNode = ConcreteViewShadowNode<
+    RNSBottomTabsScreenComponentName,
+    RNSBottomTabsScreenProps,
+    RNSBottomTabsScreenEventEmitter,
+    RNSBottomTabsScreenState>;
+
+JSI_EXPORT extern const char RNSScreenStackHostComponentName[];
+
+/*
+ * `ShadowNode` for <RNSScreenStackHost> component.
+ */
+using RNSScreenStackHostShadowNode = ConcreteViewShadowNode<
+    RNSScreenStackHostComponentName,
+    RNSScreenStackHostProps,
+    RNSScreenStackHostEventEmitter,
+    RNSScreenStackHostState>;
+
+JSI_EXPORT extern const char RNSSplitViewHostComponentName[];
+
+/*
+ * `ShadowNode` for <RNSSplitViewHost> component.
+ */
+using RNSSplitViewHostShadowNode = ConcreteViewShadowNode<
+    RNSSplitViewHostComponentName,
+    RNSSplitViewHostProps,
+    RNSSplitViewHostEventEmitter,
+    RNSSplitViewHostState>;
+
+JSI_EXPORT extern const char RNSStackScreenComponentName[];
+
+/*
+ * `ShadowNode` for <RNSStackScreen> component.
+ */
+using RNSStackScreenShadowNode = ConcreteViewShadowNode<
+    RNSStackScreenComponentName,
+    RNSStackScreenProps,
+    RNSStackScreenEventEmitter,
+    RNSStackScreenState>;
 
 JSI_EXPORT extern const char RNSScreenContainerComponentName[];
 
@@ -40,6 +73,28 @@ using RNSScreenContainerShadowNode = ConcreteViewShadowNode<
     RNSScreenContainerEventEmitter,
     RNSScreenContainerState>;
 
+JSI_EXPORT extern const char RNSScreenContentWrapperComponentName[];
+
+/*
+ * `ShadowNode` for <RNSScreenContentWrapper> component.
+ */
+using RNSScreenContentWrapperShadowNode = ConcreteViewShadowNode<
+    RNSScreenContentWrapperComponentName,
+    RNSScreenContentWrapperProps,
+    RNSScreenContentWrapperEventEmitter,
+    RNSScreenContentWrapperState>;
+
+JSI_EXPORT extern const char RNSScreenFooterComponentName[];
+
+/*
+ * `ShadowNode` for <RNSScreenFooter> component.
+ */
+using RNSScreenFooterShadowNode = ConcreteViewShadowNode<
+    RNSScreenFooterComponentName,
+    RNSScreenFooterProps,
+    RNSScreenFooterEventEmitter,
+    RNSScreenFooterState>;
+
 JSI_EXPORT extern const char RNSScreenNavigationContainerComponentName[];
 
 /*
@@ -50,28 +105,6 @@ using RNSScreenNavigationContainerShadowNode = ConcreteViewShadowNode<
     RNSScreenNavigationContainerProps,
     RNSScreenNavigationContainerEventEmitter,
     RNSScreenNavigationContainerState>;
-
-JSI_EXPORT extern const char RNSScreenStackHeaderConfigComponentName[];
-
-/*
- * `ShadowNode` for <RNSScreenStackHeaderConfig> component.
- */
-using RNSScreenStackHeaderConfigShadowNode = ConcreteViewShadowNode<
-    RNSScreenStackHeaderConfigComponentName,
-    RNSScreenStackHeaderConfigProps,
-    RNSScreenStackHeaderConfigEventEmitter,
-    RNSScreenStackHeaderConfigState>;
-
-JSI_EXPORT extern const char RNSScreenStackHeaderSubviewComponentName[];
-
-/*
- * `ShadowNode` for <RNSScreenStackHeaderSubview> component.
- */
-using RNSScreenStackHeaderSubviewShadowNode = ConcreteViewShadowNode<
-    RNSScreenStackHeaderSubviewComponentName,
-    RNSScreenStackHeaderSubviewProps,
-    RNSScreenStackHeaderSubviewEventEmitter,
-    RNSScreenStackHeaderSubviewState>;
 
 JSI_EXPORT extern const char RNSScreenStackComponentName[];
 

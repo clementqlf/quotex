@@ -2,9 +2,9 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Alert, Linking, StyleSheet } from 'react-native';
 import { ExternalLink } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
-import { Book } from '../../types';
-import { useTheme } from '../../src/contexts/ThemeContext';
-import { ThemeColors } from '../../src/theme/theme';
+import { Book } from '@/types';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 interface BuyLinkBlockProps {
     book: Book;

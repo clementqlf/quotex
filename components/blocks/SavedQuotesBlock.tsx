@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
-import { Quote } from '../../types';
-import { getAuthorName } from '../../src/utils/dataHelpers';
-import { useTheme } from '../../src/contexts/ThemeContext';
-import { ThemeColors } from '../../src/theme/theme';
+import { Quote } from '@/types';
+import { getAuthorName } from '@/src/utils/dataHelpers';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 interface SavedQuotesBlockProps {
     quotes: Quote[];

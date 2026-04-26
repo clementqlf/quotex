@@ -12,29 +12,29 @@ import {
 import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { SortableGridRenderItem } from 'react-native-sortables';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
-import { useData } from '../src/contexts/DataProvider';
-import { Quote, Book, Author } from '../types';
-import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-import { formatRelativeDate } from '../src/utils/dateUtils';
+import { useData } from '@/src/contexts/DataProvider';
+import { Quote, Book, Author } from '@/types';
+import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { formatRelativeDate } from '@/src/utils/dateUtils';
 import WordSelectionModal from './WordSelectionModal';
-import { fetchDefinition } from '../src/services/WiktionaryService';
-import { authorService } from '../src/services/AuthorService';
-import { quoteService } from '../src/services/QuoteService';
+import { fetchDefinition } from '@/src/services/WiktionaryService';
+import { authorService } from '@/src/services/AuthorService';
+import { quoteService } from '@/src/services/QuoteService';
 import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
-import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '../src/config/blocks';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/config/blocks';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export function QuoteDetailModal() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const navigation = useNavigation<any>();
-  const route = useRoute<RouteProp<{ params: { quote: Quote } }, 'params'>>();
-  const { quote: initialQuote } = route.params ?? {};
+  const router = useRouter();
+  const rawParams = useLocalSearchParams<{ quote?: string }>();
+  const initialQuote: Quote | undefined = rawParams.quote ? JSON.parse(rawParams.quote as string) : undefined;
   const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
 
   // Sync with global store to get latest data (e.g. user info)
@@ -145,7 +145,7 @@ export function QuoteDetailModal() {
 
   if (!quote) return null;
 
-  const onClose = () => navigation.goBack();
+  const onClose = () => router.back();
 
   // Helper for Dispatcher Context
   const getBlockContext = (): BlockContext => ({
@@ -153,8 +153,8 @@ export function QuoteDetailModal() {
     book: fetchedBook,
     author: fetchedAuthor,
     onUpdateBlockData: handleUpdateBlockData,
-    onBookPress: (title) => navigation.navigate('BookDetail', { bookTitle: title }),
-    onAuthorPress: (name) => navigation.navigate('AuthorDetail', { authorName: name }),
+    onBookPress: (title) => router.push({ pathname: '/book-detail', params: { bookTitle: title } }),
+    onAuthorPress: (name) => router.push({ pathname: '/author-detail', params: { authorName: name } }),
     onEditDefinitionSelection: (blockId) => {
       setCurrentDefinitionBlockId(blockId);
       setWordSelectionModalVisible(true);
@@ -182,8 +182,8 @@ export function QuoteDetailModal() {
     }
   };
 
-  const onAuthorPress = (authorName: string) => navigation.navigate('AuthorDetail', { authorName });
-  const onBookPress = (bookTitle: string) => navigation.navigate('BookDetail', { bookTitle });
+  const onAuthorPress = (authorName: string) => router.push({ pathname: '/author-detail', params: { authorName } });
+  const onBookPress = (bookTitle: string) => router.push({ pathname: '/book-detail', params: { bookTitle } });
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // State and helpers for "Ajouter un bloc"
@@ -297,7 +297,7 @@ export function QuoteDetailModal() {
                 </TouchableOpacity>
 
                 {quote.user && (
-                  <TouchableOpacity style={styles.metaRow} onPress={() => navigation.navigate('UserProfile', { user: quote.user })}>
+                  <TouchableOpacity style={styles.metaRow} onPress={() => router.push({ pathname: '/user-profile', params: { user: JSON.stringify(quote.user) } })}>
                     <Image
                       source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
                       style={styles.publisherAvatar}
@@ -444,6 +444,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-end'
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   modalView: {
     backgroundColor: colors.background,

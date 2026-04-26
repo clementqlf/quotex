@@ -7,23 +7,20 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Quote as QuoteIcon, Heart, ChevronLeft } from 'lucide-react-native';
-import { useData } from '../src/contexts/DataProvider';
-import { Quote } from '../types';
-import { getAuthorName, getBookTitle } from '../src/utils/dataHelpers';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
-
-type ThemeDetailScreenRouteProp = RouteProp<{ params: { themeName: string } }, 'params'>;
+import { useData } from '@/src/contexts/DataProvider';
+import { Quote } from '@/types';
+import { getAuthorName, getBookTitle } from '@/src/utils/dataHelpers';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export function ThemeDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const navigation = useNavigation<any>();
-  const route = useRoute<ThemeDetailScreenRouteProp>();
-  const themeName = route.params?.themeName;
+  const router = useRouter();
+  const { themeName } = useLocalSearchParams<{ themeName: string }>();
 
   const { quotes: allQuotes, toggleLikeQuote } = useData();
 
@@ -42,7 +39,7 @@ export function ThemeDetailScreen() {
 
 
   const openQuoteDetail = (quote: Quote) => {
-    navigation.navigate('QuoteDetail', { quote });
+    router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } });
   };
 
   return (
@@ -52,7 +49,7 @@ export function ThemeDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>

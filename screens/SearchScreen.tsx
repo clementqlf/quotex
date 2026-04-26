@@ -11,15 +11,15 @@ import {
     Keyboard
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon } from 'lucide-react-native';
-import { searchService, SearchResults } from '../src/services/SearchService';
-import { Quote, Book, Author } from '../types';
-import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-import { googleBooksService } from '../src/services/GoogleBooksService';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
-import { API_BASE_URL } from '../src/config/api';
+import { searchService, SearchResults } from '@/src/services/SearchService';
+import { Quote, Book, Author } from '@/types';
+import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { googleBooksService } from '@/src/services/GoogleBooksService';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
+import { API_BASE_URL } from '@/src/config/api';
 
 type SearchSection =
     | { title: 'Citations'; data: Quote[]; type: 'quote' }
@@ -30,7 +30,7 @@ type SearchSection =
     | { title: 'Auteurs (Inventaire)'; data: any[]; type: 'inventaire_author' };
 
 export default function SearchScreen() {
-    const navigation = useNavigation<any>();
+    const router = useRouter();
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
@@ -87,7 +87,7 @@ export default function SearchScreen() {
             });
             if (response.ok) {
                 const importedBook = await response.json();
-                navigation.navigate('BookDetail', { book: importedBook });
+                router.push({ pathname: '/book-detail', params: { book: JSON.stringify(importedBook) } });
             }
         } catch (error) {
             console.error("Failed to import work", error);
@@ -111,7 +111,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                    onPress={() => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
                 >
                     <View style={styles.quoteIconContainer}>
                         <QuoteIcon size={16} color={colors.primary} fill={colors.primary} />
@@ -127,7 +127,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigation.navigate('BookDetail', { book })}
+                    onPress={() => router.push({ pathname: '/book-detail', params: { book: JSON.stringify(book) } })}
                 >
                     <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                         {book.cover ? (
@@ -147,7 +147,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigation.navigate('AuthorDetail', { author, authorName: author.name })}
+                    onPress={() => router.push({ pathname: '/author-detail', params: { author: JSON.stringify(author), authorName: author.name } })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {author.image ? (
@@ -167,7 +167,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigation.navigate('ThemeDetail', { themeName: theme })}
+                    onPress={() => router.push({ pathname: '/theme-detail', params: { themeName: theme } })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
                         <Hash size={20} color="#EC4899" />
@@ -200,7 +200,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigation.navigate('AuthorDetail', { authorName: item.label })}
+                    onPress={() => router.push({ pathname: '/author-detail', params: { authorName: item.label } })}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {item.image ? (
@@ -223,7 +223,7 @@ export default function SearchScreen() {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
                 <View style={styles.searchBar}>

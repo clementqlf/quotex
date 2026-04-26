@@ -13,12 +13,144 @@
 
 
 namespace facebook::react {
+class RNSBottomTabsEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  struct OnNativeFocusChange {
+      std::string tabKey;
+    };
+  void onNativeFocusChange(OnNativeFocusChange value) const;
+};
+class RNSBottomTabsScreenEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  struct OnLifecycleStateChange {
+      int previousState;
+    int newState;
+    };
+
+  struct OnWillAppear {
+      
+    };
+
+  struct OnDidAppear {
+      
+    };
+
+  struct OnWillDisappear {
+      
+    };
+
+  struct OnDidDisappear {
+      
+    };
+  void onLifecycleStateChange(OnLifecycleStateChange value) const;
+
+  void onWillAppear(OnWillAppear value) const;
+
+  void onDidAppear(OnDidAppear value) const;
+
+  void onWillDisappear(OnWillDisappear value) const;
+
+  void onDidDisappear(OnDidDisappear value) const;
+};
 class RNSFullWindowOverlayEventEmitter : public ViewEventEmitter {
  public:
   using ViewEventEmitter::ViewEventEmitter;
 
   
   
+};
+class RNSScreenStackHostEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  
+  
+};
+class RNSSplitViewHostEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  struct OnCollapse {
+      
+    };
+
+  struct OnDisplayModeWillChange {
+      std::string currentDisplayMode;
+    std::string nextDisplayMode;
+    };
+
+  struct OnExpand {
+      
+    };
+
+  struct OnInspectorHide {
+      
+    };
+  void onCollapse(OnCollapse value) const;
+
+  void onDisplayModeWillChange(OnDisplayModeWillChange value) const;
+
+  void onExpand(OnExpand value) const;
+
+  void onInspectorHide(OnInspectorHide value) const;
+};
+class RNSSplitViewScreenEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  struct OnWillAppear {
+      
+    };
+
+  struct OnDidAppear {
+      
+    };
+
+  struct OnWillDisappear {
+      
+    };
+
+  struct OnDidDisappear {
+      
+    };
+  void onWillAppear(OnWillAppear value) const;
+
+  void onDidAppear(OnDidAppear value) const;
+
+  void onWillDisappear(OnWillDisappear value) const;
+
+  void onDidDisappear(OnDidDisappear value) const;
+};
+class RNSStackScreenEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  struct OnWillAppear {
+      
+    };
+
+  struct OnDidAppear {
+      
+    };
+
+  struct OnWillDisappear {
+      
+    };
+
+  struct OnDidDisappear {
+      
+    };
+  void onWillAppear(OnWillAppear value) const;
+
+  void onDidAppear(OnDidAppear value) const;
+
+  void onWillDisappear(OnWillDisappear value) const;
+
+  void onDidDisappear(OnDidDisappear value) const;
 };
 class RNSModalScreenEventEmitter : public ViewEventEmitter {
  public:
@@ -65,6 +197,11 @@ class RNSModalScreenEventEmitter : public ViewEventEmitter {
   struct OnHeaderBackButtonClicked {
       
     };
+
+  struct OnSheetDetentChanged {
+      int index;
+    bool isStable;
+    };
   void onAppear(OnAppear value) const;
 
   void onDisappear(OnDisappear value) const;
@@ -84,8 +221,24 @@ class RNSModalScreenEventEmitter : public ViewEventEmitter {
   void onGestureCancel(OnGestureCancel value) const;
 
   void onHeaderBackButtonClicked(OnHeaderBackButtonClicked value) const;
+
+  void onSheetDetentChanged(OnSheetDetentChanged value) const;
 };
 class RNSScreenContainerEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  
+  
+};
+class RNSScreenContentWrapperEventEmitter : public ViewEventEmitter {
+ public:
+  using ViewEventEmitter::ViewEventEmitter;
+
+  
+  
+};
+class RNSScreenFooterEventEmitter : public ViewEventEmitter {
  public:
   using ViewEventEmitter::ViewEventEmitter;
 
@@ -137,6 +290,11 @@ class RNSScreenEventEmitter : public ViewEventEmitter {
   struct OnHeaderBackButtonClicked {
       
     };
+
+  struct OnSheetDetentChanged {
+      int index;
+    bool isStable;
+    };
   void onAppear(OnAppear value) const;
 
   void onDisappear(OnDisappear value) const;
@@ -156,6 +314,8 @@ class RNSScreenEventEmitter : public ViewEventEmitter {
   void onGestureCancel(OnGestureCancel value) const;
 
   void onHeaderBackButtonClicked(OnHeaderBackButtonClicked value) const;
+
+  void onSheetDetentChanged(OnSheetDetentChanged value) const;
 };
 class RNSScreenNavigationContainerEventEmitter : public ViewEventEmitter {
  public:

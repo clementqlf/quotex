@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { X } from 'lucide-react-native';
-import { BLOCK_CONFIGS, BlockKey } from '../../src/config/blocks';
-import { useTheme } from '../../src/contexts/ThemeContext';
-import { ThemeColors } from '../../src/theme/theme';
+import { BLOCK_CONFIGS, BlockKey } from '@/src/config/blocks';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 interface BlockWrapperProps {
     blockKey: BlockKey;

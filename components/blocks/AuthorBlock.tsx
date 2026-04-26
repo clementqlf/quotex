@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
-import { Author, Book } from '../../types';
-import { useTheme } from '../../src/contexts/ThemeContext';
-import { ThemeColors } from '../../src/theme/theme';
+import { Author, Book } from '@/types';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 interface AuthorBlockProps {
     author: Author | null;

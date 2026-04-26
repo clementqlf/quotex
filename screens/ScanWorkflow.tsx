@@ -8,14 +8,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
-import { useData } from '../src/contexts/DataProvider';
-import ScanPreviewModal from '../components/ScanPreviewModal';
-import { useScanSelection } from '../src/hooks/useScanSelection';
-import { getBlockRectOnScreen, getPhotoOrientation, MLKitText } from '../src/utils/scanGeometry';
+import { useData } from '@/src/contexts/DataProvider';
+import ScanPreviewModal from '@/components/ScanPreviewModal';
+import { useScanSelection } from '@/src/hooks/useScanSelection';
+import { getBlockRectOnScreen, getPhotoOrientation, MLKitText } from '@/src/utils/scanGeometry';
 
 type ScanWorkflowProps = {
   photo: PhotoFile;
@@ -30,7 +30,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
     console.log('ScanWorkflow: OCR blocks count:', ocrResult?.blocks?.length);
   }, [photo.path, ocrResult?.blocks?.length]);
 
-  const navigation = useNavigation<any>();
+  const router = useRouter();
   const { addQuote } = useData();
   const [photoDimensions, setPhotoDimensions] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -89,7 +89,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
     setShowPreviewModal(false);
     setSelectedBlocks([]);
 
-    navigation.navigate('MyQuotes');
+    router.back();
     onReset();
   };
 

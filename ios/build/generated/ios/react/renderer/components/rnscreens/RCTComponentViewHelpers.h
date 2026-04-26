@@ -13,7 +13,31 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@protocol RCTRNSBottomTabsViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSBottomTabsScreenViewProtocol <NSObject>
+
+@end
+
 @protocol RCTRNSFullWindowOverlayViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSScreenStackHostViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSSplitViewHostViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSSplitViewScreenViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSStackScreenViewProtocol <NSObject>
 
 @end
 
@@ -22,6 +46,14 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @protocol RCTRNSScreenContainerViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSScreenContentWrapperViewProtocol <NSObject>
+
+@end
+
+@protocol RCTRNSScreenFooterViewProtocol <NSObject>
 
 @end
 

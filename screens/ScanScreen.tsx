@@ -10,20 +10,21 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
-import ImagePicker from 'react-native-image-crop-picker';
-import { useTabIndex, useSwipeEnabled } from '../TabNavigator';
+import * as ExpoImagePicker from 'expo-image-picker';
+import { useTabIndex, useSwipeEnabled } from '@/src/contexts/TabContext';
+
 
 import ScanWorkflow from './ScanWorkflow';
-import { useLiveOCR } from '../src/hooks/useLiveOCR';
+import { useLiveOCR } from '@/src/hooks/useLiveOCR';
 
-import QuotexLogo from '../components/QuotexLogo';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import QuotexLogo from '@/components/QuotexLogo';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export default function ScanScreen() {
   const { colors } = useTheme();
@@ -46,7 +47,13 @@ export default function ScanScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = React.useRef<Camera | null>(null);
-  const isFocused = useIsFocused();
+  const [isFocused, setIsFocused] = React.useState(false);
+  useFocusEffect(
+    React.useCallback(() => {
+      setIsFocused(true);
+      return () => { setIsFocused(false); };
+    }, [])
+  );
 
   // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
   const scanLockRef = React.useRef(false);
@@ -222,55 +229,44 @@ export default function ScanScreen() {
   const handlePickImage = async () => {
     try {
       if (isLoading) return;
-
-      // Note: On ne lock pas scanLockRef ici car ImagePicker est une activité UI externe
-      // Mais on set isLoading à true, ce qui désactive le hook useLiveOCR via la prop `enabled`
-
       setIsLoading(true);
 
-      const image = await ImagePicker.openPicker({
-        mediaType: 'photo',
-        cropping: true,
-        freeStyleCropEnabled: true,
-        cropperToolbarTitle: 'Rogner la citation',
-        cropperChooseText: 'Valider',
-        cropperCancelText: 'Annuler',
-        compressImageQuality: 1, // Max quality
-        // Force high resolution output
-        width: 3000,
-        height: 3000,
-        compressImageMaxWidth: 4096,
-        compressImageMaxHeight: 4096,
-      });
-
-      if (!image) {
+      const { status } = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
         setIsLoading(false);
         return;
       }
 
-      const result = await processImage(image.path);
+      const result = await ExpoImagePicker.launchImageLibraryAsync({
+        mediaTypes: ExpoImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
 
-      const cleanPath = image.path.startsWith('file://') ? image.path : `file://${image.path}`;
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        setIsLoading(false);
+        return;
+      }
 
-      // Create a pseudo PhotoFile object
+      const asset = result.assets[0];
+      const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
+
+      const ocrResult = await processImage(cleanPath);
+
       const pickedPhoto: PhotoFile = {
-        path: cleanPath, // Use the path with file:// schema if needed or raw path 
-        width: image.width,
-        height: image.height,
+        path: cleanPath,
+        width: asset.width,
+        height: asset.height,
         isRawPhoto: false,
-        metadata: { Orientation: 1 } as any, // Default orientation
+        metadata: { Orientation: 1 } as any,
       } as PhotoFile;
 
       setIsFromGallery(true);
       setPhoto(pickedPhoto);
-      setOcrResult(result || { blocks: [] } as any);
+      setOcrResult(ocrResult || { blocks: [] } as any);
 
     } catch (error: any) {
-      if (error?.code !== 'E_PICKER_CANCELLED') {
-        console.error('Picker error:', error);
-      } else {
-        console.log('User cancelled selection');
-      }
+      console.error('Picker error:', error);
     } finally {
       setIsLoading(false);
     }

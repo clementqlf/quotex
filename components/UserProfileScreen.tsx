@@ -8,15 +8,13 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail, Link, Quote } from 'lucide-react-native';
-import { RootStackParamList, Author, Book, User } from '../types';
-// import UserProfiles from '../mock/user-profiles.json'; // Removed
-// import { globalQuotesDB } from '../data/staticData'; // Removed direct import
-import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-import { useData } from '../src/contexts/DataProvider';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { Author, Book, User } from '@/types';
+import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { useData } from '@/src/contexts/DataProvider';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 interface UserRouteParam {
   id: number | string;
@@ -39,12 +37,12 @@ interface GlobalQuote {
   isSaved: boolean;
 }
 
-type UserProfileScreenRouteProp = RouteProp<RootStackParamList, 'UserProfile'>;
+type UserProfileScreenRouteProp = { user: User };
 
 export function UserProfileScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<UserProfileScreenRouteProp>();
-  const { user } = route.params;
+  const router = useRouter();
+  const rawParams = useLocalSearchParams<{ user?: string }>();
+  const user: User = rawParams.user ? JSON.parse(rawParams.user as string) : {};
   const { getUserByUsername } = useData();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -103,7 +101,7 @@ export function UserProfileScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -178,7 +176,7 @@ export function UserProfileScreen() {
                   <TouchableOpacity
                     key={quote.id}
                     style={styles.savedQuoteCard}
-                    onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                    onPress={() => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
                   >
                     <Text style={styles.savedQuoteText} numberOfLines={3}>"{quote.text}"</Text>
                     <View style={styles.savedQuoteMeta}>

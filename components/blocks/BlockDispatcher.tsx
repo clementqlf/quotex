@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import { BlockKey } from '../../src/config/blocks';
-import { Book, Author, Quote } from '../../types';
-import ReviewBlock from '../ReviewBlock';
+import { BlockKey } from '@/src/config/blocks';
+import { Book, Author, Quote } from '@/types';
+import ReviewBlock from '@/components/ReviewBlock';
 import { BookInfoBlock } from './BookInfoBlock';
 import { AuthorBlock } from './AuthorBlock';
 import { NotesBlock } from './NotesBlock';
@@ -13,7 +13,7 @@ import { SavedQuotesBlock } from './SavedQuotesBlock';
 import { BuyLinkBlock } from './BuyLinkBlock';
 import { EditionsBlock } from './EditionsBlock';
 import { BlockWrapper } from './BlockWrapper';
-import { useTheme } from '../../src/contexts/ThemeContext';
+import { useTheme } from '@/src/contexts/ThemeContext';
 
 // Defined context interface to pass necessary data to blocks
 export interface BlockContext {

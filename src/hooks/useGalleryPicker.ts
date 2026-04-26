@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ImagePicker from 'react-native-image-crop-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { PhotoFile } from 'react-native-vision-camera';
 
 export const useGalleryPicker = () => {
@@ -9,43 +9,38 @@ export const useGalleryPicker = () => {
         try {
             setIsLoading(true);
 
-            const image = await ImagePicker.openPicker({
-                mediaType: 'photo',
-                cropping: true,
-                freeStyleCropEnabled: true,
-                cropperToolbarTitle: 'Rogner la citation',
-                cropperChooseText: 'Valider',
-                cropperCancelText: 'Annuler',
-                compressImageQuality: 1, // Max quality
-                // Force high resolution output
-                width: 3000,
-                height: 3000,
-                compressImageMaxWidth: 4096,
-                compressImageMaxHeight: 4096,
-            });
-
-            if (!image) {
+            // Request permissions
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                console.log('Permission refusée pour la galerie');
                 return null;
             }
 
-            const cleanPath = image.path.startsWith('file://') ? image.path : `file://${image.path}`;
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true, // Allows cropping
+                quality: 1,
+            });
 
-            // Create a pseudo PhotoFile object
+            if (result.canceled || !result.assets || result.assets.length === 0) {
+                return null;
+            }
+
+            const asset = result.assets[0];
+            const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
+
+            // Create a pseudo PhotoFile object compatible with VisionCamera
             const pickedPhoto: PhotoFile = {
                 path: cleanPath,
-                width: image.width,
-                height: image.height,
+                width: asset.width,
+                height: asset.height,
                 isRawPhoto: false,
-                metadata: { Orientation: 1 } as any, // Default orientation
+                metadata: { Orientation: 1 } as any,
             } as PhotoFile;
 
             return pickedPhoto;
         } catch (error: any) {
-            if (error?.code !== 'E_PICKER_CANCELLED') {
-                console.error('Picker error:', error);
-            } else {
-                console.log('User cancelled selection');
-            }
+            console.error('Picker error:', error);
             return null;
         } finally {
             setIsLoading(false);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { X, Check, Search, Trash2, Plus } from 'lucide-react-native';
-import { fetchDefinition } from '../src/services/WiktionaryService';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { fetchDefinition } from '@/src/services/WiktionaryService';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export interface DefinitionItem {
     term: string;

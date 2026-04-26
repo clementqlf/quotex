@@ -7,18 +7,20 @@ import {
   StyleSheet
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useTabIndex } from '../TabNavigator';
+import { useTabIndex } from '@/src/contexts/TabContext';
+
 import { globalQuotesDB } from '../data/staticData';
-import { useData } from '../src/contexts/DataProvider';
-import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { useData } from '@/src/contexts/DataProvider';
+import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export default function SocialFeedScreen() {
-  const navigation = useNavigation<any>();
+  const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
@@ -79,14 +81,14 @@ export default function SocialFeedScreen() {
             <TouchableOpacity key={quote.id} style={styles.quoteCard} activeOpacity={0.8} onPress={() => {
               // On trouve la dernière version de la citation pour la passer au modal
               const currentQuote = feedQuotes.find(q => q.id === quote.id) || quote;
-              navigation.navigate('QuoteDetail', { quote: { ...currentQuote, date: currentQuote.time } });
+              router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify({ ...currentQuote, date: currentQuote.time }) } });
             }}>
               {/* User Info - Cliquable */}
               <TouchableOpacity
                 style={styles.userInfo}
                 onPress={(e) => {
                   e.stopPropagation(); // Empêche le clic de se propager à la carte parente
-                  navigation.navigate('UserProfile', { user: quote.user });
+                  router.push({ pathname: '/user-profile', params: { user: JSON.stringify(quote.user) } });
                 }}
               >
                 <View style={styles.avatar}>

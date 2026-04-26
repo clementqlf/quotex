@@ -11,22 +11,21 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark } from 'lucide-react-native';
-import { useData } from '../src/contexts/DataProvider';
-import { getBookTitle } from '../src/utils/dataHelpers';
-import { Author, Book, RootStackParamList } from '../types';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
-
-type AuthorDetailScreenRouteProp = RouteProp<RootStackParamList, 'AuthorDetail'>;
+import { useData } from '@/src/contexts/DataProvider';
+import { getBookTitle } from '@/src/utils/dataHelpers';
+import { Author, Book } from '@/types';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const navigation = useNavigation<any>();
-  const route = useRoute<AuthorDetailScreenRouteProp>();
-  const { author, authorName: paramAuthorName } = route.params;
+  const router = useRouter();
+  const params = useLocalSearchParams<{ author?: string; authorName?: string }>();
+  const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
+  const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
 
   const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor, getNotableWorks } = useData();
@@ -136,7 +135,7 @@ export function AuthorDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -212,7 +211,7 @@ export function AuthorDetailScreen() {
               <TouchableOpacity
                 key={`${book.id || book.title}-${index}`}
                 style={styles.bookItem}
-                onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title, book })}>
+                onPress={() => router.push({ pathname: '/book-detail', params: { bookTitle: book.title, book: JSON.stringify(book) } })}>
                 <View style={styles.bookCoverContainer}>
                   {book.cover ? (
                     <Image source={{ uri: book.cover }} style={styles.bookCover} />
@@ -260,7 +259,7 @@ export function AuthorDetailScreen() {
                       key={quote.id}
                       style={styles.quoteCard}
                       activeOpacity={0.85}
-                      onPress={() => navigation.navigate('QuoteDetail', { quote })}
+                      onPress={() => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
                     >
                       <Text style={styles.quoteText}>"{quote.text}"</Text>
                       <View style={styles.quoteMeta}>
@@ -317,7 +316,7 @@ export function AuthorDetailScreen() {
                     style={styles.bookItem}
                     onPress={() => {
                       setShowAllWorksModal(false);
-                      navigation.navigate('BookDetail', { bookTitle: item.title });
+                      router.push({ pathname: '/book-detail', params: { bookTitle: item.title } });
                     }}>
                     <View style={styles.bookCoverContainer}>
                       {item.cover ? (

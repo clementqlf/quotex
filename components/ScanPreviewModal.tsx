@@ -16,11 +16,11 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-react-native';
 import { bookDescriptions, localQuotesDB } from '../data/staticData';
-import { useData } from '../src/contexts/DataProvider';
-import { searchService } from '../src/services/SearchService';
-import { API_BASE_URL } from '../src/config/api';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { useData } from '@/src/contexts/DataProvider';
+import { searchService } from '@/src/services/SearchService';
+import { API_BASE_URL } from '@/src/config/api';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 type ScanPreviewModalProps = {
     visible: boolean;

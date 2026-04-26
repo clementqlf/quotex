@@ -14,53 +14,6 @@
 namespace facebook::react {
 
 
-void RNSVGCircleEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
-
-
-void RNSVGClipPathEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
-
-
-
-void RNSVGEllipseEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 
 
@@ -71,36 +24,8 @@ void RNSVGEllipseEventEmitter::onSvgLayout(OnSvgLayout event) const {
 
 
 
-void RNSVGForeignObjectEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 
-void RNSVGGroupEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 
 void RNSVGImageEventEmitter::onLoad(OnLoad event) const {
@@ -118,153 +43,17 @@ void RNSVGImageEventEmitter::onLoad(OnLoad event) const {
 }
 
 
-void RNSVGImageEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 
 
 
-void RNSVGLineEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
-
-
-
-void RNSVGMaskEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
-
-
-void RNSVGPathEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 
 
 
-void RNSVGRectEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 
 
-void RNSVGTextEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
-
-void RNSVGTextPathEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
-
-
-void RNSVGTSpanEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
-
-
-void RNSVGUseEventEmitter::onSvgLayout(OnSvgLayout event) const {
-  dispatchEvent("svgLayout", [event=std::move(event)](jsi::Runtime &runtime) {
-    auto payload = jsi::Object(runtime);
-    {
-  auto layout = jsi::Object(runtime);
-  layout.setProperty(runtime, "x", event.layout.x);
-  layout.setProperty(runtime, "y", event.layout.y);
-  layout.setProperty(runtime, "width", event.layout.width);
-  layout.setProperty(runtime, "height", event.layout.height);
-  payload.setProperty(runtime, "layout", layout);
-}
-    return payload;
-  });
-}
 
 } // namespace facebook::react

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Image, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
 import { Star, User, Send, X } from 'lucide-react-native';
-import { Review, User as UserType } from '../types';
-import { ReviewService } from '../src/services/ReviewService';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { Review, User as UserType } from '@/types';
+import { ReviewService } from '@/src/services/ReviewService';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 interface ReviewBlockProps {
     bookId: number;

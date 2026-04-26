@@ -14,25 +14,27 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { bookDescriptions } from '../data/staticData';
-import ScanPreviewModal from '../components/ScanPreviewModal';
-import { useTabIndex } from '../TabNavigator';
-import { useData } from '../src/contexts/DataProvider';
-import { Quote, Book } from '../types';
-import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
-import { formatRelativeDate } from '../src/utils/dateUtils';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import ScanPreviewModal from '@/components/ScanPreviewModal';
+import { useTabIndex } from '@/src/contexts/TabContext';
+
+import { useData } from '@/src/contexts/DataProvider';
+import { Quote, Book } from '@/types';
+import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { formatRelativeDate } from '@/src/utils/dateUtils';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
 const EDGE_SWIPE_ZONE = 28;
 const SWIPE_ACTIVATION_THRESHOLD = 60;
 
 export default function MyQuotesScreen() {
-  const navigation = useNavigation<any>();
+  const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks, addQuote, updateQuote } = useData();
@@ -77,7 +79,8 @@ export default function MyQuotesScreen() {
 
   // Polling logic to automatically clear skeletons when enrichment is done
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
 
     const hasEnrichingItems = myQuotes.some(q => 
       (q.book && typeof q.book === 'object' && q.book.isEnriching) || 
@@ -256,7 +259,7 @@ export default function MyQuotesScreen() {
             activeOpacity={0.8}
             onPress={() => {
               const currentQuote = quotesToDisplay.find(q => q.id === quote.id) || quote;
-              navigation.navigate('QuoteDetail', { quote: currentQuote });
+              router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(currentQuote) } });
             }}
           >
             {/* Quote Icon (custom SVG) */}
@@ -465,7 +468,7 @@ export default function MyQuotesScreen() {
             style={styles.actionMenuItem}
             onPress={() => {
               setShowAddMenu(false);
-              navigation.navigate('Scan');
+              router.push('/scan');
             }}
           >
             <Camera size={20} color={colors.text} style={{ marginRight: 12 }} />
@@ -509,7 +512,7 @@ export default function MyQuotesScreen() {
           <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
             <Plus size={20} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Search')}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/search')}>
             <Search size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>
@@ -592,7 +595,7 @@ export default function MyQuotesScreen() {
                 key={book.title}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('BookDetail', { bookTitle: book.title })}
+                onPress={() => router.push({ pathname: '/book-detail', params: { bookTitle: book.title } })}
               >
                 <View style={styles.bookCardContent}>
                   {book.cover ? (
@@ -622,7 +625,7 @@ export default function MyQuotesScreen() {
                 key={author.name}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => navigation.navigate('AuthorDetail', { authorName: author.name })}
+                onPress={() => router.push({ pathname: '/author-detail', params: { authorName: author.name } })}
               >
                 <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
                   {author.image ? (
@@ -650,7 +653,7 @@ export default function MyQuotesScreen() {
                 <TouchableOpacity
                   style={[styles.bookCardContent, { alignItems: 'center' }]}
                   activeOpacity={0.85}
-                  onPress={() => navigation.navigate('ThemeDetail', { themeName: theme.theme })}
+                  onPress={() => router.push({ pathname: '/theme-detail', params: { themeName: theme.theme } })}
                 >
                   <View style={styles.themeIconContainer}>
                     <Text style={styles.themeIconText}>{theme.theme[0]}</Text>

@@ -8,12 +8,12 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark } from 'lucide-react-native';
-import { useData } from '../src/contexts/DataProvider';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
-import { Book, Author } from '../types';
+import { useData } from '@/src/contexts/DataProvider';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
+import { Book, Author } from '@/types';
 import { Modal, Alert, Linking } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
@@ -21,16 +21,17 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
 import BookDictionaryModal from './BookDictionaryModal';
 import { TextInput } from 'react-native';
-import { getBookTitle, getAuthorName } from '../src/utils/dataHelpers';
+import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
 import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
-import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '../src/config/blocks';
-
-type BookDetailScreenRouteProp = RouteProp<{ params: { book?: Book; bookTitle?: string } }, 'params'>;
+import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/config/blocks';
 
 export function BookDetailScreen() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<BookDetailScreenRouteProp>();
-  const params = route.params;
+  const router = useRouter();
+  const rawParams = useLocalSearchParams<{ book?: string; bookTitle?: string }>();
+  const params = {
+    book: rawParams.book ? JSON.parse(rawParams.book as string) as Book : undefined,
+    bookTitle: rawParams.bookTitle as string | undefined,
+  };
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -273,9 +274,9 @@ export function BookDetailScreen() {
       onUpdateBlockData: handleUpdateBlockData,
       onReviewAdded: loadMetadata,
       onManageDictionary: () => setDictionaryModalVisible(true),
-      onBookPress: (title) => navigation.push('BookDetail', { bookTitle: title }),
-      onAuthorPress: (name) => navigation.navigate('AuthorDetail', { authorName: name }),
-      onQuotePress: (quote) => navigation.navigate('QuoteDetail', { quote }),
+      onBookPress: (title) => router.push({ pathname: '/book-detail', params: { bookTitle: title } }),
+      onAuthorPress: (name) => router.push({ pathname: '/author-detail', params: { authorName: name } }),
+      onQuotePress: (quote) => router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } }),
       // Extra properties for dictionary block
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
@@ -360,7 +361,7 @@ export function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
@@ -379,7 +380,7 @@ export function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
@@ -401,7 +402,7 @@ export function BookDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -433,7 +434,7 @@ export function BookDetailScreen() {
                 <Text style={styles.bookTitleText}>{bookTitle}</Text>
                 <TouchableOpacity onPress={() => {
                   const authorName = typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name;
-                  navigation.navigate('AuthorDetail', { authorName });
+                  router.push({ pathname: '/author-detail', params: { authorName } });
                 }}>
                   <Text style={styles.bookAuthorText}>{typeof bookInfo.author === 'string' ? bookInfo.author : bookInfo.author.name}</Text>
                 </TouchableOpacity>

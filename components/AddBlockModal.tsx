@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Modal, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../src/contexts/ThemeContext';
-import { ThemeColors } from '../src/theme/theme';
+import { useTheme } from '@/src/contexts/ThemeContext';
+import { ThemeColors } from '@/src/theme/theme';
 
 export interface BlockOption {
   key: string;
