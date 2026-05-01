@@ -64,10 +64,12 @@ function RootLayoutNav() {
             animation: 'slide_from_right',
             // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
             getId: ({ params }) => {
+              if (params?.authorId) return `id-${params.authorId}`;
               let name = params?.authorName || params?.name;
               if (!name && params?.author) {
                 try {
                   const p = JSON.parse(params.author);
+                  if (p.id) return `id-${p.id}`;
                   name = p.name;
                 } catch { name = params.author; }
               }
@@ -83,10 +85,12 @@ function RootLayoutNav() {
             animation: 'slide_from_right',
             // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
             getId: ({ params }) => {
+              if (params?.bookId) return `id-${params.bookId}`;
               let title = params?.bookTitle || params?.title;
               if (!title && params?.book) {
                 try {
                   const p = JSON.parse(params.book);
+                  if (p.id) return `id-${p.id}`;
                   title = p.title;
                 } catch { title = params.book; }
               }

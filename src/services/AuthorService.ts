@@ -43,6 +43,23 @@ class AuthorService {
         return authors.find(a => a.name === name);
     }
 
+    async getAuthorById(id: number): Promise<Author | undefined> {
+        try {
+            const response = await fetch(`${this.API_URL}/authors/${id}`);
+            if (response.ok) {
+                const author = await response.json();
+                return {
+                    ...author,
+                    similarAuthors: author.similarAuthors || []
+                };
+            }
+        } catch (error) {
+            console.error('Error fetching author by ID from server:', error);
+        }
+        return undefined;
+    }
+
+
     async getBooksByAuthor(authorName: string, authorId?: number): Promise<Book[]> {
         try {
             // If we have an ID, use the specialized endpoint

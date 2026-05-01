@@ -89,7 +89,7 @@ export default function SearchScreen() {
             });
             if (response.ok) {
                 const importedBook = await response.json();
-                navigateToBook(importedBook.title, importedBook);
+                navigateToBook(importedBook.id);
             }
         } catch (error) {
             console.error("Failed to import work", error);
@@ -129,7 +129,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigateToBook(book.title, book)}
+                    onPress={() => navigateToBook(book.id ?? book.title)}
                 >
                     <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                         {book.cover ? (
@@ -149,7 +149,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigateToAuthor(author.name, author)}
+                    onPress={() => navigateToAuthor(author.name)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {author.image ? (

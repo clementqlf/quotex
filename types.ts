@@ -21,6 +21,7 @@ export type Author = {
   nationality: string;
   similarAuthors?: Author[];
   openLibraryId?: string;
+  inventaireUri?: string;
   isSaved?: boolean;
   isEnriching?: boolean;
   quotesCount?: number;

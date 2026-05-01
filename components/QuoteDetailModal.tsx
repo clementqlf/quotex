@@ -161,7 +161,7 @@ export function QuoteDetailModal() {
     book: fetchedBook,
     author: fetchedAuthor,
     onUpdateBlockData: handleUpdateBlockData,
-    onBookPress: (title) => navigateToBook(title),
+    onBookPress: (title) => navigateToBook(fetchedBook?.id ?? title),
     onAuthorPress: (name) => navigateToAuthor(name),
     onEditDefinitionSelection: (blockId) => {
       setCurrentDefinitionBlockId(blockId);
@@ -191,7 +191,7 @@ export function QuoteDetailModal() {
   };
 
   const onAuthorPress = (authorName: string) => navigateToAuthor(authorName);
-  const onBookPress = (bookTitle: string) => navigateToBook(bookTitle);
+  const onBookPress = (bookTitle: string) => navigateToBook(fetchedBook?.id ?? bookTitle);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   // State and helpers for "Ajouter un bloc"

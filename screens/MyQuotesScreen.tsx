@@ -417,6 +417,7 @@ export default function MyQuotesScreen() {
         const meta = bookDescriptions[bookTitle] || data.bookObj;
         return {
           title: bookTitle,
+          id: data.bookObj?.id,
           authors: Array.from(data.authors),
           quoteCount: data.quoteCount,
           year: meta?.year,
@@ -597,7 +598,7 @@ export default function MyQuotesScreen() {
                 key={book.title}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => navigateToBook(book.title)}
+                onPress={() => navigateToBook(book.id ?? book.title)}
               >
                 <View style={styles.bookCardContent}>
                   {book.cover ? (

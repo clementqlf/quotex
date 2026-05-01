@@ -1,76 +1,27 @@
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 export function useSmartNavigation() {
   const router = useRouter();
-  const navigation = useNavigation<any>();
 
-  const navigateToBook = (title: string, bookObj?: any) => {
-    if (!title) return;
-    const routes = navigation.getState()?.routes || [];
-    const targetTitle = String(title).toLowerCase().trim();
-    
-    // Check if it's already in the stack
-    const existingRoute = routes.find((r: any) => {
-      if (r.name !== 'book-detail') return false;
-      let rTitle = r.params?.bookTitle || r.params?.title;
-      if (!rTitle && r.params?.book) {
-        try {
-          const p = JSON.parse(r.params.book);
-          rTitle = p.title;
-        } catch { rTitle = r.params.book; }
-      }
-      return rTitle ? String(rTitle).toLowerCase().trim() === targetTitle : false;
-    });
-
-    if (existingRoute) {
-      // It exists in the stack! Pop back to it.
-      if (typeof navigation.popTo === 'function') {
-        navigation.popTo('book-detail', { bookTitle: title });
-      } else {
-        // Fallback for older versions or if method is missing
-        navigation.navigate({ key: existingRoute.key });
-      }
+  /**
+   * Navigate to a book detail screen.
+   * Prefer bookId (number) for canonical navigation — avoids duplicates in the stack.
+   * Falls back to bookTitle (string) for cases where only the title is available (e.g. similar books blocks).
+   */
+  const navigateToBook = (bookIdOrTitle: number | string) => {
+    if (typeof bookIdOrTitle === 'number') {
+      router.navigate(`/book-detail?bookId=${bookIdOrTitle}`);
     } else {
-      // Not in the stack, push or navigate normally
-      if (bookObj) {
-        router.push({ pathname: '/book-detail', params: { book: JSON.stringify(bookObj) } });
-      } else {
-        router.navigate(`/book-detail?bookTitle=${encodeURIComponent(title)}`);
-      }
+      router.navigate(`/book-detail?bookTitle=${encodeURIComponent(bookIdOrTitle)}`);
     }
   };
 
-  const navigateToAuthor = (name: string, authorObj?: any) => {
-    if (!name) return;
-    const routes = navigation.getState()?.routes || [];
-    const targetName = String(name).toLowerCase().trim();
-    
-    // Check if it's already in the stack
-    const existingRoute = routes.find((r: any) => {
-      if (r.name !== 'author-detail') return false;
-      let rName = r.params?.authorName || r.params?.name;
-      if (!rName && r.params?.author) {
-        try {
-          const p = JSON.parse(r.params.author);
-          rName = p.name;
-        } catch { rName = r.params.author; }
-      }
-      return rName ? String(rName).toLowerCase().trim() === targetName : false;
-    });
-
-    if (existingRoute) {
-      if (typeof navigation.popTo === 'function') {
-        navigation.popTo('author-detail', { authorName: name });
-      } else {
-        navigation.navigate({ key: existingRoute.key });
-      }
-    } else {
-      if (authorObj) {
-        router.push({ pathname: '/author-detail', params: { author: JSON.stringify(authorObj), authorName: name } });
-      } else {
-        router.navigate(`/author-detail?authorName=${encodeURIComponent(name)}`);
-      }
-    }
+  /**
+   * Navigate to an author detail screen.
+   * Author names are @unique in the DB so using name as canonical param is safe.
+   */
+  const navigateToAuthor = (authorName: string) => {
+    router.navigate(`/author-detail?authorName=${encodeURIComponent(authorName)}`);
   };
 
   return { navigateToBook, navigateToAuthor };

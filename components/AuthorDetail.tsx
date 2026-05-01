@@ -19,6 +19,7 @@ import { getBookTitle } from '@/src/utils/dataHelpers';
 import { Author, Book } from '@/types';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemeColors } from '@/src/theme/theme';
+import * as WebBrowser from 'expo-web-browser';
 
 export function AuthorDetailScreen() {
   const { colors } = useTheme();
@@ -122,6 +123,19 @@ export function AuthorDetailScreen() {
     setAuthorInfo(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
   };
 
+  const handleOpenWikipedia = async () => {
+    if (!authorInfo?.inventaireUri || !authorInfo.inventaireUri.startsWith('wd:')) {
+      // Fallback: search by name if no URI
+      const searchUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(authorName)}`;
+      await WebBrowser.openBrowserAsync(searchUrl);
+      return;
+    }
+
+    const qid = authorInfo.inventaireUri.replace('wd:', '');
+    const wikiUrl = `https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${qid}`;
+    await WebBrowser.openBrowserAsync(wikiUrl);
+  };
+
   if (isLoadingAuthor) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -163,6 +177,20 @@ export function AuthorDetailScreen() {
           <View style={styles.profileHeader}>
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
+            
+            <TouchableOpacity 
+              style={styles.wikipediaButton} 
+              onPress={handleOpenWikipedia}
+              activeOpacity={0.7}
+            >
+              <View style={styles.wikipediaLogoContainer}>
+                <Image 
+                  source={{ uri: 'https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2.png' }} 
+                  style={styles.wikipediaLogo} 
+                />
+              </View>
+              <Text style={styles.wikipediaText}>Wikipédia</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
@@ -213,7 +241,7 @@ export function AuthorDetailScreen() {
               <TouchableOpacity
                 key={`${book.id || book.title}-${index}`}
                 style={styles.bookItem}
-                onPress={() => navigateToBook(book.title)}>
+                onPress={() => navigateToBook(book.id ?? book.title)}>
                 <View style={styles.bookCoverContainer}>
                   {book.cover ? (
                     <Image source={{ uri: book.cover }} style={styles.bookCover} />
@@ -318,7 +346,7 @@ export function AuthorDetailScreen() {
                     style={styles.bookItem}
                     onPress={() => {
                       setShowAllWorksModal(false);
-                      navigateToBook(item.title);
+                      navigateToBook(item.id ?? item.title);
                     }}>
                     <View style={styles.bookCoverContainer}>
                       {item.cover ? (
@@ -401,7 +429,42 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: 24,
+  },
+  wikipediaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.surfaceHighlight,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  wikipediaLogoContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  wikipediaLogo: {
+    width: 16,
+    height: 16,
+    resizeMode: 'contain',
+  },
+  wikipediaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   statsContainer: {
     flexDirection: 'row',

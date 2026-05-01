@@ -15,6 +15,7 @@ type DataContextType = {
     refreshAuthors: () => Promise<void>;
     refreshBooks: () => Promise<void>;
     getAuthorByName: (name: string) => Promise<Author | undefined>;
+    getAuthorById: (id: number) => Promise<Author | undefined>;
     getBooksByAuthor: (authorName: string, authorId?: number) => Promise<Book[]>;
     updateQuote: (id: number, updates: Partial<Quote>) => Promise<void>;
     // Block management
@@ -106,6 +107,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     const getAuthorByName = useCallback(async (name: string) => {
         return authorService.getAuthorByName(name);
+    }, []);
+
+    const getAuthorById = useCallback(async (id: number) => {
+        return authorService.getAuthorById(id);
     }, []);
 
     const getBooksByAuthor = useCallback(async (authorName: string, authorId?: number) => {
@@ -202,6 +207,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         deleteQuote,
         addQuote,
         getAuthorByName,
+        getAuthorById,
         getBooksByAuthor,
         getBlockLayout,
         updateBlockLayout,
@@ -217,7 +223,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         getNotableWorks,
     }), [
         quotes, authors, books, isLoading, refreshQuotes, refreshAuthors, refreshBooks,
-        toggleLikeQuote, toggleSaveQuote, deleteQuote, addQuote, getAuthorByName,
+        toggleLikeQuote, toggleSaveQuote, deleteQuote, addQuote, getAuthorByName, getAuthorById,
         getBooksByAuthor, getBlockLayout, updateBlockLayout, updateQuote, getBookData,
         updateBookData, getUserByUsername, getBookByTitle, getBookById, importBook,
         toggleSaveAuthor, toggleSaveBook, getNotableWorks

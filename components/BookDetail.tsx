@@ -47,40 +47,30 @@ const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
 export function BookDetailScreen() {
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const router = useRouter();
-  const rawParams = useLocalSearchParams<{ book?: string; bookTitle?: string }>();
-  const params = useMemo(() => ({
-    book: rawParams.book ? JSON.parse(rawParams.book as string) as Book : undefined,
-    bookTitle: rawParams.bookTitle as string | undefined,
-  }), [rawParams.book, rawParams.bookTitle]);
+  const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string }>();
+  const bookId = rawParams.bookId ? Number(rawParams.bookId) : undefined;
+  const bookTitleParam = rawParams.bookTitle as string | undefined;
+
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  // Handle both cases
-  const passedBook = params?.book;
-  const bookTitle = useMemo(() => passedBook?.title || params?.bookTitle, [passedBook?.title, params?.bookTitle]);
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook } = useData();
 
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, importBook, toggleSaveBook } = useData();
-
-  const [bookInfo, setBookInfo] = useState<Book | null>(passedBook || null);
+  const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(!passedBook || (passedBook.id === 0) || !passedBook.description);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
+  const bookTitle = bookInfo?.title || bookTitleParam;
 
-  // Sync state with params when they change
+  // Reset state when bookId changes
   React.useEffect(() => {
-    if (passedBook) {
-      setBookInfo(passedBook);
-      setIsLoadingMetadata((passedBook.id === 0) || !passedBook.description);
-    } else {
-      setBookInfo(null);
-      setIsLoadingMetadata(true);
-    }
-    // Also reset author info to avoid showing previous author
+    setBookInfo(null);
     setAuthorInfo(null);
     setGridData([]);
     setBlockData({});
     setIsLoadingLayout(true);
+    setIsLoadingMetadata(true);
     setActiveTab('description');
-  }, [passedBook, bookTitle]);
+  }, [bookId, bookTitleParam]);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
@@ -102,54 +92,25 @@ export function BookDetailScreen() {
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
   const loadMetadata = useCallback(async () => {
-    // If we have bookInfo from params but no author info, or if we just have title
-    if (!bookTitle) return;
+    if (!bookId && !bookTitleParam) return;
 
-    // Only fetch if we don't have full info or if we only had title
-    // If passedBook is present, we might still want to fetch author if it was just an ID/string in the book object?
-    // In our types, Book.author is Author | string.
-
-    console.log('[BookDetail] loadMetadata triggered');
-    if (!passedBook) setIsLoadingMetadata(true);
+    console.log('[BookDetail] loadMetadata triggered', { bookId, bookTitleParam });
+    setIsLoadingMetadata(true);
 
     try {
-      let currentBook = passedBook;
-      
-      // If we don't have a book, or we have a "placeholder" book from external source (id=0)
-      if (!currentBook || currentBook.id === 0) {
-        console.log(`[BookDetail] Searching for/Importing book: ${bookTitle}`);
-        // First try by title in our DB
-        const dbBook = await getBookByTitle(bookTitle);
-        if (dbBook) {
-          currentBook = dbBook;
-          setBookInfo(dbBook);
-        } else if (passedBook) {
-          // Import it
-          const imported = await importBook(passedBook);
-          if (imported) {
-            currentBook = imported;
-            setBookInfo(imported);
-          }
-        }
+      let currentBook: Book | undefined;
+
+      if (bookId) {
+        // Canonical path: fetch by ID
+        currentBook = await getBookById(bookId);
+      } else if (bookTitleParam) {
+        // Fallback: fetch by title (legacy + citations)
+        currentBook = await getBookByTitle(bookTitleParam);
       }
 
-      if (currentBook && currentBook.id !== 0) {
-        // We have a book from DB, check if it needs full detail enrichment
-        if (!currentBook.description || currentBook.description.length < 50) {
-          console.log(`[BookDetail] Fetching full details for book ID: ${currentBook.id}`);
-          const fullBook = await getBookById(Number(currentBook.id));
-          if (fullBook) {
-            setBookInfo(fullBook);
-            currentBook = fullBook;
-          }
-        }
-      } 
-
       if (currentBook) {
-        const authorVal = currentBook.author;
-        const authorName = getAuthorName(authorVal);
-
-        // Always try to fetch full author details if we don't have them
+        setBookInfo(currentBook);
+        const authorName = getAuthorName(currentBook.author);
         const fetchedAuthor = await getAuthorByName(authorName);
         if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
       } else {
@@ -160,7 +121,7 @@ export function BookDetailScreen() {
     } finally {
       setIsLoadingMetadata(false);
     }
-  }, [bookTitle, getBookByTitle, getAuthorByName, passedBook]);
+  }, [bookId, bookTitleParam, getBookById, getBookByTitle, getAuthorByName]);
 
   React.useEffect(() => {
     loadMetadata();

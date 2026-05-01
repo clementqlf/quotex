@@ -612,7 +612,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
  */
 export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string, authorUri?: string): Promise<any> => {
     try {
-        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: true } as any }).catch(() => {});
+        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: true } as any }).catch(() => { });
         console.log(`[Inventaire] Starting enrichment for author ID: ${authorId}`);
 
         // 1. Get author from DB
@@ -806,7 +806,7 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         console.error(`[Inventaire] Author enrichment error:`, e);
         return null;
     } finally {
-        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } as any }).catch(() => {});
+        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } as any }).catch(() => { });
     }
 };
 
