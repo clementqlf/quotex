@@ -1,0 +1,808 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getBestNativeCovers = exports.enrichAuthorWithInventaire = exports.authorEnrichmentQueue = exports.enrichWorkMetadata = exports.getBatchInventaireDetails = exports.getWorkEditions = exports.getEditionsDetails = exports.getAuthorWorkUris = exports.getWorkEditionUris = exports.getInventaireAuthorDetails = exports.fetchWikipediaSynopsis = exports.getInventaireWorkDetails = exports.getBatchInventaireSearchMetadata = exports.getInventaireEntities = exports.searchInventaireAuthors = exports.findWorkUriByTitleAndAuthor = exports.searchInventaireWorks = exports.searchInventaire = exports.getEntityImage = exports.isNativeScan = void 0;
+const client_1 = require("@prisma/client");
+const prisma_1 = require("../lib/prisma");
+const INVENTAIRE_BASE = 'https://inventaire.io';
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const resolveImageUrl = (raw) => {
+    if (!raw)
+        return null;
+    // If it's already a full URL (like Wikimedia Commons), return as is
+    if (raw.startsWith('http'))
+        return raw;
+    // Format: "/img/entities/<hash>" → prepend base
+    if (raw.startsWith('/img/'))
+        return `${INVENTAIRE_BASE}${raw}`;
+    return null;
+};
+/**
+ * Checks if an image URL is a native Inventaire scan (hosted on their servers)
+ * rather than a fallback to Wikimedia Commons.
+ */
+const isNativeScan = (url) => {
+    return !!(url && url.includes('/img/entities/'));
+};
+exports.isNativeScan = isNativeScan;
+const getEntityImage = (imageObj) => {
+    if (!imageObj)
+        return null;
+    // 1. Native Inventaire user-uploaded image
+    if (imageObj.file && imageObj.file.startsWith('/img/')) {
+        return resolveImageUrl(imageObj.file);
+    }
+    // 2. Fallback to the external URL (usually Wikimedia Commons provided by Wikidata)
+    return resolveImageUrl(imageObj.url);
+};
+exports.getEntityImage = getEntityImage;
+const safeFirstClaim = (claims, property) => {
+    var _a, _b;
+    return (_b = (_a = claims === null || claims === void 0 ? void 0 : claims[property]) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : null;
+};
+/**
+ * Standardizes a raw Inventaire entity into a consistent format used across the app.
+ */
+const formatInventaireWork = (entity, uri) => {
+    var _a, _b;
+    if (!entity)
+        return {};
+    const claims = entity.claims || {};
+    const labels = entity.labels || {};
+    const descriptions = entity.descriptions || {};
+    const label = labels['fr'] || labels['en'] || entity.label || Object.values(labels)[0] || null;
+    const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
+    const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
+    // Resolve Image
+    const imageUrl = (0, exports.getEntityImage)(entity.image);
+    const sitelinks = entity.sitelinks || {};
+    return {
+        uri: entity.uri || uri,
+        title: label,
+        year,
+        image: imageUrl,
+        authorUris: claims['wdt:P50'] || [],
+        genreUris: claims['wdt:P136'] || [],
+        wikipediaTitle: ((_a = sitelinks['frwiki']) === null || _a === void 0 ? void 0 : _a.title) || ((_b = sitelinks['enwiki']) === null || _b === void 0 ? void 0 : _b.title) || null,
+        pages: safeFirstClaim(claims, 'wdt:P1104') ? parseInt(safeFirstClaim(claims, 'wdt:P1104')) : null,
+        label: label // For search result compatibility
+    };
+};
+// ─── Search ───────────────────────────────────────────────────────────────────
+/**
+ * Generic search for entities on Inventaire.io
+ */
+const searchInventaire = (query_1, ...args_1) => __awaiter(void 0, [query_1, ...args_1], void 0, function* (query, types = 'works', limit = 10) {
+    if (!query.trim())
+        return [];
+    console.log(`[Inventaire] Searching for "${query}" (types: ${types})`);
+    try {
+        const typesList = types.split(',');
+        const typesParam = typesList.map(t => `types=${encodeURIComponent(t.trim())}`).join('&');
+        const url = `${INVENTAIRE_BASE}/api/search?${typesParam}&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
+        const response = yield fetch(url);
+        if (!response.ok)
+            throw new Error(`Inventaire search error: ${response.status}`);
+        const data = yield response.json();
+        const basicResults = (data.results || []).map((r) => ({
+            id: r.id,
+            uri: r.uri,
+            type: r.type,
+            label: r.label || '',
+            image: resolveImageUrl(r.image),
+            authors: []
+        }));
+        if (basicResults.length === 0)
+            return [];
+        // 1. Fetch work entities to get Author URIs (wdt:P50)
+        // We filter for results that ARE works or might have author claims
+        const urisToFetch = basicResults.map((r) => r.uri);
+        const entities = yield (0, exports.getInventaireEntities)(urisToFetch);
+        const authorUrisToFetch = new Set();
+        for (const uri of urisToFetch) {
+            const entity = entities[uri];
+            if (entity && entity.claims && entity.claims['wdt:P50']) {
+                entity.claims['wdt:P50'].forEach((aUri) => authorUrisToFetch.add(aUri));
+            }
+        }
+        // 2. Fetch author entities to get names
+        const authorNamesByUri = {};
+        if (authorUrisToFetch.size > 0) {
+            const authorEntities = yield (0, exports.getInventaireEntities)(Array.from(authorUrisToFetch));
+            for (const [aUri, aEntity] of Object.entries(authorEntities)) {
+                if (aEntity && aEntity.labels) {
+                    const labels = aEntity.labels;
+                    authorNamesByUri[aUri] = labels['fr'] || labels['en'] || Object.values(labels)[0] || 'Unknown';
+                }
+            }
+        }
+        // 3. Attach authors and metadata to results
+        for (const result of basicResults) {
+            const entity = entities[result.uri];
+            if (entity) {
+                // Formatting for works specifically (but safe for others)
+                const claims = entity.claims || {};
+                const labels = entity.labels || {};
+                const label = labels['fr'] || labels['en'] || entity.label || Object.values(labels)[0] || result.label;
+                result.label = label;
+                result.image = (0, exports.getEntityImage)(entity.image) || result.image;
+                if (claims['wdt:P50'] && claims['wdt:P50'].length > 0) {
+                    result.authors = claims['wdt:P50'].map((aUri) => authorNamesByUri[aUri] || 'Unknown');
+                    result.authorUris = claims['wdt:P50'];
+                }
+            }
+        }
+        console.log(`[Inventaire] Search complete. Found ${basicResults.length} results.`);
+        return basicResults;
+    }
+    catch (e) {
+        console.error('[Inventaire] Error searching:', e);
+        return [];
+    }
+});
+exports.searchInventaire = searchInventaire;
+/**
+ * Search for books (works) on Inventaire.io.
+ * Now uses "Sujets" (works, genres, movements) by default to improve discoverability.
+ */
+const searchInventaireWorks = (query_1, ...args_1) => __awaiter(void 0, [query_1, ...args_1], void 0, function* (query, limit = 10) {
+    // Defaulting to subjects (works + genres + movements) as requested by the user
+    return (0, exports.searchInventaire)(query, 'works,genres,movements', limit);
+});
+exports.searchInventaireWorks = searchInventaireWorks;
+/**
+ * Finds a specific work URI on Inventaire.io based on a title and author name.
+ * Used for "discovery" when we only have text data.
+ */
+const findWorkUriByTitleAndAuthor = (title, authorName) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    if (!title || !authorName)
+        return null;
+    const cleanTitle = title.trim();
+    const cleanAuthor = authorName.trim();
+    console.log(`[Inventaire/Discovery] Searching for Work: "${cleanTitle}" by "${cleanAuthor}"`);
+    // Search for "Title Author" to improve relevance
+    const searchQuery = `"${cleanTitle}" ${cleanAuthor}`;
+    const results = yield (0, exports.searchInventaireWorks)(searchQuery, 20);
+    console.log(`[Inventaire/Discovery] Found ${results.length} potential matches.`);
+    if (results.length === 0) {
+        console.log(`[Inventaire/Discovery] ❌ No results found for "${searchQuery}"`);
+        return null;
+    }
+    // Try to find the best match
+    // 1. Exact title match (case insensitive) among results that have the author
+    for (const res of results) {
+        const titleMatch = res.label.toLowerCase().trim() === cleanTitle.toLowerCase();
+        const authorMatch = ((_a = res.authors) === null || _a === void 0 ? void 0 : _a.some(a => a.toLowerCase().includes(cleanAuthor.toLowerCase()))) || false;
+        console.log(`[Inventaire/Discovery] Checking: "${res.label}" | Author Match: ${authorMatch} | Title Match: ${titleMatch}`);
+        if (titleMatch && authorMatch) {
+            console.log(`[Inventaire/Discovery] ✅ High-confidence match found: ${res.label} (${res.uri})`);
+            return res.uri;
+        }
+    }
+    // 2. Fallback: If title is very similar and author matches
+    for (const res of results) {
+        const authorMatch = ((_b = res.authors) === null || _b === void 0 ? void 0 : _b.some(a => a.toLowerCase().includes(cleanAuthor.toLowerCase()))) || false;
+        if (authorMatch) {
+            console.log(`[Inventaire/Discovery] ⚠️ Partial match found (Author match): ${res.label} (${res.uri})`);
+            return res.uri;
+        }
+    }
+    console.log(`[Inventaire/Discovery] ❌ No reliable match found for "${title}" by "${authorName}"`);
+    return null;
+});
+exports.findWorkUriByTitleAndAuthor = findWorkUriByTitleAndAuthor;
+/**
+ * Search for authors (humans) on Inventaire.io
+ */
+const searchInventaireAuthors = (query_1, ...args_1) => __awaiter(void 0, [query_1, ...args_1], void 0, function* (query, limit = 10) {
+    return (0, exports.searchInventaire)(query, 'humans', limit);
+});
+exports.searchInventaireAuthors = searchInventaireAuthors;
+// ─── Entity Details ───────────────────────────────────────────────────────────
+/**
+ * Get details for one or several entities by URI.
+ * Returns the raw parsed entities map.
+ */
+const getInventaireEntities = (uris) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!uris.length)
+        return {};
+    try {
+        // API accepts: ?action=by-uris&uris=uri1|uri2|...
+        const uriParam = uris.join('|');
+        const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr`;
+        const response = yield fetch(url);
+        if (!response.ok)
+            throw new Error(`Inventaire entities error: ${response.status}`);
+        const data = yield response.json();
+        return data.entities || {};
+    }
+    catch (e) {
+        console.error('[Inventaire] Error fetching entities:', e);
+        return {};
+    }
+});
+exports.getInventaireEntities = getInventaireEntities;
+/**
+ * Fetch a batch of entities by URI from the SEARCH API to get representative covers.
+ * This is much more reliable for finding "the best" image than the entities API.
+ */
+const getBatchInventaireSearchMetadata = (uris) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!uris.length)
+        return {};
+    // Extract IDs and build the OR query
+    const ids = uris.map(uri => {
+        if (uri.startsWith('wd:'))
+            return uri.substring(3);
+        if (uri.startsWith('inv:'))
+            return uri.substring(4);
+        return null;
+    }).filter(Boolean);
+    if (ids.length === 0)
+        return {};
+    const results = {};
+    const CHUNK_SIZE = 10;
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunk = ids.slice(i, i + CHUNK_SIZE);
+        const searchQuery = chunk.map(id => `id:"${id}"`).join(' OR ');
+        try {
+            const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(searchQuery)}&limit=${chunk.length}&lang=fr`;
+            const response = yield fetch(url);
+            if (!response.ok)
+                continue;
+            const data = yield response.json();
+            (data.results || []).forEach((r) => {
+                if (r.uri) {
+                    results[r.uri] = {
+                        image: resolveImageUrl(r.image),
+                        label: r.label || null
+                    };
+                }
+            });
+        }
+        catch (e) {
+            console.error('[Inventaire] Error in batch search metadata:', e);
+        }
+    }
+    return results;
+});
+exports.getBatchInventaireSearchMetadata = getBatchInventaireSearchMetadata;
+/**
+ * Get work details from a URI
+ */
+const getInventaireWorkDetails = (uri) => __awaiter(void 0, void 0, void 0, function* () {
+    const entities = yield (0, exports.getInventaireEntities)([uri]);
+    const entity = entities[uri];
+    if (!entity)
+        return null;
+    const formatted = formatInventaireWork(entity, uri);
+    return {
+        uri: formatted.uri,
+        title: formatted.title || null,
+        image: formatted.image || null,
+        authorUris: formatted.authorUris || [],
+        year: formatted.year || null,
+        genreUris: formatted.genreUris || [],
+        wikipediaTitle: formatted.wikipediaTitle || null,
+        pages: formatted.pages || null,
+    };
+});
+exports.getInventaireWorkDetails = getInventaireWorkDetails;
+/**
+ * Fetch a short synopsis from Wikipedia using the exact page title
+ */
+const fetchWikipediaSynopsis = (title_1, ...args_1) => __awaiter(void 0, [title_1, ...args_1], void 0, function* (title, lang = 'fr') {
+    var _a, _b;
+    if (!title)
+        return null;
+    try {
+        console.log(`[Wikipedia] Fetching synopsis for: ${title} (${lang})`);
+        const url = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=4&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json`;
+        const response = yield fetch(url);
+        if (!response.ok)
+            return null;
+        const data = yield response.json();
+        const pages = (_a = data.query) === null || _a === void 0 ? void 0 : _a.pages;
+        if (!pages)
+            return null;
+        const firstPageId = Object.keys(pages)[0];
+        if (firstPageId === '-1')
+            return null;
+        const extract = (_b = pages[firstPageId]) === null || _b === void 0 ? void 0 : _b.extract;
+        if (!extract || extract.trim().length === 0) {
+            console.log(`[Wikipedia] No extract found for title: ${title}`);
+            return null;
+        }
+        console.log(`[Wikipedia] Successfully fetched synopsis for ${title} (${extract.length} chars)`);
+        return extract.trim();
+    }
+    catch (e) {
+        console.error('[Wikipedia] Error fetching synopsis:', e);
+        return null;
+    }
+});
+exports.fetchWikipediaSynopsis = fetchWikipediaSynopsis;
+/**
+ * Get author details from a URI
+ */
+const getInventaireAuthorDetails = (uri) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
+    const entities = yield (0, exports.getInventaireEntities)([uri]);
+    const entity = entities[uri];
+    if (!entity)
+        return null;
+    const claims = entity.claims || {};
+    const labels = entity.labels || {};
+    const descriptions = entity.descriptions || {};
+    const name = labels['fr'] || labels['en'] || Object.values(labels)[0] || null;
+    const birthDate = safeFirstClaim(claims, 'wdt:P569');
+    const nationalityUri = safeFirstClaim(claims, 'wdt:P27');
+    const imageUrl = (0, exports.getEntityImage)(entity.image);
+    const sitelinks = entity.sitelinks || {};
+    const wikipediaTitle = ((_a = sitelinks['frwiki']) === null || _a === void 0 ? void 0 : _a.title) || ((_b = sitelinks['enwiki']) === null || _b === void 0 ? void 0 : _b.title) || null;
+    return {
+        uri,
+        name: name,
+        image: imageUrl,
+        birthDate,
+        nationality: nationalityUri,
+        wikipediaTitle,
+    };
+});
+exports.getInventaireAuthorDetails = getInventaireAuthorDetails;
+// ─── Editions ─────────────────────────────────────────────────────────────────
+/**
+ * Get all edition URIs for a given work URI
+ */
+const getWorkEditionUris = (workUri) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const url = `${INVENTAIRE_BASE}/api/entities?action=reverse-claims&property=wdt:P629&value=${encodeURIComponent(workUri)}`;
+        const response = yield fetch(url);
+        if (!response.ok)
+            throw new Error(`Inventaire reverse-claims error: ${response.status}`);
+        const data = yield response.json();
+        return data.uris || [];
+    }
+    catch (e) {
+        console.error('[Inventaire] Error fetching edition URIs:', e);
+        return [];
+    }
+});
+exports.getWorkEditionUris = getWorkEditionUris;
+/**
+ * Get all work URIs for a given author URI (reverse claim P50)
+ */
+const getAuthorWorkUris = (authorUri) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const url = `${INVENTAIRE_BASE}/api/entities?action=reverse-claims&property=wdt:P50&value=${encodeURIComponent(authorUri)}`;
+        const response = yield fetch(url);
+        if (!response.ok)
+            throw new Error(`Inventaire reverse-claims error (wdt:P50): ${response.status}`);
+        const data = yield response.json();
+        return data.uris || [];
+    }
+    catch (e) {
+        console.error('[Inventaire] Error fetching author work URIs:', e);
+        return [];
+    }
+});
+exports.getAuthorWorkUris = getAuthorWorkUris;
+/**
+ * Fetch details for a batch of edition URIs.
+ * We chunk to avoid URL being too long (API limit).
+ */
+const getEditionsDetails = (editionUris) => __awaiter(void 0, void 0, void 0, function* () {
+    const results = [];
+    const CHUNK_SIZE = 15;
+    for (let i = 0; i < editionUris.length; i += CHUNK_SIZE) {
+        const chunk = editionUris.slice(i, i + CHUNK_SIZE);
+        const entities = yield (0, exports.getInventaireEntities)(chunk);
+        for (const [uri, e] of Object.entries(entities)) {
+            const claims = e.claims || {};
+            const labels = e.labels || {};
+            const isbn = safeFirstClaim(claims, 'wdt:P212');
+            const title = safeFirstClaim(claims, 'wdt:P1476') ||
+                labels['fr'] || labels['en'] || labels['fromclaims'] || null;
+            const publishDate = safeFirstClaim(claims, 'wdt:P577');
+            const publisherUri = safeFirstClaim(claims, 'wdt:P123');
+            const languageUri = safeFirstClaim(claims, 'wdt:P407');
+            const pagesRaw = safeFirstClaim(claims, 'wdt:P1104');
+            // Cover: entity.image can be { url } or path like /img/entities/<hash>
+            const cover = (0, exports.getEntityImage)(e.image);
+            // Parsing pages if present
+            const pages = pagesRaw ? parseInt(pagesRaw) : null;
+            results.push({
+                inventaireUri: uri,
+                isbn,
+                title,
+                publishDate: publishDate ? publishDate.substring(0, 4) : null,
+                publisherUri,
+                languageUri,
+                cover,
+                pages,
+            });
+        }
+    }
+    return results;
+});
+exports.getEditionsDetails = getEditionsDetails;
+/**
+ * High-level: get all editions for a work, with details.
+ * Limits to the first 30 editions to keep it manageable.
+ */
+const getWorkEditions = (workUri) => __awaiter(void 0, void 0, void 0, function* () {
+    const uris = yield (0, exports.getWorkEditionUris)(workUri);
+    if (!uris.length)
+        return [];
+    const limited = uris.slice(0, 30);
+    return (0, exports.getEditionsDetails)(limited);
+});
+exports.getWorkEditions = getWorkEditions;
+/**
+ * Fetch a batch of entities and return formatted details (title, cover, year, etc.)
+ */
+const getBatchInventaireDetails = (uris) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!uris.length)
+        return {};
+    const entities = yield (0, exports.getInventaireEntities)(uris);
+    const results = {};
+    for (const [uri, entity] of Object.entries(entities)) {
+        if (!entity)
+            continue;
+        results[uri] = formatInventaireWork(entity, uri);
+        // If pages missing from work, we could optionally fetch editions here, 
+        // but to keep it fast for batch, we only do it if the entity already has it.
+    }
+    return results;
+});
+exports.getBatchInventaireDetails = getBatchInventaireDetails;
+/**
+ * Orchestrates complete enrichment for a work (metadata + description + pages)
+ */
+const enrichWorkMetadata = (uri) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    console.log(`[Inventaire] Starting full enrichment for ${uri}`);
+    const details = yield (0, exports.getInventaireWorkDetails)(uri);
+    if (!details)
+        return null;
+    const nativeUri = details.uri;
+    const result = {
+        title: details.title,
+        year: details.year,
+        image: details.image,
+        inventaireUri: nativeUri,
+        authorUris: details.authorUris,
+        wikipediaTitle: details.wikipediaTitle,
+        description: null,
+        pages: 0,
+        authors: []
+    };
+    // 1. Authors names
+    if (details.authorUris.length > 0) {
+        const authorEntities = yield (0, exports.getInventaireEntities)([details.authorUris[0]]);
+        const authorEntry = authorEntities[details.authorUris[0]];
+        if (authorEntry && authorEntry.labels) {
+            result.authors = [authorEntry.labels['fr'] || authorEntry.labels['en'] || Object.values(authorEntry.labels)[0]];
+        }
+    }
+    // 2. Wikipedia Synopsis (FR only)
+    if (details.wikipediaTitle) {
+        const synopsis = yield (0, exports.fetchWikipediaSynopsis)(details.wikipediaTitle, 'fr');
+        if (synopsis) {
+            result.description = synopsis;
+            console.log(`[Inventaire] Found Wikipedia (FR) synopsis: ${synopsis}`);
+        }
+    }
+    // 3. Editions & Page count (from editions of the NATIVE URI)
+    try {
+        // Try to get representative image from search first (it's often better)
+        const searchMetadata = yield (0, exports.getBatchInventaireSearchMetadata)([uri]);
+        if ((0, exports.isNativeScan)((_a = searchMetadata[uri]) === null || _a === void 0 ? void 0 : _a.image)) {
+            result.image = searchMetadata[uri].image;
+            console.log(`[Inventaire] Prioritized representative search image: ${result.image}`);
+        }
+        const editions = yield (0, exports.getWorkEditions)(nativeUri);
+        result.editions = editions; // Store the full list
+        if (editions.length > 0) {
+            // Find best cover and page count from editions
+            const scoredEds = editions.map(e => {
+                var _a;
+                let score = 0;
+                if (e.languageUri === 'wd:Q150')
+                    score += 10;
+                if ((_a = e.cover) === null || _a === void 0 ? void 0 : _a.includes('/img/entities/'))
+                    score += 5;
+                if (e.isbn)
+                    score += 2;
+                if (e.pages && e.pages > 0)
+                    score += 1;
+                return { ed: e, score };
+            }).sort((a, b) => b.score - a.score);
+            const bestEd = scoredEds[0].ed;
+            if (bestEd.cover) {
+                result.image = bestEd.cover;
+                console.log(`[Inventaire] Best cover found from editions: ${result.image}`);
+            }
+            const editionWithPages = editions.find(e => e.pages && e.pages > 0);
+            if (editionWithPages) {
+                result.pages = editionWithPages.pages;
+                console.log(`[Inventaire] Found page count: ${result.pages}`);
+            }
+        }
+    }
+    catch (err) {
+        console.error(`[Inventaire] Failed to fetch editions for pages/covers`, err);
+    }
+    return result;
+});
+exports.enrichWorkMetadata = enrichWorkMetadata;
+exports.authorEnrichmentQueue = new Set();
+/**
+ * Orchestrates complete enrichment for an author (metadata + biography + image)
+ */
+const enrichAuthorWithInventaire = (authorId, authorName, authorUri) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    if (exports.authorEnrichmentQueue.has(authorId))
+        return null;
+    exports.authorEnrichmentQueue.add(authorId);
+    try {
+        yield prisma_1.prisma.author.update({ where: { id: authorId }, data: { isEnriching: true } }).catch(() => { });
+        console.log(`[Inventaire] Starting enrichment for author ID: ${authorId}`);
+        // 1. Get author from DB
+        const author = yield prisma_1.prisma.author.findUnique({ where: { id: authorId } });
+        if (!author)
+            return null;
+        const nameToSearch = authorName || author.name;
+        let uri = authorUri || author.inventaireUri;
+        // 2. Resolve URI if missing
+        if (!uri) {
+            console.log(`[Inventaire] Searching for author: ${nameToSearch}`);
+            const searchResults = yield (0, exports.searchInventaireAuthors)(nameToSearch, 5);
+            if (searchResults.length > 0) {
+                // Pick the best match (case insensitive title match or just the first one)
+                const match = searchResults.find(r => r.label.toLowerCase() === nameToSearch.toLowerCase()) || searchResults[0];
+                uri = match.uri;
+                console.log(`[Inventaire] Resolved URI: ${uri}`);
+            }
+        }
+        if (!uri) {
+            console.log(`[Inventaire] Could not resolve Inventaire URI for ${nameToSearch}`);
+            return null;
+        }
+        // 3. Get Author Details
+        const details = yield (0, exports.getInventaireAuthorDetails)(uri);
+        if (!details)
+            return null;
+        const isNewEntity = uri !== author.inventaireUri;
+        // 4. Fetch Biography from Wikipedia (FR)
+        let biography = isNewEntity ? null : author.description;
+        // Force fetch if it's a new entity, or if biography is missing/short
+        if (details.wikipediaTitle && (isNewEntity || !biography || biography.length < 50)) {
+            console.log(`[Inventaire] Fetching biography from Wikipedia for: ${details.wikipediaTitle}`);
+            const synopsis = yield (0, exports.fetchWikipediaSynopsis)(details.wikipediaTitle, 'fr');
+            if (synopsis) {
+                biography = synopsis;
+                console.log(`[Inventaire] Successfully retrieved biography (${biography.length} chars): ${biography.substring(0, 500)}...`);
+            }
+            else {
+                console.log(`[Inventaire] Wikipedia fetch returned no synopsis for: ${details.wikipediaTitle}`);
+            }
+        }
+        // 5. Build update data
+        // If it's a new entity, we overwrite everything. If same entity, we only fill missing fields.
+        const updateData = {
+            inventaireUri: uri,
+        };
+        // Standardize name if different and no conflict
+        if (details.name && author.name !== details.name) {
+            const conflict = yield prisma_1.prisma.author.findUnique({ where: { name: details.name } });
+            if (!conflict) {
+                updateData.name = details.name;
+                console.log(`[Inventaire] Standardizing author name: "${author.name}" -> "${details.name}"`);
+            }
+        }
+        updateData.description = isNewEntity ? biography : (biography || author.description);
+        updateData.image = isNewEntity ? details.image : (details.image || author.image);
+        updateData.birthDate = isNewEntity ? details.birthDate : (details.birthDate || author.birthDate);
+        updateData.nationality = isNewEntity ? details.nationality : (details.nationality || author.nationality);
+        if (details.image) {
+            console.log(`[Inventaire] Author image resolved: ${details.image}`);
+        }
+        else {
+            console.log(`[Inventaire] No author image found on Inventaire for ${nameToSearch}`);
+        }
+        // 6. Resolve nationality label if it's a URI
+        if (updateData.nationality && (updateData.nationality.startsWith('wd:') || updateData.nationality.startsWith('inv:'))) {
+            try {
+                const natEntities = yield (0, exports.getInventaireEntities)([updateData.nationality]);
+                const natEntity = natEntities[updateData.nationality];
+                if (natEntity && natEntity.labels) {
+                    updateData.nationality = natEntity.labels['fr'] || natEntity.labels['en'] || Object.values(natEntity.labels)[0];
+                }
+            }
+            catch (err) {
+                console.error(`[Inventaire] Failed to resolve nationality label`, err);
+            }
+        }
+        // 7. Update DB
+        const updatedAuthor = yield prisma_1.prisma.author.update({
+            where: { id: authorId },
+            data: updateData
+        });
+        console.log(`[Inventaire] Enrichment complete for ${updatedAuthor.name}`);
+        // 8. DISCOVERY: Fetch all works by this author and ensure they exist in DB
+        console.log(`[Inventaire] Discovering all works for author: ${updatedAuthor.name} (${uri})`);
+        const workUris = yield (0, exports.getAuthorWorkUris)(uri);
+        if (workUris.length > 0) {
+            console.log(`[Inventaire] Found ${workUris.length} works for author ${updatedAuthor.name}`);
+            // Limit to 100 works for now to avoid massive stalls, though they are processed in batches
+            const limitedUris = workUris.slice(0, 100);
+            // Fetch basic metadata (labels) AND best covers for all these works in chunks
+            const CHUNK_SIZE = 25;
+            for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
+                const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
+                const [workEntities, bestCovers] = yield Promise.all([
+                    (0, exports.getBatchInventaireDetails)(chunk),
+                    (0, exports.getBestNativeCovers)(chunk)
+                ]);
+                for (const [wUri, details] of Object.entries(workEntities)) {
+                    if (!details || !details.title)
+                        continue;
+                    const bestCover = bestCovers[wUri];
+                    const finalCover = bestCover || details.image || null;
+                    const bookTitle = details.title.trim();
+                    // Check if book exists
+                    const existingBook = yield prisma_1.prisma.book.findFirst({
+                        where: {
+                            OR: [
+                                { inventaireUri: wUri },
+                                { AND: [{ title: bookTitle }, { authorId: author.id }] }
+                            ]
+                        }
+                    });
+                    if (!existingBook) {
+                        console.log(`[Inventaire] Auto-importing discovered work: ${bookTitle} for Author ID: ${author.id}`);
+                        try {
+                            yield prisma_1.prisma.book.create({
+                                data: {
+                                    title: bookTitle,
+                                    authorId: author.id,
+                                    inventaireUri: wUri,
+                                    cover: finalCover,
+                                    year: details.year || 0,
+                                    description: '',
+                                    genre: ''
+                                }
+                            });
+                        }
+                        catch (err) {
+                            if (err instanceof client_1.Prisma.PrismaClientKnownRequestError) {
+                                if (err.code === 'P2002') {
+                                    console.log(`[Inventaire] Book "${bookTitle}" already exists (race condition), skipping.`);
+                                    // Optional: link URI if missing
+                                    if (((_a = err.meta) === null || _a === void 0 ? void 0 : _a.target) && err.meta.target.includes('title')) {
+                                        const conflictBook = yield prisma_1.prisma.book.findFirst({
+                                            where: { title: bookTitle, authorId: author.id }
+                                        });
+                                        if (conflictBook && !conflictBook.inventaireUri) {
+                                            yield prisma_1.prisma.book.update({
+                                                where: { id: conflictBook.id },
+                                                data: { inventaireUri: wUri }
+                                            }).catch(() => { });
+                                        }
+                                    }
+                                }
+                                else if (err.code === 'P2003') {
+                                    console.warn(`[Inventaire] Foreign key violation for "${bookTitle}" (Author ID: ${author.id}). Check if author still exists.`);
+                                    // Verify author exists
+                                    const stillExists = yield prisma_1.prisma.author.findUnique({ where: { id: author.id } });
+                                    if (!stillExists) {
+                                        console.error(`[Inventaire] CRITICAL: Author ${author.id} no longer exists in DB!`);
+                                    }
+                                }
+                                else {
+                                    console.error(`[Inventaire] Failed to auto-import work "${bookTitle}":`, err);
+                                }
+                            }
+                            else {
+                                console.error(`[Inventaire] Unexpected error auto-importing "${bookTitle}":`, err);
+                            }
+                        }
+                        // Background enrichment will be triggered when someone views the book 
+                        // or we could trigger it here, but let's keep it lean for the initial discovery.
+                    }
+                    else if (!existingBook.inventaireUri) {
+                        // Link existing book to Inventaire URI if missing
+                        yield prisma_1.prisma.book.update({
+                            where: { id: existingBook.id },
+                            data: { inventaireUri: wUri }
+                        });
+                    }
+                }
+            }
+        }
+        return updatedAuthor;
+    }
+    catch (e) {
+        console.error(`[Inventaire] Author enrichment error:`, e);
+        return null;
+    }
+    finally {
+        yield prisma_1.prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } }).catch(() => { });
+        exports.authorEnrichmentQueue.delete(authorId);
+    }
+});
+exports.enrichAuthorWithInventaire = enrichAuthorWithInventaire;
+/**
+ * For a list of work URIs, finds the "best" native cover by looking at their editions.
+ * Prioritizes scans over Wikimedia fallbacks and editions with ISBNs.
+ */
+const getBestNativeCovers = (workUris) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    if (!workUris.length)
+        return {};
+    console.log(`[Inventaire] Searching for native covers for ${workUris.length} works...`);
+    const results = {};
+    try {
+        // 1. Fetch edition URIs for each work in parallel
+        const editionUrisPerWork = yield Promise.all(workUris.map((uri) => __awaiter(void 0, void 0, void 0, function* () {
+            const edUris = yield (0, exports.getWorkEditionUris)(uri);
+            return { workUri: uri, edUris };
+        })));
+        // 2. Collate top edition URIs to fetch details in batch
+        // We take up to 10 editions per work to find a good one
+        const allEdUris = editionUrisPerWork.flatMap(x => x.edUris.slice(0, 10));
+        if (allEdUris.length === 0)
+            return results;
+        const allEdDetails = yield (0, exports.getEditionsDetails)(allEdUris);
+        // 3. Selection logic per work with scoring
+        // Priority 0: Get representative images from search index
+        const searchMetadata = yield (0, exports.getBatchInventaireSearchMetadata)(workUris);
+        for (const { workUri, edUris } of editionUrisPerWork) {
+            // Priority 1: Search-indexed representative image (ONLY IF NATIVE)
+            const searchImg = (_a = searchMetadata[workUri]) === null || _a === void 0 ? void 0 : _a.image;
+            if ((0, exports.isNativeScan)(searchImg)) {
+                results[workUri] = searchImg;
+                console.log(`[Inventaire] Using representative search cover for ${workUri}`);
+                continue;
+            }
+            const eds = allEdDetails.filter(d => edUris.includes(d.inventaireUri));
+            if (eds.length === 0)
+                continue;
+            // Sorting logic based on score
+            // Native (+10), French (+5), ISBN (+2), Pages (+1)
+            const bestEd = eds.sort((a, b) => {
+                const getScore = (ed) => {
+                    var _a;
+                    let score = 0;
+                    if (ed.languageUri === 'wd:Q150')
+                        score += 10;
+                    if ((_a = ed.cover) === null || _a === void 0 ? void 0 : _a.includes('/img/entities/'))
+                        score += 5;
+                    if (ed.isbn)
+                        score += 2;
+                    if ((ed.pages || 0) > 0)
+                        score += 1;
+                    return score;
+                };
+                return getScore(b) - getScore(a);
+            })[0];
+            if (bestEd === null || bestEd === void 0 ? void 0 : bestEd.cover) {
+                results[workUri] = bestEd.cover;
+            }
+        }
+    }
+    catch (err) {
+        console.error(`[Inventaire] Error in getBestNativeCovers:`, err);
+    }
+    return results;
+});
+exports.getBestNativeCovers = getBestNativeCovers;

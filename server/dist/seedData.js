@@ -315,7 +315,12 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             continue;
         }
         const book = yield prisma.book.upsert({
-            where: { title: b.title },
+            where: {
+                title_authorId: {
+                    title: b.title,
+                    authorId: author.id
+                }
+            },
             update: {
                 year: b.year,
                 pages: b.pages,

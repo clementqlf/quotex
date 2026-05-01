@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchOpenLibraryWorks = void 0;
+exports.searchOpenLibraryAuthors = exports.searchOpenLibraryWorks = void 0;
 const searchOpenLibraryWorks = (query) => __awaiter(void 0, void 0, void 0, function* () {
     if (!query)
         return [];
@@ -26,3 +26,19 @@ const searchOpenLibraryWorks = (query) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.searchOpenLibraryWorks = searchOpenLibraryWorks;
+const searchOpenLibraryAuthors = (query) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!query)
+        return [];
+    try {
+        const response = yield fetch(`https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&limit=5`);
+        if (!response.ok)
+            throw new Error(`OpenLibrary API error: ${response.statusText}`);
+        const data = yield response.json();
+        return data.docs || [];
+    }
+    catch (e) {
+        console.error('Error searching OpenLibrary authors:', e);
+        return [];
+    }
+});
+exports.searchOpenLibraryAuthors = searchOpenLibraryAuthors;

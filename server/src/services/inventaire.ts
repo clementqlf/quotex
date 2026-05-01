@@ -34,6 +34,7 @@ export interface InventaireWorkDetails {
     year: number | null;
     genreUris: string[];
     wikipediaTitle: string | null;
+    pages: number | null;
 }
 
 export interface InventaireAuthorDetails {
@@ -81,6 +82,35 @@ const safeFirstClaim = (claims: Record<string, any[]>, property: string): string
 };
 
 /**
+ * Formats a Wikidata/Inventaire date string into a human-readable French format.
+ * ex: "+2003-06-13T00:00:00Z" -> "13 juin 2003"
+ */
+const formatInventaireDate = (rawDate: string | null): string | null => {
+    if (!rawDate) return null;
+
+    // Wikidata dates often look like "+2003-06-13T00:00:00Z"
+    let cleanDate = rawDate.startsWith('+') ? rawDate.substring(1) : rawDate;
+
+    // Handle partial dates (e.g., "+1980-00-00T00:00:00Z")
+    if (cleanDate.includes('-00-00')) {
+        return cleanDate.split('-')[0];
+    }
+
+    try {
+        const date = new Date(cleanDate);
+        if (isNaN(date.getTime())) return rawDate;
+
+        return date.toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return rawDate;
+    }
+};
+
+/**
  * Standardizes a raw Inventaire entity into a consistent format used across the app.
  */
 const formatInventaireWork = (entity: any, uri?: string): Partial<InventaireWorkDetails> & { label?: string, authors?: string[] } => {
@@ -108,6 +138,7 @@ const formatInventaireWork = (entity: any, uri?: string): Partial<InventaireWork
         authorUris: claims['wdt:P50'] || [],
         genreUris: claims['wdt:P136'] || [],
         wikipediaTitle: sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null,
+        pages: safeFirstClaim(claims, 'wdt:P1104') ? parseInt(safeFirstClaim(claims, 'wdt:P1104')!) : null,
         label: label as string // For search result compatibility
     };
 };
@@ -358,6 +389,7 @@ export const getInventaireWorkDetails = async (uri: string): Promise<InventaireW
         year: formatted.year || null,
         genreUris: formatted.genreUris || [],
         wikipediaTitle: formatted.wikipediaTitle || null,
+        pages: formatted.pages || null,
     };
 };
 
@@ -403,7 +435,8 @@ export const getInventaireAuthorDetails = async (uri: string): Promise<Inventair
     const descriptions = entity.descriptions || {};
 
     const name = labels['fr'] || labels['en'] || Object.values(labels)[0] || null;
-    const birthDate = safeFirstClaim(claims, 'wdt:P569');
+    const rawBirthDate = safeFirstClaim(claims, 'wdt:P569');
+    const birthDate = formatInventaireDate(rawBirthDate);
     const nationalityUri = safeFirstClaim(claims, 'wdt:P27');
 
     const imageUrl = getEntityImage(entity.image);
@@ -522,6 +555,9 @@ export const getBatchInventaireDetails = async (uris: string[]): Promise<Record<
     for (const [uri, entity] of Object.entries(entities)) {
         if (!entity) continue;
         results[uri] = formatInventaireWork(entity, uri);
+
+        // If pages missing from work, we could optionally fetch editions here, 
+        // but to keep it fast for batch, we only do it if the entity already has it.
     }
     return results;
 };
@@ -599,18 +635,33 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
                 result.pages = editionWithPages.pages;
                 console.log(`[Inventaire] Found page count: ${result.pages}`);
             }
+
+            if (!result.year) {
+                const editionWithYear = editions.find(e => e.publishDate);
+                if (editionWithYear && editionWithYear.publishDate) {
+                    result.year = parseInt(editionWithYear.publishDate.substring(0, 4));
+                    console.log(`[Inventaire] Fallback year found from editions: ${result.year}`);
+                }
+            }
         }
     } catch (err) {
         console.error(`[Inventaire] Failed to fetch editions for pages/covers`, err);
     }
 
+    console.log(`[Inventaire] Enrichment finished for "${result.title}". Year: ${result.year || 'None'}, Pages: ${result.pages || 'None'}`);
+
     return result;
 };
+
+export const authorEnrichmentQueue: Set<number> = new Set();
 
 /**
  * Orchestrates complete enrichment for an author (metadata + biography + image)
  */
-export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string, authorUri?: string): Promise<any> => {
+export const syncAuthorProfile = async (authorId: number, authorName?: string, authorUri?: string): Promise<any> => {
+    if (authorEnrichmentQueue.has(authorId)) return null;
+    authorEnrichmentQueue.add(authorId);
+
     try {
         await prisma.author.update({ where: { id: authorId }, data: { isEnriching: true } as any }).catch(() => { });
         console.log(`[Inventaire] Starting enrichment for author ID: ${authorId}`);
@@ -619,6 +670,16 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         const author = await (prisma.author as any).findUnique({ where: { id: authorId } });
         if (!author) return null;
 
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        const now = new Date().getTime();
+        const lastEnriched = author.lastEnrichedAt ? new Date(author.lastEnrichedAt).getTime() : 0;
+        const isProfileFresh = (now - lastEnriched) < SEVEN_DAYS;
+
+        if (isProfileFresh) {
+            console.log(`[Inventaire] Author ${author.name} is already freshly enriched. Skipping.`);
+            return author;
+        }
+        
         const nameToSearch = authorName || author.name;
         let uri = authorUri || author.inventaireUri;
 
@@ -699,6 +760,7 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
         }
 
         // 7. Update DB
+        updateData.lastEnrichedAt = new Date();
         const updatedAuthor = await prisma.author.update({
             where: { id: authorId },
             data: updateData
@@ -706,17 +768,49 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
 
         console.log(`[Inventaire] Enrichment complete for ${updatedAuthor.name}`);
 
-        // 8. DISCOVERY: Fetch all works by this author and ensure they exist in DB
-        console.log(`[Inventaire] Discovering all works for author: ${updatedAuthor.name} (${uri})`);
+        
+
+        return updatedAuthor;
+
+    } catch (e) {
+        console.error(`[Inventaire] Author enrichment error:`, e);
+        return null;
+    } finally {
+        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } as any }).catch(() => { });
+        authorEnrichmentQueue.delete(authorId);
+    }
+};
+
+/**
+ * For a list of work URIs, finds the "best" native cover by looking at their editions.
+ * Prioritizes scans over Wikimedia fallbacks and editions with ISBNs.
+ */
+
+export const discoverAuthorWorks = async (authorId: number, authorUri?: string): Promise<void> => {
+    try {
+        const author = await (prisma.author as any).findUnique({ where: { id: authorId } });
+        if (!author) return;
+
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        const now = new Date().getTime();
+        const lastDiscovered = author.lastDiscoveredAt ? new Date(author.lastDiscoveredAt).getTime() : 0;
+        const isDiscoveryFresh = (now - lastDiscovered) < SEVEN_DAYS;
+
+        if (isDiscoveryFresh) {
+            console.log(`[Inventaire] Author ${author.name} works already discovered recently. Skipping.`);
+            return;
+        }
+
+        const uri = authorUri || author.inventaireUri;
+        if (!uri) return;
+
+        console.log(`[Inventaire] Discovering all works for author: ${author.name} (${uri})`);
         const workUris = await getAuthorWorkUris(uri);
 
         if (workUris.length > 0) {
-            console.log(`[Inventaire] Found ${workUris.length} works for author ${updatedAuthor.name}`);
+            console.log(`[Inventaire] Found ${workUris.length} works for author ${author.name}`);
 
-            // Limit to 100 works for now to avoid massive stalls, though they are processed in batches
             const limitedUris = workUris.slice(0, 100);
-
-            // Fetch basic metadata (labels) AND best covers for all these works in chunks
             const CHUNK_SIZE = 25;
             for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
                 const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
@@ -730,10 +824,8 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
 
                     const bestCover = bestCovers[wUri];
                     const finalCover = bestCover || details.image || null;
-
                     const bookTitle = details.title.trim();
 
-                    // Check if book exists
                     const existingBook = await prisma.book.findFirst({
                         where: {
                             OR: [
@@ -757,40 +849,12 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
                                     genre: ''
                                 }
                             });
-                        } catch (err) {
-                            if (err instanceof Prisma.PrismaClientKnownRequestError) {
-                                if (err.code === 'P2002') {
-                                    console.log(`[Inventaire] Book "${bookTitle}" already exists (race condition), skipping.`);
-                                    // Optional: link URI if missing
-                                    if (err.meta?.target && (err.meta.target as string[]).includes('title')) {
-                                        const conflictBook = await prisma.book.findFirst({
-                                            where: { title: bookTitle, authorId: author.id }
-                                        });
-                                        if (conflictBook && !conflictBook.inventaireUri) {
-                                            await prisma.book.update({
-                                                where: { id: conflictBook.id },
-                                                data: { inventaireUri: wUri }
-                                            }).catch(() => { });
-                                        }
-                                    }
-                                } else if (err.code === 'P2003') {
-                                    console.warn(`[Inventaire] Foreign key violation for "${bookTitle}" (Author ID: ${author.id}). Check if author still exists.`);
-                                    // Verify author exists
-                                    const stillExists = await prisma.author.findUnique({ where: { id: author.id } });
-                                    if (!stillExists) {
-                                        console.error(`[Inventaire] CRITICAL: Author ${author.id} no longer exists in DB!`);
-                                    }
-                                } else {
-                                    console.error(`[Inventaire] Failed to auto-import work "${bookTitle}":`, err);
-                                }
-                            } else {
-                                console.error(`[Inventaire] Unexpected error auto-importing "${bookTitle}":`, err);
+                        } catch (err: any) {
+                            if (err.code === 'P2002') {
+                                console.log(`[Inventaire] Book "${bookTitle}" already exists (race condition), skipping.`);
                             }
                         }
-                        // Background enrichment will be triggered when someone views the book 
-                        // or we could trigger it here, but let's keep it lean for the initial discovery.
                     } else if (!existingBook.inventaireUri) {
-                        // Link existing book to Inventaire URI if missing
                         await prisma.book.update({
                             where: { id: existingBook.id },
                             data: { inventaireUri: wUri }
@@ -800,20 +864,29 @@ export const enrichAuthorWithInventaire = async (authorId: number, authorName?: 
             }
         }
 
-        return updatedAuthor;
+        await prisma.author.update({
+            where: { id: authorId },
+            data: { lastDiscoveredAt: new Date() } as any
+        });
 
     } catch (e) {
-        console.error(`[Inventaire] Author enrichment error:`, e);
-        return null;
-    } finally {
-        await prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } as any }).catch(() => { });
+        console.error(`[Inventaire] Author discovery error:`, e);
     }
 };
 
 /**
- * For a list of work URIs, finds the "best" native cover by looking at their editions.
- * Prioritizes scans over Wikimedia fallbacks and editions with ISBNs.
+ * Orchestrates complete enrichment for an author (metadata + biography + image + works)
  */
+export const enrichAuthorWithInventaire = async (authorId: number, authorName?: string, authorUri?: string, skipDiscovery: boolean = false): Promise<any> => {
+    const author = await syncAuthorProfile(authorId, authorName, authorUri);
+    if (!author) return null;
+    
+    if (!skipDiscovery) {
+        await discoverAuthorWorks(authorId, author.inventaireUri);
+    }
+    return author;
+};
+
 export const getBestNativeCovers = async (workUris: string[]): Promise<Record<string, string | null>> => {
     if (!workUris.length) return {};
     console.log(`[Inventaire] Searching for native covers for ${workUris.length} works...`);

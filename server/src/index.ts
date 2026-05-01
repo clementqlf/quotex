@@ -19,6 +19,7 @@ import {
 } from './services/inventaire';
 import { getNotableWorksDetailed } from './services/notableWorks';
 import { enrichBookWithInventaire, discoverAndEnrichBook } from './services/bookEnrichment';
+import { backgroundQueue } from './services/queue';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -327,7 +328,7 @@ app.get('/authors/:id/notable-works', async (req, res) => {
 
             // Background enrichment ONLY if we lack basic data (description or cover)
             if (book && (book.inventaireUri) && (!book.description || book.description.length < 50 || !book.cover)) {
-                enrichBookWithInventaire(book.id).catch(err =>
+                backgroundQueue.add(() => enrichBookWithInventaire(book.id)).catch(err =>
                     console.error(`[Server] Background enrichment failed for ${book.title}:`, err)
                 );
             }
@@ -565,7 +566,7 @@ app.post('/quotes', async (req, res) => {
         if (!authorRecord) {
             authorRecord = await prisma.author.create({ data: { name: author, isEnriching: true } as any });
             // Enrich author asynchronously
-            enrichAuthor(authorRecord.id).catch((err: any) =>
+            backgroundQueue.add(() => enrichAuthor(authorRecord!.id)).catch((err: any) =>
                 console.error(`[Server] Async enrichment failed for ${author}:`, err)
             );
         }
@@ -593,7 +594,7 @@ app.post('/quotes', async (req, res) => {
         // We trigger it if the book is newly created OR if it lacks basic data
         if (!bookRecord || !(bookRecord as any).description || !(bookRecord as any).inventaireUri) {
             console.log(`[Server] Quote added for book: "${book}". Triggering background discovery/enrichment.`);
-            discoverAndEnrichBook(bookRecord.id).catch(err =>
+            backgroundQueue.add(() => discoverAndEnrichBook(bookRecord!.id)).catch(err =>
                 console.error(`[Server] Background discovery failed for ${book}:`, err)
             );
         }
@@ -652,7 +653,7 @@ app.patch('/quotes/:id', async (req, res) => {
             let authorRecord = await prisma.author.findUnique({ where: { name: author } });
             if (!authorRecord) {
                 authorRecord = await prisma.author.create({ data: { name: author, isEnriching: true } as any });
-                enrichAuthor(authorRecord.id).catch((err: any) =>
+                backgroundQueue.add(() => enrichAuthor(authorRecord!.id)).catch((err: any) =>
                     console.error(`[Server] Async enrichment failed for ${author}:`, err)
                 );
             }
@@ -680,9 +681,9 @@ app.patch('/quotes/:id', async (req, res) => {
             bookId = bookRecord.id;
 
             // Trigger discovery/enrichment for the updated book
-            if (!bookRecord || !(bookRecord as any).description || !(bookRecord as any).inventaireUri) {
+            if (bookId && (!bookRecord || !(bookRecord as any).description || !(bookRecord as any).inventaireUri)) {
                 console.log(`[Server] Quote updated with new/incomplete book: "${book}". Triggering background discovery/enrichment.`);
-                discoverAndEnrichBook(bookId).catch(err =>
+                backgroundQueue.add(() => discoverAndEnrichBook(bookId!)).catch(err =>
                     console.error(`[Server] Background discovery failed for ${book}:`, err)
                 );
             }
@@ -934,7 +935,7 @@ app.post('/books/import', async (req, res) => {
             // Ensure author is fully enriched (awaited to ensure bio is returned)
             if (fullUpdatedBook?.author) {
                 const authorUri = (bookData.authorUris && bookData.authorUris.length > 0) ? bookData.authorUris[0] : undefined;
-                await enrichAuthor(fullUpdatedBook.author.id, undefined, authorUri).catch((e: any) => console.error(e));
+                backgroundQueue.add(() => enrichAuthor(fullUpdatedBook.author.id, undefined, authorUri)).catch((e: any) => console.error(e));
             }
 
             res.json(formatBook(fullUpdatedBook));
@@ -1005,7 +1006,7 @@ app.post('/books/import', async (req, res) => {
             await enrichBookWithInventaire(newBook.id);
         } else {
             console.log(`[Server] No URI for imported book: ${newBook.title}. Triggering background discovery.`);
-            discoverAndEnrichBook(newBook.id).catch(e =>
+            backgroundQueue.add(() => discoverAndEnrichBook(newBook.id)).catch(e =>
                 console.error(`[Server] Background discovery for imported book failed:`, e)
             );
         }
@@ -1013,7 +1014,7 @@ app.post('/books/import', async (req, res) => {
         // 2. Ensure author is enriched (awaited to ensure metadata is ready for first view)
         if (author.id) {
             const authorUri = (bookData.authorUris && bookData.authorUris.length > 0) ? bookData.authorUris[0] : undefined;
-            await enrichAuthor(author.id, undefined, authorUri).catch((e: any) => console.error(e));
+            backgroundQueue.add(() => enrichAuthor(author.id, undefined, authorUri)).catch((e: any) => console.error(e));
         }
 
         // 3. Final fetch to get fully enriched state (author + editions)

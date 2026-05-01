@@ -108,7 +108,7 @@ class WikidataService {
                     cover: coverUrl,
                     year: invData?.year || 0,
                     description: '',
-                    pages: 0,
+                    pages: invData?.pages || 0,
                     rating: 0,
                     genre: '',
                     buyLinks: [],
@@ -189,7 +189,7 @@ class WikidataService {
                     cover: coverUrl,
                     year: year,
                     description: '',
-                    pages: 0,
+                    pages: (item as any).pages?.value || 0,
                     rating: 0,
                     genre: item.genres?.value || '',
                     buyLinks: []

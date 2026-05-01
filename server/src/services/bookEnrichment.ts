@@ -99,7 +99,9 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
             }
 
             if (Object.keys(updateData).length > 0) {
-                console.log(`[BookEnrichment] Applying updates to ${(book as any).title}:`, Object.keys(updateData));
+                console.log(`[BookEnrichment] Applying updates to ${(book as any).title}:`, 
+                    Object.keys(updateData).map(k => `${k}: ${updateData[k]}`).join(', ')
+                );
                 await prisma.book.update({
                     where: { id: bookId },
                     data: updateData
@@ -139,7 +141,7 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
             if (enriched.authorUris && Array.isArray(enriched.authorUris) && (book as any).authorId) {
                 for (const authorUri of enriched.authorUris) {
                     console.log(`[BookEnrichment] Triggering direct author enrichment for URI: ${authorUri}`);
-                    enrichAuthorWithInventaire((book as any).authorId, undefined, authorUri).catch(e => 
+                    enrichAuthorWithInventaire((book as any).authorId, undefined, authorUri, true).catch(e => 
                         console.error(`[BookEnrichment] Author enrichment failed:`, e)
                     );
                 }

@@ -28,6 +28,8 @@ model Book {
   
   isEnriching  Boolean  @default(false)
   isSaved     Boolean  @default(false)
+  lastEnrichedAt DateTime?
+  lastDiscoveredAt DateTime?
 
   // Relations
   quotes      Quote[]
@@ -55,6 +57,8 @@ model Author {
 
   isEnriching     Boolean  @default(false)
   isSaved         Boolean  @default(false)
+  lastEnrichedAt  DateTime?
+  lastDiscoveredAt DateTime?
 
   // Self-relation for similar authors
   similarAuthors  Author[] @relation("SimilarAuthors")
@@ -149,6 +153,7 @@ model Edition {
   publisherName String?  // Resolved human-readable name
   languageUri   String?  // ex. "wd:Q150" for French
   cover         String?  // Full URL to cover image
+  pages         Int?
   bookId        Int
   book          Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
   createdAt     DateTime @default(now())
