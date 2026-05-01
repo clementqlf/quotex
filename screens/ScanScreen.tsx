@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
-import { BookOpen, Image as ImageIcon, ScanLine, Sparkles } from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
@@ -28,6 +28,7 @@ import { ThemeColors } from '@/src/theme/theme';
 
 export default function ScanScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
   const [ocrResult, setOcrResult] = React.useState<TextRecognitionResult | null>(null);
@@ -301,9 +302,23 @@ export default function ScanScreen() {
     >
       {!photo && (
         <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.headerButtonLeft} 
+            onPress={() => router.push('/settings')}
+          >
+            <Settings size={24} color="#E5E7EB" />
+          </TouchableOpacity>
+
           <View style={styles.logoContainer}>
             <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />
           </View>
+
+          <TouchableOpacity 
+            style={styles.headerButtonRight} 
+            onPress={() => router.push('/user-profile')}
+          >
+            <User size={24} color="#E5E7EB" />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -518,10 +533,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   header: {
     position: 'relative',
     top: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
     width: '100%',
+    height: 120,
     overflow: 'visible',
+  },
+  headerButtonLeft: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 20,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerButtonRight: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 20,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoContainer: {
     alignItems: 'center',

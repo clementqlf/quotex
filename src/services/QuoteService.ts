@@ -4,6 +4,7 @@ import { localQuotesDB, globalQuotesDB, addQuote as addQuoteToStatic } from '../
 import { StorageService, STORAGE_KEYS } from './StorageService';
 
 import { API_BASE_URL } from '../config/api';
+import { authService } from './AuthService';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
@@ -36,6 +37,18 @@ class QuoteService {
     // Use centralized API config
     private readonly API_URL = `${API_BASE_URL}/quotes`;
 
+    private async getHeaders(extraHeaders: Record<string, string> = {}) {
+        const token = await authService.getToken();
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...extraHeaders,
+        };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        return headers;
+    }
+
 
 
     async getQuotes(): Promise<Quote[]> {
@@ -45,7 +58,11 @@ class QuoteService {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
 
-            const response = await fetch(this.API_URL!, { signal: controller.signal });
+            const headers = await this.getHeaders();
+            const response = await fetch(this.API_URL!, { 
+                signal: controller.signal,
+                headers
+            });
             clearTimeout(timeoutId);
 
             if (response.ok) {
@@ -100,7 +117,8 @@ class QuoteService {
         // Try fetching from server first
         try {
             console.log(`Fetching quote ${id} from server...`);
-            const response = await fetch(`${this.API_URL}/${id}`);
+            const headers = await this.getHeaders();
+            const response = await fetch(`${this.API_URL}/${id}`, { headers });
             if (response.ok) {
                 const q = await response.json();
                 console.log('Quote fetched successfully:', q.id);
@@ -143,8 +161,10 @@ class QuoteService {
 
     async toggleLike(id: number): Promise<boolean> {
         try {
+            const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}/like`, {
-                method: 'POST'
+                method: 'POST',
+                headers
             });
             if (response.ok) {
                 const data = await response.json();
@@ -170,8 +190,10 @@ class QuoteService {
 
     async toggleSave(id: number): Promise<boolean> {
         try {
+            const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}/toggle-save`, {
-                method: 'POST'
+                method: 'POST',
+                headers
             });
             if (response.ok) {
                 const data = await response.json();
@@ -197,8 +219,10 @@ class QuoteService {
     async deleteQuote(id: number): Promise<void> {
         try {
             console.log('Deleting quote on server:', id);
+            const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}`, {
                 method: 'DELETE',
+                headers
             });
 
             if (response.ok) {
@@ -220,11 +244,10 @@ class QuoteService {
         const quotePayload = { text, book, author };
         try {
             console.log('Sending quote to server:', quotePayload);
+            const headers = await this.getHeaders();
             const response = await fetch(this.API_URL!, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(quotePayload),
             });
 
@@ -258,7 +281,7 @@ class QuoteService {
             isSaved: false,
             comments: 0,
             blockData: {},
-            user: { id: 1, name: "Clément QLF", username: "@clementqlf" }
+            user: await authService.getUser() || { id: 1, name: "Clément QLF", username: "@clementqlf" }
         };
         const updatedQuotes = [newQuote, ...quotes];
         await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
@@ -280,9 +303,10 @@ class QuoteService {
 
         for (const quote of pending) {
             try {
+                const headers = await this.getHeaders();
                 const response = await fetch(this.API_URL!, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers,
                     body: JSON.stringify(quote),
                 });
                 if (!response.ok) {
@@ -315,11 +339,10 @@ class QuoteService {
 
         try {
             console.log(`Updating quote ${id} on server...`, payload);
+            const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(payload),
             });
 
@@ -345,9 +368,10 @@ class QuoteService {
     async getUserByUsername(username: string): Promise<any | undefined> {
         try {
             const baseUrl = this.API_URL!.replace('/quotes', '');
+            const headers = await this.getHeaders();
             // Strip @ if present in URL segment to avoid double encoding or issues, handled by server anyway
             const cleanUsername = username.replace('@', '');
-            const response = await fetch(`${baseUrl}/users/${cleanUsername}`);
+            const response = await fetch(`${baseUrl}/users/${cleanUsername}`, { headers });
 
             if (response.ok) {
                 return await response.json();

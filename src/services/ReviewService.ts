@@ -1,10 +1,15 @@
 import { Review } from '../../types';
 import { API_BASE_URL } from '../config/api';
+import { authService } from './AuthService';
 
 export const ReviewService = {
     async getReviewsByBookId(bookId: number): Promise<Review[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/reviews?bookId=${bookId}`);
+            const token = await authService.getToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const response = await fetch(`${API_BASE_URL}/reviews?bookId=${bookId}`, { headers });
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error(`Failed to fetch reviews. Status: ${response.status}, Body: ${errorText}`);
@@ -17,13 +22,15 @@ export const ReviewService = {
         }
     },
 
-    async createReview(review: { rating: number; comment?: string; bookId: number; userId: number }): Promise<Review | null> {
+    async createReview(review: { rating: number; comment?: string; bookId: number }): Promise<Review | null> {
         try {
+            const token = await authService.getToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const response = await fetch(`${API_BASE_URL}/reviews`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(review),
             });
 

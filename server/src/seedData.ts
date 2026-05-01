@@ -1,14 +1,19 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 export const seed = async () => {
     console.log('Starting enrichment seed...');
 
+    const hashedDefaultPassword = await bcrypt.hash('password123', 10);
+
     // --- Users ---
     const usersData = [
         {
             username: "@clementqlf",
+            email: "clement@quotex.app",
+            password: hashedDefaultPassword,
             name: "Clément QLF",
             image: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop",
             bio: "Passionné par la littérature classique et la philosophie. Je partage ici les citations qui façonnent ma pensée.",
@@ -18,6 +23,8 @@ export const seed = async () => {
         },
         {
             username: "@sophiereads",
+            email: "sophie@quotex.app",
+            password: hashedDefaultPassword,
             name: "Sophie Martin",
             image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
             bio: "Exploratrice de la science-fiction et des mondes imaginaires. Chaque citation est une porte vers un autre univers.",
@@ -27,6 +34,8 @@ export const seed = async () => {
         },
         {
             username: "@lucas_books",
+            email: "lucas@quotex.app",
+            password: hashedDefaultPassword,
             name: "Lucas Bernard",
             image: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop",
             bio: "Historien amateur et grand lecteur de biographies. J'aime comprendre les gens qui ont fait l'Histoire.",
@@ -36,6 +45,8 @@ export const seed = async () => {
         },
         {
             username: "@emma_art",
+            email: "emma@quotex.app",
+            password: hashedDefaultPassword,
             name: "Emma Dubois",
             image: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=200&h=200&fit=crop",
             bio: "L'art est ma vie. La poésie est mon souffle. Je cherche la beauté dans chaque ligne.",
@@ -45,6 +56,8 @@ export const seed = async () => {
         },
         {
             username: "@tom_tech",
+            email: "thomas@quotex.app",
+            password: hashedDefaultPassword,
             name: "Thomas Durand",
             image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200&h=200&fit=crop",
             bio: "Tech lead le jour, lecteur avide la nuit. Science, Innovation et Futur.",

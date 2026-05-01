@@ -7,6 +7,8 @@ export const STORAGE_KEYS = {
     BLOCK_LAYOUTS: 'block_layouts',
     BLOCK_DATA: 'block_data',
     PENDING_QUOTES: 'pending_quotes',
+    AUTH_TOKEN: 'auth_token',
+    USER_DATA: 'user_data',
 };
 
 export const StorageService = {

@@ -1,9 +1,11 @@
-import React from 'react';
-import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator } from 'react-native';
 import { DataProvider } from '@/src/contexts/DataProvider';
+import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/contexts/ThemeContext';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
@@ -17,9 +19,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <DataProvider>
-            <RootLayoutNav />
-          </DataProvider>
+          <AuthProvider>
+            <DataProvider>
+              <RootLayoutNav />
+            </DataProvider>
+          </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -28,6 +32,31 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const { isDark, colors: themeColors } = useTheme();
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      // Redirect to the login page if the user is not authenticated
+      router.replace('/auth/login');
+    } else if (isAuthenticated && inAuthGroup) {
+      // Redirect away from the auth group if the user is authenticated
+      router.replace('/');
+    }
+  }, [isAuthenticated, segments, isLoading]);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#000' : '#FFF' }}>
+        <ActivityIndicator size="large" color="#20B8CD" />
+      </View>
+    );
+  }
 
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
 
@@ -103,6 +132,10 @@ function RootLayoutNav() {
           options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
         />
         <Stack.Screen
+          name="settings"
+          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
           name="quote-detail"
           options={{
             presentation: 'modal',
@@ -122,6 +155,10 @@ function RootLayoutNav() {
           name="scan"
           options={{ presentation: 'fullScreenModal', headerShown: false }}
         />
+        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login-password" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/register-details" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />
     </NavThemeProvider>

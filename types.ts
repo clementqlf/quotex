@@ -3,8 +3,9 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 // Define shared types here to avoid circular imports
 export type User = {
   id: string | number;
-  name: string;
+  name?: string;
   username: string;
+  email?: string;
   image?: string;
   bio?: string;
   website?: string;
