@@ -27,6 +27,8 @@ export type Author = {
   quotesCount?: number;
 };
 
+export type ReadingStatus = 'READ' | 'TO_READ' | 'READING' | 'DROPPED';
+
 export type Book = {
   id?: number; // ensured number
   title: string;
@@ -41,6 +43,7 @@ export type Book = {
   similarBooks?: Book[];
   isSaved?: boolean;
   isEnriching?: boolean;
+  readingStatus?: ReadingStatus | null;
   inventaireUri?: string;
   openLibraryId?: string;
   googleId?: string;

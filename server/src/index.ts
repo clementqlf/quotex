@@ -27,8 +27,8 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Helper to format book (parse JSON fields)
-const formatBook = (book: any) => {
+// Helper to format book (parse JSON fields and flatten user state)
+const formatBook = (book: any, userId: number = 1) => {
     if (!book) return null;
     let buyLinks = [];
     try {
@@ -40,19 +40,38 @@ const formatBook = (book: any) => {
     } catch (e) {
         console.error(`Error parsing buyLinks for book ${book.id}:`, e);
     }
+
+    const userLink = book.users?.find((u: any) => u.userId === userId);
+
     return {
         ...book,
+        isSaved: !!userLink,
+        readingStatus: userLink?.status || null,
         buyLinks,
     };
 };
 
+// Helper to format author
+const formatAuthor = (author: any, userId: number = 1) => {
+    if (!author) return null;
+    const userLink = author.users?.find((u: any) => u.userId === userId);
+    return {
+        ...author,
+        isSaved: !!userLink,
+        quotesCount: author._count ? author._count.quotes : (author.quotesCount || 0)
+    };
+};
+
 // Helper to format quote (including nested book)
-const formatQuote = (quote: any) => {
+const formatQuote = (quote: any, userId: number = 1) => {
+    if (!quote) return null;
+    const isSaved = quote.savedBy ? quote.savedBy.some((s: any) => s.userId === userId) : false;
     return {
         ...quote,
-        book: quote.book ? formatBook(quote.book) : null,
-        isLiked: quote.likes ? quote.likes.length > 0 : false,
-        likesCount: quote._count ? quote._count.likes : quote.likesCount
+        book: quote.book ? formatBook(quote.book, userId) : null,
+        isSaved,
+        isLiked: quote.likes ? quote.likes.some((l: any) => l.userId === userId) : false,
+        likesCount: quote._count ? quote._count.likes : (quote.likesCount || 0)
     };
 };
 
@@ -67,9 +86,14 @@ app.get('/quotes', async (req, res) => {
         const quotes = await prisma.quote.findMany({
             include: {
                 author: true,
-                book: true,
+                book: {
+                    include: { users: { where: { userId } } }
+                },
                 user: true,
                 likes: {
+                    where: { userId: userId }
+                },
+                savedBy: {
                     where: { userId: userId }
                 },
                 _count: {
@@ -79,7 +103,7 @@ app.get('/quotes', async (req, res) => {
             orderBy: { date: 'desc' }
         });
 
-        const quotesWithLikeStatus = quotes.map(formatQuote);
+        const quotesWithLikeStatus = quotes.map(q => formatQuote(q, userId));
 
         console.log(`Returning ${quotesWithLikeStatus.length} quotes`);
         res.json(quotesWithLikeStatus);
@@ -99,9 +123,14 @@ app.get('/quotes/:id', async (req, res) => {
             where: { id: parseInt(id) },
             include: {
                 author: true,
-                book: true,
+                book: {
+                    include: { users: { where: { userId } } }
+                },
                 user: true,
                 likes: {
+                    where: { userId: userId }
+                },
+                savedBy: {
                     where: { userId: userId }
                 },
                 _count: {
@@ -115,7 +144,7 @@ app.get('/quotes/:id', async (req, res) => {
             return;
         }
 
-        const quoteWithLikeStatus = formatQuote(quote);
+        const quoteWithLikeStatus = formatQuote(quote, userId);
 
         res.json(quoteWithLikeStatus);
     } catch (e) {
@@ -124,51 +153,33 @@ app.get('/quotes/:id', async (req, res) => {
     }
 });
 
-// Toggle like on a quote
-app.post('/quotes/:id/like', async (req, res) => {
+// Toggle save status for a quote
+app.post('/quotes/:id/toggle-save', async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = 1; // Hardcoded user for now
+        const userId = 1;
         const quoteId = parseInt(id);
 
-        const existingLike = await prisma.like.findUnique({
+        const existingLink = await prisma.userQuote.findUnique({
             where: {
-                userId_quoteId: {
-                    userId,
-                    quoteId
-                }
+                userId_quoteId: { userId, quoteId }
             }
         });
 
-        if (existingLike) {
-            // Unlike
-            await prisma.like.delete({
-                where: {
-                    id: existingLike.id
-                }
+        if (existingLink) {
+            await prisma.userQuote.delete({
+                where: { userId_quoteId: { userId, quoteId } }
             });
-            await prisma.quote.update({
-                where: { id: quoteId },
-                data: { likesCount: { decrement: 1 } }
-            });
-            res.json({ isLiked: false });
+            res.json({ isSaved: false });
         } else {
-            // Like
-            await prisma.like.create({
-                data: {
-                    userId,
-                    quoteId
-                }
+            await prisma.userQuote.create({
+                data: { userId, quoteId }
             });
-            await prisma.quote.update({
-                where: { id: quoteId },
-                data: { likesCount: { increment: 1 } }
-            });
-            res.json({ isLiked: true });
+            res.json({ isSaved: true });
         }
     } catch (e) {
-        console.error('Error toggling like:', e);
-        res.status(500).json({ error: 'Failed to toggle like' });
+        console.error('Error toggling quote save status:', e);
+        res.status(500).json({ error: 'Failed to toggle quote save status' });
     }
 });
 
@@ -177,17 +188,17 @@ app.get('/authors', async (req, res) => {
     try {
         const authors = await prisma.author.findMany({
             include: {
-                books: true,
+                books: {
+                    include: { users: { where: { userId: 1 } } }
+                },
+                users: { where: { userId: 1 } },
                 similarAuthors: true,
                 _count: {
                     select: { quotes: true }
                 }
             }
         });
-        const formattedAuthors = authors.map((a: any) => ({
-            ...a,
-            quotesCount: a._count.quotes
-        }));
+        const formattedAuthors = authors.map((a: any) => formatAuthor(a, 1));
         res.json(formattedAuthors);
     } catch (e) {
         res.status(500).json({ error: 'Failed to fetch authors' });
@@ -366,42 +377,25 @@ app.post('/authors/:id/toggle-save', async (req, res) => {
     try {
         const { id } = req.params;
         const authorId = parseInt(id);
+        const userId = 1;
 
-        const author = await prisma.author.findUnique({
-            where: { id: authorId },
-            include: { _count: { select: { quotes: true } } }
+        const existingLink = await prisma.userAuthor.findUnique({
+            where: {
+                userId_authorId: { userId, authorId }
+            }
         });
 
-        if (!author) {
-            res.status(404).json({ error: 'Author not found' });
-            return;
-        }
-
-        // Rule: Authors with quotes are ALWAYS considered saved in the UI, 
-        // but we can still toggle the isSaved field if we want a separate explicit save.
-        // However, the requirement says authors with quotes "cannot be unsaved".
-        if ((author as any)._count.quotes > 0 && !(author as any).isSaved) {
-            // First time saving an author with quotes? Just ensure isSaved is true.
-            const updatedAuthor = await prisma.author.update({
-                where: { id: authorId },
-                data: { isSaved: true } as any
+        if (existingLink) {
+            await prisma.userAuthor.delete({
+                where: { userId_authorId: { userId, authorId } }
+            });
+            res.json({ isSaved: false });
+        } else {
+            await prisma.userAuthor.create({
+                data: { userId, authorId }
             });
             res.json({ isSaved: true });
-            return;
         }
-
-        if ((author as any)._count.quotes > 0 && (author as any).isSaved) {
-            // Cannot unsave if there are quotes
-            res.json({ isSaved: true, message: 'Authors with quotes cannot be unsaved' });
-            return;
-        }
-
-        const updatedAuthor = await prisma.author.update({
-            where: { id: authorId },
-            data: { isSaved: !(author as any).isSaved } as any
-        });
-
-        res.json({ isSaved: (updatedAuthor as any).isSaved });
     } catch (e) {
         console.error('Error toggling author save status:', e);
         res.status(500).json({ error: 'Failed to toggle author save status' });
@@ -412,12 +406,14 @@ app.post('/authors/:id/toggle-save', async (req, res) => {
 app.get('/books/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const userId = 1;
         const book = await prisma.book.findUnique({
             where: { id: parseInt(id) },
             include: {
                 author: true,
                 similarBooks: true,
-                editions: true
+                editions: true,
+                users: { where: { userId } }
             } as any
         });
 
@@ -443,42 +439,62 @@ app.post('/books/:id/toggle-save', async (req, res) => {
     try {
         const { id } = req.params;
         const bookId = parseInt(id);
+        const userId = 1;
 
-        const book = await prisma.book.findUnique({
-            where: { id: bookId },
-            include: { _count: { select: { quotes: true } } }
+        const existingLink = await prisma.userBook.findUnique({
+            where: {
+                userId_bookId: { userId, bookId }
+            }
         });
 
-        if (!book) {
-            res.status(404).json({ error: 'Book not found' });
-            return;
-        }
-
-        // Rule: Books with quotes (from any user, but usually we filter by user 1 in UI)
-        // Here we use the same rule as authors: if it has quotes, it's pinned to saved.
-        if ((book as any)._count.quotes > 0 && !(book as any).isSaved) {
-            const updatedBook = await prisma.book.update({
-                where: { id: bookId },
-                data: { isSaved: true } as any
+        if (existingLink) {
+            await prisma.userBook.delete({
+                where: { userId_bookId: { userId, bookId } }
+            });
+            res.json({ isSaved: false });
+        } else {
+            await prisma.userBook.create({
+                data: { userId, bookId }
             });
             res.json({ isSaved: true });
-            return;
         }
-
-        if ((book as any)._count.quotes > 0 && (book as any).isSaved) {
-            res.json({ isSaved: true, message: 'Books with quotes cannot be unsaved' });
-            return;
-        }
-
-        const updatedAuthor = await prisma.book.update({
-            where: { id: bookId },
-            data: { isSaved: !(book as any).isSaved } as any
-        });
-
-        res.json({ isSaved: (updatedAuthor as any).isSaved });
     } catch (e) {
         console.error('Error toggling book save status:', e);
         res.status(500).json({ error: 'Failed to toggle book save status' });
+    }
+});
+
+// Update reading status for a book
+app.patch('/books/:id/status', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { readingStatus } = req.body;
+        const bookId = parseInt(id);
+        const userId = 1;
+
+        if (!readingStatus) {
+            res.status(400).json({ error: 'Missing readingStatus' });
+            return;
+        }
+
+        // When a status is set, the book is automatically saved
+        const updatedLink = await prisma.userBook.upsert({
+            where: {
+                userId_bookId: { userId, bookId }
+            },
+            update: { status: readingStatus },
+            create: { userId, bookId, status: readingStatus }
+        });
+
+        const book = await prisma.book.findUnique({
+            where: { id: bookId },
+            include: { users: { where: { userId } }, author: true }
+        });
+
+        res.json(formatBook(book, userId));
+    } catch (e) {
+        console.error('Error updating book status:', e);
+        res.status(500).json({ error: 'Failed to update book status' });
     }
 });
 
@@ -501,11 +517,12 @@ app.get('/books', async (req, res) => {
             where,
             include: {
                 author: true,
-                similarBooks: true
+                similarBooks: true,
+                users: { where: { userId: 1 } }
             }
         });
 
-        const formattedBooks = books.map(formatBook);
+        const formattedBooks = books.map(b => formatBook(b, 1));
         res.json(formattedBooks);
     } catch (e) {
         console.error('Error fetching books:', e);
@@ -525,8 +542,12 @@ app.get('/users/:username', async (req, res) => {
             include: {
                 quotes: {
                     include: {
-                        book: true,
-                        author: true
+                        book: {
+                            include: { users: { where: { userId: 1 } } }
+                        },
+                        author: true,
+                        savedBy: { where: { userId: 1 } },
+                        likes: { where: { userId: 1 } }
                     }
                 }
             }
@@ -613,13 +634,17 @@ app.post('/quotes', async (req, res) => {
             },
             include: {
                 author: true,
-                book: true,
-                user: true
+                book: {
+                    include: { users: { where: { userId: 1 } } }
+                },
+                user: true,
+                savedBy: { where: { userId: 1 } },
+                likes: { where: { userId: 1 } }
             }
         });
 
         console.log('Created quote:', newQuote.id);
-        res.json(formatQuote(newQuote));
+        res.json(formatQuote(newQuote, 1));
     } catch (e) {
         console.error('Error creating quote:', e);
         res.status(500).json({ error: 'Failed to create quote' });
@@ -700,10 +725,15 @@ app.patch('/quotes/:id', async (req, res) => {
             },
             include: {
                 author: true,
-                book: true,
+                book: {
+                    include: { users: { where: { userId: 1 } } }
+                },
                 user: true,
                 likes: {
                     where: { userId: 1 } // Hardcoded for now
+                },
+                savedBy: {
+                    where: { userId: 1 }
                 },
                 _count: {
                     select: { likes: true }
@@ -711,7 +741,7 @@ app.patch('/quotes/:id', async (req, res) => {
             }
         });
 
-        res.json(formatQuote(updatedQuote));
+        res.json(formatQuote(updatedQuote, 1));
     } catch (e) {
         console.error('Error updating quote:', e);
         res.status(500).json({ error: 'Failed to update quote' });
@@ -1124,23 +1154,29 @@ app.get('/search', async (req, res) => {
         });
 
         // 2. Search Local Authors (Saved only)
-        const localAuthors = await prisma.author.findMany({
+        const localAuthorsRaw = await prisma.author.findMany({
             where: {
                 name: { contains: query },
-                isSaved: true
+                users: { some: { userId: 1 } }
             },
+            include: { users: { where: { userId: 1 } } },
             take: 10
         });
+        const localAuthors = localAuthorsRaw.map(a => formatAuthor(a, 1));
 
         // 3. Search Local Books (Saved only)
-        const books = await prisma.book.findMany({
+        const localBooksRaw = await prisma.book.findMany({
             where: {
                 title: { contains: query },
-                isSaved: true
+                users: { some: { userId: 1 } }
             },
-            include: { author: true },
+            include: { 
+                author: true,
+                users: { where: { userId: 1 } }
+            },
             take: 10
         });
+        const books = localBooksRaw.map(b => formatBook(b, 1));
 
         // 4. Search Themes (local)
         const themesRaw = await prisma.quote.findMany({
@@ -1183,8 +1219,8 @@ app.get('/search', async (req, res) => {
             await setCachedSearch(query, 'humans', inventaireAuthors);
         }
 
-        const formattedQuotes = quotes.map(formatQuote);
-        const formattedBooks = books.map(formatBook);
+        const formattedQuotes = quotes.map(q => formatQuote(q, 1));
+        const formattedBooks = books; // Already formatted above
 
         res.json({
             quotes: formattedQuotes,

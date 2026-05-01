@@ -154,6 +154,25 @@ class AuthorService {
         return false;
     }
 
+    async updateBookStatus(id: number, status: string): Promise<Book | undefined> {
+        try {
+            const response = await fetch(`${this.API_URL}/books/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ readingStatus: status })
+            });
+            if (response.ok) {
+                const book = await response.json();
+                book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
+                book.similarBooks = book.similarBooks || [];
+                return book;
+            }
+        } catch (error) {
+            console.error('Error updating book status:', error);
+        }
+        return undefined;
+    }
+
     async importBook(bookData: Partial<Book>): Promise<Book | undefined> {
         try {
             console.log(`[AuthorService] Importing book: ${bookData.title}`);

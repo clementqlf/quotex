@@ -141,20 +141,57 @@ class QuoteService {
         return quotes.find(q => q.id === id);
     }
 
-    async toggleLike(id: number): Promise<Quote | undefined> {
-        await delay(200);
+    async toggleLike(id: number): Promise<boolean> {
+        try {
+            const response = await fetch(`${this.API_URL}/${id}/like`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data.isLiked;
+            }
+        } catch (e) {
+            console.error('Error toggling like:', e);
+        }
+
+        // Local fallback (legacy)
         const quotes = await this.getQuotes();
         const quoteIndex = quotes.findIndex(q => q.id === id);
-
         if (quoteIndex > -1) {
             const quote = quotes[quoteIndex];
             quote.isLiked = !quote.isLiked;
             quote.likesCount += quote.isLiked ? 1 : -1;
             quotes[quoteIndex] = quote;
             await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-            return quote;
+            return quote.isLiked;
         }
-        return undefined;
+        return false;
+    }
+
+    async toggleSave(id: number): Promise<boolean> {
+        try {
+            const response = await fetch(`${this.API_URL}/${id}/toggle-save`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data.isSaved;
+            }
+        } catch (e) {
+            console.error('Error toggling save:', e);
+        }
+
+        // Local fallback
+        const quotes = await this.getQuotes();
+        const quoteIndex = quotes.findIndex(q => q.id === id);
+        if (quoteIndex > -1) {
+            const quote = quotes[quoteIndex];
+            quote.isSaved = !quote.isSaved;
+            quotes[quoteIndex] = quote;
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+            return quote.isSaved;
+        }
+        return false;
     }
 
     async deleteQuote(id: number): Promise<void> {

@@ -9,11 +9,13 @@ import {
   Modal,
   ActivityIndicator,
   FlatList,
+  Share,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
-import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon } from 'lucide-react-native';
 import { useData } from '@/src/contexts/DataProvider';
 import { getBookTitle } from '@/src/utils/dataHelpers';
 import { Author, Book } from '@/types';
@@ -123,6 +125,17 @@ export function AuthorDetailScreen() {
     setAuthorInfo(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
   };
 
+  const handleShare = async () => {
+    if (!authorInfo) return;
+    try {
+      await Share.share({
+        message: `Découvrez l'auteur "${authorName}" sur Quotex !`,
+      });
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message);
+    }
+  };
+
   const handleOpenWikipedia = async () => {
     if (!authorInfo?.inventaireUri || !authorInfo.inventaireUri.startsWith('wd:')) {
       // Fallback: search by name if no URI
@@ -156,17 +169,22 @@ export function AuthorDetailScreen() {
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{authorName}</Text>
-          <TouchableOpacity
-            style={[styles.saveButton, !canToggleSave && { opacity: 0.8 }]}
-            onPress={handleToggleSave}
-            disabled={!canToggleSave}
-          >
-            <Bookmark
-              size={24}
-              color={isSaved ? colors.primary : colors.text}
-              fill={isSaved ? colors.primary : 'none'}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+              <ShareIcon size={22} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveButton, !canToggleSave && { opacity: 0.8 }]}
+              onPress={handleToggleSave}
+              disabled={!canToggleSave}
+            >
+              <Bookmark
+                size={24}
+                color={isSaved ? colors.primary : colors.text}
+                fill={isSaved ? colors.primary : 'none'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -402,8 +420,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-    flex: 1, textAlign: 'center'
+    flex: 1,
+    textAlign: 'center',
+    marginLeft: 8
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerButton: { padding: 4 },
   saveButton: {
     padding: 4,
   },

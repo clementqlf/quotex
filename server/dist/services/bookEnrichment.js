@@ -104,7 +104,7 @@ const enrichBookWithInventaire = (bookId) => __awaiter(void 0, void 0, void 0, f
                 }
             }
             if (Object.keys(updateData).length > 0) {
-                console.log(`[BookEnrichment] Applying updates to ${book.title}:`, Object.keys(updateData));
+                console.log(`[BookEnrichment] Applying updates to ${book.title}:`, Object.keys(updateData).map(k => `${k}: ${updateData[k]}`).join(', '));
                 yield prisma_1.prisma.book.update({
                     where: { id: bookId },
                     data: updateData
@@ -142,7 +142,7 @@ const enrichBookWithInventaire = (bookId) => __awaiter(void 0, void 0, void 0, f
             if (enriched.authorUris && Array.isArray(enriched.authorUris) && book.authorId) {
                 for (const authorUri of enriched.authorUris) {
                     console.log(`[BookEnrichment] Triggering direct author enrichment for URI: ${authorUri}`);
-                    (0, inventaire_1.enrichAuthorWithInventaire)(book.authorId, undefined, authorUri).catch(e => console.error(`[BookEnrichment] Author enrichment failed:`, e));
+                    (0, inventaire_1.enrichAuthorWithInventaire)(book.authorId, undefined, authorUri, true).catch(e => console.error(`[BookEnrichment] Author enrichment failed:`, e));
                 }
             }
             return true;

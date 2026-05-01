@@ -10,19 +10,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
-import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark } from 'lucide-react-native';
+import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark, Share as ShareIcon, Check } from 'lucide-react-native';
 import { useData } from '@/src/contexts/DataProvider';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemeColors } from '@/src/theme/theme';
 import { Book, Author } from '@/types';
-import { Modal, Alert, Linking } from 'react-native';
+import { Modal, Alert, Linking, Share, ActionSheetIOS, Platform } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
 import BookDictionaryModal from './BookDictionaryModal';
 import { TextInput } from 'react-native';
-import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/utils/dataHelpers';
 import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
 import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/config/blocks';
 
@@ -54,7 +54,7 @@ export function BookDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook } = useData();
+  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook, updateBookStatus } = useData();
 
   const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
@@ -166,10 +166,76 @@ export function BookDetailScreen() {
   const isSaved = bookInfo?.isSaved || userQuotesCountForThisBook > 0;
   const canToggleSave = userQuotesCountForThisBook === 0;
 
-  const handleToggleSave = async () => {
-    if (!canToggleSave || !bookInfo?.id) return;
-    await toggleSaveBook(bookInfo.id);
-    setBookInfo(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
+  const handleOpenStatusMenu = () => {
+    if (!bookInfo?.id) return;
+
+    const options = [...STATUS_OPTIONS];
+    const canUnsave = userQuotesCountForThisBook === 0;
+
+    if (Platform.OS === 'ios') {
+      const iosOptions = ['Annuler', ...options.map(o => o.label)];
+      if (isSaved && canUnsave) {
+        iosOptions.push('Retirer de ma bibliothèque');
+      }
+
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: iosOptions,
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: (isSaved && canUnsave) ? iosOptions.length - 1 : undefined,
+          title: 'Classer ce livre',
+        },
+        async (buttonIndex) => {
+          if (buttonIndex > 0) {
+            if (isSaved && canUnsave && buttonIndex === iosOptions.length - 1) {
+              // Remove from library
+              await toggleSaveBook(bookInfo.id!);
+              setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
+            } else {
+              const selected = options[buttonIndex - 1];
+              await updateBookStatus(bookInfo.id!, selected.value);
+              setBookInfo(prev => prev ? { ...prev, readingStatus: selected.value as any, isSaved: true } : null);
+            }
+          }
+        }
+      );
+    } else {
+      const androidButtons: any[] = [
+        { text: 'Annuler', style: 'cancel' },
+        ...STATUS_OPTIONS.map(o => ({
+          text: o.label,
+          onPress: async () => {
+            await updateBookStatus(bookInfo.id!, o.value);
+            setBookInfo(prev => prev ? { ...prev, readingStatus: o.value as any, isSaved: true } : null);
+          }
+        }))
+      ];
+
+      if (isSaved && canUnsave) {
+        androidButtons.push({
+          text: 'Retirer de ma bibliothèque',
+          style: 'destructive',
+          onPress: async () => {
+            await toggleSaveBook(bookInfo.id!);
+            setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
+          }
+        });
+      }
+
+      Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!bookInfo) return;
+    try {
+      const authorName = getAuthorName(bookInfo.author);
+      await Share.share({
+        message: `Découvrez "${bookTitle}" de ${authorName} sur Quotex !`,
+      });
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message);
+    }
   };
 
   const savedQuotes = quotes.filter(q => getBookTitle(q.book) === bookTitle);
@@ -377,17 +443,21 @@ export function BookDetailScreen() {
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
-          <TouchableOpacity
-            style={[styles.saveButton, !canToggleSave && { opacity: 0.8 }]}
-            onPress={handleToggleSave}
-            disabled={!canToggleSave}
-          >
-            <Bookmark
-              size={24}
-              color={isSaved ? colors.primary : colors.text}
-              fill={isSaved ? colors.primary : 'none'}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+              <ShareIcon size={22} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.headerButton]}
+              onPress={handleOpenStatusMenu}
+            >
+              {isSaved ? (
+                <Check size={24} color={colors.primary} />
+              ) : (
+                <Plus size={24} color={colors.text} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Animated.ScrollView
@@ -426,8 +496,22 @@ export function BookDetailScreen() {
                 </View>
 
                 {/* Genre Badge */}
-                <View style={styles.genreBadge}>
-                  <Text style={styles.genreText}>{bookInfo.genre}</Text>
+                <View style={styles.badgeContainer}>
+                  <View style={styles.genreBadge}>
+                    <Text style={styles.genreText}>{bookInfo.genre}</Text>
+                  </View>
+
+                  {/* Category Badge */}
+                  {bookInfo.readingStatus && (
+                    <View style={[styles.statusBadge, { 
+                      backgroundColor: getStatusColor(bookInfo.readingStatus) + '15', 
+                      borderColor: getStatusColor(bookInfo.readingStatus) + '40' 
+                    }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(bookInfo.readingStatus) }]}>
+                        {getStatusLabel(bookInfo.readingStatus)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -594,7 +678,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: colors.border,
   },
   backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.text, flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: colors.text, flex: 1, textAlign: 'center', marginLeft: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerButton: { padding: 4 },
   saveButton: { padding: 4, width: 32, alignItems: 'center' },
   content: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 32 },
@@ -658,6 +744,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 11,
     color: colors.primary,
     fontWeight: '500',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   bookDesc: {
     fontSize: 13,

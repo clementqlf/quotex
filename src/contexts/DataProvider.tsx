@@ -31,6 +31,7 @@ type DataContextType = {
     importBook: (bookData: Partial<Book>) => Promise<Book | undefined>;
     toggleSaveAuthor: (id: number) => Promise<void>;
     toggleSaveBook: (id: number) => Promise<void>;
+    updateBookStatus: (id: number, status: string) => Promise<void>;
     getNotableWorks: (authorId: number) => Promise<Book[]>;
     books: Book[];
 };
@@ -97,6 +98,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     const toggleSaveQuote = useCallback(async (id: number) => {
         setQuotes(prev => prev.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q));
+        await quoteService.toggleSave(id);
     }, []);
 
     const deleteQuote = useCallback(async (id: number) => {
@@ -190,6 +192,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await refreshBooks();
     }, [refreshBooks]);
 
+    const updateBookStatus = useCallback(async (id: number, status: string) => {
+        await authorService.updateBookStatus(id, status);
+        await refreshBooks();
+    }, [refreshBooks]);
+
     const getNotableWorks = useCallback(async (authorId: number) => {
         return await authorService.getNotableWorks(authorId);
     }, []);
@@ -220,13 +227,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         importBook,
         toggleSaveAuthor,
         toggleSaveBook,
+        updateBookStatus,
         getNotableWorks,
     }), [
         quotes, authors, books, isLoading, refreshQuotes, refreshAuthors, refreshBooks,
         toggleLikeQuote, toggleSaveQuote, deleteQuote, addQuote, getAuthorByName, getAuthorById,
         getBooksByAuthor, getBlockLayout, updateBlockLayout, updateQuote, getBookData,
         updateBookData, getUserByUsername, getBookByTitle, getBookById, importBook,
-        toggleSaveAuthor, toggleSaveBook, getNotableWorks
+        toggleSaveAuthor, toggleSaveBook, updateBookStatus, getNotableWorks
     ]);
 
     return (

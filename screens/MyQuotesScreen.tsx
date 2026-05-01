@@ -25,12 +25,12 @@ import { useTabIndex } from '@/src/contexts/TabContext';
 
 import { useData } from '@/src/contexts/DataProvider';
 import { Quote, Book } from '@/types';
-import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
+import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/utils/dataHelpers';
 import { formatRelativeDate } from '@/src/utils/dateUtils';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemeColors } from '@/src/theme/theme';
 
-type FilterType = { type: 'author' | 'book' | 'year'; value: string | number };
+type FilterType = { type: 'author' | 'book' | 'year' | 'status'; value: string | number };
 const EDGE_SWIPE_ZONE = 28;
 const SWIPE_ACTIVATION_THRESHOLD = 60;
 
@@ -84,8 +84,8 @@ export default function MyQuotesScreen() {
     let interval: ReturnType<typeof setInterval> | null = null;
 
 
-    const hasEnrichingItems = myQuotes.some(q => 
-      (q.book && typeof q.book === 'object' && q.book.isEnriching) || 
+    const hasEnrichingItems = myQuotes.some(q =>
+      (q.book && typeof q.book === 'object' && q.book.isEnriching) ||
       (q.author && typeof q.author === 'object' && q.author.isEnriching)
     );
 
@@ -93,7 +93,7 @@ export default function MyQuotesScreen() {
       interval = setInterval(() => {
         refreshQuotes();
         // Optionnel: refreshAuthors/Books si on veut aussi mettre à jour les onglets stats
-      }, 3000); 
+      }, 3000);
     }
 
     return () => {
@@ -106,7 +106,8 @@ export default function MyQuotesScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
-  const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | null>(null);
+  const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | 'status' | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -155,13 +156,14 @@ export default function MyQuotesScreen() {
         }
         acc[filter.type].push(filter.value);
         return acc;
-      }, {} as Record<'author' | 'book' | 'year', (string | number)[]>);
+      }, {} as Record<'author' | 'book' | 'year' | 'status', (string | number)[]>);
 
       filtered = filtered.filter(q => {
         const authorMatch = !filtersByType.author || filtersByType.author.includes(getAuthorName(q.author));
         const bookMatch = !filtersByType.book || filtersByType.book.includes(getBookTitle(q.book));
         const yearMatch = !filtersByType.year || (bookDescriptions[getBookTitle(q.book)] && filtersByType.year.includes(bookDescriptions[getBookTitle(q.book)].year));
-        return authorMatch && bookMatch && yearMatch;
+        const statusMatch = !filtersByType.status || (q.book && typeof q.book === 'object' && q.book.readingStatus && filtersByType.status.includes(q.book.readingStatus));
+        return authorMatch && bookMatch && yearMatch && statusMatch;
       });
     }
     setQuotesToDisplay(filtered);
@@ -175,7 +177,7 @@ export default function MyQuotesScreen() {
   };
 
 
-  const toggleTempFilter = (type: 'author' | 'book' | 'year', value: string | number) => {
+  const toggleTempFilter = (type: 'author' | 'book' | 'year' | 'status', value: string | number) => {
     setTempFilters(currentFilters => {
       const existingFilterIndex = currentFilters.findIndex(f => f.type === type && f.value === value);
       if (existingFilterIndex > -1) {
@@ -284,7 +286,7 @@ export default function MyQuotesScreen() {
                 ) : (
                   <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
                 )}
-                
+
                 {isAuthorEnriching ? (
                   <EnrichingSkeleton width={80} height={12} />
                 ) : (
@@ -381,7 +383,7 @@ export default function MyQuotesScreen() {
     </Modal>
   );
 
-  const toggleSection = (section: 'author' | 'book' | 'year' | null) => {
+  const toggleSection = (section: 'author' | 'book' | 'year' | 'status' | null) => {
     setExpandedSection(current => (current === section ? null : section));
   };
 
@@ -423,10 +425,16 @@ export default function MyQuotesScreen() {
           year: meta?.year,
           description: meta?.description,
           cover: meta?.cover,
+          readingStatus: data.bookObj?.readingStatus,
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [myQuotes, allBooks]);
+  }, [myQuotes, allBooks, bookDescriptions]);
+
+  const filteredBooksByStatus = useMemo(() => {
+    if (selectedStatus === 'ALL') return booksData;
+    return booksData.filter(b => b.readingStatus === selectedStatus);
+  }, [booksData, selectedStatus]);
 
   const authorsData = useMemo(() => {
     const grouped = myQuotes.reduce<Record<string, { author: any; quoteCount: number }>>((acc, quote) => {
@@ -584,16 +592,60 @@ export default function MyQuotesScreen() {
           <View style={styles.filterContainer}>
             {activeFilters.map((filter, index) => (
               <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-                <Text style={styles.filterBadgeText}>{filter.type === 'author' ? 'Auteur' : filter.type === 'book' ? 'Livre' : 'Année'}: {filter.value}</Text>
+                <Text style={styles.filterBadgeText}>
+                  {filter.type === 'author' ? 'Auteur' :
+                    filter.type === 'book' ? 'Livre' :
+                      filter.type === 'year' ? 'Année' : 'Statut'}: {
+                    filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
+                  }
+                </Text>
                 <X size={12} color={colors.primary} />
               </TouchableOpacity>
             ))}
             <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
           </View>
         )}
+        {viewMode === 'books' && (
+          <View style={{ marginBottom: 8 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.statusFilterContainer}
+              contentContainerStyle={styles.statusFilterContent}
+            >
+              <TouchableOpacity
+                onPress={() => setSelectedStatus('ALL')}
+                style={[
+                  styles.statusFilterBadge,
+                  selectedStatus === 'ALL' && styles.statusFilterBadgeActive
+                ]}
+              >
+                <Text style={[
+                  styles.statusFilterText,
+                  selectedStatus === 'ALL' && styles.statusFilterTextActive
+                ]}>Tout</Text>
+              </TouchableOpacity>
+              {STATUS_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setSelectedStatus(opt.value)}
+                  style={[
+                    styles.statusFilterBadge,
+                    selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
+                  ]}
+                >
+                  <Text style={[
+                    styles.statusFilterText,
+                    selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+                  ]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
         {viewMode === 'books' ? (
-          booksData.length > 0 ? (
-            booksData.map(book => (
+          filteredBooksByStatus.length > 0 ? (
+            filteredBooksByStatus.map(book => (
               <TouchableOpacity
                 key={book.title}
                 style={styles.bookCard}
@@ -613,7 +665,20 @@ export default function MyQuotesScreen() {
                     </View>
                     <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
                     {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
-                    <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''} sauvegardée{book.quoteCount > 1 ? 's' : ''}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                      <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
+                      {book.readingStatus && (
+                        <View style={[styles.statusBadge, {
+                          backgroundColor: getStatusColor(book.readingStatus) + '15',
+                          borderColor: getStatusColor(book.readingStatus) + '40',
+                          marginTop: 0
+                        }]}>
+                          <Text style={[styles.statusText, { color: getStatusColor(book.readingStatus) }]}>
+                            {getStatusLabel(book.readingStatus)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -710,6 +775,19 @@ export default function MyQuotesScreen() {
               {expandedSection === 'book' && books.map(book => (
                 <TouchableOpacity key={book} style={styles.filterOption} onPress={() => toggleTempFilter('book', book)}>
                   <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'book' && f.value === book) && styles.filterOptionTextSelected]}>{book}</Text>
+                </TouchableOpacity>
+              ))}
+
+              {/* Section Statut */}
+              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('status')}>
+                <Text style={styles.filterSectionTitle}>Statut</Text>
+                <View style={{ transform: [{ rotate: expandedSection === 'status' ? '180deg' : '0deg' }] }}>
+                  <ChevronDown size={20} color={colors.textSecondary} />
+                </View>
+              </TouchableOpacity>
+              {expandedSection === 'status' && STATUS_OPTIONS.map(opt => (
+                <TouchableOpacity key={opt.value} style={styles.filterOption} onPress={() => toggleTempFilter('status', opt.value)}>
+                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'status' && f.value === opt.value) && styles.filterOptionTextSelected]}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
 
@@ -811,6 +889,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   stats: {
     flexDirection: 'row',
     padding: 16,
+    paddingBottom: 4,
     gap: 12,
   },
   statItem: {
@@ -1151,6 +1230,48 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     color: colors.textTertiary,
     fontStyle: 'italic',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  statusFilterContainer: {
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  statusFilterContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  statusFilterBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceHighlight,
+    backgroundColor: colors.surface,
+  },
+  statusFilterBadgeActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  statusFilterText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  statusFilterTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   emptyStateText: {
     color: colors.textSecondary,
