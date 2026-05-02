@@ -88,7 +88,13 @@ export default function SocialFeedScreen() {
                 style={styles.userInfo}
                 onPress={(e) => {
                   e.stopPropagation(); // Empêche le clic de se propager à la carte parente
-                  router.push({ pathname: '/user-profile', params: { user: JSON.stringify(quote.user) } });
+                  router.push({ 
+                    pathname: '/user-profile', 
+                    params: { 
+                      username: quote.user?.username,
+                      user: JSON.stringify(quote.user) 
+                    } 
+                  });
                 }}
               >
                 <View style={styles.avatar}>

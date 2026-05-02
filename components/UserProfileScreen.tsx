@@ -47,7 +47,7 @@ type UserProfileScreenRouteProp = { user: User };
 
 export default function UserProfileScreen() {
   const router = useRouter();
-  const rawParams = useLocalSearchParams<{ user?: string }>();
+  const rawParams = useLocalSearchParams<{ user?: string; username?: string }>();
   const user: User | null = useMemo(() => {
     try {
       return rawParams.user ? JSON.parse(rawParams.user as string) : null;
@@ -59,9 +59,15 @@ export default function UserProfileScreen() {
   const { getUserByUsername } = useData();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [profileData, setProfileData] = useState<User | null>(null);
+  const [profileData, setProfileData] = useState<User | null>(() => {
+    if (user) return user;
+    if (rawParams.username && currentUser?.username === rawParams.username) return currentUser;
+    if (!rawParams.username && !user) return currentUser;
+    return null;
+  });
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isMe = currentUser?.username === user?.username || currentUser?.username === profileData?.username;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -97,16 +103,18 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const username = user?.username || profileData?.username;
+      const username = rawParams.username || user?.username || currentUser?.username;
 
       if (!username) {
-        if (!user && !profileData) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
+      // If we already have some data for this user, we don't necessarily need to show the big loader
+      const hasInitialData = profileData?.username === username;
+      if (!hasInitialData) {
+        setIsLoading(true);
+      }
       try {
         const data = await getUserByUsername(username);
         if (data) {
@@ -134,7 +142,7 @@ export default function UserProfileScreen() {
     };
 
     fetchProfile();
-  }, [user?.username]);
+  }, [rawParams.username, user?.username, currentUser?.username]);
 
   const toggleFollow = () => {
     setIsFollowing(!isFollowing);
@@ -223,11 +231,31 @@ export default function UserProfileScreen() {
     }
   };
 
-  if (isLoading || !profileData) {
+  if (!profileData && isLoading) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#20B8CD" />
       </View>
+    );
+  }
+
+  if (!profileData) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ChevronLeft size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Profil introuvable</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loaderContainer}>
+          <Text style={{ color: colors.text }}>Utilisateur non trouvé</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -242,7 +270,7 @@ export default function UserProfileScreen() {
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || user?.username}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || user?.username || rawParams.username}</Text>
           <View style={styles.placeholder} />
         </View>
 

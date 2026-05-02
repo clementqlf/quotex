@@ -327,7 +327,16 @@ export default function ScanScreen() {
 
           <TouchableOpacity 
             style={styles.headerButtonRight} 
-            onPress={() => router.push({ pathname: '/user-profile', params: { user: JSON.stringify(currentUser) } })}
+            onPress={() => {
+              if (currentUser?.username) {
+                router.push({ 
+                  pathname: '/user-profile', 
+                  params: { username: currentUser.username } 
+                });
+              } else {
+                router.push('/user-profile');
+              }
+            }}
           >
             <User size={24} color="#E5E7EB" />
           </TouchableOpacity>
