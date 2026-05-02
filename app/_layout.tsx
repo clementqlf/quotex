@@ -10,6 +10,12 @@ import { ThemeProvider, useTheme } from '@/src/contexts/ThemeContext';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
 
+import * as SplashScreen from 'expo-splash-screen';
+import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
+
 export const unstable_settings = {
   initialRouteName: 'index',
 };
@@ -33,11 +39,19 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const { isDark, colors: themeColors } = useTheme();
   const { isAuthenticated, isLoading } = useAuth();
+  const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!isLoading) {
+      // Hide the native splash screen once the auth state is determined
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (isLoading || !isSplashAnimationFinished) return;
 
     const inAuthGroup = segments[0] === 'auth';
 
@@ -48,14 +62,11 @@ function RootLayoutNav() {
       // Redirect away from the auth group if the user is authenticated
       router.replace('/');
     }
-  }, [isAuthenticated, segments, isLoading]);
+  }, [isAuthenticated, segments, isLoading, isSplashAnimationFinished]);
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDark ? '#000' : '#FFF' }}>
-        <ActivityIndicator size="large" color="#20B8CD" />
-      </View>
-    );
+  if (isLoading && !isSplashAnimationFinished) {
+    // Show the animated splash screen while loading
+    return <AnimatedSplashScreen isDark={isDark} onAnimationFinish={() => setIsSplashAnimationFinished(true)} />;
   }
 
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
@@ -82,85 +93,93 @@ function RootLayoutNav() {
 
 
   return (
-    <NavThemeProvider value={navigationTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="author-detail"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-            animation: 'slide_from_right',
-            // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
-            getId: ({ params }) => {
-              if (params?.authorId) return `id-${params.authorId}`;
-              let name = params?.authorName || params?.name;
-              if (!name && params?.author) {
-                try {
-                  const p = JSON.parse(params.author);
-                  if (p.id) return `id-${p.id}`;
-                  name = p.name;
-                } catch { name = params.author; }
-              }
-              return name ? String(name).toLowerCase().trim() : undefined;
-            },
-          }}
+    <>
+      <NavThemeProvider value={navigationTheme}>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="author-detail"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+              animation: 'slide_from_right',
+              // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
+              getId: ({ params }) => {
+                if (params?.authorId) return `id-${params.authorId}`;
+                let name = params?.authorName || params?.name;
+                if (!name && params?.author) {
+                  try {
+                    const p = JSON.parse(params.author);
+                    if (p.id) return `id-${p.id}`;
+                    name = p.name;
+                  } catch { name = params.author; }
+                }
+                return name ? String(name).toLowerCase().trim() : undefined;
+              },
+            }}
+          />
+          <Stack.Screen
+            name="book-detail"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+              animation: 'slide_from_right',
+              // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
+              getId: ({ params }) => {
+                if (params?.bookId) return `id-${params.bookId}`;
+                let title = params?.bookTitle || params?.title;
+                if (!title && params?.book) {
+                  try {
+                    const p = JSON.parse(params.book);
+                    if (p.id) return `id-${p.id}`;
+                    title = p.title;
+                  } catch { title = params.book; }
+                }
+                return title ? String(title).toLowerCase().trim() : undefined;
+              },
+            }}
+          />
+          <Stack.Screen
+            name="user-profile"
+            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="quote-detail"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+              contentStyle: { backgroundColor: 'transparent' },
+            }}
+          />
+          <Stack.Screen
+            name="theme-detail"
+            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="search"
+            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="scan"
+            options={{ presentation: 'fullScreenModal', headerShown: false }}
+          />
+          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/login-password" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/register-details" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+      </NavThemeProvider>
+      {!isSplashAnimationFinished && (
+        <AnimatedSplashScreen 
+          isDark={isDark} 
+          onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
         />
-        <Stack.Screen
-          name="book-detail"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-            animation: 'slide_from_right',
-            // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
-            getId: ({ params }) => {
-              if (params?.bookId) return `id-${params.bookId}`;
-              let title = params?.bookTitle || params?.title;
-              if (!title && params?.book) {
-                try {
-                  const p = JSON.parse(params.book);
-                  if (p.id) return `id-${p.id}`;
-                  title = p.title;
-                } catch { title = params.book; }
-              }
-              return title ? String(title).toLowerCase().trim() : undefined;
-            },
-          }}
-        />
-        <Stack.Screen
-          name="user-profile"
-          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="settings"
-          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="quote-detail"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-            contentStyle: { backgroundColor: 'transparent' },
-          }}
-        />
-        <Stack.Screen
-          name="theme-detail"
-          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="search"
-          options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-        />
-        <Stack.Screen
-          name="scan"
-          options={{ presentation: 'fullScreenModal', headerShown: false }}
-        />
-        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/login-password" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-        <Stack.Screen name="auth/register-details" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
-    </NavThemeProvider>
+      )}
+    </>
   );
 }

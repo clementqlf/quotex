@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+//import * as ImageManipulator from 'expo-image-manipulator';
 import { Author, Book, User } from '@/types';
 import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
 import { useData } from '@/src/contexts/DataProvider';
@@ -58,7 +59,7 @@ export function UserProfileScreen() {
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  
+
   const [profileData, setProfileData] = useState<User | null>(null);
   const isMe = currentUser?.username === user?.username || currentUser?.username === profileData?.username;
 
@@ -96,7 +97,7 @@ export function UserProfileScreen() {
   useEffect(() => {
     const fetchProfile = async () => {
       const username = user?.username || profileData?.username;
-      
+
       if (!username) {
         if (!user && !profileData) {
           setIsLoading(false);
@@ -155,18 +156,23 @@ export function UserProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,
-      base64: true,
     });
 
     if (!result.canceled) {
-      // Use base64 if possible or URI
-      const imageUri = result.assets[0].base64 
-        ? `data:image/jpeg;base64,${result.assets[0].base64}` 
-        : result.assets[0].uri;
+      // Compress and resize the image
+      const manipResult = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 400, height: 400 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      const imageUri = manipResult.base64
+        ? `data:image/jpeg;base64,${manipResult.base64}`
+        : manipResult.uri;
       setEditedImage(imageUri);
     }
   };
@@ -186,10 +192,10 @@ export function UserProfileScreen() {
         image: editedImage || undefined
       });
       // Update local state
-      setProfileData(prev => prev ? { 
-        ...prev, 
-        name: editedName, 
-        bio: editedBio, 
+      setProfileData(prev => prev ? {
+        ...prev,
+        name: editedName,
+        bio: editedBio,
         website: editedWebsite,
         image: editedImage || prev.image
       } : null);
@@ -229,20 +235,20 @@ export function UserProfileScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Profile Section */}
           <View style={styles.profileHeader}>
-            <TouchableOpacity 
-              style={styles.avatar} 
+            <TouchableOpacity
+              style={styles.avatar}
               onPress={isEditing ? pickImage : undefined}
               disabled={!isEditing}
             >
               {editedImage || profileData.image ? (
-                <Image 
-                  source={{ uri: editedImage || profileData.image }} 
-                  style={styles.avatarImage} 
+                <Image
+                  source={{ uri: editedImage || profileData.image }}
+                  style={styles.avatarImage}
                 />
               ) : (
                 <Text style={styles.avatarText}>{profileData.name ? profileData.name[0] : '?'}</Text>
               )}
-              
+
               {isEditing && (
                 <View style={styles.avatarOverlay}>
                   <Camera size={24} color="#FFF" />
@@ -376,7 +382,7 @@ export function UserProfileScreen() {
                 {['READING', 'FINISHED', 'TO_READ', 'DROPPED'].map((status) => {
                   const books = groupedBooks[status];
                   if (!books || books.length === 0) return null;
-                  
+
                   const statusLabels: Record<string, string> = {
                     'READING': 'En cours',
                     'FINISHED': 'Terminé',

@@ -40,7 +40,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'votre_cle_secrete_super_secure_123
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
 app.use((0, cors_1.default)());
-app.use(express_1.default.json());
+app.use(express_1.default.json({ limit: '10mb' }));
+app.use(express_1.default.urlencoded({ limit: '10mb', extended: true }));
 // Helper to format book (parse JSON fields and flatten user state)
 const formatBook = (book, userId = 1) => {
     var _a;

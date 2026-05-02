@@ -75,12 +75,11 @@ class AuthService {
 
         if (!response.ok) {
             let errorMessage = 'Failed to update profile';
+            const text = await response.text();
             try {
-                const errorData = await response.json();
+                const errorData = JSON.parse(text);
                 errorMessage = errorData.error || errorMessage;
             } catch (e) {
-                // If not JSON, get raw text (could be HTML error page)
-                const text = await response.text();
                 console.error('Non-JSON error response:', text);
                 errorMessage = `Server Error (${response.status}): ${text.slice(0, 100)}...`;
             }
