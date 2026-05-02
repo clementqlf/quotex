@@ -16,6 +16,7 @@ import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
 import * as ExpoImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useTabIndex, useSwipeEnabled } from '@/src/contexts/TabContext';
 
 
@@ -222,7 +223,16 @@ export default function ScanScreen() {
     }
   };
 
-  const handleResetCapture = () => {
+  const handleResetCapture = async () => {
+    if (photo?.path) {
+      try {
+        // Supprimer le fichier temporaire (capture camera ou copie galerie)
+        const path = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
+        await FileSystem.deleteAsync(path, { idempotent: true });
+      } catch (e) {
+        console.log("Erreur suppression photo scan:", e);
+      }
+    }
     setPhoto(null);
     setOcrResult(null);
     setIsFromGallery(false);

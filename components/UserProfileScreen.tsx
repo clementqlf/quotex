@@ -13,7 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-//import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import { Author, Book, User } from '@/types';
 import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
 import { useData } from '@/src/contexts/DataProvider';
@@ -44,7 +45,7 @@ interface GlobalQuote {
 
 type UserProfileScreenRouteProp = { user: User };
 
-export function UserProfileScreen() {
+export default function UserProfileScreen() {
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ user?: string }>();
   const user: User | null = useMemo(() => {
@@ -163,9 +164,11 @@ export function UserProfileScreen() {
     });
 
     if (!result.canceled) {
+      const originalUri = result.assets[0].uri;
+      
       // Compress and resize the image
       const manipResult = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
+        originalUri,
         [{ resize: { width: 400, height: 400 } }],
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
@@ -173,7 +176,18 @@ export function UserProfileScreen() {
       const imageUri = manipResult.base64
         ? `data:image/jpeg;base64,${manipResult.base64}`
         : manipResult.uri;
+      
       setEditedImage(imageUri);
+
+      // Nettoyage des fichiers temporaires pour libérer l'espace "Documents & Données"
+      try {
+        await FileSystem.deleteAsync(originalUri, { idempotent: true });
+        if (manipResult.uri && manipResult.uri !== originalUri) {
+          await FileSystem.deleteAsync(manipResult.uri, { idempotent: true });
+        }
+      } catch (e) {
+        console.log("Erreur lors de la suppression des fichiers temporaires:", e);
+      }
     }
   };
 

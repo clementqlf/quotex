@@ -1,2 +1,2 @@
-import { UserProfileScreen } from '@/components/UserProfileScreen';
+import UserProfileScreen from '@/components/UserProfileScreen';
 export default UserProfileScreen;

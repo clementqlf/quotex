@@ -15,7 +15,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock, CheckCircle2, XCircle } from 'lucide-react-native';
+import { 
+  ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock, 
+  CheckCircle2, XCircle, Database, Trash2 
+} from 'lucide-react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemeColors } from '@/src/theme/theme';
@@ -97,6 +101,30 @@ export function SettingsScreen() {
               router.replace('/auth/login');
             } catch (error) {
               console.error("Logout error", error);
+            }
+          } 
+        }
+      ]
+    );
+  };
+
+  const handleClearCache = () => {
+    Alert.alert(
+      "Vider le cache",
+      "Cela va libérer de l'espace sur votre téléphone en supprimant les images mises en cache. Elles seront re-téléchargées lors de votre prochaine visite.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Vider", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              await ExpoImage.clearDiskCache();
+              await ExpoImage.clearMemoryCache();
+              Alert.alert("Succès", "Le cache a été vidé.");
+            } catch (error) {
+              console.error("Clear cache error", error);
+              Alert.alert("Erreur", "Impossible de vider le cache.");
             }
           } 
         }
@@ -189,6 +217,21 @@ export function SettingsScreen() {
                 onPress={() => {}} 
               />
             </View>
+          </View>
+
+          {/* Storage Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Stockage et Données</Text>
+            <View style={styles.sectionCard}>
+              <SettingItem 
+                icon={Trash2} 
+                title="Vider le cache d'images" 
+                onPress={handleClearCache} 
+              />
+            </View>
+            <Text style={styles.sectionFooter}>
+              Libérez de l'espace en supprimant les images et fichiers temporaires.
+            </Text>
           </View>
 
           {/* Spacer */}
@@ -348,6 +391,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 12,
     marginLeft: 4,
+  },
+  sectionFooter: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 8,
+    marginLeft: 4,
+    lineHeight: 18,
   },
   sectionCard: {
     backgroundColor: colors.surface,
