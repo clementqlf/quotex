@@ -8,6 +8,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -22,6 +33,10 @@ const inventaire_1 = require("./services/inventaire");
 const notableWorks_1 = require("./services/notableWorks");
 const bookEnrichment_1 = require("./services/bookEnrichment");
 const queue_1 = require("./services/queue");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const auth_1 = require("./middleware/auth");
+const JWT_SECRET = process.env.JWT_SECRET || 'votre_cle_secrete_super_secure_123';
 const app = (0, express_1.default)();
 const port = process.env.PORT || 3000;
 app.use((0, cors_1.default)());
@@ -61,12 +76,84 @@ const formatQuote = (quote, userId = 1) => {
     const isSaved = quote.savedBy ? quote.savedBy.some((s) => s.userId === userId) : false;
     return Object.assign(Object.assign({}, quote), { book: quote.book ? formatBook(quote.book, userId) : null, isSaved, isLiked: quote.likes ? quote.likes.some((l) => l.userId === userId) : false, likesCount: quote._count ? quote._count.likes : (quote.likesCount || 0) });
 };
+// --- Auth Endpoints ---
+app.post('/auth/check-email', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+        const user = yield prisma_1.prisma.user.findUnique({
+            where: { email }
+        });
+        res.json({ exists: !!user });
+    }
+    catch (e) {
+        console.error('Check email error:', e);
+        res.status(500).json({ error: 'Failed to check email' });
+    }
+}));
+app.post('/auth/register', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { email, password, username, name } = req.body;
+        if (!email || !password || !username) {
+            return res.status(400).json({ error: 'Email, password and username are required' });
+        }
+        const existingUser = yield prisma_1.prisma.user.findFirst({
+            where: {
+                OR: [{ email }, { username }]
+            }
+        });
+        if (existingUser) {
+            return res.status(400).json({ error: 'User already exists with this email or username' });
+        }
+        const hashedPassword = yield bcryptjs_1.default.hash(password, 10);
+        const sanitizedUsername = username.startsWith('@') ? username.slice(1) : username;
+        const user = yield prisma_1.prisma.user.create({
+            data: {
+                email,
+                password: hashedPassword,
+                username: sanitizedUsername,
+                name: name || sanitizedUsername
+            }
+        });
+        const token = jsonwebtoken_1.default.sign({ id: user.id, email: user.email, username: user.username }, JWT_SECRET, { expiresIn: '30d' });
+        const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
+        res.status(201).json({ user: userWithoutPassword, token });
+    }
+    catch (e) {
+        console.error('Registration error:', e);
+        res.status(500).json({ error: 'Failed to register user' });
+    }
+}));
+app.post('/auth/login', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+        const user = yield prisma_1.prisma.user.findUnique({
+            where: { email }
+        });
+        if (!user || !(yield bcryptjs_1.default.compare(password, user.password))) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+        const token = jsonwebtoken_1.default.sign({ id: user.id, email: user.email, username: user.username }, JWT_SECRET, { expiresIn: '30d' });
+        const { password: _ } = user, userWithoutPassword = __rest(user, ["password"]);
+        res.json({ user: userWithoutPassword, token });
+    }
+    catch (e) {
+        console.error('Login error:', e);
+        res.status(500).json({ error: 'Failed to login' });
+    }
+}));
 // --- Endpoints ---
 // Get all quotes
-app.get('/quotes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/quotes', auth_1.optionalAuthenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         console.log('GET /quotes accessed');
-        const userId = 1; // Assuming default user for now
+        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 1; // Fallback to 1 for demo/public view if needed, or 0/null
         const quotes = yield prisma_1.prisma.quote.findMany({
             include: {
                 author: true,
@@ -96,10 +183,11 @@ app.get('/quotes', (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 }));
 // Get single quote by ID
-app.get('/quotes/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/quotes/:id', auth_1.optionalAuthenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { id } = req.params;
-        const userId = 1; // Assuming default user for now
+        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 1;
         const quote = yield prisma_1.prisma.quote.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -132,10 +220,10 @@ app.get('/quotes/:id', (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 }));
 // Toggle save status for a quote
-app.post('/quotes/:id/toggle-save', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/quotes/:id/toggle-save', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
-        const userId = 1;
+        const userId = req.user.id;
         const quoteId = parseInt(id);
         const existingLink = yield prisma_1.prisma.userQuote.findUnique({
             where: {
@@ -161,21 +249,23 @@ app.post('/quotes/:id/toggle-save', (req, res) => __awaiter(void 0, void 0, void
     }
 }));
 // Get all authors
-app.get('/authors', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/authors', auth_1.optionalAuthenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
+        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 1;
         const authors = yield prisma_1.prisma.author.findMany({
             include: {
                 books: {
-                    include: { users: { where: { userId: 1 } } }
+                    include: { users: { where: { userId } } }
                 },
-                users: { where: { userId: 1 } },
+                users: { where: { userId } },
                 similarAuthors: true,
                 _count: {
                     select: { quotes: true }
                 }
             }
         });
-        const formattedAuthors = authors.map((a) => formatAuthor(a, 1));
+        const formattedAuthors = authors.map((a) => formatAuthor(a, userId));
         res.json(formattedAuthors);
     }
     catch (e) {
@@ -331,11 +421,11 @@ app.post('/authors/:id/enrich', (req, res) => __awaiter(void 0, void 0, void 0, 
     }
 }));
 // Toggle save status for an author
-app.post('/authors/:id/toggle-save', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/authors/:id/toggle-save', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const authorId = parseInt(id);
-        const userId = 1;
+        const userId = req.user.id;
         const existingLink = yield prisma_1.prisma.userAuthor.findUnique({
             where: {
                 userId_authorId: { userId, authorId }
@@ -360,10 +450,11 @@ app.post('/authors/:id/toggle-save', (req, res) => __awaiter(void 0, void 0, voi
     }
 }));
 // Get single book by ID
-app.get('/books/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/books/:id', auth_1.optionalAuthenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { id } = req.params;
-        const userId = 1;
+        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 1;
         const book = yield prisma_1.prisma.book.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -388,11 +479,11 @@ app.get('/books/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 }));
 // Toggle save status for a book
-app.post('/books/:id/toggle-save', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/books/:id/toggle-save', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const bookId = parseInt(id);
-        const userId = 1;
+        const userId = req.user.id;
         const existingLink = yield prisma_1.prisma.userBook.findUnique({
             where: {
                 userId_bookId: { userId, bookId }
@@ -417,12 +508,12 @@ app.post('/books/:id/toggle-save', (req, res) => __awaiter(void 0, void 0, void 
     }
 }));
 // Update reading status for a book
-app.patch('/books/:id/status', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.patch('/books/:id/status', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const { readingStatus } = req.body;
         const bookId = parseInt(id);
-        const userId = 1;
+        const userId = req.user.id;
         if (!readingStatus) {
             res.status(400).json({ error: 'Missing readingStatus' });
             return;
@@ -447,10 +538,12 @@ app.patch('/books/:id/status', (req, res) => __awaiter(void 0, void 0, void 0, f
     }
 }));
 // Get all books
-app.get('/books', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/books', auth_1.optionalAuthenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { authorName } = req.query;
         console.log(`[Server] GET /books accessed. Filter: ${authorName || 'None'}`);
+        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 1;
         const where = {};
         if (authorName && typeof authorName === 'string') {
             where.author = {
@@ -464,10 +557,10 @@ app.get('/books', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             include: {
                 author: true,
                 similarBooks: true,
-                users: { where: { userId: 1 } }
+                users: { where: { userId } }
             }
         });
-        const formattedBooks = books.map(b => formatBook(b, 1));
+        const formattedBooks = books.map(b => formatBook(b, userId));
         res.json(formattedBooks);
     }
     catch (e) {
@@ -476,18 +569,32 @@ app.get('/books', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 }));
 // Get user by username
-app.get('/users/:username', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.get('/users/:username', auth_1.optionalAuthenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         const { username } = req.params;
-        // Handle @ prefix
-        const cleanUsername = username.startsWith('@') ? username : `@${username}`;
+        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || 1;
+        // Handle @ prefix by stripping it (usernames in DB don't have it)
+        const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+        console.log(`[Server] Searching for user: "${cleanUsername}" (original: "${username}")`);
         const user = yield prisma_1.prisma.user.findUnique({
             where: { username: cleanUsername },
             include: {
                 quotes: {
                     include: {
-                        book: true,
-                        author: true
+                        book: {
+                            include: { users: { where: { userId } } }
+                        },
+                        author: true,
+                        savedBy: { where: { userId } },
+                        likes: { where: { userId } }
+                    }
+                },
+                library: {
+                    include: {
+                        book: {
+                            include: { author: true }
+                        }
                     }
                 }
             }
@@ -505,8 +612,58 @@ app.get('/users/:username', (req, res) => __awaiter(void 0, void 0, void 0, func
         res.status(500).json({ error: 'Failed to fetch user' });
     }
 }));
+// Update current user profile
+app.patch('/users/me', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userId = req.user.id;
+        const { username, password, name, bio, website, image } = req.body;
+        console.log('PATCH /users/me received:', { username, name, bio, website, image });
+        const data = {};
+        if (username) {
+            // Check if username is already taken
+            // Strip @ if present
+            const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+            const existing = yield prisma_1.prisma.user.findFirst({
+                where: {
+                    username: cleanUsername,
+                    id: { not: userId }
+                }
+            });
+            if (existing) {
+                return res.status(400).json({ error: 'Username already taken' });
+            }
+            data.username = cleanUsername;
+        }
+        if (password) {
+            data.password = yield bcryptjs_1.default.hash(password, 10);
+        }
+        if (name) {
+            data.name = name;
+        }
+        if (bio !== undefined)
+            data.bio = bio;
+        if (website !== undefined)
+            data.website = website;
+        if (image !== undefined)
+            data.image = image;
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'Nothing to update' });
+        }
+        const updatedUser = yield prisma_1.prisma.user.update({
+            where: { id: userId },
+            data
+        });
+        console.log(`User ${userId} profile updated successfully:`, Object.keys(data));
+        const { password: _ } = updatedUser, userWithoutPassword = __rest(updatedUser, ["password"]);
+        res.json(userWithoutPassword);
+    }
+    catch (e) {
+        console.error("Error updating user profile", e);
+        res.status(500).json({ error: 'Failed to update profile' });
+    }
+}));
 // Create a new quote
-app.post('/quotes', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/quotes', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Expecting { text, author: string, book: string } from client for simplicity,
         // or { text, authorId, bookId } if client is advanced.
@@ -546,6 +703,23 @@ app.post('/quotes', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             console.log(`[Server] Quote added for book: "${book}". Triggering background discovery/enrichment.`);
             queue_1.backgroundQueue.add(() => (0, bookEnrichment_1.discoverAndEnrichBook)(bookRecord.id)).catch(err => console.error(`[Server] Background discovery failed for ${book}:`, err));
         }
+        // 2.7 Add book to user's library with status 'reading' by default
+        yield prisma_1.prisma.userBook.upsert({
+            where: {
+                userId_bookId: {
+                    userId: req.user.id,
+                    bookId: bookRecord.id
+                }
+            },
+            update: {
+            // If it already exists, we DON'T change the status (keep current category)
+            },
+            create: {
+                userId: req.user.id,
+                bookId: bookRecord.id,
+                status: 'READING'
+            }
+        });
         // 3. Create Quote
         const newQuote = yield prisma_1.prisma.quote.create({
             data: {
@@ -553,22 +727,22 @@ app.post('/quotes', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 date: new Date(),
                 authorId: authorRecord.id,
                 bookId: bookRecord.id,
-                userId: 1, // Hardcoded to default user for now
+                userId: req.user.id,
                 theme,
                 likesCount: 0
             },
             include: {
                 author: true,
                 book: {
-                    include: { users: { where: { userId: 1 } } }
+                    include: { users: { where: { userId: req.user.id } } }
                 },
                 user: true,
-                savedBy: { where: { userId: 1 } },
-                likes: { where: { userId: 1 } }
+                savedBy: { where: { userId: req.user.id } },
+                likes: { where: { userId: req.user.id } }
             }
         });
         console.log('Created quote:', newQuote.id);
-        res.json(formatQuote(newQuote, 1));
+        res.json(formatQuote(newQuote, req.user.id));
     }
     catch (e) {
         console.error('Error creating quote:', e);
@@ -576,11 +750,12 @@ app.post('/quotes', (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
 }));
 // Update a quote
-app.patch('/quotes/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.patch('/quotes/:id', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
         const { text, author, book, theme } = req.body;
         const quoteId = parseInt(id);
+        const userId = req.user.id;
         console.log(`PATCH /quotes/${id} received:`, { text, author, book, theme });
         const existingQuote = yield prisma_1.prisma.quote.findUnique({
             where: { id: quoteId },
@@ -676,10 +851,11 @@ app.delete('/quotes/:id', (req, res) => __awaiter(void 0, void 0, void 0, functi
 // --- Reviews ---
 // Create a new review
 // Create a new review
-app.post('/reviews', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post('/reviews', auth_1.authenticateToken, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { rating, comment, bookId, userId } = req.body;
-        if (!rating || !bookId || !userId) {
+        const { rating, comment, bookId } = req.body;
+        const userId = req.user.id;
+        if (!rating || !bookId) {
             res.status(400).json({ error: 'Missing required fields' });
             return;
         }

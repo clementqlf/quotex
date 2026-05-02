@@ -1,40 +1,9 @@
 import { prisma } from '../lib/prisma';
 import { searchGoogleBooks } from './googleBooks';
-import { enrichWorkMetadata, enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor } from './inventaire';
+import { enrichWorkMetadata, enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor, mergeBooks } from './inventaire';
 
 export const bookEnrichmentQueue: Set<number> = new Set();
 
-/**
- * Merges a source book into a target book, moving all quotes and reviews,
- * then deleting the source book.
- */
-async function mergeBooks(sourceId: number, targetId: number) {
-    console.log(`[BookEnrichment] Merging book ${sourceId} into ${targetId}...`);
-    try {
-        await prisma.$transaction([
-            // Move quotes
-            prisma.quote.updateMany({
-                where: { bookId: sourceId },
-                data: { bookId: targetId }
-            }),
-            // Move reviews
-            prisma.review.updateMany({
-                where: { bookId: sourceId },
-                data: { bookId: targetId }
-            }),
-            // Move editions (individual updates because of uniqueness)
-            // Note: We don't merge editions strictly yet as they might conflict on URI.
-            // Deleting the source book will handle his editions via cascade or they remain orphans.
-            
-            // Delete source book
-            prisma.book.delete({ where: { id: sourceId } })
-        ]);
-        console.log(`[BookEnrichment] Merge successful. Source book ${sourceId} deleted.`);
-    } catch (e) {
-        console.error(`[BookEnrichment] Merge failed between ${sourceId} and ${targetId}:`, e);
-        throw e;
-    }
-}
 
 /**
  * Specifically enriches a book using Inventaire.io data

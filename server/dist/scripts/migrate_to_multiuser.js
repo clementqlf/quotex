@@ -22,6 +22,8 @@ function main() {
                 data: {
                     username: 'default_user',
                     name: 'Utilisateur par défaut',
+                    email: 'default@example.com',
+                    password: 'dummy_password'
                 }
             });
         }

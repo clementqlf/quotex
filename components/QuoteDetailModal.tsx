@@ -310,7 +310,7 @@ export function QuoteDetailModal() {
                       source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
                       style={styles.publisherAvatar}
                     />
-                    <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>{quote.user.username.startsWith('@') ? quote.user.username : '@' + quote.user.username}</Text></Text>
+                    <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>@{quote.user.username}</Text></Text>
                   </TouchableOpacity>
                 )}
 

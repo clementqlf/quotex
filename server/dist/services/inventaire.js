@@ -46,6 +46,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.enrichAuthorWithInventaire = exports.discoverAuthorWorks = exports.syncAuthorProfile = exports.enrichWorkMetadata = exports.activeAuthorEnrichments = void 0;
+exports.mergeBooks = mergeBooks;
+exports.mergeAuthors = mergeAuthors;
 const prisma_1 = require("../lib/prisma");
 const api = __importStar(require("./inventaire.api"));
 // Re-export everything from the API so dependents don't break
@@ -55,6 +57,116 @@ __exportStar(require("./inventaire.api"), exports);
 // This ensures that concurrent calls wait for the same result.
 exports.activeAuthorEnrichments = new Map();
 // ─── DB Services ─────────────────────────────────────────────────────────────
+/**
+ * Merges a source book into a target book, moving all quotes and reviews,
+ * then deleting the source book.
+ */
+function mergeBooks(sourceId, targetId, tx) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (sourceId === targetId)
+            return;
+        console.log(`[Inventaire Service] Merging book ${sourceId} into ${targetId}...`);
+        const operation = (client) => __awaiter(this, void 0, void 0, function* () {
+            // Move quotes
+            yield client.quote.updateMany({
+                where: { bookId: sourceId },
+                data: { bookId: targetId }
+            });
+            // Move reviews
+            yield client.review.updateMany({
+                where: { bookId: sourceId },
+                data: { bookId: targetId }
+            });
+            // Delete source book
+            yield client.book.delete({ where: { id: sourceId } });
+        });
+        try {
+            if (tx) {
+                yield operation(tx);
+            }
+            else {
+                yield prisma_1.prisma.$transaction((newTx) => __awaiter(this, void 0, void 0, function* () { return yield operation(newTx); }));
+            }
+            console.log(`[Inventaire Service] Merge successful. Source book ${sourceId} deleted.`);
+        }
+        catch (e) {
+            console.error(`[Inventaire Service] Merge failed between books ${sourceId} and ${targetId}:`, e);
+            throw e;
+        }
+    });
+}
+/**
+ * Merges a source author into a target author, moving all books, quotes and followers,
+ * then deleting the source author.
+ */
+function mergeAuthors(sourceId, targetId) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (sourceId === targetId)
+            return;
+        console.log(`[Inventaire Service] Merging author ${sourceId} into ${targetId}...`);
+        try {
+            yield prisma_1.prisma.$transaction((tx) => __awaiter(this, void 0, void 0, function* () {
+                // 1. Move books one by one to handle title conflicts
+                const sourceBooks = yield tx.book.findMany({ where: { authorId: sourceId } });
+                for (const book of sourceBooks) {
+                    const conflict = yield tx.book.findFirst({
+                        where: {
+                            authorId: targetId,
+                            OR: [
+                                { title: book.title },
+                                ...(book.inventaireUri ? [{ inventaireUri: book.inventaireUri }] : [])
+                            ]
+                        }
+                    });
+                    if (conflict) {
+                        yield mergeBooks(book.id, conflict.id, tx);
+                    }
+                    else {
+                        yield tx.book.update({
+                            where: { id: book.id },
+                            data: { authorId: targetId }
+                        });
+                    }
+                }
+                // 2. Move quotes
+                yield tx.quote.updateMany({
+                    where: { authorId: sourceId },
+                    data: { authorId: targetId }
+                });
+                // 3. Move followers (UserAuthor)
+                const sourceFollowers = yield tx.userAuthor.findMany({
+                    where: { authorId: sourceId }
+                });
+                for (const follow of sourceFollowers) {
+                    const alreadyFollowing = yield tx.userAuthor.findUnique({
+                        where: {
+                            userId_authorId: {
+                                userId: follow.userId,
+                                authorId: targetId
+                            }
+                        }
+                    });
+                    if (!alreadyFollowing) {
+                        yield tx.userAuthor.create({
+                            data: {
+                                userId: follow.userId,
+                                authorId: targetId,
+                                addedAt: follow.addedAt
+                            }
+                        });
+                    }
+                }
+                // 4. Delete source author
+                yield tx.author.delete({ where: { id: sourceId } });
+            }));
+            console.log(`[Inventaire Service] Merge successful. Source author ${sourceId} deleted.`);
+        }
+        catch (e) {
+            console.error(`[Inventaire Service] Merge failed between authors ${sourceId} and ${targetId}:`, e);
+            throw e;
+        }
+    });
+}
 const enrichWorkMetadata = (uri) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
     console.log(`[Inventaire Service] Starting full enrichment for ${uri}`);
@@ -137,6 +249,7 @@ const syncAuthorProfile = (authorId, authorName, authorUri) => __awaiter(void 0,
         return exports.activeAuthorEnrichments.get(authorId);
     }
     const enrichmentPromise = (() => __awaiter(void 0, void 0, void 0, function* () {
+        var _a, _b;
         try {
             yield prisma_1.prisma.author.update({ where: { id: authorId }, data: { isEnriching: true } }).catch(e => console.error(`Failed to set isEnriching for ${authorId}`, e));
             const author = yield prisma_1.prisma.author.findUnique({ where: { id: authorId } });
@@ -161,6 +274,14 @@ const syncAuthorProfile = (authorId, authorName, authorUri) => __awaiter(void 0,
             }
             if (!uri)
                 return null;
+            // 2. Check for conflict: Does another author record already use this URI?
+            const existingWithUri = yield prisma_1.prisma.author.findUnique({ where: { inventaireUri: uri } });
+            if (existingWithUri && existingWithUri.id !== authorId) {
+                console.log(`[Inventaire Service] ⚠️ Conflict detected: Author ${existingWithUri.id} already has URI ${uri}. Merging...`);
+                yield mergeAuthors(authorId, existingWithUri.id);
+                // Recursively call sync for the survivor and return its result
+                return yield (0, exports.syncAuthorProfile)(existingWithUri.id, authorName, uri);
+            }
             const details = yield api.getInventaireAuthorDetails(uri);
             if (!details)
                 return null;
@@ -195,10 +316,24 @@ const syncAuthorProfile = (authorId, authorName, authorUri) => __awaiter(void 0,
                 }
             }
             updateData.lastEnrichedAt = new Date();
-            const updatedAuthor = yield prisma_1.prisma.author.update({
-                where: { id: authorId },
-                data: updateData
-            });
+            let updatedAuthor;
+            try {
+                updatedAuthor = yield prisma_1.prisma.author.update({
+                    where: { id: authorId },
+                    data: updateData
+                });
+            }
+            catch (err) {
+                if (err.code === 'P2002' && ((_b = (_a = err.meta) === null || _a === void 0 ? void 0 : _a.target) === null || _b === void 0 ? void 0 : _b.includes('inventaireUri'))) {
+                    console.log(`[Inventaire Service] Race condition: Author with URI ${uri} was created/updated concurrently. Merging...`);
+                    const survivor = yield prisma_1.prisma.author.findUnique({ where: { inventaireUri: uri } });
+                    if (survivor) {
+                        yield mergeAuthors(authorId, survivor.id);
+                        return yield (0, exports.syncAuthorProfile)(survivor.id, authorName, uri);
+                    }
+                }
+                throw err;
+            }
             console.log(`[Inventaire Service] Enrichment complete for ${updatedAuthor.name}`);
             return updatedAuthor;
         }
@@ -207,7 +342,11 @@ const syncAuthorProfile = (authorId, authorName, authorUri) => __awaiter(void 0,
             return null;
         }
         finally {
-            yield prisma_1.prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } }).catch(e => console.error(`Failed to clear isEnriching for ${authorId}`, e));
+            // We might have deleted the author during merge, so check if it still exists before clearing flag
+            const exists = yield prisma_1.prisma.author.findUnique({ where: { id: authorId }, select: { id: true } });
+            if (exists) {
+                yield prisma_1.prisma.author.update({ where: { id: authorId }, data: { isEnriching: false } }).catch(e => console.error(`Failed to clear isEnriching for ${authorId}`, e));
+            }
             exports.activeAuthorEnrichments.delete(authorId);
         }
     }))();

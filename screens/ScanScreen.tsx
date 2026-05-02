@@ -24,10 +24,12 @@ import { useLiveOCR } from '@/src/hooks/useLiveOCR';
 
 import QuotexLogo from '@/components/QuotexLogo';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { ThemeColors } from '@/src/theme/theme';
 
 export default function ScanScreen() {
   const { colors } = useTheme();
+  const { user: currentUser } = useAuth();
   const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
@@ -315,7 +317,7 @@ export default function ScanScreen() {
 
           <TouchableOpacity 
             style={styles.headerButtonRight} 
-            onPress={() => router.push('/user-profile')}
+            onPress={() => router.push({ pathname: '/user-profile', params: { user: JSON.stringify(currentUser) } })}
           >
             <User size={24} color="#E5E7EB" />
           </TouchableOpacity>

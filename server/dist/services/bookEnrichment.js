@@ -14,39 +14,6 @@ const prisma_1 = require("../lib/prisma");
 const inventaire_1 = require("./inventaire");
 exports.bookEnrichmentQueue = new Set();
 /**
- * Merges a source book into a target book, moving all quotes and reviews,
- * then deleting the source book.
- */
-function mergeBooks(sourceId, targetId) {
-    return __awaiter(this, void 0, void 0, function* () {
-        console.log(`[BookEnrichment] Merging book ${sourceId} into ${targetId}...`);
-        try {
-            yield prisma_1.prisma.$transaction([
-                // Move quotes
-                prisma_1.prisma.quote.updateMany({
-                    where: { bookId: sourceId },
-                    data: { bookId: targetId }
-                }),
-                // Move reviews
-                prisma_1.prisma.review.updateMany({
-                    where: { bookId: sourceId },
-                    data: { bookId: targetId }
-                }),
-                // Move editions (individual updates because of uniqueness)
-                // Note: We don't merge editions strictly yet as they might conflict on URI.
-                // Deleting the source book will handle his editions via cascade or they remain orphans.
-                // Delete source book
-                prisma_1.prisma.book.delete({ where: { id: sourceId } })
-            ]);
-            console.log(`[BookEnrichment] Merge successful. Source book ${sourceId} deleted.`);
-        }
-        catch (e) {
-            console.error(`[BookEnrichment] Merge failed between ${sourceId} and ${targetId}:`, e);
-            throw e;
-        }
-    });
-}
-/**
  * Specifically enriches a book using Inventaire.io data
  */
 const enrichBookWithInventaire = (bookId) => __awaiter(void 0, void 0, void 0, function* () {
@@ -72,7 +39,7 @@ const enrichBookWithInventaire = (bookId) => __awaiter(void 0, void 0, void 0, f
                     }
                 });
                 if (targetBook) {
-                    yield mergeBooks(bookId, targetBook.id);
+                    yield (0, inventaire_1.mergeBooks)(bookId, targetBook.id);
                     // If target book didn't have a URI, give it the one we found
                     if (!targetBook.inventaireUri) {
                         yield prisma_1.prisma.book.update({
@@ -190,7 +157,7 @@ const discoverAndEnrichBook = (bookId) => __awaiter(void 0, void 0, void 0, func
             });
             if (existingBook && existingBook.id !== bookId) {
                 console.log(`[BookEnrichment/Discovery] ⚠️ Conflict detected: Book ${existingBook.id} already has URI ${uri}. Merging...`);
-                yield mergeBooks(bookId, existingBook.id);
+                yield (0, inventaire_1.mergeBooks)(bookId, existingBook.id);
                 // Enrichment for the survivor
                 yield (0, exports.enrichBookWithInventaire)(existingBook.id);
                 return;

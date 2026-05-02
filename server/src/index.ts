@@ -118,12 +118,14 @@ app.post('/auth/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        const sanitizedUsername = username.startsWith('@') ? username.slice(1) : username;
+
         const user = await prisma.user.create({
             data: {
                 email,
                 password: hashedPassword,
-                username,
-                name: name || username
+                username: sanitizedUsername,
+                name: name || sanitizedUsername
             }
         });
 
@@ -633,8 +635,9 @@ app.get('/users/:username', optionalAuthenticateToken, async (req: AuthRequest, 
     try {
         const { username } = req.params;
         const userId = req.user?.id || 1;
-        // Handle @ prefix
-        const cleanUsername = username.startsWith('@') ? username : `@${username}`;
+        // Handle @ prefix by stripping it (usernames in DB don't have it)
+        const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+        console.log(`[Server] Searching for user: "${cleanUsername}" (original: "${username}")`);
 
         const user = await prisma.user.findUnique({
             where: { username: cleanUsername },
@@ -647,6 +650,13 @@ app.get('/users/:username', optionalAuthenticateToken, async (req: AuthRequest, 
                         author: true,
                         savedBy: { where: { userId } },
                         likes: { where: { userId } }
+                    }
+                },
+                library: {
+                    include: {
+                        book: {
+                            include: { author: true }
+                        }
                     }
                 }
             }
@@ -671,12 +681,14 @@ app.get('/users/:username', optionalAuthenticateToken, async (req: AuthRequest, 
 app.patch('/users/me', authenticateToken, async (req: AuthRequest, res) => {
     try {
         const userId = req.user!.id;
-        const { username, password, name } = req.body;
+        const { username, password, name, bio, website, image } = req.body;
+        console.log('PATCH /users/me received:', { username, name, bio, website, image });
 
         const data: any = {};
         if (username) {
             // Check if username is already taken
-            const cleanUsername = username.startsWith('@') ? username : `@${username}`;
+            // Strip @ if present
+            const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
             const existing = await prisma.user.findFirst({
                 where: { 
                     username: cleanUsername,
@@ -697,6 +709,10 @@ app.patch('/users/me', authenticateToken, async (req: AuthRequest, res) => {
             data.name = name;
         }
 
+        if (bio !== undefined) data.bio = bio;
+        if (website !== undefined) data.website = website;
+        if (image !== undefined) data.image = image;
+
         if (Object.keys(data).length === 0) {
             return res.status(400).json({ error: 'Nothing to update' });
         }
@@ -705,6 +721,8 @@ app.patch('/users/me', authenticateToken, async (req: AuthRequest, res) => {
             where: { id: userId },
             data
         });
+
+        console.log(`User ${userId} profile updated successfully:`, Object.keys(data));
 
         const { password: _, ...userWithoutPassword } = updatedUser;
         res.json(userWithoutPassword);
@@ -765,6 +783,24 @@ app.post('/quotes', authenticateToken, async (req: AuthRequest, res) => {
                 console.error(`[Server] Background discovery failed for ${book}:`, err)
             );
         }
+
+        // 2.7 Add book to user's library with status 'reading' by default
+        await prisma.userBook.upsert({
+            where: {
+                userId_bookId: {
+                    userId: req.user!.id,
+                    bookId: bookRecord.id
+                }
+            },
+            update: {
+                // If it already exists, we DON'T change the status (keep current category)
+            },
+            create: {
+                userId: req.user!.id,
+                bookId: bookRecord.id,
+                status: 'READING'
+            }
+        });
 
         // 3. Create Quote
         const newQuote = await prisma.quote.create({

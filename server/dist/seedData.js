@@ -8,17 +8,24 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.seed = void 0;
 const client_1 = require("@prisma/client");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const prisma = new client_1.PrismaClient();
 const seed = () => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b;
     console.log('Starting enrichment seed...');
+    const hashedDefaultPassword = yield bcryptjs_1.default.hash('password123', 10);
     // --- Users ---
     const usersData = [
         {
-            username: "@clementqlf",
+            username: "clementqlf",
+            email: "clement@quotex.app",
+            password: hashedDefaultPassword,
             name: "Clément QLF",
             image: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=200&h=200&fit=crop",
             bio: "Passionné par la littérature classique et la philosophie. Je partage ici les citations qui façonnent ma pensée.",
@@ -27,7 +34,9 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             following: 89
         },
         {
-            username: "@sophiereads",
+            username: "sophiereads",
+            email: "sophie@quotex.app",
+            password: hashedDefaultPassword,
             name: "Sophie Martin",
             image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
             bio: "Exploratrice de la science-fiction et des mondes imaginaires. Chaque citation est une porte vers un autre univers.",
@@ -36,7 +45,9 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             following: 432
         },
         {
-            username: "@lucas_books",
+            username: "lucas_books",
+            email: "lucas@quotex.app",
+            password: hashedDefaultPassword,
             name: "Lucas Bernard",
             image: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop",
             bio: "Historien amateur et grand lecteur de biographies. J'aime comprendre les gens qui ont fait l'Histoire.",
@@ -45,7 +56,9 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             following: 12
         },
         {
-            username: "@emma_art",
+            username: "emma_art",
+            email: "emma@quotex.app",
+            password: hashedDefaultPassword,
             name: "Emma Dubois",
             image: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=200&h=200&fit=crop",
             bio: "L'art est ma vie. La poésie est mon souffle. Je cherche la beauté dans chaque ligne.",
@@ -54,7 +67,9 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             following: 150
         },
         {
-            username: "@tom_tech",
+            username: "tom_tech",
+            email: "thomas@quotex.app",
+            password: hashedDefaultPassword,
             name: "Thomas Durand",
             image: "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200&h=200&fit=crop",
             bio: "Tech lead le jour, lecteur avide la nuit. Science, Innovation et Futur.",
@@ -380,7 +395,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "The only way to do great work is to love what you do.",
             book: "Steve Jobs",
             author: "Steve Jobs",
-            user: "@clementqlf",
+            user: "clementqlf",
             theme: "Travail",
             likesCount: 12,
             aiInterpretation: "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
@@ -403,7 +418,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "In the middle of difficulty lies opportunity.",
             book: "Einstein: His Life and Universe",
             author: "Albert Einstein",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Résilience",
             likesCount: 8,
             aiInterpretation: "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
@@ -426,7 +441,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "It is our choices that show what we truly are, far more than our abilities.",
             book: "Harry Potter and the Chamber of Secrets",
             author: "J.K. Rowling",
-            user: "@clementqlf",
+            user: "clementqlf",
             theme: "Choix",
             likesCount: 24,
             aiInterpretation: "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
@@ -449,7 +464,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "The only impossible journey is the one you never begin.",
             book: "The Alchemist",
             author: "Paulo Coelho",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Aventure",
             likesCount: 142
         },
@@ -457,7 +472,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "It is never too late to be what you might have been.",
             book: "Middlemarch",
             author: "George Eliot",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Espoir",
             likesCount: 89
         },
@@ -465,7 +480,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
             book: "Einstein: His Life and Universe",
             author: "Albert Einstein",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Humour",
             likesCount: 256
         },
@@ -473,7 +488,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "The man who does not read has no advantage over the man who cannot read.",
             book: "The Obstacle Is the Way",
             author: "Ryan Holiday",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Lecture",
             likesCount: 112
         },
@@ -481,7 +496,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "I must not fear. Fear is the mind-killer.",
             book: "Dune",
             author: "Frank Herbert",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Courage",
             likesCount: 890
         },
@@ -489,7 +504,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "He who has a why to live can bear almost any how.",
             book: "Dune",
             author: "Frank Herbert",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Philosophie",
             likesCount: 42
         },
@@ -497,7 +512,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "You have power over your mind - not outside events. Realize this, and you will find strength.",
             book: "Meditations",
             author: "Marcus Aurelius",
-            user: "@clementqlf",
+            user: "clementqlf",
             theme: "Stoïcisme",
             likesCount: 312
         },
@@ -505,7 +520,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "The soul becomes dyed with the color of its thoughts.",
             book: "Meditations",
             author: "Marcus Aurelius",
-            user: "@emma_art",
+            user: "emma_art",
             theme: "Spiritualité",
             likesCount: 210
         },
@@ -513,7 +528,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "Even the darkest night will end and the sun will rise.",
             book: "Les Misérables",
             author: "Victor Hugo",
-            user: "@emma_art",
+            user: "emma_art",
             theme: "Espoir",
             likesCount: 567
         },
@@ -521,12 +536,15 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             text: "To love another person is to see the face of God.",
             book: "Les Misérables",
             author: "Victor Hugo",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Amour",
             likesCount: 123
         }
     ];
     const allQuotes = [];
+    // Clear existing quotes to avoid duplicates during re-seed if needed, 
+    // or just use create if we know we are starting fresh.
+    // For this seed, we will just create them.
     for (const q of quotesData) {
         let author = authors[q.author];
         if (!author) {
@@ -536,24 +554,68 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
         const book = books[q.book];
         const user = users[q.user];
         if (author && book && user) {
-            const quote = yield prisma.quote.create({
-                data: {
+            // Check if quote already exists to avoid duplicates
+            const existingQuote = yield prisma.quote.findFirst({
+                where: {
                     text: q.text,
-                    authorId: author.id,
-                    bookId: book.id,
-                    userId: user.id,
-                    theme: q.theme,
-                    likesCount: q.likesCount,
-                    date: new Date(),
-                    aiInterpretation: q.aiInterpretation,
-                    definitions: q.definitions
+                    userId: user.id
                 }
             });
-            allQuotes.push(quote);
-            console.log(`Created quote: "${q.text.substring(0, 20)}..."`);
+            if (!existingQuote) {
+                const quote = yield prisma.quote.create({
+                    data: {
+                        text: q.text,
+                        authorId: author.id,
+                        bookId: book.id,
+                        userId: user.id,
+                        theme: q.theme,
+                        likesCount: q.likesCount,
+                        date: new Date(),
+                        aiInterpretation: q.aiInterpretation,
+                        definitions: q.definitions
+                    }
+                });
+                allQuotes.push(quote);
+                console.log(`Created quote: "${q.text.substring(0, 20)}..."`);
+            }
+            else {
+                allQuotes.push(existingQuote);
+            }
         }
         else {
             console.log(`Missing link for quote: ${q.text} (Author: ${!!author}, Book: ${!!book}, User: ${!!user})`);
+        }
+    }
+    // --- Library (UserBooks) ---
+    console.log("Seeding Libraries...");
+    const libraryData = [
+        { user: "clementqlf", book: "Steve Jobs", status: "FINISHED" },
+        { user: "clementqlf", book: "Meditations", status: "READING" },
+        { user: "clementqlf", book: "Dune", status: "TO_READ" },
+        { user: "sophiereads", book: "Dune", status: "FINISHED" },
+        { user: "sophiereads", book: "The Alchemist", status: "FINISHED" },
+        { user: "lucas_books", book: "Meditations", status: "FINISHED" },
+        { user: "lucas_books", book: "Einstein: His Life and Universe", status: "READING" }
+    ];
+    for (const item of libraryData) {
+        const user = users[item.user];
+        const book = books[item.book];
+        if (user && book) {
+            yield prisma.userBook.upsert({
+                where: {
+                    userId_bookId: {
+                        userId: user.id,
+                        bookId: book.id
+                    }
+                },
+                update: { status: item.status },
+                create: {
+                    userId: user.id,
+                    bookId: book.id,
+                    status: item.status
+                }
+            });
+            console.log(`Added ${item.book} to ${item.user}'s library`);
         }
     }
     // --- Likes ---
@@ -584,7 +646,7 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             }
         }
         if (Math.random() > 0.5) {
-            const mainUser = users["@clementqlf"];
+            const mainUser = users["clementqlf"];
             if (mainUser) {
                 yield prisma.like.upsert({
                     where: { userId_quoteId: { userId: mainUser.id, quoteId: q.id } },
@@ -609,25 +671,25 @@ const seed = () => __awaiter(void 0, void 0, void 0, function* () {
             comment: "Un peu dense au début, mais une fois plongé dedans, impossible de le lâcher."
         },
         {
-            user: "@tom_tech",
+            user: "tom_tech",
             book: "Steve Jobs",
             rating: 5,
             comment: "Inspirant pour tout entrepreneur. La complexité du personnage est bien rendue."
         },
         {
-            user: "@emma_art",
+            user: "emma_art",
             book: "Les Misérables",
             rating: 5,
             comment: "Bouleversant. Hugo décrit la misère et la rédemption avec une puissance inégalée."
         },
         {
-            user: "@lucas_books",
+            user: "lucas_books",
             book: "Meditations",
             rating: 5,
             comment: "Un livre de chevet indispensable pour rester stoïque face aux épreuves."
         },
         {
-            user: "@clementqlf",
+            user: "clementqlf",
             book: "Harry Potter and the Chamber of Secrets",
             rating: 4,
             comment: "Toujours un plaisir de se replonger dans cet univers, même adulte."

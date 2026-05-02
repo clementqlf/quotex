@@ -10,7 +10,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     register: (username: string, email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
-    updateProfile: (data: { username?: string; password?: string; name?: string }) => Promise<void>;
+    updateProfile: (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(null);
     };
 
-    const updateProfile = async (data: { username?: string; password?: string; name?: string }) => {
+    const updateProfile = async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => {
         const updatedUser = await authService.updateUser(data);
         setUser(updatedUser);
     };

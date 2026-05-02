@@ -28,10 +28,11 @@ class AuthService {
     }
 
     async register(username: string, email: string, password: string): Promise<AuthResponse> {
+        const sanitizedUsername = username.startsWith('@') ? username.slice(1) : username;
         const response = await fetch(`${this.AUTH_URL}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password }),
+            body: JSON.stringify({ username: sanitizedUsername, email, password }),
         });
 
         if (!response.ok) {
@@ -54,15 +55,22 @@ class AuthService {
         await StorageService.removeItem(STORAGE_KEYS.USER_DATA);
     }
 
-    async updateUser(data: { username?: string; password?: string; name?: string }): Promise<User> {
+    async updateUser(data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }): Promise<User> {
         const token = await this.getToken();
+        
+        // Strip @ from username if present
+        const sanitizedData = { ...data };
+        if (sanitizedData.username && sanitizedData.username.startsWith('@')) {
+            sanitizedData.username = sanitizedData.username.slice(1);
+        }
+
         const response = await fetch(`${API_BASE_URL}/users/me`, {
             method: 'PATCH',
             headers: { 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify(sanitizedData),
         });
 
         if (!response.ok) {

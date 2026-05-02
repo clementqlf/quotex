@@ -11,7 +11,7 @@ export const seed = async () => {
     // --- Users ---
     const usersData = [
         {
-            username: "@clementqlf",
+            username: "clementqlf",
             email: "clement@quotex.app",
             password: hashedDefaultPassword,
             name: "Clément QLF",
@@ -22,7 +22,7 @@ export const seed = async () => {
             following: 89
         },
         {
-            username: "@sophiereads",
+            username: "sophiereads",
             email: "sophie@quotex.app",
             password: hashedDefaultPassword,
             name: "Sophie Martin",
@@ -33,7 +33,7 @@ export const seed = async () => {
             following: 432
         },
         {
-            username: "@lucas_books",
+            username: "lucas_books",
             email: "lucas@quotex.app",
             password: hashedDefaultPassword,
             name: "Lucas Bernard",
@@ -44,7 +44,7 @@ export const seed = async () => {
             following: 12
         },
         {
-            username: "@emma_art",
+            username: "emma_art",
             email: "emma@quotex.app",
             password: hashedDefaultPassword,
             name: "Emma Dubois",
@@ -55,7 +55,7 @@ export const seed = async () => {
             following: 150
         },
         {
-            username: "@tom_tech",
+            username: "tom_tech",
             email: "thomas@quotex.app",
             password: hashedDefaultPassword,
             name: "Thomas Durand",
@@ -400,7 +400,7 @@ export const seed = async () => {
             text: "The only way to do great work is to love what you do.",
             book: "Steve Jobs",
             author: "Steve Jobs",
-            user: "@clementqlf",
+            user: "clementqlf",
             theme: "Travail",
             likesCount: 12,
             aiInterpretation: "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
@@ -423,7 +423,7 @@ export const seed = async () => {
             text: "In the middle of difficulty lies opportunity.",
             book: "Einstein: His Life and Universe",
             author: "Albert Einstein",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Résilience",
             likesCount: 8,
             aiInterpretation: "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
@@ -446,7 +446,7 @@ export const seed = async () => {
             text: "It is our choices that show what we truly are, far more than our abilities.",
             book: "Harry Potter and the Chamber of Secrets",
             author: "J.K. Rowling",
-            user: "@clementqlf",
+            user: "clementqlf",
             theme: "Choix",
             likesCount: 24,
             aiInterpretation: "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
@@ -469,7 +469,7 @@ export const seed = async () => {
             text: "The only impossible journey is the one you never begin.",
             book: "The Alchemist",
             author: "Paulo Coelho",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Aventure",
             likesCount: 142
         },
@@ -477,7 +477,7 @@ export const seed = async () => {
             text: "It is never too late to be what you might have been.",
             book: "Middlemarch",
             author: "George Eliot",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Espoir",
             likesCount: 89
         },
@@ -485,7 +485,7 @@ export const seed = async () => {
             text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
             book: "Einstein: His Life and Universe",
             author: "Albert Einstein",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Humour",
             likesCount: 256
         },
@@ -493,7 +493,7 @@ export const seed = async () => {
             text: "The man who does not read has no advantage over the man who cannot read.",
             book: "The Obstacle Is the Way",
             author: "Ryan Holiday",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Lecture",
             likesCount: 112
         },
@@ -501,7 +501,7 @@ export const seed = async () => {
             text: "I must not fear. Fear is the mind-killer.",
             book: "Dune",
             author: "Frank Herbert",
-            user: "@sophiereads",
+            user: "sophiereads",
             theme: "Courage",
             likesCount: 890
         },
@@ -509,7 +509,7 @@ export const seed = async () => {
             text: "He who has a why to live can bear almost any how.",
             book: "Dune",
             author: "Frank Herbert",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Philosophie",
             likesCount: 42
         },
@@ -517,7 +517,7 @@ export const seed = async () => {
             text: "You have power over your mind - not outside events. Realize this, and you will find strength.",
             book: "Meditations",
             author: "Marcus Aurelius",
-            user: "@clementqlf",
+            user: "clementqlf",
             theme: "Stoïcisme",
             likesCount: 312
         },
@@ -525,7 +525,7 @@ export const seed = async () => {
             text: "The soul becomes dyed with the color of its thoughts.",
             book: "Meditations",
             author: "Marcus Aurelius",
-            user: "@emma_art",
+            user: "emma_art",
             theme: "Spiritualité",
             likesCount: 210
         },
@@ -533,7 +533,7 @@ export const seed = async () => {
             text: "Even the darkest night will end and the sun will rise.",
             book: "Les Misérables",
             author: "Victor Hugo",
-            user: "@emma_art",
+            user: "emma_art",
             theme: "Espoir",
             likesCount: 567
         },
@@ -541,7 +541,7 @@ export const seed = async () => {
             text: "To love another person is to see the face of God.",
             book: "Les Misérables",
             author: "Victor Hugo",
-            user: "@lucas_books",
+            user: "lucas_books",
             theme: "Amour",
             likesCount: 123
         }
@@ -549,6 +549,10 @@ export const seed = async () => {
 
     const allQuotes: any[] = [];
 
+    // Clear existing quotes to avoid duplicates during re-seed if needed, 
+    // or just use create if we know we are starting fresh.
+    // For this seed, we will just create them.
+    
     for (const q of quotesData) {
         let author = authors[q.author];
         if (!author) {
@@ -560,23 +564,69 @@ export const seed = async () => {
         const user = users[q.user];
 
         if (author && book && user) {
-            const quote = await prisma.quote.create({
-                data: {
+            // Check if quote already exists to avoid duplicates
+            const existingQuote = await prisma.quote.findFirst({
+                where: {
                     text: q.text,
-                    authorId: author.id,
-                    bookId: book.id,
-                    userId: user.id,
-                    theme: q.theme,
-                    likesCount: q.likesCount,
-                    date: new Date(),
-                    aiInterpretation: q.aiInterpretation,
-                    definitions: q.definitions
+                    userId: user.id
                 }
             });
-            allQuotes.push(quote);
-            console.log(`Created quote: "${q.text.substring(0, 20)}..."`);
+
+            if (!existingQuote) {
+                const quote = await prisma.quote.create({
+                    data: {
+                        text: q.text,
+                        authorId: author.id,
+                        bookId: book.id,
+                        userId: user.id,
+                        theme: q.theme,
+                        likesCount: q.likesCount,
+                        date: new Date(),
+                        aiInterpretation: q.aiInterpretation,
+                        definitions: q.definitions
+                    }
+                });
+                allQuotes.push(quote);
+                console.log(`Created quote: "${q.text.substring(0, 20)}..."`);
+            } else {
+                allQuotes.push(existingQuote);
+            }
         } else {
             console.log(`Missing link for quote: ${q.text} (Author: ${!!author}, Book: ${!!book}, User: ${!!user})`);
+        }
+    }
+
+    // --- Library (UserBooks) ---
+    console.log("Seeding Libraries...");
+    const libraryData = [
+        { user: "clementqlf", book: "Steve Jobs", status: "FINISHED" },
+        { user: "clementqlf", book: "Meditations", status: "READING" },
+        { user: "clementqlf", book: "Dune", status: "TO_READ" },
+        { user: "sophiereads", book: "Dune", status: "FINISHED" },
+        { user: "sophiereads", book: "The Alchemist", status: "FINISHED" },
+        { user: "lucas_books", book: "Meditations", status: "FINISHED" },
+        { user: "lucas_books", book: "Einstein: His Life and Universe", status: "READING" }
+    ];
+
+    for (const item of libraryData) {
+        const user = users[item.user];
+        const book = books[item.book];
+        if (user && book) {
+            await prisma.userBook.upsert({
+                where: {
+                    userId_bookId: {
+                        userId: user.id,
+                        bookId: book.id
+                    }
+                },
+                update: { status: item.status },
+                create: {
+                    userId: user.id,
+                    bookId: book.id,
+                    status: item.status
+                }
+            });
+            console.log(`Added ${item.book} to ${item.user}'s library`);
         }
     }
 
@@ -610,7 +660,7 @@ export const seed = async () => {
         }
 
         if (Math.random() > 0.5) {
-            const mainUser = users["@clementqlf"];
+            const mainUser = users["clementqlf"];
             if (mainUser) {
                 await prisma.like.upsert({
                     where: { userId_quoteId: { userId: mainUser.id, quoteId: q.id } },
@@ -636,25 +686,25 @@ export const seed = async () => {
             comment: "Un peu dense au début, mais une fois plongé dedans, impossible de le lâcher."
         },
         {
-            user: "@tom_tech",
+            user: "tom_tech",
             book: "Steve Jobs",
             rating: 5,
             comment: "Inspirant pour tout entrepreneur. La complexité du personnage est bien rendue."
         },
         {
-            user: "@emma_art",
+            user: "emma_art",
             book: "Les Misérables",
             rating: 5,
             comment: "Bouleversant. Hugo décrit la misère et la rédemption avec une puissance inégalée."
         },
         {
-            user: "@lucas_books",
+            user: "lucas_books",
             book: "Meditations",
             rating: 5,
             comment: "Un livre de chevet indispensable pour rester stoïque face aux épreuves."
         },
         {
-            user: "@clementqlf",
+            user: "clementqlf",
             book: "Harry Potter and the Chamber of Secrets",
             rating: 4,
             comment: "Toujours un plaisir de se replonger dans cet univers, même adulte."

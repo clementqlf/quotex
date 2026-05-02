@@ -97,7 +97,7 @@ export default function SocialFeedScreen() {
                 <View style={styles.userDetails}>
                   <Text style={styles.userName}>{quote.user?.name}</Text>
                   <Text style={styles.userMeta}>
-                    {quote.user?.username} · {quote.time || quote.date}
+                    @{quote.user?.username} · {quote.time || quote.date}
                   </Text>
                 </View>
               </TouchableOpacity>

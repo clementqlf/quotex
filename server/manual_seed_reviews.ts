@@ -14,9 +14,9 @@ async function main() {
     }
 
     // Get User "sophiereads"
-    const user = await prisma.user.findUnique({ where: { username: '@sophiereads' } });
+    const user = await prisma.user.findUnique({ where: { username: 'sophiereads' } });
     if (!user) {
-        console.error('User "@sophiereads" not found!');
+        console.error('User "sophiereads" not found!');
         return;
     }
 
