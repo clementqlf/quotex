@@ -367,14 +367,14 @@ class QuoteService {
 
     async getUserByUsername(username: string): Promise<any | undefined> {
         try {
-            const baseUrl = this.API_URL!.replace('/quotes', '');
             const headers = await this.getHeaders();
-            // Strip @ if present in URL segment to avoid double encoding or issues, handled by server anyway
             const cleanUsername = username.replace('@', '');
-            const response = await fetch(`${baseUrl}/users/${cleanUsername}`, { headers });
+            const response = await fetch(`${API_BASE_URL}/users/${cleanUsername}`, { headers });
 
             if (response.ok) {
                 return await response.json();
+            } else {
+                console.error('getUserByUsername error:', response.status, await response.text());
             }
         } catch (e) {
             console.log('Error fetching user:', e);

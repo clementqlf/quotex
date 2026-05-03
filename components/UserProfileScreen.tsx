@@ -103,20 +103,27 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const username = rawParams.username || user?.username || currentUser?.username;
+      // Determine if we are viewing our own profile
+      const isViewingOwnProfile = (!rawParams.username && !user) || 
+                                  (rawParams.username === currentUser?.username) || 
+                                  (user?.username === currentUser?.username);
+                                  
+      // Use the special 'me' route for our own profile, otherwise use the specific username
+      const usernameToFetch = isViewingOwnProfile ? 'me' : (rawParams.username || user?.username);
 
-      if (!username) {
+      if (!usernameToFetch) {
         setIsLoading(false);
         return;
       }
 
       // If we already have some data for this user, we don't necessarily need to show the big loader
-      const hasInitialData = profileData?.username === username;
+      const usernameForDisplay = rawParams.username || user?.username || currentUser?.username;
+      const hasInitialData = profileData?.username === usernameForDisplay;
       if (!hasInitialData) {
         setIsLoading(true);
       }
       try {
-        const data = await getUserByUsername(username);
+        const data = await getUserByUsername(usernameToFetch);
         if (data) {
           setProfileData(data);
           if (data.quotes) {
@@ -440,7 +447,7 @@ export default function UserProfileScreen() {
                           <TouchableOpacity
                             key={book.id}
                             style={styles.bookItem}
-                            onPress={() => router.push({ pathname: '/book-detail', params: { book: JSON.stringify(book) } })}
+                            onPress={() => router.push({ pathname: '/book-detail', params: { bookId: book.id.toString(), bookTitle: book.title } })}
                           >
                             {book.cover ? (
                               <Image source={{ uri: book.cover }} style={styles.bookCover} />
