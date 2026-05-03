@@ -47,28 +47,19 @@ type UserProfileScreenRouteProp = { user: User };
 
 export default function UserProfileScreen() {
   const router = useRouter();
-  const rawParams = useLocalSearchParams<{ user?: string; username?: string }>();
-  const user: User | null = useMemo(() => {
-    try {
-      return rawParams.user ? JSON.parse(rawParams.user as string) : null;
-    } catch (e) {
-      return null;
-    }
-  }, [rawParams.user]);
-
+  const { username } = useLocalSearchParams<{ username?: string }>();
   const { getUserByUsername } = useData();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
 
   const [profileData, setProfileData] = useState<User | null>(() => {
-    if (user) return user;
-    if (rawParams.username && currentUser?.username === rawParams.username) return currentUser;
-    if (!rawParams.username && !user) return currentUser;
+    if (username && currentUser?.username === username) return currentUser;
+    if (!username) return currentUser;
     return null;
   });
 
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const isMe = currentUser?.username === user?.username || currentUser?.username === profileData?.username;
+  const isMe = currentUser?.username === profileData?.username;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -104,12 +95,10 @@ export default function UserProfileScreen() {
   useEffect(() => {
     const fetchProfile = async () => {
       // Determine if we are viewing our own profile
-      const isViewingOwnProfile = (!rawParams.username && !user) || 
-                                  (rawParams.username === currentUser?.username) || 
-                                  (user?.username === currentUser?.username);
+      const isViewingOwnProfile = !username || (username === currentUser?.username);
                                   
       // Use the special 'me' route for our own profile, otherwise use the specific username
-      const usernameToFetch = isViewingOwnProfile ? 'me' : (rawParams.username || user?.username);
+      const usernameToFetch = isViewingOwnProfile ? 'me' : username;
 
       if (!usernameToFetch) {
         setIsLoading(false);
@@ -117,8 +106,7 @@ export default function UserProfileScreen() {
       }
 
       // If we already have some data for this user, we don't necessarily need to show the big loader
-      const usernameForDisplay = rawParams.username || user?.username || currentUser?.username;
-      const hasInitialData = profileData?.username === usernameForDisplay;
+      const hasInitialData = profileData?.username === usernameToFetch || (isViewingOwnProfile && profileData === currentUser);
       if (!hasInitialData) {
         setIsLoading(true);
       }
@@ -137,19 +125,16 @@ export default function UserProfileScreen() {
           if (data.library) {
             setUserBooks(data.library);
           }
-        } else if (user) {
-          setProfileData({ ...user });
         }
       } catch (e) {
         console.error("Error loading profile", e);
-        if (user) setProfileData({ ...user });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProfile();
-  }, [rawParams.username, user?.username, currentUser?.username]);
+  }, [username, currentUser?.username]);
 
   const toggleFollow = () => {
     setIsFollowing(!isFollowing);
@@ -277,7 +262,7 @@ export default function UserProfileScreen() {
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || user?.username || rawParams.username}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || username}</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -479,11 +464,11 @@ export default function UserProfileScreen() {
             {userQuotes.length > 0 ? (
               <View style={styles.savedQuotesList}>
                 {userQuotes.map((quote) => (
-                  <TouchableOpacity
-                    key={quote.id}
-                    style={styles.savedQuoteCard}
-                    onPress={() => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
-                  >
+                    <TouchableOpacity
+                      key={quote.id}
+                      style={styles.savedQuoteCard}
+                      onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+                    >
                     <Text style={styles.savedQuoteText} numberOfLines={3}>"{quote.text}"</Text>
                     <View style={styles.savedQuoteMeta}>
                       <View>

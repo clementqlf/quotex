@@ -37,6 +37,10 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
+  useEffect(() => {
+    console.log("🚀 Hermes actif :", !!(global as any).HermesInternal);
+  }, []);
+
   const { isDark, colors: themeColors } = useTheme();
   const { isAuthenticated, isLoading } = useAuth();
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);

@@ -35,13 +35,27 @@ export function QuoteDetailModal() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
-  const rawParams = useLocalSearchParams<{ quote?: string }>();
-  const initialQuote: Quote | undefined = rawParams.quote ? JSON.parse(rawParams.quote as string) : undefined;
+  const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
   const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
 
-  // Sync with global store to get latest data (e.g. user info)
-  const globalQuote = quotes.find(q => q.id === initialQuote?.id);
-  const [quote, setQuote] = React.useState(globalQuote || initialQuote);
+  // 1. Prioritize lookup by ID from global store
+  // 2. Fallback to parsing the stringified quote param
+  const initialQuote = useMemo(() => {
+    if (quoteId) {
+      const found = quotes.find(q => q.id === parseInt(quoteId));
+      if (found) return found;
+    }
+    if (quoteParam) {
+      try {
+        return JSON.parse(quoteParam) as Quote;
+      } catch (e) {
+        console.error('Failed to parse quote param', e);
+      }
+    }
+    return undefined;
+  }, [quoteId, quoteParam, quotes]);
+
+  const [quote, setQuote] = React.useState<Quote | undefined>(initialQuote);
 
   // State for rich data
   const [fetchedBook, setFetchedBook] = React.useState<Book | null>(null);
@@ -50,10 +64,13 @@ export function QuoteDetailModal() {
   const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
 
   React.useEffect(() => {
-    if (globalQuote) {
-      setQuote(globalQuote);
+    if (quoteId) {
+      const globalQuote = quotes.find(q => q.id === parseInt(quoteId));
+      if (globalQuote) {
+        setQuote(globalQuote);
+      }
     }
-  }, [globalQuote]);
+  }, [quoteId, quotes]);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -305,7 +322,7 @@ export function QuoteDetailModal() {
                 </TouchableOpacity>
 
                 {quote.user && (
-                  <TouchableOpacity style={styles.metaRow} onPress={() => router.navigate(`/user-profile?user=${encodeURIComponent(JSON.stringify(quote.user))}`)}>
+                  <TouchableOpacity style={styles.metaRow} onPress={() => router.navigate(`/user-profile?username=${quote.user?.username}`)}>
                     <Image
                       source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
                       style={styles.publisherAvatar}

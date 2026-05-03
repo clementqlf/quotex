@@ -262,8 +262,7 @@ export default function MyQuotesScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => {
-              const currentQuote = quotesToDisplay.find(q => q.id === quote.id) || quote;
-              router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(currentQuote) } });
+              router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } });
             }}
           >
             {/* Quote Icon (custom SVG) */}

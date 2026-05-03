@@ -79,9 +79,7 @@ export default function SocialFeedScreen() {
 
           return (
             <TouchableOpacity key={quote.id} style={styles.quoteCard} activeOpacity={0.8} onPress={() => {
-              // On trouve la dernière version de la citation pour la passer au modal
-              const currentQuote = feedQuotes.find(q => q.id === quote.id) || quote;
-              router.push({ pathname: '/quote-detail', params: { quote: JSON.stringify({ ...currentQuote, date: currentQuote.time }) } });
+              router.push({ pathname: '/quote-detail', params: { quoteId: quote.id } });
             }}>
               {/* User Info - Cliquable */}
               <TouchableOpacity
@@ -91,8 +89,7 @@ export default function SocialFeedScreen() {
                   router.push({ 
                     pathname: '/user-profile', 
                     params: { 
-                      username: quote.user?.username,
-                      user: JSON.stringify(quote.user) 
+                      username: quote.user?.username
                     } 
                   });
                 }}

@@ -19,8 +19,8 @@ async function fetchQuotes(userId: number, quoteId?: number) {
   const rows = await sql`
     SELECT
       q.*,
+      (SELECT row_to_json(u_row) FROM (SELECT u.id, u.username, u.name, u.image, u.bio, u.website FROM "User" u WHERE u.id = q."userId") u_row) as "user",
       row_to_json(a) as "author",
-      row_to_json(u) as "user",
       (
         SELECT row_to_json(b_row)
         FROM (
@@ -35,7 +35,6 @@ async function fetchQuotes(userId: number, quoteId?: number) {
       COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q."id" AND s."userId" = ${userId}), '[]'::json) as "savedBy"
     FROM "Quote" q
     LEFT JOIN "Author" a ON a."id" = q."authorId"
-    LEFT JOIN "User" u ON u."id" = q."userId"
     WHERE 1=1 ${where}
     ORDER BY q."date" DESC
   `;
@@ -178,7 +177,8 @@ serve(async (req: Request) => {
 
       const { text, author, book, theme } = await req.json();
       const existingRows = await sql`
-        SELECT q.*, row_to_json(a) as author, row_to_json(b) as book
+        SELECT q.*, row_to_json(a) as author, row_to_json(b) as book,
+               (SELECT row_to_json(u_row) FROM (SELECT u.id, u.username, u.name, u.image FROM "User" u WHERE u.id = q."userId") u_row) as "user"
         FROM "Quote" q
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" b ON b.id = q."bookId"
