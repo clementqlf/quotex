@@ -8,7 +8,7 @@ import { ThemeColors } from '@/src/theme/theme';
 
 interface SimilarBooksBlockProps {
     books: (Book | any)[]; // Flexible type as sometimes it's partial data or just strings
-    onBookPress: (bookTitle: string) => void;
+    onBookPress: (bookIdOrTitle: string | number, inventaireUri?: string) => void;
     onRemove?: () => void;
 }
 
@@ -41,7 +41,7 @@ export const SimilarBooksBlock: React.FC<SimilarBooksBlockProps> = ({ books, onB
                     <TouchableOpacity
                         key={book.id || book.title || index}
                         style={styles.item}
-                        onPress={() => onBookPress(book.title)}
+                        onPress={() => onBookPress(book.id ?? book.title, book.inventaireUri)}
                     >
                         {book.cover ? (
                             <Image source={{ uri: book.cover }} style={styles.cover} />

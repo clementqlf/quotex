@@ -426,6 +426,7 @@ export default function MyQuotesScreen() {
           description: meta?.description,
           cover: meta?.cover,
           readingStatus: data.bookObj?.readingStatus,
+          inventaireUri: data.bookObj?.inventaireUri,
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
@@ -461,6 +462,7 @@ export default function MyQuotesScreen() {
         name: getAuthorName(data.author),
         image: typeof data.author !== 'string' ? data.author?.image : null,
         quoteCount: data.quoteCount,
+        inventaireUri: typeof data.author !== 'string' ? data.author?.inventaireUri : undefined,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [myQuotes, allAuthors]);
@@ -650,7 +652,7 @@ export default function MyQuotesScreen() {
                 key={book.title}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => navigateToBook(book.id ?? book.title)}
+                onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
               >
                 <View style={styles.bookCardContent}>
                   {book.cover ? (
@@ -693,7 +695,7 @@ export default function MyQuotesScreen() {
                 key={author.name}
                 style={styles.bookCard}
                 activeOpacity={0.85}
-                onPress={() => navigateToAuthor(author.name)}
+                onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
               >
                 <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
                   {author.image ? (

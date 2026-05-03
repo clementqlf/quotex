@@ -25,8 +25,8 @@ export interface BlockContext {
 
     // Handlers
     onUpdateBlockData?: (blockKey: string, data: any) => void;
-    onBookPress?: (bookTitle: string) => void;
-    onAuthorPress?: (authorName: string) => void;
+    onBookPress?: (bookIdOrTitle: string | number, inventaireUri?: string) => void;
+    onAuthorPress?: (authorName: string, inventaireUri?: string) => void;
     onQuotePress?: (quote: Quote) => void;
 
     // Specific handlers
@@ -113,11 +113,11 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         case 'similarBooks':
             // Data might come from book or quote's fetched book
             const similarBooks = book?.similarBooks || [];
-            return <SimilarBooksBlock books={similarBooks} onBookPress={(t) => onBookPress && onBookPress(t)} onRemove={onRemove} />;
+            return <SimilarBooksBlock books={similarBooks} onBookPress={(idOrTitle, uri) => onBookPress && onBookPress(idOrTitle, uri)} onRemove={onRemove} />;
 
         case 'similarAuthors':
             const similarAuthors = author?.similarAuthors || [];
-            return <SimilarAuthorsBlock authors={similarAuthors} onAuthorPress={(n) => onAuthorPress && onAuthorPress(n)} onRemove={onRemove} />;
+            return <SimilarAuthorsBlock authors={similarAuthors} onAuthorPress={(n, uri) => onAuthorPress && onAuthorPress(n, uri)} onRemove={onRemove} />;
 
         case 'definition':
             // Quote Mode

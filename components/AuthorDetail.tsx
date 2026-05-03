@@ -259,7 +259,7 @@ export function AuthorDetailScreen() {
               <TouchableOpacity
                 key={`${book.id || book.title}-${index}`}
                 style={styles.bookItem}
-                onPress={() => navigateToBook(book.id ?? book.title)}>
+                onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}>
                 <View style={styles.bookCoverContainer}>
                   {book.cover ? (
                     <Image source={{ uri: book.cover }} style={styles.bookCover} />
@@ -364,7 +364,7 @@ export function AuthorDetailScreen() {
                     style={styles.bookItem}
                     onPress={() => {
                       setShowAllWorksModal(false);
-                      navigateToBook(item.id ?? item.title);
+                      navigateToBook(item.id ?? item.title, item.inventaireUri);
                     }}>
                     <View style={styles.bookCoverContainer}>
                       {item.cover ? (

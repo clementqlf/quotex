@@ -129,7 +129,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigateToBook(book.id ?? book.title)}
+                    onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
                 >
                     <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                         {book.cover ? (
@@ -149,7 +149,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigateToAuthor(author.name)}
+                    onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {author.image ? (
@@ -202,7 +202,7 @@ export default function SearchScreen() {
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigateToAuthor(item.label)}
+                    onPress={() => navigateToAuthor(item.label, item.uri)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                         {item.image ? (

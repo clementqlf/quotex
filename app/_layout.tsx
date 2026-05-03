@@ -42,6 +42,14 @@ function RootLayoutNav() {
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
   const segments = useSegments();
   const router = useRouter();
+  
+  // Navigation Logger
+  const pathname = require('expo-router').usePathname();
+  const params = require('expo-router').useGlobalSearchParams();
+
+  useEffect(() => {
+    console.log(`[Navigation] Opened Screen: ${pathname}`, params);
+  }, [pathname, params]);
 
   useEffect(() => {
     if (!isLoading) {
@@ -105,11 +113,13 @@ function RootLayoutNav() {
               animation: 'slide_from_right',
               // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
               getId: ({ params }) => {
+                if (params?.inventaireUri) return `uri-${params.inventaireUri}`;
                 if (params?.authorId) return `id-${params.authorId}`;
                 let name = params?.authorName || params?.name;
                 if (!name && params?.author) {
                   try {
                     const p = JSON.parse(params.author);
+                    if (p.inventaireUri) return `uri-${p.inventaireUri}`;
                     if (p.id) return `id-${p.id}`;
                     name = p.name;
                   } catch { name = params.author; }
@@ -126,11 +136,13 @@ function RootLayoutNav() {
               animation: 'slide_from_right',
               // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
               getId: ({ params }) => {
+                if (params?.inventaireUri) return `uri-${params.inventaireUri}`;
                 if (params?.bookId) return `id-${params.bookId}`;
                 let title = params?.bookTitle || params?.title;
                 if (!title && params?.book) {
                   try {
                     const p = JSON.parse(params.book);
+                    if (p.inventaireUri) return `uri-${p.inventaireUri}`;
                     if (p.id) return `id-${p.id}`;
                     title = p.title;
                   } catch { title = params.book; }

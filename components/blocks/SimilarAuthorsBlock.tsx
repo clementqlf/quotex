@@ -8,7 +8,7 @@ import { ThemeColors } from '@/src/theme/theme';
 
 interface SimilarAuthorsBlockProps {
     authors: Author[];
-    onAuthorPress: (authorName: string) => void;
+    onAuthorPress: (authorName: string, inventaireUri?: string) => void;
     onRemove?: () => void;
 }
 
@@ -35,7 +35,7 @@ export const SimilarAuthorsBlock: React.FC<SimilarAuthorsBlockProps> = ({ author
                     <TouchableOpacity
                         key={author.id || author.name || index}
                         style={styles.item}
-                        onPress={() => onAuthorPress(author.name)}
+                        onPress={() => onAuthorPress(author.name, author.inventaireUri)}
                     >
                         <Image
                             source={{ uri: author.image || 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop' }}

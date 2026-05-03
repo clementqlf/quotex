@@ -312,8 +312,8 @@ export function BookDetailScreen() {
       onUpdateBlockData: handleUpdateBlockData,
       onReviewAdded: loadMetadata,
       onManageDictionary: () => setDictionaryModalVisible(true),
-      onBookPress: (title) => navigateToBook(title),
-      onAuthorPress: (name) => navigateToAuthor(name),
+      onBookPress: (idOrTitle, uri) => navigateToBook(idOrTitle, uri),
+      onAuthorPress: (name, uri) => navigateToAuthor(name, uri),
       onQuotePress: (quote) => router.navigate(`/quote-detail?quote=${encodeURIComponent(JSON.stringify(quote))}`),
       // Extra properties for dictionary block
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
@@ -474,7 +474,8 @@ export function BookDetailScreen() {
                 <Text style={styles.bookTitleText}>{bookTitle}</Text>
                 <TouchableOpacity onPress={() => {
                   const authorName = getAuthorName(bookInfo.author);
-                  navigateToAuthor(authorName);
+                  const inventaireUri = typeof bookInfo.author === 'object' && bookInfo.author !== null ? (bookInfo.author as Author).inventaireUri : undefined;
+                  navigateToAuthor(authorName, inventaireUri);
                 }}>
                   <Text style={styles.bookAuthorText}>{getAuthorName(bookInfo.author)}</Text>
                 </TouchableOpacity>
