@@ -15,30 +15,29 @@ import { discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
 // ─── DB query helpers ─────────────────────────────────────────────────────────
 
 async function fetchQuotes(userId: number, quoteId?: number) {
-  const where = quoteId ? sql`AND q.id = ${quoteId}` : sql``;
+  const where = quoteId ? sql`AND q."id" = ${quoteId}` : sql``;
   const rows = await sql`
     SELECT
       q.*,
-      row_to_json(a) as author,
-      row_to_json(u) as user,
+      row_to_json(a) as "author",
+      row_to_json(u) as "user",
       (
         SELECT row_to_json(b_row)
         FROM (
           SELECT b.*, COALESCE(
-            (SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}),
+            (SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b."id" AND ub."userId" = ${userId}),
             '[]'::json
-          ) as users
-          FROM "Book" b WHERE b.id = q."bookId"
+          ) as "users"
+          FROM "Book" b WHERE b."id" = q."bookId"
         ) b_row
-      ) as book,
-      COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q.id AND l."userId" = ${userId}), '[]'::json) as likes,
-      COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${userId}), '[]'::json) as "savedBy",
-      (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount"
+      ) as "book",
+      COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q."id" AND l."userId" = ${userId}), '[]'::json) as "likes",
+      COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q."id" AND s."userId" = ${userId}), '[]'::json) as "savedBy"
     FROM "Quote" q
-    LEFT JOIN "Author" a ON a.id = q."authorId"
-    LEFT JOIN "User" u ON u.id = q."userId"
+    LEFT JOIN "Author" a ON a."id" = q."authorId"
+    LEFT JOIN "User" u ON u."id" = q."userId"
     WHERE 1=1 ${where}
-    ORDER BY q.date DESC
+    ORDER BY q."date" DESC
   `;
   return rows;
 }
@@ -127,7 +126,7 @@ serve(async (req: Request) => {
 
       // Create quote
       const quoteRows = await sql`
-        INSERT INTO "Quote" (text, date, "authorId", "bookId", "userId", theme, "likesCount")
+        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount")
         VALUES (${text}, now(), ${authorRecord.id}, ${bookRecord.id}, ${authUser.id}, ${theme ?? null}, 0)
         RETURNING *
       `;
@@ -213,11 +212,11 @@ serve(async (req: Request) => {
 
       await sql`
         UPDATE "Quote" SET
-          text = ${text ?? existing.text},
-          theme = ${theme ?? existing.theme},
+          "text" = ${text ?? existing.text},
+          "theme" = ${theme ?? existing.theme},
           "authorId" = ${authorId},
           "bookId" = ${bookId}
-        WHERE id = ${idParam}
+        WHERE "id" = ${idParam}
       `;
 
       const updatedRows = await fetchQuotes(authUser.id, idParam);
@@ -231,8 +230,14 @@ serve(async (req: Request) => {
     }
 
     return error('Not found', 404);
-  } catch (e) {
-    console.error('[quotes]', e);
-    return error('Internal server error');
+  } catch (e: any) {
+    console.error('[quotes] Error details:', {
+      message: e.message,
+      stack: e.stack,
+      code: e.code,
+      detail: e.detail,
+      where: e.where
+    });
+    return error(`Internal server error: ${e.message || 'Unknown error'}`);
   }
 });

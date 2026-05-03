@@ -42,7 +42,7 @@ serve(async (req: Request) => {
       if (!rating || !bookId) return error('Missing required fields', 400);
 
       const newReview = await sql`
-        INSERT INTO "Review" (rating, comment, "bookId", "userId", "createdAt")
+        INSERT INTO "Review" ("rating", "comment", "bookId", "userId", "createdAt")
         VALUES (${rating}, ${comment ?? null}, ${bookId}, ${authUser.id}, now())
         RETURNING *
       `;
@@ -56,8 +56,14 @@ serve(async (req: Request) => {
     }
 
     return error('Method not allowed', 405);
-  } catch (e) {
-    console.error('[reviews]', e);
-    return error('Internal server error');
+  } catch (e: any) {
+    console.error('[reviews] Error details:', {
+      message: e.message,
+      stack: e.stack,
+      code: e.code,
+      detail: e.detail,
+      where: e.where
+    });
+    return error(`Internal server error: ${e.message || 'Unknown error'}`);
   }
 });
