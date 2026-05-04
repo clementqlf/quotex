@@ -90,10 +90,10 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
   };
 
   const handleConfirmSave = async (quote: string, book: string, author: string) => {
-    await addQuote(quote, book, author);
-
     setShowPreviewModal(false);
     setSelectedBlocks([]);
+
+    await addQuote(quote, book, author);
 
     router.back();
     onReset();

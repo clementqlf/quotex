@@ -111,6 +111,7 @@ export default function ScanPreviewModal({
             setIsEditingQuote(!scannedText);
             setShowSuggestions(false);
             setShowAuthorSuggestions(false);
+            setIsSubmitting(false);
         }
     }, [visible, scannedText, initialBook, initialAuthor]);
 
@@ -139,12 +140,23 @@ export default function ScanPreviewModal({
         return bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
     };
 
-    const handleConfirm = () => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleConfirm = async () => {
+        if (isSubmitting) return;
+
         const finalText = editedQuote.trim() || scannedText;
         if (!finalText) return;
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
-        onConfirm(finalText, finalBook, finalAuthor);
+
+        setIsSubmitting(true);
+        try {
+            await onConfirm(finalText, finalBook, finalAuthor);
+        } finally {
+            // We don't necessarily reset isSubmitting if the modal is about to close,
+            // but it's safer to keep it true until unmount or explicit reset.
+        }
     };
 
     const handleBookChange = async (text: string) => {
@@ -515,10 +527,15 @@ export default function ScanPreviewModal({
                                     <Text style={styles.previewCancelButtonText}>Annuler</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={styles.previewConfirmButton}
+                                    style={[styles.previewConfirmButton, isSubmitting && { opacity: 0.7 }]}
                                     onPress={handleConfirm}
+                                    disabled={isSubmitting}
                                 >
-                                    <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                    {isSubmitting ? (
+                                        <ActivityIndicator color="#000" size="small" />
+                                    ) : (
+                                        <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </Pressable>

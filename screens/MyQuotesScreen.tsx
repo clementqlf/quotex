@@ -853,13 +853,13 @@ export default function MyQuotesScreen() {
           setEditingQuote(null);
         }}
         onConfirm={async (text, book, author) => {
+          setShowManualQuoteModal(false);
+          setEditingQuote(null);
           if (editingQuote) {
             await updateQuote(editingQuote.id, { text, book: book || editingQuote.book, author: author || editingQuote.author });
           } else {
             await addQuote(text, book, author);
           }
-          setShowManualQuoteModal(false);
-          setEditingQuote(null);
           refreshQuotes();
         }}
         scannedText={editingQuote ? editingQuote.text : ""}
