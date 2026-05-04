@@ -1,40 +1,48 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Easing } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import Animated, { 
+  useAnimatedStyle, 
+  SharedValue,
+  interpolateColor
+} from 'react-native-reanimated';
 
 interface PageIndicatorProps {
   count: number;
   activeIndex: number;
+  position: SharedValue<number>;
 }
 
-function Dot({ active }: { active: boolean }) {
-  const width = useRef(new Animated.Value(active ? 32 : 6)).current;
+function Dot({ index, position }: { index: number; position: SharedValue<number> }) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const distance = Math.abs(position.value - index);
+    const opacity = Math.max(0.3, 1 - distance * 0.7);
+    const width = distance < 1 ? 8 + (1 - distance) * 14 : 8;
+    
+    // Smooth color diffusion
+    const backgroundColor = interpolateColor(
+      distance,
+      [0, 1],
+      ['#20B8CD', '#6B7280']
+    );
+    
+    return {
+      opacity,
+      width,
+      backgroundColor,
+    };
+  });
 
-  useEffect(() => {
-    Animated.timing(width, {
-      toValue: active ? 32 : 6,
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: false,
-    }).start();
-  }, [active, width]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.dot,
-        { width },
-        active ? styles.activeDot : styles.inactiveDot,
-      ]}
-    />
-  );
+  return <Animated.View style={[styles.dot, animatedStyle]} />;
 }
 
-export function PageIndicator({ count, activeIndex }: PageIndicatorProps) {
+export function PageIndicator({ count, activeIndex, position }: PageIndicatorProps) {
   return (
-    <View style={styles.container}>
-      {Array.from({ length: count }).map((_, index) => (
-        <Dot key={index} active={activeIndex === index} />
-      ))}
+    <View style={styles.container} pointerEvents="none">
+      <View style={styles.dotsRow}>
+        {Array.from({ length: count }).map((_, i) => (
+          <Dot key={i} index={i} position={position} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -45,21 +53,17 @@ const styles = StyleSheet.create({
     bottom: 40,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
-    // 'gap' n'est pas largement supporté en React Native; appliquer des marges sur chaque point
+    justifyContent: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
-    height: 6, // Similaire à 'h-1.5'
-    borderRadius: 3, // Similaire à 'rounded-full'
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: '#20B8CD', // Couleur cyan du thème
-  },
-  inactiveDot: {
-    backgroundColor: '#6B7280', // Similaire à 'bg-gray-600'
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 3,
   },
 });

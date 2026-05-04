@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   Image,
   PanResponder,
   StyleSheet,
@@ -8,6 +7,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring 
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
@@ -35,7 +39,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
   const [photoDimensions, setPhotoDimensions] = useState({ width: 0, height: 0 });
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [imageSize, setImageSize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
-  const previewScale = useRef(new Animated.Value(1)).current;
+  const previewScale = useSharedValue(1);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showDebugAngles, setShowDebugAngles] = useState(false);
   const [showAngleValues, setShowAngleValues] = useState(true);
@@ -63,13 +67,15 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
 
   useEffect(() => {
     const targetScale = isGallery ? 1 : 1.4;
-    Animated.spring(previewScale, {
-      toValue: photo && ocrResult ? targetScale : 1,
-      useNativeDriver: true,
-      friction: 8,
-      tension: 50,
-    }).start();
-  }, [photo, ocrResult, previewScale, isGallery]);
+    previewScale.value = withSpring(photo && ocrResult ? targetScale : 1, {
+      damping: 12,
+      stiffness: 90,
+    });
+  }, [photo, ocrResult, isGallery]);
+
+  const animatedPhotoStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: previewScale.value }],
+  }));
 
 
   const getPhotoDims = () => {
@@ -146,7 +152,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
           });
         }}
       >
-        <Animated.View style={[styles.photoContent, { transform: [{ scale: previewScale }] }]}>
+        <Animated.View style={[styles.photoContent, animatedPhotoStyle]}>
           <Image
             source={{ uri: `file://${photo.path}` }}
             style={styles.photo}

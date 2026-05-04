@@ -10,8 +10,9 @@ const connectionString = Deno.env.get('DIRECT_URL') ||
 // Single shared connection (Edge Functions are stateless, one connection per invocation)
 // Single shared connection (Edge Functions are stateless, but we allow a small pool for parallel queries)
 export const sql = postgres(connectionString, {
-  max: 5,
-  idle_timeout: 20,
+  max: 1,          // Only 1 connection per isolate to avoid EMAXCONNSESSION
+  idle_timeout: 1, // Close connection quickly
+  prepare: false,  // Better compatibility with session limits
   connect_timeout: 10,
   ssl: 'require',
 });

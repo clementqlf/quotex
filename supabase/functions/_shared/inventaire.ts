@@ -41,8 +41,21 @@ export async function mergeBooks(sourceId: number, targetId: number) {
   console.log(`[Inventaire] Merging book ${sourceId} → ${targetId}`);
   try {
     await sql.begin(async (tx) => {
+      // 1. Move library status
+      const userBooks = await tx`SELECT * FROM "UserBook" WHERE "bookId" = ${sourceId}`;
+      for (const ub of userBooks) {
+        await tx`
+          INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
+          VALUES (${ub.userId}, ${targetId}, ${ub.status}, ${ub.addedAt})
+          ON CONFLICT ("userId", "bookId") DO UPDATE SET
+            status = COALESCE("UserBook".status, EXCLUDED.status)
+        `;
+      }
+      // 2. Move relations
       await tx`UPDATE "Quote" SET "bookId" = ${targetId} WHERE "bookId" = ${sourceId}`;
       await tx`UPDATE "Review" SET "bookId" = ${targetId} WHERE "bookId" = ${sourceId}`;
+      // 3. Delete source
+      await tx`DELETE FROM "UserBook" WHERE "bookId" = ${sourceId}`;
       await tx`DELETE FROM "Book" WHERE id = ${sourceId}`;
     });
     console.log(`[Inventaire] Merge OK. Book ${sourceId} deleted.`);
@@ -252,8 +265,13 @@ export const syncAuthorProfile = async (
 
       // Check name conflict
       if (details.name && author.name !== details.name) {
+        console.log(`✨ [Inventaire] Author name corrected: "${author.name}" -> "${details.name}"`);
         const nameConflict = await sql`SELECT id FROM "Author" WHERE name = ${details.name} LIMIT 1`;
-        if (!nameConflict.length) updateData.name = details.name;
+        if (!nameConflict.length) {
+          updateData.name = details.name;
+        } else {
+          console.log(`⚠️ [Inventaire] Name "${details.name}" already taken by author ${nameConflict[0].id}. Skipping rename.`);
+        }
       }
 
       let updatedAuthor;

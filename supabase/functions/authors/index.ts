@@ -150,8 +150,14 @@ serve(async (req: Request) => {
     }
 
     return error('Not found', 404);
-  } catch (e) {
-    console.error('[authors]', e);
-    return error('Internal server error');
+  } catch (e: any) {
+    console.error('❌ [authors] Error details:', {
+      message: e.message,
+      stack: e.stack,
+      code: e.code,
+      detail: e.detail,
+      where: e.where
+    });
+    return error(`Authors service error: ${e.message || 'Unknown error'}`, 500);
   }
 });

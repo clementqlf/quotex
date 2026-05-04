@@ -120,16 +120,19 @@ serve(async (req: Request) => {
       await sql`
         INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
         VALUES (${authUser.id}, ${bookRecord.id}, 'READING', now())
-        ON CONFLICT ("userId", "bookId") DO NOTHING
+        ON CONFLICT ("userId", "bookId") 
+        DO UPDATE SET status = COALESCE("UserBook".status, 'READING')
       `;
 
       // Create quote
+      console.log(`[quotes] Creating quote for user ${authUser.id}, author ${authorRecord.id}, book ${bookRecord.id}`);
       const quoteRows = await sql`
         INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount")
         VALUES (${text}, now(), ${authorRecord.id}, ${bookRecord.id}, ${authUser.id}, ${theme ?? null}, 0)
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;
+      console.log(`[quotes] Quote created successfully with id ${newQuoteId}`);
       const fullQuoteRows = await fetchQuotes(authUser.id, newQuoteId);
       return json(formatQuote(fullQuoteRows[0], authUser.id));
     }
@@ -187,37 +190,93 @@ serve(async (req: Request) => {
       if (!existingRows.length) return error('Quote not found', 404);
       const existing = existingRows[0];
 
-      let authorId = existing.authorId;
-      let bookId = existing.bookId;
+      // Normalize keys from DB (handle potential casing differences)
+      const oldBookId = existing.bookId ?? existing.bookid;
+      let authorId = existing.authorId ?? existing.authorid;
+      let bookId = existing.bookId ?? existing.bookid;
 
-      if (author && author !== (existing.author as any)?.name) {
-        let aRows = await sql`SELECT id FROM "Author" WHERE name = ${author} LIMIT 1`;
-        if (!aRows.length) {
-          aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, true) RETURNING id`;
-          // @ts-ignore deno
-          if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
+      // 1. Resolve Author
+      if (author && typeof author === 'string') {
+        const existingAuthorName = (existing.author as any)?.name;
+        if (author !== existingAuthorName) {
+          let aRows = await sql`SELECT id FROM "Author" WHERE name = ${author} LIMIT 1`;
+          if (!aRows.length) {
+            aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, true) RETURNING id`;
+            // @ts-ignore deno
+            if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
+          }
+          authorId = aRows[0].id;
         }
-        authorId = aRows[0].id;
       }
 
-      if (book && book !== (existing.book as any)?.title) {
-        let bRows = await sql`SELECT id FROM "Book" WHERE title = ${book} AND "authorId" = ${authorId} LIMIT 1`;
-        if (!bRows.length) {
-          bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${book}, ${authorId}, true) RETURNING id`;
-          // @ts-ignore deno
-          if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
-        }
-        bookId = bRows[0].id;
-      }
+      // 2. Resolve Book
+      const currentBookTitle = (existing.book as any)?.title;
+      const newBookTitle = (typeof book === 'string') ? book : currentBookTitle;
+      console.log(`[quotes] Resolving book "${newBookTitle}" for authorId ${authorId}`);
 
-      await sql`
+      if (newBookTitle) {
+        // We re-resolve if: title changed OR author changed
+        if (book || authorId !== (existing.authorId ?? existing.authorid)) {
+          let bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
+          if (!bRows.length) {
+            console.log(`[quotes] Book not found, creating "${newBookTitle}"`);
+            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorId}, true) RETURNING id`;
+            // @ts-ignore deno
+            if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+          }
+          bookId = bRows[0].id;
+        }
+      }
+      console.log(`[quotes] PATCH transition: bookId ${oldBookId} -> ${bookId}`);
+      
+      // 3. Update the Quote
+      const updateResult = await sql`
         UPDATE "Quote" SET
           "text" = ${text ?? existing.text},
           "theme" = ${theme ?? existing.theme},
           "authorId" = ${authorId},
           "bookId" = ${bookId}
         WHERE "id" = ${idParam}
+        RETURNING *
       `;
+      console.log(`[quotes] Quote table updated. Rows affected: ${updateResult.length}`);
+
+      // 4. Update Library for the NEW book
+      if (bookId) {
+        console.log(`[quotes] Adding/Updating UserBook for userId ${authUser.id}, bookId ${bookId}`);
+        try {
+          const libResult = await sql`
+            INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
+            VALUES (${authUser.id}, ${bookId}, 'READING', now())
+            ON CONFLICT ("userId", "bookId") 
+            DO UPDATE SET status = COALESCE("UserBook".status, 'READING')
+            RETURNING *
+          `;
+          console.log(`[quotes] UserBook operation success. Row:`, libResult[0] ? 'found/created' : 'none');
+        } catch (libErr: any) {
+          console.error('[quotes] UserBook update failed ERROR:', libErr.message, libErr.detail || '');
+        }
+      } else {
+        console.log(`[quotes] No bookId to add to library`);
+      }
+
+      // 5. Cleanup OLD book from library if no more quotes for it
+      if (oldBookId && oldBookId !== bookId) {
+        console.log(`[quotes] Checking cleanup for oldBookId ${oldBookId}`);
+        try {
+          const otherQuotes = await sql`
+            SELECT id FROM "Quote" WHERE "userId" = ${authUser.id} AND "bookId" = ${oldBookId} AND id != ${idParam} LIMIT 5
+          `;
+          console.log(`[quotes] Other quotes found for oldBookId ${oldBookId}: ${otherQuotes.length}`);
+          if (!otherQuotes.length) {
+            console.log(`[quotes] No more quotes for oldBookId ${oldBookId}, deleting UserBook`);
+            const delRes = await sql`DELETE FROM "UserBook" WHERE "userId" = ${authUser.id} AND "bookId" = ${oldBookId} RETURNING *`;
+            console.log(`[quotes] Deletion successful: ${delRes.length} rows removed`);
+          }
+        } catch (cleanupErr: any) {
+          console.error('[quotes] Cleanup failed ERROR:', cleanupErr.message);
+        }
+      }
 
       const updatedRows = await fetchQuotes(authUser.id, idParam);
       return json(formatQuote(updatedRows[0], authUser.id));
@@ -225,7 +284,24 @@ serve(async (req: Request) => {
 
     // DELETE /quotes/:id
     if (req.method === 'DELETE' && idParam && !subAction) {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      const qRows = await sql`SELECT "bookId" FROM "Quote" WHERE id = ${idParam} LIMIT 1`;
+      if (!qRows.length) return error('Quote not found', 404);
+      const bookId = qRows[0].bookId;
+
       await sql`DELETE FROM "Quote" WHERE id = ${idParam}`;
+
+      if (bookId) {
+        const otherQuotes = await sql`
+          SELECT 1 FROM "Quote" WHERE "userId" = ${authUser.id} AND "bookId" = ${bookId} LIMIT 1
+        `;
+        if (!otherQuotes.length) {
+          await sql`DELETE FROM "UserBook" WHERE "userId" = ${authUser.id} AND "bookId" = ${bookId}`;
+        }
+      }
+
       return json({ success: true });
     }
 
@@ -238,6 +314,6 @@ serve(async (req: Request) => {
       detail: e.detail,
       where: e.where
     });
-    return error(`Internal server error: ${e.message || 'Unknown error'}`);
+    return error(`Internal server error: ${e.message || 'Unknown error'}`, 500);
   }
 });

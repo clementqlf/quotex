@@ -9,12 +9,17 @@ import {
   Pressable,
   Image,
   PanResponder,
-  Animated,
   Share,
   RefreshControl,
 } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming, 
+  withRepeat, 
+  withSequence 
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
@@ -46,8 +51,8 @@ export default function MyQuotesScreen() {
 
   const [quotesToDisplay, setQuotesToDisplay] = useState(myQuotes);
 
-  const { setTabIndex } = useTabIndex();
-  const isFocused = useIsFocused();
+  const { tabIndex, setTabIndex } = useTabIndex();
+  const isFocused = tabIndex === 0;
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Edit State
@@ -92,7 +97,8 @@ export default function MyQuotesScreen() {
     if (hasEnrichingItems && isFocused) {
       interval = setInterval(() => {
         refreshQuotes();
-        // Optionnel: refreshAuthors/Books si on veut aussi mettre à jour les onglets stats
+        refreshAuthors();
+        refreshBooks();
       }, 3000);
     }
 
@@ -109,16 +115,16 @@ export default function MyQuotesScreen() {
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | 'status' | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useSharedValue(1);
 
   useEffect(() => {
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    fadeAnim.value = 0;
+    fadeAnim.value = withTiming(1, { duration: 300 });
   }, [viewMode]);
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
 
   const authors = [...new Set(myQuotes.map(q => getAuthorName(q.author)))];
   const books = [...new Set(myQuotes.map(q => getBookTitle(q.book)))];
@@ -218,22 +224,29 @@ export default function MyQuotesScreen() {
   };
 
   const EnrichingSkeleton = ({ width = 120, height = 14 }: { width?: number, height?: number }) => {
-    const pulseAnim = useRef(new Animated.Value(0.4)).current;
+    const pulseAnim = useSharedValue(0.4);
 
     useEffect(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
-        ])
-      ).start();
+      pulseAnim.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1000 }),
+          withTiming(0.4, { duration: 1000 })
+        ),
+        -1,
+        true
+      );
     }, []);
+
+    const pulseStyle = useAnimatedStyle(() => ({
+      opacity: pulseAnim.value,
+    }));
 
     return (
       <Animated.View
         style={[
           styles.skeleton,
-          { width, height, opacity: pulseAnim }
+          { width, height },
+          pulseStyle
         ]}
       />
     );
@@ -426,6 +439,7 @@ export default function MyQuotesScreen() {
           cover: meta?.cover,
           readingStatus: data.bookObj?.readingStatus,
           inventaireUri: data.bookObj?.inventaireUri,
+          isEnriching: data.bookObj?.isEnriching,
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
@@ -505,10 +519,10 @@ export default function MyQuotesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Animated.View style={[styles.headerLeft, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.headerLeft, fadeStyle]}>
           {viewMode === 'quotes' && <QuoteIcon size={24} color={colors.text} />}
           {viewMode === 'books' && <BookIcon size={24} color={colors.text} />}
           {viewMode === 'authors' && <Users size={24} color={colors.text} />}
@@ -661,11 +675,20 @@ export default function MyQuotesScreen() {
                   )}
                   <View style={styles.bookCardInfo}>
                     <View style={styles.bookCardHeader}>
-                      <Text style={styles.bookCardTitle}>{book.title}</Text>
+                      {book.isEnriching ? (
+                        <EnrichingSkeleton width={180} height={18} />
+                      ) : (
+                        <Text style={styles.bookCardTitle}>{book.title}</Text>
+                      )}
                       {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
                     </View>
-                    <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
-                    {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
+                    {book.isEnriching ? (
+                      <EnrichingSkeleton width={120} height={14} />
+                    ) : (
+                      <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
+                    )}
+                    {book.description && !book.isEnriching && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
+                    {book.isEnriching && <View style={{ marginTop: 8 }}><EnrichingSkeleton width={240} height={40} /></View>}
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                       <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
                       {book.readingStatus && (

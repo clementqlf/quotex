@@ -135,8 +135,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await quoteService.updateQuote(id, updates);
         
         // REFRESH FROM SERVER
-        await refreshQuotes();
-    }, [refreshQuotes]);
+        await Promise.all([
+            refreshQuotes(),
+            refreshAuthors(),
+            refreshBooks()
+        ]);
+    }, [refreshQuotes, refreshAuthors, refreshBooks]);
 
     const getBookData = useCallback(async (bookTitle: string) => {
         return await BlockService.getBlockData(bookTitle, 'book');
@@ -163,8 +167,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setQuotes(prev => [newQuote, ...prev]);
 
         await quoteService.addQuote(text, book, author);
-        await refreshQuotes();
-    }, [refreshQuotes]);
+        
+        await Promise.all([
+            refreshQuotes(),
+            refreshAuthors(),
+            refreshBooks()
+        ]);
+    }, [refreshQuotes, refreshAuthors, refreshBooks]);
 
     const getUserByUsername = useCallback(async (username: string) => {
         return await quoteService.getUserByUsername(username);

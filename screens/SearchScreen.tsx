@@ -50,12 +50,12 @@ export default function SearchScreen() {
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
-            if (query.trim().length > 1) { // Search after 2 chars
+            if (query.trim().length > 2) { // Search after 3 chars
                 performSearch(query);
             } else {
                 setResults({ quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] });
             }
-        }, 500); // 500ms debounce
+        }, 800); // 800ms debounce to reduce server load
 
         return () => clearTimeout(delayDebounceFn);
     }, [query]);

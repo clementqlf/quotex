@@ -30,12 +30,14 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
 
       // Title standardization / merge
       if (enriched.title && book.title !== enriched.title) {
+        console.log(`✨ [BookEnrichment] Title corrected: "${book.title}" -> "${enriched.title}"`);
         const targetRows = await sql`
           SELECT id, "inventaireUri" FROM "Book"
           WHERE title = ${enriched.title} AND "authorId" = ${book.authorId} AND id != ${bookId}
           LIMIT 1
         `;
         if (targetRows.length > 0) {
+          console.log(`🔗 [BookEnrichment] Merging book ${bookId} into existing book ${targetRows[0].id} ("${enriched.title}")`);
           await mergeBooks(bookId, targetRows[0].id);
           if (!targetRows[0].inventaireUri) {
             await sql`UPDATE "Book" SET "inventaireUri" = ${book.inventaireUri} WHERE id = ${targetRows[0].id}`.catch(() => {});

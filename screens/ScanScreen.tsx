@@ -2,13 +2,17 @@ import React, { useMemo } from 'react';
 
 import {
   ActivityIndicator,
-  Animated,
   Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming 
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from 'lucide-react-native';
@@ -33,6 +37,9 @@ export default function ScanScreen() {
   const { user: currentUser } = useAuth();
   const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { tabIndex, setTabIndex } = useTabIndex();
+  const isFocused = tabIndex === 1;
+  const { setSwipeEnabled } = useSwipeEnabled();
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
   const [ocrResult, setOcrResult] = React.useState<TextRecognitionResult | null>(null);
   const [isFromGallery, setIsFromGallery] = React.useState(false);
@@ -46,18 +53,9 @@ export default function ScanScreen() {
   } | null>(null);
   const [scanAreaY, setScanAreaY] = React.useState(0);
 
-  const { setTabIndex } = useTabIndex();
-  const { setSwipeEnabled } = useSwipeEnabled();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = React.useRef<Camera | null>(null);
-  const [isFocused, setIsFocused] = React.useState(false);
-  useFocusEffect(
-    React.useCallback(() => {
-      setIsFocused(true);
-      return () => { setIsFocused(false); };
-    }, [])
-  );
 
   // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
   const scanLockRef = React.useRef(false);
@@ -70,42 +68,33 @@ export default function ScanScreen() {
     scanLockRef,
   });
 
-  const frameAnim = React.useRef(new Animated.Value(0)).current;
-  const fadeAnim = React.useRef(new Animated.Value(1)).current;
-
-
-
+  const frameAnim = useSharedValue(0);
+  const fadeAnim = useSharedValue(1);
 
   // Animation des coins vers cadre complet (live)
   React.useEffect(() => {
-    if (isTextDetectedLive) {
-      Animated.parallel([
-        Animated.timing(frameAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(frameAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: false,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [isTextDetectedLive, frameAnim, fadeAnim]);
+    frameAnim.value = withTiming(isTextDetectedLive ? 1 : 0, { duration: 400 });
+    fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
+  }, [isTextDetectedLive]);
+
+  const cornerStyle = useAnimatedStyle(() => {
+    if (!scanFrameLayout) return {};
+    const expandedWidth = scanFrameLayout.width - 32;
+    const expandedHeight = scanFrameLayout.height - 32;
+    
+    // Manual interpolation for Reanimated
+    const width = 32 + (expandedWidth - 32) * frameAnim.value;
+    const height = 32 + (expandedHeight - 32) * frameAnim.value;
+
+    return {
+      width,
+      height,
+    };
+  });
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
 
   // Cleanup au unmount du composant
   React.useEffect(() => {
@@ -287,7 +276,7 @@ export default function ScanScreen() {
 
   if (!hasPermission) {
     return (
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <Text style={styles.permissionText}>Quotex a besoin de l'accès à la caméra.</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Autoriser</Text>
@@ -298,7 +287,7 @@ export default function ScanScreen() {
 
   if (!device) {
     return (
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <Text style={styles.permissionText}>Aucun appareil photo disponible.</Text>
       </SafeAreaView>
     );
@@ -306,6 +295,7 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView
+      edges={['top', 'left', 'right']}
       style={styles.container}
       onLayout={(event) => {
         const { width, height } = event.nativeEvent.layout;
@@ -393,8 +383,6 @@ export default function ScanScreen() {
                       {
                         left: -3,
                         top: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderTopWidth: 3,
                         borderLeftWidth: 3,
                         borderTopLeftRadius: 24,
@@ -402,6 +390,7 @@ export default function ScanScreen() {
                         borderBottomWidth: 0,
                         zIndex: 10,
                       },
+                      cornerStyle
                     ]}
                   />
                   {/* Coin supérieur droit (s'étend vers le bas et la gauche) */}
@@ -411,8 +400,6 @@ export default function ScanScreen() {
                       {
                         right: -3,
                         top: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderTopWidth: 3,
                         borderRightWidth: 3,
                         borderTopRightRadius: 24,
@@ -420,6 +407,7 @@ export default function ScanScreen() {
                         borderBottomWidth: 0,
                         zIndex: 10,
                       },
+                      cornerStyle
                     ]}
                   />
                   {/* Coin inférieur gauche (s'étend vers le haut et la droite) */}
@@ -429,8 +417,6 @@ export default function ScanScreen() {
                       {
                         left: -3,
                         bottom: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderBottomWidth: 3,
                         borderLeftWidth: 3,
                         borderBottomLeftRadius: 24,
@@ -438,6 +424,7 @@ export default function ScanScreen() {
                         borderRightWidth: 0,
                         zIndex: 10,
                       },
+                      cornerStyle
                     ]}
                   />
                   {/* Coin inférieur droit (s'étend vers le haut et la gauche) */}
@@ -447,8 +434,6 @@ export default function ScanScreen() {
                       {
                         right: -3,
                         bottom: -3,
-                        width: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.width - 32] }),
-                        height: frameAnim.interpolate({ inputRange: [0, 1], outputRange: [32, scanFrameLayout.height - 32] }),
                         borderBottomWidth: 3,
                         borderRightWidth: 3,
                         borderBottomRightRadius: 24,
@@ -456,6 +441,7 @@ export default function ScanScreen() {
                         borderLeftWidth: 0,
                         zIndex: 10,
                       },
+                      cornerStyle
                     ]}
                   />
                 </>
@@ -465,7 +451,7 @@ export default function ScanScreen() {
 
               <View style={styles.content}>
                 <Animated.View
-                  style={[styles.fadeContainer, { opacity: fadeAnim }]}
+                  style={[styles.fadeContainer, fadeStyle]}
                   pointerEvents="none"
                 >
                   <View style={styles.iconShadowWrapper}>

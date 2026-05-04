@@ -28,11 +28,13 @@ serve(async (req: Request) => {
   const query = q.toLowerCase();
 
   try {
+    console.log(`[search] Starting search for "${query}"`);
+    
     // Run all local queries and themes in parallel
     const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw] = await Promise.all([
       // 1. Local quotes
       sql`
-        SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q.date, q.theme, q."aiInterpretation", q.definitions,
+        SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q.definitions,
           row_to_json(a) as author, row_to_json(b) as book,
           (SELECT json_build_object('id', u.id, 'username', u.username, 'name', u.name, 'image', u.image)) as user,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount"
@@ -66,20 +68,28 @@ serve(async (req: Request) => {
       `
     ]);
 
+    console.log(`[search] Local queries finished: ${quotesRaw?.length ?? 0} quotes, ${localAuthorsRaw?.length ?? 0} authors, ${localBooksRaw?.length ?? 0} books, ${themesRaw?.length ?? 0} themes`);
+
     // 5 & 6. Inventaire searches (with DB cache)
     const [inventaireWorks, inventaireAuthors] = await Promise.all([
       // Works cache check and fetch
       (async () => {
+        console.log(`[search] Checking cache for sujets: "${query}"`);
         const cached = await sql`
           SELECT results, "expiresAt" FROM "SearchCache"
           WHERE query = ${query} AND type = 'sujets' LIMIT 1
-        `;
+        `.catch((err: any) => {
+          console.error('[search] SearchCache (sujets) query failed:', err);
+          return [];
+        });
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
+          console.log(`[search] Found cached inventaire works for "${query}"`);
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
             return Array.isArray(results) ? results : [];
           } catch { return []; }
         }
+        console.log(`[search] Fetching inventaire works for "${query}" from API`);
         const fresh = await searchInventaireWorks(query, 10);
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
         await sql`
@@ -91,16 +101,22 @@ serve(async (req: Request) => {
       })(),
       // Authors cache check and fetch
       (async () => {
+        console.log(`[search] Checking cache for humans: "${query}"`);
         const cached = await sql`
           SELECT results, "expiresAt" FROM "SearchCache"
           WHERE query = ${query} AND type = 'humans' LIMIT 1
-        `;
+        `.catch((err: any) => {
+          console.error('[search] SearchCache (humans) query failed:', err);
+          return [];
+        });
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
+          console.log(`[search] Found cached inventaire authors for "${query}"`);
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
             return Array.isArray(results) ? results : [];
           } catch { return []; }
         }
+        console.log(`[search] Fetching inventaire authors for "${query}" from API`);
         const fresh = await searchInventaireAuthors(query, 10);
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
         await sql`
@@ -112,6 +128,8 @@ serve(async (req: Request) => {
       })()
     ]);
 
+    console.log(`[search] Inventaire results: ${inventaireWorks.length} works, ${inventaireAuthors.length} authors`);
+
     return json({
       quotes: quotesRaw.map((q: any) => formatQuote(q, 0)),
       authors: localAuthorsRaw.map((a: any) => formatAuthor(a, 0)),
@@ -121,7 +139,14 @@ serve(async (req: Request) => {
       inventaireAuthors,
     });
   } catch (e: any) {
-    console.error('[search] error:', e);
-    return error(`Internal server error: ${e.message || 'Unknown error'}`);
+    console.error('❌ [search] Error details:', {
+      message: e.message,
+      stack: e.stack,
+      code: e.code,
+      detail: e.detail,
+      where: e.where,
+      query: query
+    });
+    return error(`Search service error: ${e.message || 'Unknown error'}`, 500);
   }
 });

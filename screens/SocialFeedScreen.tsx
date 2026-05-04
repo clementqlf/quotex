@@ -26,12 +26,11 @@ export default function SocialFeedScreen() {
   const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
   const feedQuotes = quotes.filter(q => q.user && q.user.id !== 1); // Global quotes except mine
 
-  const { setTabIndex } = useTabIndex();
-  const isFocused = useIsFocused();
+  const { tabIndex, setTabIndex } = useTabIndex();
+  const isFocused = tabIndex === 2;
 
   useEffect(() => {
     if (isFocused) {
-      setTabIndex(2);
       refreshQuotes();
     }
   }, [isFocused]);
@@ -41,7 +40,7 @@ export default function SocialFeedScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
