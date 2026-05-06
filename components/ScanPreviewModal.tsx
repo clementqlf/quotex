@@ -26,7 +26,7 @@ import { getAuthorName, getBookTitle } from '@/src/utils/dataHelpers';
 type ScanPreviewModalProps = {
     visible: boolean;
     onClose: () => void;
-    onConfirm: (quote: string, book: string, author: string) => void;
+    onConfirm: (quote: string, book: string, author: string) => void | Promise<void>;
     scannedText: string;
     initialBook?: string;
     initialAuthor?: string;
@@ -139,12 +139,23 @@ export default function ScanPreviewModal({
         return bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
     };
 
-    const handleConfirm = () => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleConfirm = async () => {
+        if (isSubmitting) return;
+
         const finalText = editedQuote.trim() || scannedText;
         if (!finalText) return;
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
-        onConfirm(finalText, finalBook, finalAuthor);
+        
+        setIsSubmitting(true);
+        onClose(); // Close immediately to prevent double clicks
+        try {
+            await onConfirm(finalText, finalBook, finalAuthor);
+        } catch (e) {
+            console.error('[ScanPreviewModal] Save failed:', e);
+        }
     };
 
     const handleBookChange = (text: string) => {
