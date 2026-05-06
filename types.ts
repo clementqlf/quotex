@@ -2,7 +2,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 
 // Define shared types here to avoid circular imports
 export type User = {
-  id: string | number;
+  id: string; // UUID from Supabase Auth
   name?: string;
   username: string;
   email?: string;
@@ -76,7 +76,7 @@ export type Review = {
   comment?: string | null;
   createdAt: string;
   user: User;
-  userId: number;
+  userId: string;
   bookId: number;
 };
 

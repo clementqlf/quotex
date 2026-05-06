@@ -55,7 +55,7 @@ export default function SearchScreen() {
             } else {
                 setResults({ quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] });
             }
-        }, 800); // 800ms debounce to reduce server load
+        }, 500); // 500ms debounce to reduce server load
 
         return () => clearTimeout(delayDebounceFn);
     }, [query]);

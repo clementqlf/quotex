@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Trash2 } from 'lucide-react-native';
@@ -90,10 +90,10 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
   };
 
   const handleConfirmSave = async (quote: string, book: string, author: string) => {
+    await addQuote(quote, book, author);
+
     setShowPreviewModal(false);
     setSelectedBlocks([]);
-
-    await addQuote(quote, book, author);
 
     router.back();
     onReset();
@@ -187,8 +187,8 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
 
               const blockKey = getBlockKey(block);
               const isSelected = selectedBlocks.some(b => getBlockKey(b) === blockKey);
-              const sortedIndex = isSelected 
-                ? sortedSelectedBlocks.findIndex(b => getBlockKey(b) === blockKey) 
+              const sortedIndex = isSelected
+                ? sortedSelectedBlocks.findIndex(b => getBlockKey(b) === blockKey)
                 : -1;
 
               return (

@@ -30,7 +30,7 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
 
       // Title standardization / merge
       if (enriched.title && book.title !== enriched.title) {
-        console.log(`✨ [BookEnrichment] Title corrected: "${book.title}" -> "${enriched.title}"`);
+        console.log(`✨ [BookEnrichment] Title correction for book ${bookId}: "${book.title}" -> "${enriched.title}"`);
         const targetRows = await sql`
           SELECT id, "inventaireUri" FROM "Book"
           WHERE title = ${enriched.title} AND "authorId" = ${book.authorId} AND id != ${bookId}
@@ -60,10 +60,8 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
       }
 
       if (Object.keys(updateData).length > 0) {
-        const setClauses = Object.entries(updateData)
-          .map(([k, v]) => sql`${sql(k)} = ${v}`)
-          .reduce((acc, clause, i) => i === 0 ? clause : sql`${acc}, ${clause}`);
-        await sql`UPDATE "Book" SET ${setClauses} WHERE id = ${bookId}`;
+        console.log(`[BookEnrichment] Updating book ${bookId} with ${Object.keys(updateData).join(', ')}`);
+        await sql`UPDATE "Book" SET ${sql(updateData)} WHERE id = ${bookId}`;
       }
 
       // Upsert editions
@@ -84,11 +82,14 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
       // Trigger author enrichment
       if (enriched.authorUris && Array.isArray(enriched.authorUris) && book.authorId) {
         for (const authorUri of enriched.authorUris) {
+          console.log(`[BookEnrichment] Triggering linked author enrichment: ${authorUri}`);
           enrichAuthorWithInventaire(book.authorId, undefined, authorUri, true).catch((e: any) =>
             console.error(`[BookEnrichment] Author enrichment failed:`, e)
           );
         }
       }
+
+      console.log(`[BookEnrichment] Enrichment complete for book ${bookId} ("${enriched.title || book.title}")`);
 
       return true;
     }
@@ -124,14 +125,19 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
     const uri = await findWorkUriByTitleAndAuthor(book.title, authorName);
 
     if (uri) {
+      console.log(`[BookEnrichment] Book "${book.title}" matched with URI: ${uri}`);
       const conflictRows = await sql`SELECT id FROM "Book" WHERE "inventaireUri" = ${uri} LIMIT 1`;
       if (conflictRows.length > 0 && conflictRows[0].id !== bookId) {
+        console.log(`[BookEnrichment] URI ${uri} already exists for book ID ${conflictRows[0].id}. Merging...`);
         await mergeBooks(bookId, conflictRows[0].id);
         await enrichBookWithInventaire(conflictRows[0].id);
         return;
       }
       await sql`UPDATE "Book" SET "inventaireUri" = ${uri} WHERE id = ${bookId}`;
+      console.log(`[BookEnrichment] Saved URI ${uri} for book ${bookId}. Starting detailed enrichment.`);
       await enrichBookWithInventaire(bookId);
+    } else {
+      console.log(`[BookEnrichment] No match found for book: "${book.title}" by ${authorName}`);
     }
   } catch (e) {
     console.error(`[BookEnrichment/Discovery] Error for book ${bookId}:`, e);

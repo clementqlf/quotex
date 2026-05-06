@@ -1,63 +1,117 @@
 import { User } from '../../types';
 import { API_BASE_URL } from '../config/api';
 import { StorageService, STORAGE_KEYS } from './StorageService';
+import { supabase } from '../lib/supabase';
 
 export interface AuthResponse {
-    user: User;
-    token: string;
+    user: User | null;
+    token: string | null;
 }
 
 class AuthService {
-    private readonly AUTH_URL = `${API_BASE_URL}/auth`;
-
-    async login(email: string, password: string): Promise<AuthResponse> {
-        const response = await fetch(`${this.AUTH_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to login');
+    /**
+     * Check if an email already exists in Supabase Auth
+     */
+    async checkEmailExists(email: string): Promise<boolean> {
+        console.log('[AuthService] Checking email existence for:', email);
+        try {
+            const { data, error } = await supabase.functions.invoke('check-email', {
+                body: { email: email.toLowerCase() }
+            });
+            if (error) {
+                console.error('[AuthService] Edge Function error:', error);
+                throw error;
+            }
+            console.log('[AuthService] Email exists result:', data?.exists);
+            return !!data?.exists;
+        } catch (err) {
+            console.error('[AuthService] Error checking email existence:', err);
+            return false; // Fallback to safe default
         }
-
-        const data: AuthResponse = await response.json();
-        await this.saveAuthData(data);
-        return data;
     }
 
-    async register(username: string, email: string, password: string): Promise<AuthResponse> {
-        const sanitizedUsername = username.startsWith('@') ? username.slice(1) : username;
-        const response = await fetch(`${this.AUTH_URL}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: sanitizedUsername, email, password }),
+    /**
+     * Login using Supabase Auth
+     */
+    async login(email: string, password: string): Promise<AuthResponse> {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to register');
-        }
+        if (error) throw error;
 
-        const data: AuthResponse = await response.json();
-        await this.saveAuthData(data);
-        return data;
+        // Fetch the profile from our public.Profile table
+        const userProfile = await this.fetchProfile(data.user.id);
+        
+        const authData: AuthResponse = {
+            user: userProfile,
+            token: data.session?.access_token || null,
+        };
+        
+        await this.saveAuthData(authData);
+        return authData;
+    }
+
+    /**
+     * Register using Supabase Auth
+     */
+    async register(username: string, email: string, password: string): Promise<AuthResponse> {
+        const sanitizedUsername = username.startsWith('@') ? username.slice(1) : username;
+        
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    username: sanitizedUsername,
+                }
+            }
+        });
+
+        if (error) throw error;
+
+        // Note: The public.Profile is created automatically via SQL Trigger on auth.users insert
+        const userProfile = await this.fetchProfile(data.user!.id);
+
+        const authData: AuthResponse = {
+            user: userProfile,
+            token: data.session?.access_token || null,
+        };
+
+        await this.saveAuthData(authData);
+        return authData;
+    }
+
+    private async fetchProfile(userId: string): Promise<User> {
+        const { data, error } = await supabase
+            .from('Profile')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error || !data) {
+            // Fallback to minimal data if profile not yet created
+            return { id: userId, username: 'user' };
+        }
+        return data as User;
     }
 
     private async saveAuthData(data: AuthResponse) {
-        await StorageService.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
-        await StorageService.setItem(STORAGE_KEYS.USER_DATA, data.user);
+        if (data.user) {
+            await StorageService.setItem(STORAGE_KEYS.USER_DATA, data.user);
+        }
     }
 
     async logout() {
-        await StorageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        await supabase.auth.signOut();
         await StorageService.removeItem(STORAGE_KEYS.USER_DATA);
     }
 
-    async updateUser(data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }): Promise<User> {
-        const token = await this.getToken();
-        
+    async updateUser(data: { username?: string; name?: string; bio?: string; website?: string; image?: string }): Promise<User> {
+        const session = (await supabase.auth.getSession()).data.session;
+        if (!session) throw new Error('Not authenticated');
+
         // Strip @ from username if present
         const sanitizedData = { ...data };
         if (sanitizedData.username && sanitizedData.username.startsWith('@')) {
@@ -68,22 +122,14 @@ class AuthService {
             method: 'PATCH',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${session.access_token}`
             },
             body: JSON.stringify(sanitizedData),
         });
 
         if (!response.ok) {
-            let errorMessage = 'Failed to update profile';
-            const text = await response.text();
-            try {
-                const errorData = JSON.parse(text);
-                errorMessage = errorData.error || errorMessage;
-            } catch (e) {
-                console.error('Non-JSON error response:', text);
-                errorMessage = `Server Error (${response.status}): ${text.slice(0, 100)}...`;
-            }
-            throw new Error(errorMessage);
+            const errorData = await response.json().catch(() => ({ error: 'Failed to update profile' }));
+            throw new Error(errorData.error || 'Failed to update profile');
         }
 
         const updatedUser: User = await response.json();
@@ -92,11 +138,23 @@ class AuthService {
     }
 
     async getToken(): Promise<string | null> {
-        return await StorageService.getItem<string>(STORAGE_KEYS.AUTH_TOKEN);
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.access_token || null;
     }
 
     async getUser(): Promise<User | null> {
-        return await StorageService.getItem<User>(STORAGE_KEYS.USER_DATA);
+        // First try the session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return null;
+
+        // Then try our local cache for the profile
+        const cached = await StorageService.getItem<User>(STORAGE_KEYS.USER_DATA);
+        if (cached && cached.id === session.user.id) return cached;
+
+        // Otherwise fetch fresh
+        const profile = await this.fetchProfile(session.user.id);
+        await StorageService.setItem(STORAGE_KEYS.USER_DATA, profile);
+        return profile;
     }
 }
 

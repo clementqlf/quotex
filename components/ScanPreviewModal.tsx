@@ -111,7 +111,6 @@ export default function ScanPreviewModal({
             setIsEditingQuote(!scannedText);
             setShowSuggestions(false);
             setShowAuthorSuggestions(false);
-            setIsSubmitting(false);
         }
     }, [visible, scannedText, initialBook, initialAuthor]);
 
@@ -140,123 +139,134 @@ export default function ScanPreviewModal({
         return bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
     };
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const handleConfirm = async () => {
-        if (isSubmitting) return;
-
+    const handleConfirm = () => {
         const finalText = editedQuote.trim() || scannedText;
         if (!finalText) return;
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
-
-        setIsSubmitting(true);
-        try {
-            await onConfirm(finalText, finalBook, finalAuthor);
-        } finally {
-            // We don't necessarily reset isSubmitting if the modal is about to close,
-            // but it's safer to keep it true until unmount or explicit reset.
-        }
+        onConfirm(finalText, finalBook, finalAuthor);
     };
 
-    const handleBookChange = async (text: string) => {
+    const handleBookChange = (text: string) => {
         setEditedBook(text);
-
         if (!text.trim()) {
             setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
-            return;
-        }
-
-        setIsLoadingSuggestions(true);
-        try {
-            // Recherche locale + Inventaire.io via le SearchService
-            const results = await searchService.search(text).catch(() => ({ books: [], inventaireWorks: [] }));
-
-            const dbItems: SuggestionItem[] = (results.books || []).map((b: any) => ({
-                type: 'database',
-                title: b.title,
-                author: b.authors && b.authors.length > 0 
-                    ? b.authors[0] 
-                    : getAuthorName(b.author),
-                data: b
-            }));
-
-            const localMatches: SuggestionItem[] = initialBooks
-                .filter(b => b.title.toLowerCase().includes(text.toLowerCase()))
-                .map(b => ({ type: 'local' as const, title: b.title, author: b.author }));
-
-            // Inventaire.io items
-            const inventaireItems: SuggestionItem[] = ((results as any).inventaireWorks || []).map((w: any) => ({
-                type: 'inventaire',
-                title: w.label || w.title || '',
-                author: w.authors && w.authors.length > 0 ? w.authors[0] : undefined,
-                data: w
-            }));
-
-            // Deduplicate by title
-            const seenTitles = new Set<string>();
-            const combined: SuggestionItem[] = [];
-
-            [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
-                if (!seenTitles.has(item.title.toLowerCase())) {
-                    seenTitles.add(item.title.toLowerCase());
-                    combined.push(item);
-                }
-            });
-
-            setSuggestions(combined);
-        } catch (error) {
-            console.error("Error searching books", error);
-        } finally {
-            setIsLoadingSuggestions(false);
+            setShowSuggestions(true);
         }
     };
 
-    const handleAuthorChange = async (text: string) => {
-        setEditedAuthor(text);
+    // Debounced Book Search
+    useEffect(() => {
+        if (!isEditingBook || !editedBook.trim() || editedBook.trim().length < 3) {
+            if (editedBook.trim().length === 0) {
+                setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
+            }
+            return;
+        }
 
+        const timer = setTimeout(async () => {
+            setIsLoadingSuggestions(true);
+            try {
+                const results = await searchService.search(editedBook).catch(() => ({ books: [], inventaireWorks: [] }));
+
+                const dbItems: SuggestionItem[] = (results.books || []).map((b: any) => ({
+                    type: 'database',
+                    title: b.title,
+                    author: b.authors && b.authors.length > 0
+                        ? b.authors[0]
+                        : getAuthorName(b.author),
+                    data: b
+                }));
+
+                const localMatches: SuggestionItem[] = initialBooks
+                    .filter(b => b.title.toLowerCase().includes(editedBook.toLowerCase()))
+                    .map(b => ({ type: 'local' as const, title: b.title, author: b.author }));
+
+                const inventaireItems: SuggestionItem[] = ((results as any).inventaireWorks || []).map((w: any) => ({
+                    type: 'inventaire',
+                    title: w.label || w.title || '',
+                    author: w.authors && w.authors.length > 0 ? w.authors[0] : undefined,
+                    data: w
+                }));
+
+                const seenTitles = new Set<string>();
+                const combined: SuggestionItem[] = [];
+
+                [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
+                    if (!seenTitles.has(item.title.toLowerCase())) {
+                        seenTitles.add(item.title.toLowerCase());
+                        combined.push(item);
+                    }
+                });
+
+                setSuggestions(combined);
+            } catch (error) {
+                console.error("Error searching books", error);
+            } finally {
+                setIsLoadingSuggestions(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [editedBook, isEditingBook]);
+
+    const handleAuthorChange = (text: string) => {
+        setEditedAuthor(text);
         if (!text.trim()) {
             setAuthorSuggestions(initialAuthors);
+            setShowAuthorSuggestions(true);
+        }
+    };
+
+    // Debounced Author Search
+    useEffect(() => {
+        if (!isEditingAuthor || !editedAuthor.trim() || editedAuthor.trim().length < 3) {
+            if (editedAuthor.trim().length === 0) {
+                setAuthorSuggestions(initialAuthors);
+            }
             return;
         }
 
-        setIsLoadingAuthorSuggestions(true);
-        try {
-            const results = await searchService.search(text);
-            
-            const dbItems: AuthorSuggestionItem[] = (results.authors || []).map((a: any) => ({
-                type: 'database' as const,
-                name: a.name,
-                data: a
-            }));
+        const timer = setTimeout(async () => {
+            setIsLoadingAuthorSuggestions(true);
+            try {
+                const results = await searchService.search(editedAuthor);
 
-            const localMatches: AuthorSuggestionItem[] = initialAuthors
-                .filter(a => a.name.toLowerCase().includes(text.toLowerCase()));
+                const dbItems: AuthorSuggestionItem[] = (results.authors || []).map((a: any) => ({
+                    type: 'database' as const,
+                    name: a.name,
+                    data: a
+                }));
 
-            const inventaireItems: AuthorSuggestionItem[] = ((results as any).inventaireAuthors || []).map((a: any) => ({
-                type: 'inventaire' as const,
-                name: a.label || a.name || '',
-                data: a
-            }));
+                const localMatches: AuthorSuggestionItem[] = initialAuthors
+                    .filter(a => a.name.toLowerCase().includes(editedAuthor.toLowerCase()));
 
-            // Deduplicate by name
-            const seenNames = new Set<string>();
-            const combined: AuthorSuggestionItem[] = [];
+                const inventaireItems: AuthorSuggestionItem[] = ((results as any).inventaireAuthors || []).map((a: any) => ({
+                    type: 'inventaire' as const,
+                    name: a.label || a.name || '',
+                    data: a
+                }));
 
-            [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
-                if (!seenNames.has(item.name.toLowerCase())) {
-                    seenNames.add(item.name.toLowerCase());
-                    combined.push(item);
-                }
-            });
+                const seenNames = new Set<string>();
+                const combined: AuthorSuggestionItem[] = [];
 
-            setAuthorSuggestions(combined);
-        } catch (error) {
-            console.error("Error searching authors", error);
-        } finally {
-            setIsLoadingAuthorSuggestions(false);
-        }
-    };
+                [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
+                    if (!seenNames.has(item.name.toLowerCase())) {
+                        seenNames.add(item.name.toLowerCase());
+                        combined.push(item);
+                    }
+                });
+
+                setAuthorSuggestions(combined);
+            } catch (error) {
+                console.error("Error searching authors", error);
+            } finally {
+                setIsLoadingAuthorSuggestions(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [editedAuthor, isEditingAuthor]);
 
     return (
         <Modal
@@ -527,15 +537,10 @@ export default function ScanPreviewModal({
                                     <Text style={styles.previewCancelButtonText}>Annuler</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.previewConfirmButton, isSubmitting && { opacity: 0.7 }]}
+                                    style={styles.previewConfirmButton}
                                     onPress={handleConfirm}
-                                    disabled={isSubmitting}
                                 >
-                                    {isSubmitting ? (
-                                        <ActivityIndicator color="#000" size="small" />
-                                    ) : (
-                                        <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
-                                    )}
+                                    <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
                                 </TouchableOpacity>
                             </View>
                         </Pressable>

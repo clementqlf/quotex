@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/AuthService';
 import { User } from '../../types';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -21,7 +22,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
+        // Load initial state
         loadStoredAuth();
+
+        // Listen for auth state changes (Supabase)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log('[AuthContext] Auth state changed:', event);
+            if (session) {
+                setToken(session.access_token);
+                const profile = await authService.getUser();
+                setUser(profile);
+            } else {
+                setUser(null);
+                setToken(null);
+            }
+            setIsLoading(false);
+        });
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     const loadStoredAuth = async () => {

@@ -1,18 +1,16 @@
 // @ts-ignore deno import
 import postgres from 'npm:postgres';
 
-// Use DIRECT_URL for Edge Functions (no PgBouncer in session mode)
-const connectionString = Deno.env.get('DIRECT_URL') ||
-  Deno.env.get('DATABASE_URL') ||
+// Use DATABASE_URL (Transaction Mode) for Edge Functions to allow more concurrent isolates.
+// We keep max: 1 to ensure each isolate uses exactly one connection, allowing up to 15-20 concurrent isolates.
+const connectionString = Deno.env.get('DATABASE_URL') ||
+  Deno.env.get('DIRECT_URL') ||
   Deno.env.get('SUPABASE_DB_URL') ||
   '';
 
-// Single shared connection (Edge Functions are stateless, one connection per invocation)
-// Single shared connection (Edge Functions are stateless, but we allow a small pool for parallel queries)
 export const sql = postgres(connectionString, {
-  max: 1,          // Only 1 connection per isolate to avoid EMAXCONNSESSION
-  idle_timeout: 1, // Close connection quickly
-  prepare: false,  // Better compatibility with session limits
+  max: 1,
+  idle_timeout: 10,
   connect_timeout: 10,
   ssl: 'require',
 });
@@ -29,11 +27,11 @@ export async function upsertUserBook(
   status?: string
 ) {
   if (status) {
-    await db`
-      INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
-      VALUES (${userId}, ${bookId}, ${status}, now())
-      ON CONFLICT ("userId", "bookId") DO UPDATE SET status = EXCLUDED.status
-    `;
+      await db`
+        INSERT INTO "UserBook" ("userId", "bookId", "status", "addedAt")
+        VALUES (${userId}, ${bookId}, ${status}, now())
+        ON CONFLICT ("userId", "bookId") DO UPDATE SET "status" = EXCLUDED.status
+      `;
   } else {
     await db`
       INSERT INTO "UserBook" ("userId", "bookId", "addedAt")

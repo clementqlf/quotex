@@ -17,6 +17,7 @@ import { Mail, ArrowRight } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useTheme } from '@/src/contexts/ThemeContext';
+import { authService } from '@/src/services/AuthService';
 import { API_BASE_URL } from '@/src/config/api';
 import QuotexLogo from '@/components/QuotexLogo';
 
@@ -45,16 +46,9 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      // Use centralized API config
-      const response = await fetch(`${API_BASE_URL}/auth/check-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      const exists = await authService.checkEmailExists(email);
       
-      const data = await response.json();
-
-      if (data.exists) {
+      if (exists) {
         router.push({
           pathname: '/auth/login-password',
           params: { email }

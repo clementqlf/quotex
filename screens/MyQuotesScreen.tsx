@@ -12,13 +12,14 @@ import {
   Share,
   RefreshControl,
 } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withRepeat, 
-  withSequence 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence
 } from 'react-native-reanimated';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
@@ -46,8 +47,10 @@ export default function MyQuotesScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks, addQuote, updateQuote } = useData();
 
-  // Filter for "My Quotes" (current user is ID 1) or legacy local quotes
-  const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id == 1 || !q.user), [allQuotes]);
+  const { user: currentUser } = useAuth();
+  
+  // Filter for "My Quotes" (current user matches their UUID)
+  const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id === currentUser?.id), [allQuotes, currentUser]);
 
   const [quotesToDisplay, setQuotesToDisplay] = useState(myQuotes);
 
@@ -97,8 +100,7 @@ export default function MyQuotesScreen() {
     if (hasEnrichingItems && isFocused) {
       interval = setInterval(() => {
         refreshQuotes();
-        refreshAuthors();
-        refreshBooks();
+        // Optionnel: refreshAuthors/Books si on veut aussi mettre à jour les onglets stats
       }, 3000);
     }
 
@@ -439,7 +441,6 @@ export default function MyQuotesScreen() {
           cover: meta?.cover,
           readingStatus: data.bookObj?.readingStatus,
           inventaireUri: data.bookObj?.inventaireUri,
-          isEnriching: data.bookObj?.isEnriching,
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
@@ -675,20 +676,11 @@ export default function MyQuotesScreen() {
                   )}
                   <View style={styles.bookCardInfo}>
                     <View style={styles.bookCardHeader}>
-                      {book.isEnriching ? (
-                        <EnrichingSkeleton width={180} height={18} />
-                      ) : (
-                        <Text style={styles.bookCardTitle}>{book.title}</Text>
-                      )}
+                      <Text style={styles.bookCardTitle}>{book.title}</Text>
                       {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
                     </View>
-                    {book.isEnriching ? (
-                      <EnrichingSkeleton width={120} height={14} />
-                    ) : (
-                      <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
-                    )}
-                    {book.description && !book.isEnriching && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
-                    {book.isEnriching && <View style={{ marginTop: 8 }}><EnrichingSkeleton width={240} height={40} /></View>}
+                    <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
+                    {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                       <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
                       {book.readingStatus && (
@@ -853,13 +845,13 @@ export default function MyQuotesScreen() {
           setEditingQuote(null);
         }}
         onConfirm={async (text, book, author) => {
-          setShowManualQuoteModal(false);
-          setEditingQuote(null);
           if (editingQuote) {
             await updateQuote(editingQuote.id, { text, book: book || editingQuote.book, author: author || editingQuote.author });
           } else {
             await addQuote(text, book, author);
           }
+          setShowManualQuoteModal(false);
+          setEditingQuote(null);
           refreshQuotes();
         }}
         scannedText={editingQuote ? editingQuote.text : ""}

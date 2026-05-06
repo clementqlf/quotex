@@ -45,10 +45,10 @@ export async function mergeBooks(sourceId: number, targetId: number) {
       const userBooks = await tx`SELECT * FROM "UserBook" WHERE "bookId" = ${sourceId}`;
       for (const ub of userBooks) {
         await tx`
-          INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
+          INSERT INTO "UserBook" ("userId", "bookId", "status", "addedAt")
           VALUES (${ub.userId}, ${targetId}, ${ub.status}, ${ub.addedAt})
           ON CONFLICT ("userId", "bookId") DO UPDATE SET
-            status = COALESCE("UserBook".status, EXCLUDED.status)
+            "status" = COALESCE("UserBook".status, EXCLUDED.status)
         `;
       }
       // 2. Move relations
@@ -204,7 +204,7 @@ export const syncAuthorProfile = async (
 
       const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
       const lastEnriched = author.lastEnrichedAt ? new Date(author.lastEnrichedAt).getTime() : 0;
-      if (Date.now() - lastEnriched < SEVEN_DAYS) {
+      if (Date.now() - lastEnriched < SEVEN_DAYS && author.description && author.description.length > 50) {
         console.log(`[Inventaire] Author ${author.name} freshly enriched. Skipping.`);
         return author;
       }
@@ -212,13 +212,22 @@ export const syncAuthorProfile = async (
       const nameToSearch = authorName || author.name;
       let uri = authorUri || author.inventaireUri;
 
-      if (!uri) {
+      // If we only have an inv: URI or no URI, try to see if we can find a better wd: one
+      if (!uri || uri.startsWith('inv:')) {
+        console.log(`[Inventaire] Searching for better URI for author: "${nameToSearch}" (Current: ${uri || 'none'})`);
         const searchResults = await api.searchInventaireAuthors(nameToSearch, 5);
         if (searchResults.length > 0) {
-          const match = searchResults.find(
-            (r: any) => r.label.toLowerCase() === nameToSearch.toLowerCase()
+          // Prefer WD URI if available among results with same name
+          const bestMatch = searchResults.find(
+            (r: any) => r.label.toLowerCase().trim() === nameToSearch.toLowerCase().trim() && r.uri.startsWith('wd:')
+          ) || searchResults.find(
+            (r: any) => r.label.toLowerCase().trim() === nameToSearch.toLowerCase().trim()
           ) || searchResults[0];
-          uri = match.uri;
+          
+          if (bestMatch.uri.startsWith('wd:') || !uri) {
+            uri = bestMatch.uri;
+            console.log(`[Inventaire] Author "${nameToSearch}" matched with URI: ${uri} (Label: ${bestMatch.label})`);
+          }
         }
       }
 
@@ -236,16 +245,17 @@ export const syncAuthorProfile = async (
       if (!details) return null;
 
       const isNewEntity = uri !== author.inventaireUri;
-      let biography = isNewEntity ? null : author.description;
+      let biography = isNewEntity ? (details.description || null) : (author.description || details.description || null);
 
-      if (details.wikipediaTitle && (isNewEntity || !biography || biography.length < 50)) {
+      if (details.wikipediaTitle && (!biography || biography.length < 100)) {
+        console.log(`[Inventaire] Fetching Wikipedia synopsis for: ${details.wikipediaTitle}`);
         const synopsis = await api.fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
         if (synopsis) biography = synopsis;
       }
 
       const updateData: any = {
         inventaireUri: uri,
-        description: isNewEntity ? biography : (biography || author.description),
+        description: biography,
         image: isNewEntity ? details.image : (details.image || author.image),
         birthDate: isNewEntity ? details.birthDate : (details.birthDate || author.birthDate),
         nationality: isNewEntity ? details.nationality : (details.nationality || author.nationality),
@@ -302,7 +312,7 @@ export const syncAuthorProfile = async (
         throw err;
       }
 
-      console.log(`[Inventaire] Enrichment complete for ${updatedAuthor?.name}`);
+      console.log(`[Inventaire] Enrichment complete for ${updatedAuthor?.name}. Description length: ${updatedAuthor?.description?.length || 0}, Image: ${!!updatedAuthor?.image}`);
       return updatedAuthor;
     } catch (e) {
       console.error(`[Inventaire] Author enrichment error:`, e);
@@ -332,13 +342,18 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
     if (Date.now() - lastDiscovered < SEVEN_DAYS) return;
 
     const uri = authorUri || author.inventaireUri;
-    if (!uri) return;
+    if (!uri) {
+      console.log(`[Inventaire] No URI for author ${authorId}, skipping discovery.`);
+      return;
+    }
 
+    console.log(`[Inventaire] Starting discovery for author ${author.name} (${uri})`);
     const workUris = await api.getAuthorWorkUris(uri);
+    console.log(`[Inventaire] Found ${workUris.length} works for author ${author.name}`);
     if (!workUris.length) return;
 
-    const limitedUris = workUris.slice(0, 100);
-    const CHUNK_SIZE = 25;
+    const limitedUris = workUris.slice(0, 50); // Reduced limit for safety
+    const CHUNK_SIZE = 10; // Smaller chunks
 
     for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
       const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
@@ -374,6 +389,7 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
       }
     }
 
+    console.log(`[Inventaire] Discovery complete for author ${author.name}`);
     await sql`UPDATE "Author" SET "lastDiscoveredAt" = now() WHERE id = ${authorId}`.catch(() => {});
   } catch (e) {
     console.error(`[Inventaire] Author discovery error:`, e);

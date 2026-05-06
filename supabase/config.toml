@@ -409,8 +409,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # Disable Supabase gateway JWT check for all our functions.
 # Each function handles its own auth internally via our custom JWT secret.
 
-[functions.auth]
-verify_jwt = false
 
 [functions.quotes]
 verify_jwt = false
@@ -434,5 +432,8 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.inventaire-entities]
+verify_jwt = false
+
+[functions.check-email]
 verify_jwt = false
 

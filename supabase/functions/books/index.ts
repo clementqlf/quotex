@@ -13,7 +13,7 @@ import { enrichAuthorWithInventaire, getWorkEditions, InventaireEdition } from '
 import { enrichBookWithInventaire, discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
 import { searchHybrid } from '../_shared/hybridSearch.ts';
 
-async function fetchBook(bookId: number, userId: number) {
+async function fetchBook(bookId: number, userId: string | number) {
   const rows = await sql`
     SELECT b.*,
       row_to_json(a) as author,
@@ -234,9 +234,9 @@ serve(async (req: Request) => {
       if (!readingStatus) return error('Missing readingStatus', 400);
 
       await sql`
-        INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
+        INSERT INTO "UserBook" ("userId", "bookId", "status", "addedAt")
         VALUES (${authUser.id}, ${idParam}, ${readingStatus}, now())
-        ON CONFLICT ("userId", "bookId") DO UPDATE SET status = EXCLUDED.status
+        ON CONFLICT ("userId", "bookId") DO UPDATE SET "status" = EXCLUDED.status
       `;
 
       const book = await fetchBook(idParam, authUser.id);

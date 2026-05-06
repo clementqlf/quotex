@@ -53,6 +53,7 @@ export interface InventaireAuthorDetails {
     birthDate: string | null;
     nationality: string | null;
     wikipediaTitle: string | null;
+    description: string | null;
 }
 
 // ─── HTTP Client ─────────────────────────────────────────────────────────────
@@ -120,7 +121,14 @@ export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Pa
     const label = labels['fr'] || labels['en'] || entity.label || Object.values(labels)[0] || null;
     const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
     const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
-    const imageUrl = getEntityImage(entity.image);
+    
+    // Try wdt:P18 for image if top-level image is missing
+    let imageUrl = getEntityImage(entity.image);
+    if (!imageUrl) {
+        const p18 = safeFirstClaim(claims, 'wdt:P18');
+        if (p18) imageUrl = resolveImageUrl(p18);
+    }
+    
     const sitelinks = entity.sitelinks || {};
     const pagesClaim = safeFirstClaim(claims, 'wdt:P1104');
 
@@ -197,7 +205,16 @@ export const searchInventaire = async (query: string, types: string = 'works', l
                 }
             }
         }
-        return basicResults;
+        // Sort results: prefer 'wd:' over others if labels are similar, or by score
+        const sortedResults = basicResults.sort((a, b) => {
+            const aIsWd = a.uri.startsWith('wd:');
+            const bIsWd = b.uri.startsWith('wd:');
+            if (aIsWd && !bIsWd) return -1;
+            if (!aIsWd && bIsWd) return 1;
+            return 0; // Keep original relative order (by score) for same type
+        });
+
+        return sortedResults;
     } catch (e) {
         console.error('[Inventaire API] Error searching:', e);
         return [];
@@ -216,21 +233,34 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
     if (!title || !authorName) return null;
     const cleanTitle = title.trim();
     const cleanAuthor = authorName.trim();
-    const searchQuery = `"${cleanTitle}" ${cleanAuthor}`;
-    const results = await searchInventaireWorks(searchQuery, 20);
+    
+    // Try first with title only to get broader results, then filter
+    const results = await searchInventaireWorks(cleanTitle, 30);
 
     if (results.length === 0) return null;
 
+    // 1. Precise match (Title + Author)
     for (const res of results) {
         const titleMatch = res.label.toLowerCase().trim() === cleanTitle.toLowerCase();
-        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(cleanAuthor.toLowerCase())) || false;
+        const authorMatch = res.authors?.some(a => 
+            a.toLowerCase().includes(cleanAuthor.toLowerCase()) || 
+            cleanAuthor.toLowerCase().includes(a.toLowerCase())
+        ) || false;
         if (titleMatch && authorMatch) return res.uri;
     }
 
+    // 2. Author match only (if title was slightly different but author is sure)
     for (const res of results) {
-        const authorMatch = res.authors?.some(a => a.toLowerCase().includes(cleanAuthor.toLowerCase())) || false;
-        if (authorMatch) return res.uri;
+        const authorMatch = res.authors?.some(a => 
+            a.toLowerCase().includes(cleanAuthor.toLowerCase()) || 
+            cleanAuthor.toLowerCase().includes(a.toLowerCase())
+        ) || false;
+        const titleIncluded = res.label.toLowerCase().includes(cleanTitle.toLowerCase()) || 
+                             cleanTitle.toLowerCase().includes(res.label.toLowerCase());
+        
+        if (authorMatch && titleIncluded) return res.uri;
     }
+    
     return null;
 };
 
@@ -240,7 +270,7 @@ export const getInventaireEntities = async (uris: string[]): Promise<Record<stri
     if (!uris.length) return {};
     try {
         const uriParam = uris.join('|');
-        const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr`;
+        const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr&props=labels|descriptions|claims|sitelinks|image`;
         const response = await fetchWithAgent(url);
         if (!response.ok) throw new Error(`Inventaire entities error: ${response.status}`);
         const data = await response.json();
@@ -310,11 +340,19 @@ export const getInventaireAuthorDetails = async (uri: string): Promise<Inventair
     const name = labels['fr'] || labels['en'] || Object.values(labels)[0] || null;
     const birthDate = formatInventaireDate(safeFirstClaim(claims, 'wdt:P569'));
     const nationalityUri = safeFirstClaim(claims, 'wdt:P27');
-    const imageUrl = getEntityImage(entity.image);
+    
+    let imageUrl = getEntityImage(entity.image);
+    if (!imageUrl) {
+        const p18 = safeFirstClaim(claims, 'wdt:P18');
+        if (p18) imageUrl = resolveImageUrl(p18);
+    }
+
     const sitelinks = entity.sitelinks || {};
     const wikipediaTitle = sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null;
+    const descriptions = entity.descriptions || {};
+    const description = descriptions['fr'] || descriptions['en'] || Object.values(descriptions)[0] || null;
 
-    return { uri, name, image: imageUrl, birthDate, nationality: nationalityUri, wikipediaTitle };
+    return { uri, name, image: imageUrl, birthDate, nationality: nationalityUri, wikipediaTitle, description };
 };
 
 export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr'): Promise<string | null> => {
@@ -418,11 +456,13 @@ export const getBestNativeCovers = async (workUris: string[]): Promise<Record<st
     if (!workUris.length) return {};
     const results: Record<string, string | null> = {};
     try {
-        const editionUrisPerWork = await Promise.all(workUris.map(async uri => {
+        const editionUrisPerWork = [];
+        for (const uri of workUris) {
             const edUris = await getWorkEditionUris(uri);
-            return { workUri: uri, edUris };
-        }));
-        const allEdUris = editionUrisPerWork.flatMap(x => x.edUris.slice(0, 10));
+            editionUrisPerWork.push({ workUri: uri, edUris });
+        }
+        
+        const allEdUris = editionUrisPerWork.flatMap(x => x.edUris.slice(0, 5)); // Reduced limit
         if (allEdUris.length === 0) return results;
         
         const allEdDetails = await getEditionsDetails(allEdUris);

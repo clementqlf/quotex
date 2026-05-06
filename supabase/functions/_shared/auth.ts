@@ -1,75 +1,48 @@
-import { json, error } from '../_shared/cors.ts';
+// @ts-ignore deno
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 
-const JWT_SECRET = Deno.env.get('JWT_SECRET') || 'votre_cle_secrete_super_secure_123';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
 export interface AuthUser {
-  id: number;
-  email: string;
-  username: string;
+  id: string; // UUID string from Supabase Auth
+  email?: string;
 }
 
-// Minimal JWT verify (HS256) without external deps
-async function verifyJwt(token: string, secret: string): Promise<AuthUser | null> {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    );
-
-    const data = parts[0] + '.' + parts[1];
-    const sig = Uint8Array.from(atob(parts[2].replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const valid = await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(data));
-    if (!valid) return null;
-
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-
-    return { id: payload.id, email: payload.email, username: payload.username };
-  } catch {
-    return null;
-  }
-}
-
-export async function signJwt(payload: object, secret: string, expiresInDays = 30): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-  const exp = Math.floor(Date.now() / 1000) + expiresInDays * 86400;
-  const body = btoa(JSON.stringify({ ...payload, exp }))
-    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const sigBuffer = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${header}.${body}`));
-  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuffer)))
-    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-  return `${header}.${body}.${sig}`;
-}
-
+/**
+ * Verifies the JWT from the Authorization header using Supabase Auth
+ */
 export async function getAuthUser(req: Request): Promise<AuthUser | null> {
   const authHeader = req.headers.get('authorization');
-  const token = authHeader?.split(' ')[1];
-  if (!token) return null;
-  return verifyJwt(token, JWT_SECRET);
+  if (!authHeader) return null;
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    console.error('[auth] Verification failed:', error?.message);
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+  };
 }
 
+/**
+ * Requires authentication and returns the user or a 401 error response
+ */
 export async function requireAuth(req: Request): Promise<AuthUser | Response> {
   const user = await getAuthUser(req);
-  if (!user) return error('Access denied. No token provided.', 401);
+  if (!user) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized: Invalid or missing token' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
   return user;
 }
-
-export { JWT_SECRET };

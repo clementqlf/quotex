@@ -25,7 +25,7 @@ serve(async (req: Request) => {
       const reviews = await sql`
         SELECT r.*, row_to_json(u) as user, row_to_json(b) as book
         FROM "Review" r
-        LEFT JOIN "User" u ON u.id = r."userId"
+        LEFT JOIN "Profile" u ON u.id = r."userId"
         LEFT JOIN "Book" b ON b.id = r."bookId"
         WHERE r."bookId" = ${bookId}
         ORDER BY r."createdAt" DESC
@@ -57,13 +57,7 @@ serve(async (req: Request) => {
 
     return error('Method not allowed', 405);
   } catch (e: any) {
-    console.error('[reviews] Error details:', {
-      message: e.message,
-      stack: e.stack,
-      code: e.code,
-      detail: e.detail,
-      where: e.where
-    });
+    console.error('[reviews]', e);
     return error(`Internal server error: ${e.message || 'Unknown error'}`);
   }
 });

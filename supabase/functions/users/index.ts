@@ -1,11 +1,10 @@
 /**
  * Edge Function: /users
  * Handles: GET /users/:username, PATCH /users/me
+ * Note: Authentication is now handled by Supabase Auth.
  */
 // @ts-ignore deno
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-// @ts-ignore deno
-import { hash } from 'npm:bcryptjs';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
@@ -20,7 +19,7 @@ serve(async (req: Request) => {
   const parts = path.split('/').filter(Boolean);
 
   const user = await getAuthUser(req);
-  const userId = user?.id ?? 0;
+  const authUserId = user?.id; // This is a UUID string
 
   try {
     // PATCH /users/me
@@ -28,19 +27,18 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { username, password, name, bio, website, image } = await req.json();
+      const { username, name, bio, website, image } = await req.json();
       const data: Record<string, any> = {};
 
       if (username) {
         const clean = username.startsWith('@') ? username.slice(1) : username;
         const conflict = await sql`
-          SELECT id FROM "User" WHERE username = ${clean} AND id != ${authUser.id} LIMIT 1
+          SELECT id FROM "Profile" WHERE username = ${clean} AND id != ${authUser.id} LIMIT 1
         `;
         if (conflict.length) return error('Username already taken', 400);
         data.username = clean;
       }
 
-      if (password) data.password = await hash(password, 10);
       if (name) data.name = name;
       if (bio !== undefined) data.bio = bio;
       if (website !== undefined) data.website = website;
@@ -55,8 +53,8 @@ serve(async (req: Request) => {
         .reduce((acc, clause, i) => i === 0 ? clause : sql`${acc}, ${clause}`);
 
       const rows = await sql`
-        UPDATE "User" SET ${setClauses} WHERE id = ${authUser.id}
-        RETURNING id, email, username, name, image, bio, website, followers, following
+        UPDATE "Profile" SET ${setClauses} WHERE id = ${authUser.id}
+        RETURNING id, username, name, image, bio, website, followers, following
       `;
 
       return json(rows[0]);
@@ -68,11 +66,11 @@ serve(async (req: Request) => {
 
       if (parts[0] === 'me') {
         const authUser = await requireAuth(req);
-        if (authUser instanceof Response) return authUser; // Not authenticated
+        if (authUser instanceof Response) return authUser;
         
         const userRows = await sql`
-          SELECT u.id, u.username, u.name, u.email, u.image, u.bio, u.website, u.followers, u.following
-          FROM "User" u WHERE u.id = ${authUser.id} LIMIT 1
+          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following
+          FROM "Profile" u WHERE u.id = ${authUser.id} LIMIT 1
         `;
         if (!userRows.length) return error('User not found', 404);
         profileUser = userRows[0];
@@ -81,8 +79,8 @@ serve(async (req: Request) => {
         const cleanUsername = raw.startsWith('@') ? raw.slice(1) : raw;
 
         const userRows = await sql`
-          SELECT u.id, u.username, u.name, u.email, u.image, u.bio, u.website, u.followers, u.following
-          FROM "User" u WHERE u.username ILIKE ${cleanUsername} LIMIT 1
+          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following
+          FROM "Profile" u WHERE u.username ILIKE ${cleanUsername} LIMIT 1
         `;
         if (!userRows.length) return error(`User not found: '${cleanUsername}'`, 404);
         profileUser = userRows[0];
@@ -93,8 +91,8 @@ serve(async (req: Request) => {
           row_to_json(a) as author,
           row_to_json(bk) as book,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount",
-          COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q.id AND l."userId" = ${userId}), '[]'::json) as likes,
-          COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${userId}), '[]'::json) as "savedBy"
+          COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q.id AND l."userId" = ${authUserId ?? null}), '[]'::json) as likes,
+          COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${authUserId ?? null}), '[]'::json) as "savedBy"
         FROM "Quote" q
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" bk ON bk.id = q."bookId"
@@ -126,7 +124,7 @@ serve(async (req: Request) => {
 
       return json({
         ...profileUser,
-        quotes: quotes.map((q: any) => formatQuote(q, userId)),
+        quotes: quotes.map((q: any) => formatQuote(q, authUserId ?? '')),
         library,
       });
     }

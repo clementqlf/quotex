@@ -13,7 +13,7 @@ class QuoteService {
     private async seedDataIfNeeded(): Promise<void> {
         const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
         if (!storedQuotes) {
-            console.log('🌱 [QuoteService] Seeding quotes from static data...');
+            console.log('Seeding quotes from static data...');
             // Normalize static data to Quote type
             const initialQuotes = [...localQuotesDB, ...globalQuotesDB].map(q => ({
                 id: q.id,
@@ -45,9 +45,6 @@ class QuoteService {
         };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
-            // console.log('🔑 [QuoteService] Token added to headers');
-        } else {
-            console.warn('⚠️ [QuoteService] No auth token found');
         }
         return headers;
     }
@@ -57,12 +54,12 @@ class QuoteService {
     async getQuotes(): Promise<Quote[]> {
         // Try fetching from server first
         try {
-            console.log('📡 [QuoteService] Fetching quotes from:', this.API_URL);
+            console.log('Fetching quotes from:', this.API_URL);
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
 
             const headers = await this.getHeaders();
-            const response = await fetch(this.API_URL!, { 
+            const response = await fetch(this.API_URL!, {
                 signal: controller.signal,
                 headers
             });
@@ -70,7 +67,7 @@ class QuoteService {
 
             if (response.ok) {
                 const serverQuotes = await response.json();
-                console.log(`✅ [QuoteService] Server response: ${serverQuotes.length} quotes`);
+                console.log('Server response:', serverQuotes.length, 'quotes');
 
                 const mappedQuotes: Quote[] = serverQuotes.map((q: any) => ({
                     id: q.id,
@@ -98,8 +95,8 @@ class QuoteService {
 
                 return mappedQuotes;
             }
-        } catch (error: any) {
-            console.warn('⚠️ [QuoteService] Server unreachable or request failed, using local storage:', error.message || error);
+        } catch (error) {
+            console.log('Server unreachable, using local storage:', error);
         }
 
         // Fallback to local storage (offline mode)
@@ -113,7 +110,6 @@ class QuoteService {
             user: q.user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
         }));
 
-        console.log(`📦 [QuoteService] Returning ${safeQuotes.length} quotes from local storage`);
         return safeQuotes;
     }
 
@@ -125,7 +121,7 @@ class QuoteService {
             const response = await fetch(`${this.API_URL}/${id}`, { headers });
             if (response.ok) {
                 const q = await response.json();
-                console.log('✅ [QuoteService] Quote fetched successfully:', q.id);
+                console.log('Quote fetched successfully:', q.id);
 
                 const mappedQuote: Quote = {
                     id: q.id,
@@ -155,7 +151,7 @@ class QuoteService {
                 return mappedQuote;
             }
         } catch (error) {
-            console.warn('⚠️ [QuoteService] Error fetching quote by ID, using local fallback:', error);
+            console.log('Error fetching quote by ID, using local fallback:', error);
         }
 
         await delay(300);
@@ -172,10 +168,7 @@ class QuoteService {
             });
             if (response.ok) {
                 const data = await response.json();
-                console.log(`✅ [QuoteService] Like toggled for ${id}: ${data.isLiked}`);
                 return data.isLiked;
-            } else {
-                console.error(`❌ [QuoteService] Error toggling like (${response.status}):`, await response.text());
             }
         } catch (e) {
             console.error('Error toggling like:', e);
@@ -204,10 +197,7 @@ class QuoteService {
             });
             if (response.ok) {
                 const data = await response.json();
-                console.log(`✅ [QuoteService] Save toggled for ${id}: ${data.isSaved}`);
                 return data.isSaved;
-            } else {
-                console.error(`❌ [QuoteService] Error toggling save (${response.status}):`, await response.text());
             }
         } catch (e) {
             console.error('Error toggling save:', e);
@@ -236,10 +226,8 @@ class QuoteService {
             });
 
             if (response.ok) {
-                console.log('✅ [QuoteService] Quote deleted on server');
+                console.log('Quote deleted on server');
                 // Could also update cache here
-            } else {
-                console.error(`❌ [QuoteService] Error deleting quote (${response.status}):`, await response.text());
             }
         } catch (error) {
             console.error('Network error deleting quote:', error);
@@ -255,7 +243,7 @@ class QuoteService {
     async addQuote(text: string, book: string, author: string): Promise<void> {
         const quotePayload = { text, book, author };
         try {
-            console.log('📤 [QuoteService] Sending quote to server:', quotePayload);
+            console.log('Sending quote to server:', quotePayload);
             const headers = await this.getHeaders();
             const response = await fetch(this.API_URL!, {
                 method: 'POST',
@@ -264,18 +252,17 @@ class QuoteService {
             });
 
             if (response.ok) {
-                console.log('✅ [QuoteService] Quote saved to server');
+                console.log('Quote saved to server');
                 return;
             } else {
-                const errorBody = await response.text();
-                console.error(`❌ [QuoteService] Server error saving quote (${response.status}):`, errorBody);
+                console.error('Server error saving quote:', await response.text());
                 // Decide if we should queue on server error (500) or just network error. 
                 // For now, let's queue on any failure to be safe, or maybe just network. 
                 // Simple approach: if not OK, queue it.
                 await this.addToPendingQueue(quotePayload);
             }
-        } catch (error: any) {
-            console.error('❌ [QuoteService] Network error saving quote, queueing for sync:', error.message || error);
+        } catch (error) {
+            console.error('Network error saving quote, queueing for sync:', error);
             await this.addToPendingQueue(quotePayload);
         }
 
@@ -294,7 +281,7 @@ class QuoteService {
             isSaved: false,
             comments: 0,
             blockData: {},
-            user: await authService.getUser() || { id: 1, name: "Clément QLF", username: "@clementqlf" }
+            user: await authService.getUser() || { id: "1", name: "Clément QLF", username: "@clementqlf" }
         };
         const updatedQuotes = [newQuote, ...quotes];
         await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
@@ -304,14 +291,14 @@ class QuoteService {
         const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
         pending.push(payload);
         await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, pending);
-        console.log('📥 [QuoteService] Quote added to pending queue (offline mode)');
+        console.log('Quote added to pending queue');
     }
 
     private async syncPendingQuotes() {
         const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES);
         if (!pending || pending.length === 0) return;
 
-        console.log(`🔄 [QuoteService] Syncing ${pending.length} pending quotes...`);
+        console.log(`Syncing ${pending.length} pending quotes...`);
         const remaining: any[] = [];
 
         for (const quote of pending) {
@@ -324,19 +311,19 @@ class QuoteService {
                 });
                 if (!response.ok) {
                     remaining.push(quote);
-                    console.warn(`❌ [QuoteService] Failed to sync quote (${response.status}), keeping in queue`);
+                    console.log('Failed to sync quote, keeping in queue');
                 } else {
-                    console.log('✅ [QuoteService] Synced quote successfully');
+                    console.log('Synced quote successfully');
                 }
             } catch (e) {
                 remaining.push(quote);
-                console.warn('⚠️ [QuoteService] Network error syncing quote, keeping in queue');
+                console.log('Network error syncing quote, keeping in queue');
             }
         }
 
         if (remaining.length !== pending.length) {
             await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, remaining);
-            console.log('🏁 [QuoteService] Sync complete. Remaining items:', remaining.length);
+            console.log('Sync complete. Remaining items:', remaining.length);
         }
     }
 

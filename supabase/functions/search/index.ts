@@ -6,11 +6,11 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
+import { getAuthUser } from '../_shared/auth.ts';
 import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts';
 import {
   searchInventaireWorks,
   searchInventaireAuthors,
-  InventaireSearchResult,
 } from '../_shared/inventaire.api.ts';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -26,6 +26,8 @@ serve(async (req: Request) => {
   if (!q) return error('Missing query parameter "q"', 400);
 
   const query = q.toLowerCase();
+  const user = await getAuthUser(req);
+  const authUserId = user?.id ?? '';
 
   try {
     console.log(`[search] Starting search for "${query}"`);
@@ -41,7 +43,7 @@ serve(async (req: Request) => {
         FROM "Quote" q
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" b ON b.id = q."bookId"
-        LEFT JOIN "User" u ON u.id = q."userId"
+        LEFT JOIN "Profile" u ON u.id = q."userId"
         WHERE q.text ILIKE ${'%' + query + '%'} OR q.theme ILIKE ${'%' + query + '%'}
         LIMIT 20
       `,
@@ -68,70 +70,54 @@ serve(async (req: Request) => {
       `
     ]);
 
-    console.log(`[search] Local queries finished: ${quotesRaw?.length ?? 0} quotes, ${localAuthorsRaw?.length ?? 0} authors, ${localBooksRaw?.length ?? 0} books, ${themesRaw?.length ?? 0} themes`);
-
     // 5 & 6. Inventaire searches (with DB cache)
     const [inventaireWorks, inventaireAuthors] = await Promise.all([
       // Works cache check and fetch
       (async () => {
-        console.log(`[search] Checking cache for sujets: "${query}"`);
         const cached = await sql`
           SELECT results, "expiresAt" FROM "SearchCache"
           WHERE query = ${query} AND type = 'sujets' LIMIT 1
-        `.catch((err: any) => {
-          console.error('[search] SearchCache (sujets) query failed:', err);
-          return [];
-        });
+        `.catch(() => []);
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
-          console.log(`[search] Found cached inventaire works for "${query}"`);
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
             return Array.isArray(results) ? results : [];
           } catch { return []; }
         }
-        console.log(`[search] Fetching inventaire works for "${query}" from API`);
         const fresh = await searchInventaireWorks(query, 10);
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
         await sql`
           INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt")
           VALUES (${query}, 'sujets', ${JSON.stringify(fresh)}, now(), ${expiresAt})
           ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"
-        `.catch((err: any) => console.error('[search] cache write error:', err));
+        `.catch(() => {});
         return fresh;
       })(),
       // Authors cache check and fetch
       (async () => {
-        console.log(`[search] Checking cache for humans: "${query}"`);
         const cached = await sql`
           SELECT results, "expiresAt" FROM "SearchCache"
           WHERE query = ${query} AND type = 'humans' LIMIT 1
-        `.catch((err: any) => {
-          console.error('[search] SearchCache (humans) query failed:', err);
-          return [];
-        });
+        `.catch(() => []);
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
-          console.log(`[search] Found cached inventaire authors for "${query}"`);
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
             return Array.isArray(results) ? results : [];
           } catch { return []; }
         }
-        console.log(`[search] Fetching inventaire authors for "${query}" from API`);
         const fresh = await searchInventaireAuthors(query, 10);
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
         await sql`
           INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt")
           VALUES (${query}, 'humans', ${JSON.stringify(fresh)}, now(), ${expiresAt})
           ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"
-        `.catch((err: any) => console.error('[search] cache write error:', err));
+        `.catch(() => {});
         return fresh;
       })()
     ]);
 
-    console.log(`[search] Inventaire results: ${inventaireWorks.length} works, ${inventaireAuthors.length} authors`);
-
     return json({
-      quotes: quotesRaw.map((q: any) => formatQuote(q, 0)),
+      quotes: quotesRaw.map((q: any) => formatQuote(q, authUserId)),
       authors: localAuthorsRaw.map((a: any) => formatAuthor(a, 0)),
       books: localBooksRaw.map((b: any) => formatBook(b, 0)),
       themes: themesRaw.map((t: any) => t.theme),
@@ -139,14 +125,7 @@ serve(async (req: Request) => {
       inventaireAuthors,
     });
   } catch (e: any) {
-    console.error('❌ [search] Error details:', {
-      message: e.message,
-      stack: e.stack,
-      code: e.code,
-      detail: e.detail,
-      where: e.where,
-      query: query
-    });
+    console.error('[search]', e);
     return error(`Search service error: ${e.message || 'Unknown error'}`, 500);
   }
 });
