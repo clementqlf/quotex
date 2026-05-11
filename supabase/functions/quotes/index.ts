@@ -75,9 +75,10 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { text, author, book, theme } = await req.json();
+      const { text, author, book, theme, blockData } = await req.json();
       if (!text || !author || !book) return error('Missing required fields', 400);
 
+      // ... (author and book resolution logic omitted for brevity, keeping existing logic) ...
       // Find or create author
       let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${author} LIMIT 1`;
       let authorRecord;
@@ -132,8 +133,8 @@ serve(async (req: Request) => {
 
       // Create quote
       const quoteRows = await sql`
-        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount")
-        VALUES (${text}, now(), ${authorRecord.id}, ${bookRecord.id}, ${authUser.id}, ${theme ?? null}, 0)
+        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData")
+        VALUES (${text}, now(), ${authorRecord.id}, ${bookRecord.id}, ${authUser.id}, ${theme ?? null}, 0, ${blockData ? JSON.stringify(blockData) : null})
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;
@@ -181,8 +182,8 @@ serve(async (req: Request) => {
     if (req.method === 'PATCH' && idParam && !subAction) {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
-
-      const { text, author, book, theme } = await req.json();
+  
+      const { text, author, book, theme, blockData } = await req.json();
       const existingRows = await sql`
         SELECT q.*, row_to_json(a) as author, row_to_json(b) as book,
                (SELECT row_to_json(u_row) FROM (SELECT u.id, u.username, u.name, u.image FROM "Profile" u WHERE u.id = q."userId") u_row) as "user"
@@ -193,10 +194,10 @@ serve(async (req: Request) => {
       `;
       if (!existingRows.length) return error('Quote not found', 404);
       const existing = existingRows[0];
-
+  
       let authorId = existing.authorId ?? existing.authorid;
       let bookId = existing.bookId ?? existing.bookid;
-
+  
       // 1. Resolve Author
       if (author && typeof author === 'string') {
         const existingAuthorName = (existing.author as any)?.name;
@@ -210,11 +211,11 @@ serve(async (req: Request) => {
           authorId = aRows[0].id;
         }
       }
-
+  
       // 2. Resolve Book
       const currentBookTitle = (existing.book as any)?.title;
       const newBookTitle = (typeof book === 'string') ? book : currentBookTitle;
-
+  
       if (newBookTitle) {
         if (book || authorId !== (existing.authorId ?? existing.authorid)) {
           let bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
@@ -226,17 +227,18 @@ serve(async (req: Request) => {
           bookId = bRows[0].id;
         }
       }
-
+  
       // 3. Update the Quote
       await sql`
         UPDATE "Quote" SET
           "text" = ${text ?? existing.text},
           "theme" = ${theme ?? existing.theme},
           "authorId" = ${authorId},
-          "bookId" = ${bookId}
+          "bookId" = ${bookId},
+          "blockData" = ${blockData ? JSON.stringify(blockData) : existing.blockData}
         WHERE "id" = ${idParam}
       `;
-
+  
       const updatedRows = await fetchQuotes(authUser.id, idParam);
       return json(formatQuote(updatedRows[0], authUser.id));
     }

@@ -44,7 +44,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
 
             {onRemove && (
                 <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
-                    <X size={14} color={colors.warning} />
+                    <X size={16} color={colors.textTertiary} />
                 </TouchableOpacity>
             )}
         </View>
@@ -82,10 +82,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     },
     removeButton: {
         position: 'absolute',
-        top: 8,
-        right: 8,
-        backgroundColor: colors.warningLight,
-        borderRadius: 12,
-        padding: 4,
+        top: 12,
+        right: 12,
+        backgroundColor: colors.surfaceHighlight,
+        borderRadius: 14,
+        padding: 6,
+        zIndex: 10,
     }
 });

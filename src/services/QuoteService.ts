@@ -81,10 +81,9 @@ class QuoteService {
                     time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
                     isSaved: q.isSaved || false,
                     comments: q.comments || 0,
-                    blockData: q.blockData || {},
+                    blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
                     user: q.user,
                     aiInterpretation: q.aiInterpretation,
-                    definitions: q.definitions ? JSON.parse(q.definitions) : undefined,
                 }));
 
                 // Update local cache
@@ -135,10 +134,9 @@ class QuoteService {
                     time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
                     isSaved: q.isSaved || false,
                     comments: q.comments || 0,
-                    blockData: q.blockData || {},
+                    blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
                     user: q.user,
                     aiInterpretation: q.aiInterpretation,
-                    definitions: q.definitions ? (typeof q.definitions === 'string' ? JSON.parse(q.definitions) : q.definitions) : undefined,
                 };
 
                 // Update strictly this quote in local cache to ensure consistency

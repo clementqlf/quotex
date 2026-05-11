@@ -67,7 +67,6 @@ export type Quote = {
   notes?: string;
   blockData?: Record<string, any>;
   aiInterpretation?: string;
-  definitions?: Array<{ term: string; genre: string; definition: string; example: string }>;
 };
 
 export type Review = {

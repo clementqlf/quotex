@@ -12,6 +12,7 @@ import { DefinitionBlock } from './DefinitionBlock';
 import { SavedQuotesBlock } from './SavedQuotesBlock';
 import { BuyLinkBlock } from './BuyLinkBlock';
 import { EditionsBlock } from './EditionsBlock';
+import { ConnectionBlock } from './ConnectionBlock';
 import { BlockWrapper } from './BlockWrapper';
 import { useTheme } from '@/src/contexts/ThemeContext';
 
@@ -33,6 +34,7 @@ export interface BlockContext {
     onReviewAdded?: () => void;
     onEditDefinitionSelection?: (blockKey: string) => void; // For Quote
     onManageDictionary?: () => void; // For Book
+    onConnectionSearchPress?: (blockId: string) => void; // For Connection block
 
     // State
     blockData?: Record<string, any>;
@@ -51,7 +53,8 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
     const {
         book, author, quote, savedQuotes, blockData,
         onUpdateBlockData, onBookPress, onAuthorPress, onQuotePress,
-        onReviewAdded, onEditDefinitionSelection, onManageDictionary
+        onReviewAdded, onEditDefinitionSelection, onManageDictionary,
+        onConnectionSearchPress
     } = context;
 
     const { colors } = useTheme();
@@ -123,15 +126,28 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             // Quote Mode
             // We need to resolve definitions.
             // If manually edited, they are in blockData. If not, maybe in quote.definitions?
-            const manualDefs = quote?.blockData?.[blockId];
-            const serverDefs = quote?.definitions;
-            const defsToShow = manualDefs || serverDefs || [];
+            const defs = (blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? []) as any[];
 
             return (
                 <DefinitionBlock
                     blockKey="definition"
-                    definitions={defsToShow}
+                    definitions={defs}
                     onEditSelection={onEditDefinitionSelection ? () => onEditDefinitionSelection(blockId) : undefined}
+                    onRemove={onRemove}
+                />
+            );
+
+        case 'connection':
+            return (
+                <ConnectionBlock
+                    blockId={blockId}
+                    data={blockData?.[blockId] ?? quote?.blockData?.[blockId]}
+                    onUpdate={(data) => onUpdateBlockData && onUpdateBlockData(blockId, data)}
+                    onSearchPress={() => onConnectionSearchPress && onConnectionSearchPress(blockId)}
+                    onNavigate={(type, id, uri) => {
+                        if (type === 'book') onBookPress && onBookPress(id, uri);
+                        else onAuthorPress && onAuthorPress(id as string, uri);
+                    }}
                     onRemove={onRemove}
                 />
             );

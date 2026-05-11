@@ -17,6 +17,7 @@ import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import AddBlockModal from './AddBlockModal';
+import ResourceSearchModal from './ResourceSearchModal';
 import { useData } from '@/src/contexts/DataProvider';
 import { Quote, Book, Author } from '@/types';
 import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
@@ -114,7 +115,7 @@ export function QuoteDetailModal() {
   const [activeTab, setActiveTab] = React.useState<TabType>('description');
 
   const DESCRIPTION_BLOCKS = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
-  const MYSHEET_BLOCKS = ['definition', 'notes'];
+  const MYSHEET_BLOCKS = ['connection', 'definition', 'notes'];
 
   const blockOptions = QUOTE_DETAIL_BLOCK_OPTIONS.map(key => ({
     key,
@@ -160,33 +161,50 @@ export function QuoteDetailModal() {
     return () => clearTimeout(timer);
   }, [quote?.blockData, quote?.id, updateQuote]);
 
-  const handleUpdateBlockData = (blockId: string, data: any) => {
+  const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setQuote((current: Quote | undefined) => {
       if (!current) return current;
-      const newBlockData = { ...current.blockData, [blockId]: data };
+      // Safety check: ensure blockData is an object
+      const safeBlockData = typeof current.blockData === 'object' && current.blockData !== null 
+        ? current.blockData 
+        : {};
+      const newBlockData = { ...safeBlockData, [blockId]: data };
       return { ...current, blockData: newBlockData };
     });
-  };
+  }, []);
 
   if (!quote) return null;
 
   const onClose = () => router.back();
 
+  const [isResourceSearchModalVisible, setResourceSearchModalVisible] = React.useState(false);
+  const [currentConnectionBlockId, setCurrentConnectionBlockId] = React.useState<string | null>(null);
+
+  const handleResourceSelected = (resource: any) => {
+    if (currentConnectionBlockId) {
+      handleUpdateBlockData(currentConnectionBlockId, resource);
+      setResourceSearchModalVisible(false);
+      setCurrentConnectionBlockId(null);
+    }
+  };
+
   // Helper for Dispatcher Context
-  const getBlockContext = (): BlockContext => ({
+  const blockContext = useMemo((): BlockContext => ({
     quote,
     book: fetchedBook,
     author: fetchedAuthor,
     onUpdateBlockData: handleUpdateBlockData,
-    onBookPress: (title) => navigateToBook(fetchedBook?.id ?? title, fetchedBook?.inventaireUri),
+    onBookPress: (idOrTitle, uri) => navigateToBook(idOrTitle, uri),
     onAuthorPress: (name, uri) => navigateToAuthor(name, uri),
     onEditDefinitionSelection: (blockId) => {
       setCurrentDefinitionBlockId(blockId);
       setWordSelectionModalVisible(true);
     },
-  });
-
-  const blockContext = getBlockContext();
+    onConnectionSearchPress: (blockId) => {
+      setCurrentConnectionBlockId(blockId);
+      setResourceSearchModalVisible(true);
+    },
+  }), [quote, fetchedBook, fetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor]);
 
   const handleToggleLike = () => {
     setQuote((currentQuote: Quote | undefined) => {
@@ -221,9 +239,9 @@ export function QuoteDetailModal() {
 
     const newDefinitions = [];
     for (const word of words) {
-      const def = await fetchDefinition(word);
-      if (def) {
-        newDefinitions.push(def);
+      const defs = await fetchDefinition(word);
+      if (defs.length > 0) {
+        newDefinitions.push(...defs);
       } else {
         newDefinitions.push({
           term: word,
@@ -251,9 +269,21 @@ export function QuoteDetailModal() {
 
   const handleRemoveBlock = (itemToRemove: string) => {
     if (itemToRemove === 'addBlock') return;
+    
+    // 1. Update Layout
     const newLayout = gridData.filter(x => x !== itemToRemove);
     setGridData(newLayout);
     if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
+
+    // 2. Cleanup blockData
+    setQuote((current: Quote | undefined) => {
+      if (!current) return current;
+      const newBlockData = { ...(current.blockData || {}) };
+      delete newBlockData[itemToRemove];
+      
+      const updates: Partial<Quote> = { blockData: newBlockData };
+      return { ...current, ...updates };
+    });
   };
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
@@ -454,6 +484,12 @@ export function QuoteDetailModal() {
                   onClose={() => setWordSelectionModalVisible(false)}
                   onConfirm={handleWordsSelected}
                   quoteText={quote.text}
+                />
+
+                <ResourceSearchModal
+                  visible={isResourceSearchModalVisible}
+                  onClose={() => setResourceSearchModalVisible(false)}
+                  onSelect={handleResourceSelected}
                 />
               </>
             )}

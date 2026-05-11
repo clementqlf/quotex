@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { BookOpen } from 'lucide-react-native';
+import { BookOpen, X } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { BlockKey } from '@/src/config/blocks';
 import { useTheme } from '@/src/contexts/ThemeContext';
@@ -9,8 +9,12 @@ import { ThemeColors } from '@/src/theme/theme';
 interface Definition {
     term: string;
     genre: string;
+    pronunciation?: string;
+    etymology?: string;
     definition: string;
     example: string;
+    exampleSource?: string;
+    synonyms?: string[];
 }
 
 interface DefinitionBlockProps {
@@ -36,88 +40,186 @@ export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
     const hasDefinitions = definitions && definitions.length > 0;
 
     if (!hasDefinitions) {
-        // Empty state differs by context
         if (isAggregated) {
-            // Book Context
             return (
                 <BlockWrapper blockKey={blockKey} onRemove={onRemove}>
                     <TouchableOpacity onPress={onManageDictionary} disabled={!onManageDictionary}>
-                        <Text style={styles.fallbackText}>
-                            Aucune définition visible. Cliquez pour gérer.
-                        </Text>
+                        <Text style={styles.fallbackText}>Aucune définition visible. Cliquez pour gérer.</Text>
                     </TouchableOpacity>
                 </BlockWrapper>
             );
         } else {
-            // Quote Context
             return (
-                <TouchableOpacity style={styles.emptyBlockContainer} onPress={onEditSelection}>
-                    <BookOpen size={24} color={colors.primary} />
-                    <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
-                    <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
-                </TouchableOpacity>
+                <View style={styles.emptyContainer}>
+                    <TouchableOpacity style={styles.emptyBlockContainer} onPress={onEditSelection}>
+                        <BookOpen size={24} color={colors.primary} />
+                        <Text style={styles.emptyBlockText}>Cliquez pour définir des mots</Text>
+                        <Text style={styles.emptyBlockSubtext}>Sélectionner des mots de la citation pour afficher leur définition.</Text>
+                    </TouchableOpacity>
+                    {onRemove && (
+                        <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
+                            <X size={16} color={colors.textTertiary} />
+                        </TouchableOpacity>
+                    )}
+                </View>
             );
         }
     }
 
-    return (
-        <BlockWrapper
-            blockKey={blockKey}
-            onRemove={onRemove}
-            rightElement={
-                // Edit button for QuoteDetail context inside the header? 
-                // Original design had it at bottom. Let's keep it at bottom for Quote, but maybe header for Book?
-                // Actually BookDetail opens a modal on click. 
-                undefined
-            }
-        >
-            <TouchableOpacity
-                disabled={!onManageDictionary && !isAggregated}
-                onPress={onManageDictionary}
-                activeOpacity={onManageDictionary ? 0.7 : 1}
-            >
-                <View style={styles.definitionContent}>
-                    {definitions.map((dItem, defIndex) => (
-                        <View key={`${dItem.term}-${defIndex}`}>
-                            <Text style={styles.definitionTerm}>{dItem.term}</Text>
-                            <Text style={styles.definitionGenre}>{dItem.genre}</Text>
-                            <Text style={styles.definitionDesc}>{dItem.definition}</Text>
-                            {dItem.example ? (
-                                <Text style={styles.definitionExample}>
-                                    <Text style={styles.exampleLabel}>Ex : </Text>{dItem.example}
-                                </Text>
-                            ) : null}
-                            {defIndex !== definitions.length - 1 && <View style={styles.definitionDivider} />}
-                        </View>
-                    ))}
-                </View>
-            </TouchableOpacity>
+    const term = definitions[0].term;
+    const pronunciation = definitions[0].pronunciation;
+    const synonyms = definitions[0].synonyms;
 
-            {!isAggregated && onEditSelection && (
-                <TouchableOpacity style={styles.editSelectionButton} onPress={onEditSelection}>
-                    <Text style={styles.editSelectionText}>Modifier la sélection</Text>
-                </TouchableOpacity>
-            )}
+    return (
+        <BlockWrapper blockKey={blockKey} onRemove={onRemove}>
+            <View style={styles.container}>
+                {/* Header Row: TERM [pron] genre */}
+                <View style={styles.header}>
+                    <Text style={styles.termText}>{term.toUpperCase()}</Text>
+                    {pronunciation && (
+                        <Text style={styles.pronunciationText}>{pronunciation}</Text>
+                    )}
+                    <Text style={styles.genreText}>{definitions[0].genre}</Text>
+                </View>
+
+                {/* Definitions Flow */}
+                <View style={styles.meaningsList}>
+                    {definitions.map((dItem, index) => {
+                        // Extract context from definition if it starts with (xxx)
+                        const contextMatch = dItem.definition.match(/^(\([^)]+\))\s*(.*)/);
+                        const context = contextMatch ? contextMatch[1] : null;
+                        const body = contextMatch ? contextMatch[2] : dItem.definition;
+
+                        return (
+                            <View key={index} style={styles.meaningRow}>
+                                <Text style={styles.definitionLine}>
+                                    <Text style={styles.meaningNumber}>{index + 1}. </Text>
+                                    {context && <Text style={styles.contextText}>{context} </Text>}
+                                    <Text style={styles.definitionBody}>{body}</Text>
+                                </Text>
+                                
+                                {dItem.example && (
+                                    <Text style={styles.exampleText}>
+                                        {dItem.example}
+                                    </Text>
+                                )}
+                            </View>
+                        );
+                    })}
+                </View>
+
+                {/* Synonyms Section */}
+                {synonyms && synonyms.length > 0 && (
+                    <View style={styles.synonymsRow}>
+                        <Text style={styles.synonymLabel}>SYN. </Text>
+                        <Text style={styles.synonymText}>{synonyms.join(', ')}</Text>
+                    </View>
+                )}
+
+                {!isAggregated && onEditSelection && (
+                    <TouchableOpacity style={styles.editSelectionButton} onPress={onEditSelection}>
+                        <Text style={styles.editSelectionText}>Modifier la sélection</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
         </BlockWrapper>
     );
 };
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+    container: {
+        paddingVertical: 2,
+    },
     fallbackText: {
         color: colors.textTertiary,
         fontStyle: 'italic',
         marginTop: 8
     },
-    // Empty State Styles
+    header: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginBottom: 8,
+    },
+    termText: {
+        fontSize: 18,
+        fontWeight: '900',
+        color: colors.primary, // Using Quotex Blue instead of Pink
+        letterSpacing: -0.5,
+    },
+    pronunciationText: {
+        fontSize: 15,
+        color: colors.textSecondary,
+        fontWeight: '400',
+    },
+    genreText: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: colors.text,
+    },
+    meaningsList: {
+        gap: 8,
+    },
+    meaningRow: {
+        marginBottom: 2,
+    },
+    definitionLine: {
+        lineHeight: 22,
+    },
+    meaningNumber: {
+        fontSize: 15,
+        fontWeight: '900',
+        color: colors.primary, // Using Quotex Blue
+    },
+    contextText: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: colors.text,
+    },
+    definitionBody: {
+        fontSize: 15,
+        color: colors.text,
+        lineHeight: 22,
+    },
+    exampleText: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        fontStyle: 'italic',
+        marginTop: 2,
+        paddingLeft: 4,
+    },
+    synonymsRow: {
+        flexDirection: 'row',
+        marginTop: 10,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: colors.surfaceHighlight,
+    },
+    synonymLabel: {
+        fontSize: 13,
+        fontWeight: '900',
+        color: colors.primary, // Using Quotex Blue
+    },
+    synonymText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: colors.text,
+        flex: 1,
+    },
+    // Button Styles
+    emptyContainer: {
+        position: 'relative',
+        marginBottom: 10,
+    },
     emptyBlockContainer: {
         backgroundColor: colors.primaryLight,
-        borderWidth: 1,
-        borderColor: colors.primaryLight, // Using primaryLight alpha for border too or similar
         borderRadius: 16,
         padding: 24,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: colors.primaryLight,
         borderStyle: 'dashed',
     },
     emptyBlockText: {
@@ -125,62 +227,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         fontWeight: '600',
         color: colors.primary,
         marginTop: 12,
-        marginBottom: 4,
     },
     emptyBlockSubtext: {
         fontSize: 13,
         color: colors.textSecondary,
         textAlign: 'center',
-        paddingHorizontal: 20,
+        marginTop: 4,
     },
-
-    // Content Styles
-    definitionContent: {
-        marginBottom: 8,
-    },
-    definitionTerm: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: colors.text,
-        marginBottom: 2,
-    },
-    definitionGenre: {
-        fontSize: 12,
-        color: colors.textTertiary,
-        fontStyle: 'italic',
-        marginBottom: 4,
-    },
-    definitionDesc: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        lineHeight: 20,
-        marginBottom: 4,
-    },
-    definitionExample: {
-        fontSize: 13,
-        color: colors.textTertiary,
-        fontStyle: 'italic',
-    },
-    exampleLabel: {
-        color: colors.primary,
-    },
-    definitionDivider: {
-        height: 1,
+    removeButton: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
         backgroundColor: colors.surfaceHighlight,
-        marginVertical: 12,
+        borderRadius: 14,
+        padding: 6,
+        zIndex: 10,
     },
     editSelectionButton: {
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
         paddingVertical: 8,
         backgroundColor: colors.surfaceHighlight,
         borderRadius: 8,
-        marginTop: 8,
+        marginTop: 12,
     },
     editSelectionText: {
-        color: colors.text,
+        color: colors.textSecondary,
         fontSize: 12,
-        fontWeight: '500',
+        fontWeight: '600',
     },
 });
