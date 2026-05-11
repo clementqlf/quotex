@@ -87,27 +87,37 @@ export default function MyQuotesScreen() {
     }
   }, [isFocused]);
 
+  // Memoize the check to avoid effect re-runs on every quote update
+  const hasEnrichingItems = useMemo(() => myQuotes.some(q =>
+    (q.book && typeof q.book === 'object' && (q.book as any).isEnriching) ||
+    (q.author && typeof q.author === 'object' && (q.author as any).isEnriching)
+  ), [myQuotes]);
+
   // Polling logic to automatically clear skeletons when enrichment is done
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
 
-
-    const hasEnrichingItems = myQuotes.some(q =>
-      (q.book && typeof q.book === 'object' && q.book.isEnriching) ||
-      (q.author && typeof q.author === 'object' && q.author.isEnriching)
-    );
-
     if (hasEnrichingItems && isFocused) {
+      const enrichingItems = myQuotes.reduce((acc, q) => {
+        if (q.book && typeof q.book === 'object' && (q.book as any).isEnriching) acc.add(`Livre: ${(q.book as any).title}`);
+        if (q.author && typeof q.author === 'object' && (q.author as any).isEnriching) acc.add(`Auteur: ${(q.author as any).name}`);
+        return acc;
+      }, new Set<string>());
+      
+      console.log(`[MyQuotesScreen] Polling active. Items enriching: ${Array.from(enrichingItems).join(', ')}`);
+      
       interval = setInterval(() => {
         refreshQuotes();
-        // Optionnel: refreshAuthors/Books si on veut aussi mettre à jour les onglets stats
-      }, 3000);
+      }, 5000);
     }
 
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) {
+        console.log('[MyQuotesScreen] Stopping polling');
+        clearInterval(interval);
+      }
     };
-  }, [myQuotes, isFocused, refreshQuotes]);
+  }, [hasEnrichingItems, isFocused, refreshQuotes]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);

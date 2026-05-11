@@ -22,8 +22,9 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
     const book = bookRows[0];
     if (!book || !book.inventaireUri) return null;
 
-    console.log(`[BookEnrichment] Inventaire enrichment for: ${book.title} (${book.inventaireUri})`);
+    console.log(`[BookEnrichment] Fetching metadata from Inventaire for URI: ${book.inventaireUri}`);
     const enriched = await enrichWorkMetadata(book.inventaireUri);
+    console.log(`[BookEnrichment] Inventaire returned: ${enriched ? 'Data found' : 'No data'}`);
 
     if (enriched) {
       const updateData: Record<string, any> = {};
@@ -98,6 +99,7 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
     console.error(`[BookEnrichment] Error for book ${bookId}:`, e);
     return null;
   } finally {
+    console.log(`[BookEnrichment] Final flag reset for book ${bookId}`);
     await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
     bookEnrichmentQueue.delete(bookId);
   }
@@ -122,7 +124,9 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
     }
 
     const authorName = (book.author as any)?.name || 'Unknown';
+    console.log(`[BookEnrichment/Discovery] Searching URI for "${book.title}" by "${authorName}"`);
     const uri = await findWorkUriByTitleAndAuthor(book.title, authorName);
+    console.log(`[BookEnrichment/Discovery] URI search result: ${uri || 'None'}`);
 
     if (uri) {
       console.log(`[BookEnrichment] Book "${book.title}" matched with URI: ${uri}`);
@@ -133,15 +137,21 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
         await enrichBookWithInventaire(conflictRows[0].id);
         return;
       }
-      await sql`UPDATE "Book" SET "inventaireUri" = ${uri} WHERE id = ${bookId}`;
       console.log(`[BookEnrichment] Saved URI ${uri} for book ${bookId}. Starting detailed enrichment.`);
-      await enrichBookWithInventaire(bookId);
+      await sql`UPDATE "Book" SET "inventaireUri" = ${uri} WHERE id = ${bookId}`;
+      
+      try {
+        await enrichBookWithInventaire(bookId);
+      } catch (err) {
+        console.error(`[BookEnrichment] Detailed enrichment failed for ${bookId}, but URI was saved.`, err);
+      }
     } else {
       console.log(`[BookEnrichment] No match found for book: "${book.title}" by ${authorName}`);
     }
   } catch (e) {
     console.error(`[BookEnrichment/Discovery] Error for book ${bookId}:`, e);
   } finally {
+    console.log(`[BookEnrichment/Discovery] Final flag reset for book ${bookId}`);
     await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
   }
 };

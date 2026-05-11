@@ -56,7 +56,7 @@ class QuoteService {
         try {
             console.log('Fetching quotes from:', this.API_URL);
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
             const headers = await this.getHeaders();
             const response = await fetch(this.API_URL!, {

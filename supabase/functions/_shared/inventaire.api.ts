@@ -418,9 +418,16 @@ export const getAuthorWorkUris = async (authorUri: string): Promise<string[]> =>
 export const getEditionsDetails = async (editionUris: string[]): Promise<InventaireEdition[]> => {
     const results: InventaireEdition[] = [];
     const CHUNK_SIZE = 15;
+    const chunkPromises = [];
+
     for (let i = 0; i < editionUris.length; i += CHUNK_SIZE) {
         const chunk = editionUris.slice(i, i + CHUNK_SIZE);
-        const entities = await getInventaireEntities(chunk);
+        chunkPromises.push(getInventaireEntities(chunk));
+    }
+
+    const chunkResults = await Promise.all(chunkPromises);
+
+    for (const entities of chunkResults) {
         for (const [uri, e] of Object.entries(entities)) {
             const claims = e.claims || {};
             const labels = e.labels || {};
@@ -456,11 +463,12 @@ export const getBestNativeCovers = async (workUris: string[]): Promise<Record<st
     if (!workUris.length) return {};
     const results: Record<string, string | null> = {};
     try {
-        const editionUrisPerWork = [];
-        for (const uri of workUris) {
-            const edUris = await getWorkEditionUris(uri);
-            editionUrisPerWork.push({ workUri: uri, edUris });
-        }
+        const editionUrisPerWork = await Promise.all(
+            workUris.map(async (uri) => {
+                const edUris = await getWorkEditionUris(uri);
+                return { workUri: uri, edUris };
+            })
+        );
         
         const allEdUris = editionUrisPerWork.flatMap(x => x.edUris.slice(0, 5)); // Reduced limit
         if (allEdUris.length === 0) return results;

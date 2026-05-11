@@ -24,7 +24,7 @@ export default function SocialFeedScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
-  const feedQuotes = quotes.filter(q => q.user && q.user.id !== 1); // Global quotes except mine
+  const feedQuotes = quotes.filter(q => q.user && q.user.id !== "1"); // Global quotes except mine
 
   const { tabIndex, setTabIndex } = useTabIndex();
   const isFocused = tabIndex === 2;

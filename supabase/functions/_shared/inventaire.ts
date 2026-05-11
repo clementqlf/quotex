@@ -225,9 +225,13 @@ export const syncAuthorProfile = async (
           ) || searchResults[0];
           
           if (bestMatch.uri.startsWith('wd:') || !uri) {
+            console.log(`[Inventaire] Selected best URI for "${nameToSearch}": ${bestMatch.uri} (replacing ${uri || 'none'})`);
             uri = bestMatch.uri;
-            console.log(`[Inventaire] Author "${nameToSearch}" matched with URI: ${uri} (Label: ${bestMatch.label})`);
+          } else {
+            console.log(`[Inventaire] Keeping existing URI for "${nameToSearch}": ${uri}`);
           }
+        } else {
+          console.log(`[Inventaire] No search results found for author: "${nameToSearch}"`);
         }
       }
 
@@ -286,6 +290,7 @@ export const syncAuthorProfile = async (
 
       let updatedAuthor;
       try {
+        console.log(`[Inventaire] Updating DB for author ${authorId} with name: ${updateData.name || author.name}`);
         const rows = await sql`
           UPDATE "Author" SET
             "inventaireUri" = ${updateData.inventaireUri},
@@ -300,6 +305,7 @@ export const syncAuthorProfile = async (
           RETURNING *
         `;
         updatedAuthor = rows[0];
+        console.log(`[Inventaire] DB Update successful for ${updatedAuthor?.name}`);
       } catch (err: any) {
         // Unique constraint on inventaireUri → race condition → merge
         if (err.code === '23505') {
@@ -318,6 +324,7 @@ export const syncAuthorProfile = async (
       console.error(`[Inventaire] Author enrichment error:`, e);
       return null;
     } finally {
+      console.log(`[Inventaire] Final flag reset for author ${authorId}`);
       const exists = await sql`SELECT id FROM "Author" WHERE id = ${authorId} LIMIT 1`;
       if (exists.length) {
         await sql`UPDATE "Author" SET "isEnriching" = false WHERE id = ${authorId}`.catch(() => {});
@@ -357,9 +364,11 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
 
     for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
       const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
+      console.log(`[Inventaire] Fetching details for works chunk ${i/CHUNK_SIZE + 1}`);
+      
       const [workEntities, bestCovers] = await Promise.all([
         api.getBatchInventaireDetails(chunk),
-        api.getBestNativeCovers(chunk),
+        api.getBestNativeCovers(chunk)
       ]);
 
       for (const [wUri, details] of Object.entries(workEntities)) {

@@ -47,17 +47,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const fetchData = async () => {
         try {
             setIsLoading(true);
+            console.log('DataProvider: Initial fetchData started');
             const [fetchedQuotes, fetchedAuthors, fetchedBooks] = await Promise.all([
                 quoteService.getQuotes(),
                 authorService.getAuthors(),
                 authorService.getBooks(),
             ]);
-            console.log('DataProvider fetched data');
+            console.log('DataProvider: fetchData complete', { 
+                quotes: fetchedQuotes.length, 
+                authors: fetchedAuthors.length, 
+                books: fetchedBooks.length 
+            });
             setQuotes(fetchedQuotes);
             setAuthors(fetchedAuthors);
             setBooks(fetchedBooks);
         } catch (error) {
-            console.error("Failed to fetch data", error);
+            console.error("DataProvider: Failed to fetch data", error);
         } finally {
             setIsLoading(false);
         }
@@ -67,17 +72,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         fetchData();
     }, []);
 
-    const refreshQuotes = useCallback(async () => {
+    const refreshQuotes = useCallback(async (reason: string = 'unknown') => {
+        console.log(`DataProvider: refreshQuotes called (Reason: ${reason})`);
         const fetchedQuotes = await quoteService.getQuotes();
         setQuotes(fetchedQuotes);
     }, []);
 
-    const refreshAuthors = useCallback(async () => {
+    const refreshAuthors = useCallback(async (reason: string = 'unknown') => {
+        console.log(`DataProvider: refreshAuthors called (Reason: ${reason})`);
         const fetchedAuthors = await authorService.getAuthors();
         setAuthors(fetchedAuthors);
     }, []);
 
-    const refreshBooks = useCallback(async () => {
+    const refreshBooks = useCallback(async (reason: string = 'unknown') => {
+        console.log(`DataProvider: refreshBooks called (Reason: ${reason})`);
         const fetchedBooks = await authorService.getBooks();
         setBooks(fetchedBooks);
     }, []);
@@ -136,9 +144,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         
         // REFRESH FROM SERVER
         await Promise.all([
-            refreshQuotes(),
-            refreshAuthors(),
-            refreshBooks()
+            refreshQuotes('updateQuote complete'),
+            refreshAuthors('updateQuote complete'),
+            refreshBooks('updateQuote complete')
         ]);
     }, [refreshQuotes, refreshAuthors, refreshBooks]);
 
@@ -165,6 +173,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             blockData: {},
         };
         setQuotes(prev => [newQuote, ...prev]);
+
 
         await quoteService.addQuote(text, book, author);
         
