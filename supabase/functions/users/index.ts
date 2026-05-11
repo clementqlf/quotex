@@ -70,7 +70,7 @@ serve(async (req: Request) => {
         
         const userRows = await sql`
           SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following
-          FROM "Profile" u WHERE u.id = ${authUser.id} LIMIT 1
+          FROM "Profile" u WHERE u.id = ${authUser.id}::uuid LIMIT 1
         `;
         if (!userRows.length) return error('User not found', 404);
         profileUser = userRows[0];
@@ -91,12 +91,12 @@ serve(async (req: Request) => {
           row_to_json(a) as author,
           row_to_json(bk) as book,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount",
-          COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q.id AND l."userId" = ${authUserId ?? null}), '[]'::json) as likes,
-          COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${authUserId ?? null}), '[]'::json) as "savedBy"
+          COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q.id AND l."userId" = ${authUserId}::uuid), '[]'::json) as likes,
+          COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${authUserId}::uuid), '[]'::json) as "savedBy"
         FROM "Quote" q
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" bk ON bk.id = q."bookId"
-        WHERE q."userId" = ${profileUser.id}
+        WHERE q."userId" = ${profileUser.id}::uuid
         ORDER BY q.date DESC
       `;
 
@@ -118,7 +118,7 @@ serve(async (req: Request) => {
         FROM "UserBook" ub
         JOIN "Book" b ON b.id = ub."bookId"
         LEFT JOIN "Author" a ON a.id = b."authorId"
-        WHERE ub."userId" = ${profileUser.id}
+        WHERE ub."userId" = ${profileUser.id}::uuid
         ORDER BY ub."addedAt" DESC
       `;
 

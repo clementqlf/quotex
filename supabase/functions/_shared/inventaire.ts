@@ -119,7 +119,10 @@ export async function mergeAuthors(sourceId: number, targetId: number) {
 export const enrichWorkMetadata = async (uri: string): Promise<any> => {
   console.log(`[Inventaire] Starting enrichment for ${uri}`);
   const details = await api.getInventaireWorkDetails(uri);
-  if (!details) return null;
+  if (!details) {
+    console.error(`[Inventaire] No details found for Work URI: ${uri}`);
+    return null;
+  }
 
   const nativeUri = details.uri;
   const result: any = {
@@ -200,7 +203,10 @@ export const syncAuthorProfile = async (
       await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${authorId}`.catch(() => {});
 
       const author = await getAuthor(authorId);
-      if (!author) return null;
+      if (!author) {
+        console.error(`[Inventaire] Author with ID ${authorId} not found in database.`);
+        return null;
+      }
 
       const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
       const lastEnriched = author.lastEnrichedAt ? new Date(author.lastEnrichedAt).getTime() : 0;
@@ -235,7 +241,10 @@ export const syncAuthorProfile = async (
         }
       }
 
-      if (!uri) return null;
+      if (!uri) {
+        console.warn(`[Inventaire] No URI (inventaire or wikidata) found for author ${nameToSearch} (ID: ${authorId})`);
+        return null;
+      }
 
       // Check conflict
       const existingWithUri = await sql`SELECT * FROM "Author" WHERE "inventaireUri" = ${uri} LIMIT 1`;
@@ -246,7 +255,10 @@ export const syncAuthorProfile = async (
       }
 
       const details = await api.getInventaireAuthorDetails(uri);
-      if (!details) return null;
+      if (!details) {
+        console.error(`[Inventaire] Failed to fetch details from API for author URI: ${uri}`);
+        return null;
+      }
 
       const isNewEntity = uri !== author.inventaireUri;
       let biography = isNewEntity ? (details.description || null) : (author.description || details.description || null);

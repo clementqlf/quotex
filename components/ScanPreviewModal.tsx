@@ -26,7 +26,7 @@ import { getAuthorName, getBookTitle } from '@/src/utils/dataHelpers';
 type ScanPreviewModalProps = {
     visible: boolean;
     onClose: () => void;
-    onConfirm: (quote: string, book: string, author: string) => void;
+    onConfirm: (quote: string, book: string, author: string) => void | Promise<void>;
     scannedText: string;
     initialBook?: string;
     initialAuthor?: string;
@@ -43,6 +43,7 @@ export default function ScanPreviewModal({
     const { quotes } = useData();
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // State for editing
     const [isEditingBook, setIsEditingBook] = useState(false);
@@ -98,6 +99,7 @@ export default function ScanPreviewModal({
     // Reset state when modal opens or scannedText changes
     useEffect(() => {
         if (visible) {
+            setIsSubmitting(false);
             setEditedQuote(''); // We'll let defaultValue handle it unless explicitly editing
             setEditedBook(initialBook);
             setEditedAuthor(initialAuthor);
@@ -139,12 +141,21 @@ export default function ScanPreviewModal({
         return bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
     };
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
+        if (isSubmitting) return;
+
         const finalText = editedQuote.trim() || scannedText;
         if (!finalText) return;
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
-        onConfirm(finalText, finalBook, finalAuthor);
+
+        setIsSubmitting(true);
+        try {
+            await onConfirm(finalText, finalBook, finalAuthor);
+        } catch (error) {
+            console.error("Error confirming quote:", error);
+            setIsSubmitting(false);
+        }
     };
 
     const handleBookChange = (text: string) => {
@@ -537,10 +548,15 @@ export default function ScanPreviewModal({
                                     <Text style={styles.previewCancelButtonText}>Annuler</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={styles.previewConfirmButton}
+                                    style={[styles.previewConfirmButton, isSubmitting && { opacity: 0.7 }]}
                                     onPress={handleConfirm}
+                                    disabled={isSubmitting}
                                 >
-                                    <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                    {isSubmitting ? (
+                                        <ActivityIndicator color="#000" size="small" />
+                                    ) : (
+                                        <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </Pressable>

@@ -25,14 +25,14 @@ async function fetchQuotes(userId: string | null, quoteId?: number) {
         SELECT row_to_json(b_row)
         FROM (
           SELECT b.*, COALESCE(
-            (SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b."id" AND ub."userId" = ${userId}),
+            (SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b."id" AND ub."userId" = ${userId}::uuid),
             '[]'::json
           ) as "users"
           FROM "Book" b WHERE b."id" = q."bookId"
         ) b_row
       ) as "book",
-      COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q."id" AND l."userId" = ${userId}), '[]'::json) as "likes",
-      COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q."id" AND s."userId" = ${userId}), '[]'::json) as "savedBy"
+      COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q."id" AND l."userId" = ${userId}::uuid), '[]'::json) as "likes",
+      COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q."id" AND s."userId" = ${userId}::uuid), '[]'::json) as "savedBy"
     FROM "Quote" q
     LEFT JOIN "Author" a ON a."id" = q."authorId"
     WHERE 1=1 ${where}
@@ -83,7 +83,7 @@ serve(async (req: Request) => {
       let authorRecord;
       if (!authorRows.length) {
         authorRows = await sql`
-          INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, true) RETURNING *
+          INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, false) RETURNING *
         `;
         authorRecord = authorRows[0];
       } else {
@@ -107,7 +107,7 @@ serve(async (req: Request) => {
       if (!bookRows.length) {
         bookRows = await sql`
           INSERT INTO "Book" (title, "authorId", "isEnriching")
-          VALUES (${book}, ${authorRecord.id}, true) RETURNING *
+          VALUES (${book}, ${authorRecord.id}, false) RETURNING *
         `;
       }
       const bookRecord = bookRows[0];
@@ -203,7 +203,7 @@ serve(async (req: Request) => {
         if (author !== existingAuthorName) {
           let aRows = await sql`SELECT id FROM "Author" WHERE name = ${author} LIMIT 1`;
           if (!aRows.length) {
-            aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, true) RETURNING id`;
+            aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, false) RETURNING id`;
             // @ts-ignore deno
             if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
           }
@@ -219,7 +219,7 @@ serve(async (req: Request) => {
         if (book || authorId !== (existing.authorId ?? existing.authorid)) {
           let bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
           if (!bRows.length) {
-            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorId}, true) RETURNING id`;
+            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorId}, false) RETURNING id`;
             // @ts-ignore deno
             if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
           }

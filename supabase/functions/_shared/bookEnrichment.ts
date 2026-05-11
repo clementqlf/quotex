@@ -13,14 +13,32 @@ import {
 export const bookEnrichmentQueue: Set<number> = new Set();
 
 export const enrichBookWithInventaire = async (bookId: number): Promise<any | null> => {
-  if (bookEnrichmentQueue.has(bookId)) return null;
+  if (bookEnrichmentQueue.has(bookId)) {
+    console.log(`[BookEnrichment] Already in queue for book ${bookId}. Skipping.`);
+    return null;
+  }
   bookEnrichmentQueue.add(bookId);
+  console.log(`[BookEnrichment] Queue add: ${bookId} (size: ${bookEnrichmentQueue.size})`);
+  try {
+    return await enrichBookWithInventaireInternal(bookId);
+  } finally {
+    bookEnrichmentQueue.delete(bookId);
+  }
+};
 
+const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | null> => {
   try {
     await sql`UPDATE "Book" SET "isEnriching" = true WHERE id = ${bookId}`.catch(() => {});
     const bookRows = await sql`SELECT * FROM "Book" WHERE id = ${bookId} LIMIT 1`;
     const book = bookRows[0];
-    if (!book || !book.inventaireUri) return null;
+    if (!book) {
+      console.error(`[BookEnrichment] Book ID ${bookId} not found in database.`);
+      return null;
+    }
+    if (!book.inventaireUri) {
+      console.warn(`[BookEnrichment] Book ${bookId} ("${book.title}") has no inventaireUri. Skipping detailed enrichment.`);
+      return null;
+    }
 
     console.log(`[BookEnrichment] Fetching metadata from Inventaire for URI: ${book.inventaireUri}`);
     const enriched = await enrichWorkMetadata(book.inventaireUri);
@@ -84,7 +102,7 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
       if (enriched.authorUris && Array.isArray(enriched.authorUris) && book.authorId) {
         for (const authorUri of enriched.authorUris) {
           console.log(`[BookEnrichment] Triggering linked author enrichment: ${authorUri}`);
-          enrichAuthorWithInventaire(book.authorId, undefined, authorUri, true).catch((e: any) =>
+          await enrichAuthorWithInventaire(book.authorId, undefined, authorUri, true).catch((e: any) =>
             console.error(`[BookEnrichment] Author enrichment failed:`, e)
           );
         }
@@ -101,12 +119,16 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
   } finally {
     console.log(`[BookEnrichment] Final flag reset for book ${bookId}`);
     await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
-    bookEnrichmentQueue.delete(bookId);
   }
 };
 
 export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
-  console.log(`[BookEnrichment/Discovery] Starting for book ${bookId}`);
+  if (bookEnrichmentQueue.has(bookId)) {
+    console.log(`[BookEnrichment/Discovery] Already in queue for book ${bookId}. Skipping.`);
+    return;
+  }
+  bookEnrichmentQueue.add(bookId);
+
   try {
     await sql`UPDATE "Book" SET "isEnriching" = true WHERE id = ${bookId}`.catch(() => {});
     const rows = await sql`
@@ -116,10 +138,13 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
       LIMIT 1
     `;
     const book = rows[0];
-    if (!book) return;
+    if (!book) {
+      console.error(`[BookEnrichment/Discovery] Book ID ${bookId} not found in database.`);
+      return;
+    }
 
     if (book.inventaireUri) {
-      await enrichBookWithInventaire(bookId);
+      await enrichBookWithInventaireInternal(bookId);
       return;
     }
 
@@ -141,7 +166,7 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
       await sql`UPDATE "Book" SET "inventaireUri" = ${uri} WHERE id = ${bookId}`;
       
       try {
-        await enrichBookWithInventaire(bookId);
+        await enrichBookWithInventaireInternal(bookId);
       } catch (err) {
         console.error(`[BookEnrichment] Detailed enrichment failed for ${bookId}, but URI was saved.`, err);
       }
@@ -153,5 +178,6 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
   } finally {
     console.log(`[BookEnrichment/Discovery] Final flag reset for book ${bookId}`);
     await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
+    bookEnrichmentQueue.delete(bookId);
   }
 };

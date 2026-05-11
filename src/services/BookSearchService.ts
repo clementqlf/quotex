@@ -1,9 +1,9 @@
 import { API_BASE_URL } from '../config/api';
 import { Book } from '../../types';
 
-export interface GoogleBookResult {
+export interface BookSearchResult {
     googleId: string;
-    openLibraryId?: string;
+    inventaireUri?: string;
     title: string;
     authors: string[];
     description: string;
@@ -17,25 +17,25 @@ export interface GoogleBookResult {
     price: string | null;
 }
 
-class GoogleBooksService {
+class BookSearchService {
     private readonly BASE_URL = `${API_BASE_URL}`;
 
-    async search(query: string): Promise<GoogleBookResult[]> {
+    async search(query: string): Promise<BookSearchResult[]> {
         if (!query.trim()) return [];
 
         try {
-            const response = await fetch(`${this.BASE_URL}/google-books/search?q=${encodeURIComponent(query)}`);
+            const response = await fetch(`${this.BASE_URL}/book-search/search?q=${encodeURIComponent(query)}`);
             if (response.ok) {
                 return await response.json();
             }
             return [];
         } catch (error) {
-            console.error('Error searching Google Books:', error);
+            console.error('Error searching books:', error);
             return [];
         }
     }
 
-    async importBook(bookData: GoogleBookResult): Promise<Book | null> {
+    async importBook(bookData: BookSearchResult): Promise<Book | null> {
         try {
             const response = await fetch(`${this.BASE_URL}/books/import`, {
                 method: 'POST',
@@ -56,4 +56,4 @@ class GoogleBooksService {
     }
 }
 
-export const googleBooksService = new GoogleBooksService();
+export const bookSearchService = new BookSearchService();

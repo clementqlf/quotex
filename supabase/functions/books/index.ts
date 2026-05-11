@@ -11,13 +11,12 @@ import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatBook, generateBuyLinks } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, getWorkEditions, InventaireEdition } from '../_shared/inventaire.ts';
 import { enrichBookWithInventaire, discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
-import { searchHybrid } from '../_shared/hybridSearch.ts';
 
-async function fetchBook(bookId: number, userId: string | number) {
+async function fetchBook(bookId: number, userId: string | number | null) {
   const rows = await sql`
     SELECT b.*,
       row_to_json(a) as author,
-      COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users
+      COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users
     FROM "Book" b
     LEFT JOIN "Author" a ON a.id = b."authorId"
     WHERE b.id = ${bookId} LIMIT 1
@@ -36,7 +35,7 @@ serve(async (req: Request) => {
   const subAction = parts[1]; // 'toggle-save' | 'status' | 'editions' | 'import'
 
   const user = await getAuthUser(req);
-  const userId = user?.id ?? 0;
+  const userId = user?.id ?? null;
 
   try {
     // GET /books

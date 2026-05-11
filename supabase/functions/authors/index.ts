@@ -24,14 +24,14 @@ serve(async (req: Request) => {
   // patterns: [], ['by-name', name], [id], [id, 'books'], [id, 'notable-works'], [id, 'enrich'], [id, 'toggle-save']
 
   const user = await getAuthUser(req);
-  const userId = user?.id ?? 0;
+  const userId = user?.id ?? null;
 
   try {
     // GET /authors
     if (req.method === 'GET' && parts.length === 0) {
       const authors = await sql`
         SELECT a.*,
-          COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}), '[]'::json) as users,
+          COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
           json_build_object('quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int) as "_count"
         FROM "Author" a
         ORDER BY a.name

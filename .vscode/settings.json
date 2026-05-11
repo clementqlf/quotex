@@ -1,6 +1,12 @@
 {
-  "files.associations": {
-    "*.h": "objective-c"
-  },
-  "C_Cpp.errorSquiggles": "disabled"
+  "deno.enable": true,
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "deno.unstable": true,
+  "deno.importMap": "supabase/functions/import_map.json",
+  "deno.config": "supabase/functions/deno.json",
+  "deno.suggest.imports.hosts": {
+    "https://deno.land": true,
+    "https://esm.sh": true
+  }
 }

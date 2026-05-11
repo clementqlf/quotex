@@ -155,7 +155,10 @@ export const searchInventaire = async (query: string, types: string = 'works', l
         const typesParam = typesList.map(t => `types=${encodeURIComponent(t.trim())}`).join('&');
         const url = `${INVENTAIRE_BASE}/api/search?${typesParam}&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
         const response = await fetchWithAgent(url);
-        if (!response.ok) throw new Error(`Inventaire search error: ${response.status}`);
+        if (!response.ok) {
+            console.error(`[Inventaire API] Search HTTP error: ${response.status} for query "${query}"`);
+            throw new Error(`Inventaire search error: ${response.status}`);
+        }
         const data = await response.json();
 
         const basicResults: InventaireSearchResult[] = (data.results || []).map((r: any) => ({
@@ -167,7 +170,10 @@ export const searchInventaire = async (query: string, types: string = 'works', l
             authors: []
         }));
 
-        if (basicResults.length === 0) return [];
+        if (basicResults.length === 0) {
+            console.log(`[Inventaire API] No results found for "${query}"`);
+            return [];
+        }
 
         const urisToFetch = basicResults.map(r => r.uri);
         const entities = await getInventaireEntities(urisToFetch);
@@ -272,7 +278,10 @@ export const getInventaireEntities = async (uris: string[]): Promise<Record<stri
         const uriParam = uris.join('|');
         const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr&props=labels|descriptions|claims|sitelinks|image`;
         const response = await fetchWithAgent(url);
-        if (!response.ok) throw new Error(`Inventaire entities error: ${response.status}`);
+        if (!response.ok) {
+            console.error(`[Inventaire API] Entities HTTP error: ${response.status} for URIs: ${uriParam}`);
+            throw new Error(`Inventaire entities error: ${response.status}`);
+        }
         const data = await response.json();
         return data.entities || {};
     } catch (e) {

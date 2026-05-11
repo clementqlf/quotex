@@ -1,6 +1,6 @@
 // ─── Formatters (mirror of Express index.ts helpers) ─────────────────────────
 
-export const formatBook = (book: any, userId: string | number = 0) => {
+export const formatBook = (book: any, userId: string | number | null = 0) => {
   if (!book) return null;
   let buyLinks = [];
   try {
@@ -22,7 +22,7 @@ export const formatBook = (book: any, userId: string | number = 0) => {
   };
 };
 
-export const formatAuthor = (author: any, userId: string | number = 0) => {
+export const formatAuthor = (author: any, userId: string | number | null = 0) => {
   if (!author) return null;
   const userLink = author.users?.find((u: any) => u.userId === userId);
   return {
@@ -32,7 +32,7 @@ export const formatAuthor = (author: any, userId: string | number = 0) => {
   };
 };
 
-export const formatQuote = (quote: any, userId: string | number = 0) => {
+export const formatQuote = (quote: any, userId: string | number | null = 0) => {
   if (!quote) return null;
   const isSaved = quote.savedBy ? quote.savedBy.some((s: any) => s.userId === userId) : false;
   return {

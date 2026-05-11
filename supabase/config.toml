@@ -428,7 +428,7 @@ verify_jwt = false
 [functions.reviews]
 verify_jwt = false
 
-[functions.google-books]
+[functions.book-search]
 verify_jwt = false
 
 [functions.inventaire-entities]

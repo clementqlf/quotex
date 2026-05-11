@@ -17,7 +17,6 @@ import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon } from '
 import { searchService, SearchResults } from '@/src/services/SearchService';
 import { Quote, Book, Author } from '@/types';
 import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
-import { googleBooksService } from '@/src/services/GoogleBooksService';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { ThemeColors } from '@/src/theme/theme';
 import { API_BASE_URL } from '@/src/config/api';
@@ -381,7 +380,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         marginRight: 16,
         borderRadius: 4,
         overflow: 'hidden',
-        backgroundColor: colors.surfaceHighlight, // Used surfaceHighlight instead of colors.gray which doesn't exist
+        backgroundColor: colors.surfaceHighlight, 
         justifyContent: 'center',
         alignItems: 'center',
     },

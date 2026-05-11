@@ -27,7 +27,7 @@ serve(async (req: Request) => {
 
   const query = q.toLowerCase();
   const user = await getAuthUser(req);
-  const authUserId = user?.id ?? '';
+  const authUserId = user?.id ?? null;
 
   try {
     console.log(`[search] Starting search for "${query}"`);
@@ -38,18 +38,17 @@ serve(async (req: Request) => {
       sql`
         SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q.definitions,
           row_to_json(a) as author, row_to_json(b) as book,
-          (SELECT json_build_object('id', u.id, 'username', u.username, 'name', u.name, 'image', u.image)) as user,
+          (SELECT json_build_object('id', u.id, 'username', u.username, 'name', u.name, 'image', u.image) FROM "Profile" u WHERE u.id = q."userId") as user,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount"
         FROM "Quote" q
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" b ON b.id = q."bookId"
-        LEFT JOIN "Profile" u ON u.id = q."userId"
         WHERE q.text ILIKE ${'%' + query + '%'} OR q.theme ILIKE ${'%' + query + '%'}
         LIMIT 20
       `,
       // 2. Local authors (saved)
       sql`
-        SELECT a.*, COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id), '[]'::json) as users
+        SELECT a.*, COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${authUserId}::uuid), '[]'::json) as users
         FROM "Author" a
         WHERE a.name ILIKE ${'%' + query + '%'}
         LIMIT 10
@@ -57,7 +56,7 @@ serve(async (req: Request) => {
       // 3. Local books (saved)
       sql`
         SELECT b.*, row_to_json(a) as author,
-          COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id), '[]'::json) as users
+          COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users
         FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
         WHERE b.title ILIKE ${'%' + query + '%'}
         LIMIT 10

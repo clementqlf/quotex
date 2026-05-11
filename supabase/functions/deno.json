@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window", "deno.ns"],
+    "strict": false,
+    "allowImportingTsExtensions": true
+  },
+  "types": ["https://raw.githubusercontent.com/supabase/edge-runtime/main/api.d.ts"],
+
+  "importMap": "import_map.json"
+}
