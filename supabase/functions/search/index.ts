@@ -32,11 +32,11 @@ serve(async (req: Request) => {
   try {
     console.log(`[search] Starting search for "${query}"`);
     
-    // Run all local queries and themes in parallel
+    // 1-4. Local queries
+    console.log(`[search] Executing local DB queries...`);
     const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw] = await Promise.all([
-      // 1. Local quotes
       sql`
-        SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q.definitions,
+        SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q."blockData",
           row_to_json(a) as author, row_to_json(b) as book,
           (SELECT json_build_object('id', u.id, 'username', u.username, 'name', u.name, 'image', u.image) FROM "Profile" u WHERE u.id = q."userId") as user,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount"
@@ -46,14 +46,12 @@ serve(async (req: Request) => {
         WHERE q.text ILIKE ${'%' + query + '%'} OR q.theme ILIKE ${'%' + query + '%'}
         LIMIT 20
       `,
-      // 2. Local authors (saved)
       sql`
         SELECT a.*, COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${authUserId}::uuid), '[]'::json) as users
         FROM "Author" a
         WHERE a.name ILIKE ${'%' + query + '%'}
         LIMIT 10
       `,
-      // 3. Local books (saved)
       sql`
         SELECT b.*, row_to_json(a) as author,
           COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users
@@ -61,22 +59,19 @@ serve(async (req: Request) => {
         WHERE b.title ILIKE ${'%' + query + '%'}
         LIMIT 10
       `,
-      // 4. Themes
       sql`
         SELECT DISTINCT theme FROM "Quote"
         WHERE theme ILIKE ${'%' + query + '%'} AND theme IS NOT NULL
         LIMIT 10
       `
     ]);
+    console.log(`[search] Local queries done.`);
 
-    // 5 & 6. Inventaire searches (with DB cache)
+    // 5 & 6. Inventaire searches
+    console.log(`[search] Executing Inventaire searches...`);
     const [inventaireWorks, inventaireAuthors] = await Promise.all([
-      // Works cache check and fetch
       (async () => {
-        const cached = await sql`
-          SELECT results, "expiresAt" FROM "SearchCache"
-          WHERE query = ${query} AND type = 'sujets' LIMIT 1
-        `.catch(() => []);
+        const cached = await sql`SELECT results, "expiresAt" FROM "SearchCache" WHERE query = ${query} AND type = 'sujets' LIMIT 1`.catch(() => []);
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
@@ -85,19 +80,11 @@ serve(async (req: Request) => {
         }
         const fresh = await searchInventaireWorks(query, 10);
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-        await sql`
-          INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt")
-          VALUES (${query}, 'sujets', ${JSON.stringify(fresh)}, now(), ${expiresAt})
-          ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"
-        `.catch(() => {});
+        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'sujets', ${JSON.stringify(fresh)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
         return fresh;
       })(),
-      // Authors cache check and fetch
       (async () => {
-        const cached = await sql`
-          SELECT results, "expiresAt" FROM "SearchCache"
-          WHERE query = ${query} AND type = 'humans' LIMIT 1
-        `.catch(() => []);
+        const cached = await sql`SELECT results, "expiresAt" FROM "SearchCache" WHERE query = ${query} AND type = 'humans' LIMIT 1`.catch(() => []);
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
@@ -106,25 +93,22 @@ serve(async (req: Request) => {
         }
         const fresh = await searchInventaireAuthors(query, 10);
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-        await sql`
-          INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt")
-          VALUES (${query}, 'humans', ${JSON.stringify(fresh)}, now(), ${expiresAt})
-          ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"
-        `.catch(() => {});
+        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(fresh)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
         return fresh;
       })()
     ]);
+    console.log(`[search] Inventaire searches done.`);
 
     return json({
       quotes: quotesRaw.map((q: any) => formatQuote(q, authUserId)),
       authors: localAuthorsRaw.map((a: any) => formatAuthor(a, 0)),
       books: localBooksRaw.map((b: any) => formatBook(b, 0)),
       themes: themesRaw.map((t: any) => t.theme),
-      inventaireWorks,
-      inventaireAuthors,
+      inventaireWorks: inventaireWorks || [],
+      inventaireAuthors: inventaireAuthors || [],
     });
   } catch (e: any) {
-    console.error('[search]', e);
-    return error(`Search service error: ${e.message || 'Unknown error'}`, 500);
+    console.error('[search] Fatal error:', e);
+    return error(`Search service error: ${e.message || 'Unknown error'}\n${e.stack || ''}`, 500);
   }
 });
