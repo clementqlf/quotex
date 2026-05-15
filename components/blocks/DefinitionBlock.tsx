@@ -66,55 +66,75 @@ export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
         }
     }
 
-    const term = definitions[0].term;
-    const pronunciation = definitions[0].pronunciation;
-    const synonyms = definitions[0].synonyms;
+    // Group definitions by term to show them in separate sections
+    const groupedDefinitions = useMemo(() => {
+        const groups: Record<string, Definition[]> = {};
+        definitions.forEach(def => {
+            if (!groups[def.term]) {
+                groups[def.term] = [];
+            }
+            groups[def.term].push(def);
+        });
+        return Object.entries(groups);
+    }, [definitions]);
 
     return (
         <BlockWrapper blockKey={blockKey} onRemove={onRemove}>
             <View style={styles.container}>
-                {/* Header Row: TERM [pron] genre */}
-                <View style={styles.header}>
-                    <Text style={styles.termText}>{term.toUpperCase()}</Text>
-                    {pronunciation && (
-                        <Text style={styles.pronunciationText}>{pronunciation}</Text>
-                    )}
-                    <Text style={styles.genreText}>{definitions[0].genre}</Text>
-                </View>
+                {groupedDefinitions.map(([term, termDefs], groupIndex) => {
+                    const pronunciation = termDefs[0].pronunciation;
+                    const synonyms = termDefs[0].synonyms;
 
-                {/* Definitions Flow */}
-                <View style={styles.meaningsList}>
-                    {definitions.map((dItem, index) => {
-                        // Extract context from definition if it starts with (xxx)
-                        const contextMatch = dItem.definition.match(/^(\([^)]+\))\s*(.*)/);
-                        const context = contextMatch ? contextMatch[1] : null;
-                        const body = contextMatch ? contextMatch[2] : dItem.definition;
-
-                        return (
-                            <View key={index} style={styles.meaningRow}>
-                                <Text style={styles.definitionLine}>
-                                    <Text style={styles.meaningNumber}>{index + 1}. </Text>
-                                    {context && <Text style={styles.contextText}>{context} </Text>}
-                                    <Text style={styles.definitionBody}>{body}</Text>
-                                </Text>
-                                
-                                {dItem.example && (
-                                    <Text style={styles.exampleText}>
-                                        {dItem.example}
-                                    </Text>
+                    return (
+                        <View key={term} style={[
+                            styles.termSection,
+                            groupIndex > 0 && styles.termSectionSeparator
+                        ]}>
+                            {/* Header Row: TERM [pron] genre */}
+                            <View style={styles.header}>
+                                <Text style={styles.termText}>{term.toUpperCase()}</Text>
+                                {pronunciation && (
+                                    <Text style={styles.pronunciationText}>{pronunciation}</Text>
                                 )}
+                                <Text style={styles.genreText}>{termDefs[0].genre}</Text>
                             </View>
-                        );
-                    })}
-                </View>
 
-                {/* Synonyms Section */}
-                {synonyms && synonyms.length > 0 && (
-                    <View style={styles.synonymsRow}>
-                        <Text style={styles.synonymLabel}>SYN. </Text>
-                        <Text style={styles.synonymText}>{synonyms.join(', ')}</Text>
-                    </View>
-                )}
+                            {/* Definitions Flow */}
+                            <View style={styles.meaningsList}>
+                                {termDefs.map((dItem, index) => {
+                                    // Extract context from definition if it starts with (xxx)
+                                    const contextMatch = dItem.definition.match(/^(\([^)]+\))\s*(.*)/);
+                                    const context = contextMatch ? contextMatch[1] : null;
+                                    const body = contextMatch ? contextMatch[2] : dItem.definition;
+
+                                    return (
+                                        <View key={index} style={styles.meaningRow}>
+                                            <Text style={styles.definitionLine}>
+                                                <Text style={styles.meaningNumber}>{index + 1}. </Text>
+                                                {context && <Text style={styles.contextText}>{context} </Text>}
+                                                <Text style={styles.definitionBody}>{body}</Text>
+                                            </Text>
+                                            
+                                            {dItem.example && (
+                                                <Text style={styles.exampleText}>
+                                                    {dItem.example}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+
+                            {/* Synonyms Section */}
+                            {synonyms && synonyms.length > 0 && (
+                                <View style={styles.synonymsRow}>
+                                    <Text style={styles.synonymLabel}>SYN. </Text>
+                                    <Text style={styles.synonymText}>{synonyms.join(', ')}</Text>
+                                </View>
+                            )}
+                        </View>
+                    );
+                })}
 
                 {!isAggregated && onEditSelection && (
                     <TouchableOpacity style={styles.editSelectionButton} onPress={onEditSelection}>
@@ -157,6 +177,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         fontSize: 14,
         fontWeight: '800',
         color: colors.text,
+    },
+    termSection: {
+        marginBottom: 16,
+    },
+    termSectionSeparator: {
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: colors.surfaceHighlight,
     },
     meaningsList: {
         gap: 8,
