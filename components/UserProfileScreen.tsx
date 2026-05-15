@@ -14,13 +14,14 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Author, Book, User } from '@/types';
 import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
 import { useData } from '@/src/contexts/DataProvider';
 import { useTheme } from '@/src/contexts/ThemeContext';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { ThemeColors } from '@/src/theme/theme';
+import { supabase } from '@/src/lib/supabase';
 
 interface UserRouteParam {
   id: number | string;
@@ -44,6 +45,19 @@ interface GlobalQuote {
 }
 
 type UserProfileScreenRouteProp = { user: User };
+
+/**
+ * Utility to convert base64 to ArrayBuffer for Supabase Storage
+ * This is the most reliable way in React Native to avoid 0-byte uploads
+ */
+const decodeBase64 = (base64: string) => {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
 
 export default function UserProfileScreen() {
   const router = useRouter();
@@ -173,20 +187,18 @@ export default function UserProfileScreen() {
         { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
-      const imageUri = manipResult.base64
-        ? `data:image/jpeg;base64,${manipResult.base64}`
-        : manipResult.uri;
-      
+      // On utilise le base64 pour l'upload mais l'URI pour l'aperçu local
+      const imageUri = manipResult.uri;
       setEditedImage(imageUri);
+      
+      // Stockage temporaire du base64 pour handleSave
+      (global as any).lastPickedBase64 = manipResult.base64;
 
-      // Nettoyage des fichiers temporaires pour libérer l'espace "Documents & Données"
+      // Nettoyage des fichiers temporaires (uniquement l'original)
       try {
         await FileSystem.deleteAsync(originalUri, { idempotent: true });
-        if (manipResult.uri && manipResult.uri !== originalUri) {
-          await FileSystem.deleteAsync(manipResult.uri, { idempotent: true });
-        }
       } catch (e) {
-        console.log("Erreur lors de la suppression des fichiers temporaires:", e);
+        console.log("Erreur lors de la suppression du fichier temporaire:", e);
       }
     }
   };
@@ -199,25 +211,100 @@ export default function UserProfileScreen() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      if (!profileData || !currentUser) throw new Error("Données de profil non disponibles");
+      let imageUrl = profileData.image;
+
+      // Si une nouvelle image a été sélectionnée (commence par 'file://' sur mobile)
+      if (editedImage && (editedImage.startsWith('file://') || editedImage.startsWith('content://'))) {
+        try {
+          console.log("[Storage] Début de l'upload via ArrayBuffer pour l'utilisateur:", currentUser?.id);
+          
+          const base64 = (global as any).lastPickedBase64;
+          if (!base64) throw new Error("Données d'image manquantes");
+
+          const arrayBuffer = decodeBase64(base64);
+          console.log("[Storage] ArrayBuffer généré, taille:", arrayBuffer.byteLength);
+
+          const fileExt = 'jpg';
+          const fileName = `avatar_${Date.now()}.${fileExt}`;
+          const filePath = `${currentUser?.id}/${fileName}`;
+          console.log("[Storage] Chemin cible:", filePath);
+
+          // Upload vers Supabase Storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, arrayBuffer, {
+              cacheControl: '3600',
+              upsert: true,
+              contentType: 'image/jpeg'
+            });
+
+          if (uploadError) {
+            console.error("[Storage] Erreur lors de l'upload:", uploadError);
+            throw uploadError;
+          }
+
+          console.log("[Storage] Upload réussi:", uploadData.path);
+          delete (global as any).lastPickedBase64; // Nettoyage
+
+          // Récupération de l'URL publique
+          const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+          
+          console.log("[Storage] URL publique générée:", publicUrl);
+          imageUrl = publicUrl;
+        } catch (uploadErr) {
+          console.error("[Storage] Erreur fatale upload:", uploadErr);
+          throw new Error("Impossible d'uploader la photo de profil");
+        }
+      }
+
       await updateProfile({
         name: editedName,
         bio: editedBio,
         website: editedWebsite,
-        image: editedImage || undefined
+        image: imageUrl || undefined
       });
+
+      // --- Nettoyage de l'ancien avatar sur Supabase Storage ---
+      const oldImageUrl = profileData.image;
+      if (oldImageUrl && imageUrl && oldImageUrl !== imageUrl && oldImageUrl.includes('/public/avatars/')) {
+        try {
+          // Extraire le chemin relatif du fichier (tout ce qui est après /avatars/)
+          const pathParts = oldImageUrl.split('/avatars/');
+          if (pathParts.length > 1) {
+            const oldPath = pathParts[1];
+            console.log("[Storage] Nettoyage de l'ancien fichier:", oldPath);
+            await supabase.storage.from('avatars').remove([oldPath]);
+          }
+        } catch (cleanupErr) {
+          console.error("[Storage] Erreur lors du nettoyage de l'ancien fichier:", cleanupErr);
+          // On n'interrompt pas le succès global si le nettoyage échoue
+        }
+      }
+      // ---------------------------------------------------------
+
       // Update local state
       setProfileData(prev => prev ? {
         ...prev,
         name: editedName,
         bio: editedBio,
         website: editedWebsite,
-        image: editedImage || prev.image
+        image: imageUrl || prev.image
       } : null);
+
       console.log("Profile updated successfully");
       setIsEditing(false);
+      setEditedImage(null); // Reset preview URI
+      
+      // Nettoyage du fichier manipulé après upload réussi
+      if (editedImage) {
+        await FileSystem.deleteAsync(editedImage, { idempotent: true }).catch(() => {});
+      }
     } catch (e) {
       console.error("Error saving profile", e);
-      alert("Erreur lors de la sauvegarde du profil");
+      alert(e instanceof Error ? e.message : "Erreur lors de la sauvegarde du profil");
     } finally {
       setIsSaving(false);
     }
