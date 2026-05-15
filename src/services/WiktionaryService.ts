@@ -112,14 +112,16 @@ const parseWikitext = (word: string, wikitext: string): Definition[] => {
                             if (k < lines.length) fullTemplate += ' ' + lines[k].trim();
                         }
 
-                        const templateMatch = fullTemplate.match(/{{exemple\s*\|[^|}]*\|([\s\S]*?)}}|(?:#[\*:]\s*)?([\s\S]*?)(?=(?:—|\(|$))/i);
-                        if (templateMatch) {
-                            const content = templateMatch[1] || templateMatch[2];
-                            if (content) {
-                                // Extract source if present in template or after dash
-                                const sourceMatch = fullTemplate.match(/source\s*=\s*([^|}]+)/i) || fullTemplate.match(/[—(]([^—)]+)[)]?$/);
-                                example = cleanWikitext(content);
-                                if (sourceMatch) exampleSource = cleanWikitext(sourceMatch[1]);
+                        const exempleIdx = fullTemplate.toLowerCase().indexOf('{{exemple');
+                        if (exempleIdx !== -1) {
+                            const balancedTemplate = findBalancedBraces(fullTemplate, exempleIdx);
+                            if (balancedTemplate) {
+                                example = cleanWikitext(balancedTemplate);
+                            }
+                        } else {
+                            const rawMatch = fullTemplate.match(/([\s\S]*?)(?=(?:—|\(|$))/);
+                            if (rawMatch) {
+                                example = cleanWikitext(rawMatch[1]);
                             }
                         }
                         if (example) break;
@@ -142,47 +144,111 @@ const parseWikitext = (word: string, wikitext: string): Definition[] => {
     return results;
 };
 
+const findBalancedBraces = (str: string, startIdx: number): string | null => {
+    let depth = 0;
+    for (let i = startIdx; i < str.length; i++) {
+        if (str.substring(i, i + 2) === '{{') {
+            depth++;
+            i++;
+        } else if (str.substring(i, i + 2) === '}}') {
+            depth--;
+            i++;
+            if (depth === 0) return str.substring(startIdx, i + 1);
+        }
+    }
+    return null;
+};
+
+const splitByPipe = (str: string): string[] => {
+    const results: string[] = [];
+    let current = '';
+    let depth = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i];
+        if (char === '{' || char === '[') depth++;
+        if (char === '}' || char === ']') depth--;
+        if (char === '|' && depth === 0) {
+            results.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    results.push(current);
+    return results;
+};
+
 const cleanWikitext = (text: string): string => {
     if (!text) return '';
     let cleaned = text;
 
-    // 1. First, try to extract the core content of {{exemple|CONTENT|...}}
-    // We do this before general cleaning to save the content
-    cleaned = cleaned.replace(/{{exemple\s*\|\s*([^|{}]+)[^}]*}}/gi, '$1');
+    // 1. Specific handling for {{exemple|...}}
+    const exempleIdx = cleaned.toLowerCase().indexOf('{{exemple');
+    if (exempleIdx !== -1) {
+        const fullTemplate = findBalancedBraces(cleaned, exempleIdx);
+        if (fullTemplate) {
+            const content = fullTemplate.substring(fullTemplate.indexOf('|') + 1, fullTemplate.length - 2);
+            const params = splitByPipe(content).map(p => p.trim());
+            
+            // The body is the first parameter that isn't a named metadata parameter (lang, source, etc.)
+            const bodyParam = params.find(p => {
+                if (p.startsWith('1=')) return true;
+                // If it looks like "key=value" and isn't a long text (likely metadata)
+                if (/^[a-z_]{1,15}\s*=/i.test(p)) return false;
+                return p.length > 0;
+            });
+            
+            if (bodyParam) {
+                cleaned = bodyParam.startsWith('1=') ? bodyParam.substring(2) : bodyParam;
+            }
+        }
+    }
 
-    // 2. Remove all {{...}} templates completely. 
-    // Most templates in definitions are technical markers (gender, language, etc.)
-    // and don't belong in a clean display.
-    // We use a loop for nesting.
+    // 2. Remove specific persistent technical parameters from non-template text
+    cleaned = cleaned.replace(/\|\s*(?:source|lang|langue|num|lieu|année|page|auteur|titre|site|url|le|consulté\s+le|éditeur|collection|passage|isbn|traduction|trad|volume|numéro|mois|jour)\s*=[^|}]*/gi, '');
+
+    // 3. Handle common templates while preserving their core content
+    // {{w|CONTENT|...}} or {{W|CONTENT|...}} (Wikipedia links)
+    cleaned = cleaned.replace(/{{w\|([^|{}]+)[^}]*}}/gi, '$1');
+    // {{lang|fr|CONTENT}}
+    cleaned = cleaned.replace(/{{(?:lang|langue)\|[^|{}]+\|([^|{}]+)[^}]*}}/gi, '$1');
+
+    // 3. Remove all other {{...}} templates completely. 
     for (let i = 0; i < 4; i++) {
         cleaned = cleaned.replace(/{{[^{}]*}}/g, '');
     }
 
-    // 3. Remove [[link|text]] -> text
+    // 4. Remove [[link|text]] -> text
     cleaned = cleaned.replace(/\[\[(?:[^|\]]*\|)?([^\]]+)\]\]/g, '$1');
 
-    // 4. Remove unwanted chars like ''italic'' or '''bold'''
+    // 5. Remove unwanted chars like ''italic'' or '''bold'''
     cleaned = cleaned.replace(/'''?/g, '');
 
-    // 5. Remove HTML-like tags and refs
+    // 6. Remove HTML-like tags and refs
     cleaned = cleaned.replace(/<ref[^>]*>[\s\S]*?<\/ref>/g, '');
     cleaned = cleaned.replace(/<[^>]+>/g, '');
 
-    // 6. Remove any lingering wiki artifacts
+    // 7. Remove bracketed labels like [titre]
+    cleaned = cleaned.replace(/\[[^\]]+\]/g, ' ');
+
+    // 8. Remove any lingering wiki artifacts
     cleaned = cleaned.replace(/[{}|]/g, ' ');
 
-    // 7. Remove specific persistent technical words and parameters
-    cleaned = cleaned.replace(/\|\s*(?:source|lang|langue|num|lieu|année|page|auteur)\s*=[^|}]*/gi, '');
+    // 9. Remove lingering key=value patterns that might not have had a pipe
+    const keys = ['source', 'titre', 'auteur', 'url', 'site', 'le', 'consulté\\s+le', 'éditeur', 'collection', 'passage', 'page', 'isbn', 'lieu', 'numéro', 'volume', 'année', 'mois', 'jour', 'traduction', 'trad', 'lang', 'langue', '\\d+'];
+    const keysPattern = keys.join('|');
+    const lingeringRegex = new RegExp(`(?:^|\\s)\\b(${keysPattern})\\s*=[^=]*(?=\\s+\\b(?:${keysPattern})\\s*=|$)`, 'gi');
+    cleaned = cleaned.replace(lingeringRegex, ' ');
+
+    // 10. Remove specific persistent technical words and parameters
     cleaned = cleaned.replace(/\b(lang|langue|exemple|sigle|fr)\b\s*=?\s*/gi, '');
 
-    // 8. Remove leading small words (usually language codes like 'fr fr ')
-    // Match 1-3 lowercase letters at the start of the string followed by space
-    while (cleaned.match(/^[a-z]{1,3}\s+/i)) {
-        cleaned = cleaned.replace(/^[a-z]{1,3}\s+/i, '');
-    }
-
-    // 9. Final cleanup of spaces
+    // 11. Final cleanup of spaces and lingering punctuation
     cleaned = cleaned.replace(/\s+/g, ' ');
+    cleaned = cleaned.replace(/\s*=\s*$/, '');
+    
+    // Final check for the leading/trailing equals or dashes that sometimes remain
+    cleaned = cleaned.replace(/^[—\s=]+|[—\s=]+$/g, '');
 
     return cleaned.trim();
 };
