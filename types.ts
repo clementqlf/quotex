@@ -48,6 +48,7 @@ export type Book = {
   inventaireUri?: string;
   openLibraryId?: string;
   googleId?: string;
+  isbn?: string;
 };
 
 export type Quote = {

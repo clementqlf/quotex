@@ -86,8 +86,8 @@ export function BookDetailScreen() {
   const currentTabBlocks = useMemo(() => (gridData || []).filter(key => isBlockInTab(key, activeTab)), [gridData, activeTab]);
 
   const filteredBlockOptions = useMemo(() => activeTab === 'description'
-    ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key) && (opt.key !== 'buy' || (bookInfo?.buyLinks && bookInfo.buyLinks.length > 0)))
-    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key)), [activeTab, blockOptions, bookInfo?.buyLinks]);
+    ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key))
+    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key)), [activeTab, blockOptions]);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
