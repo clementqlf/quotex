@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
-import { Quote, Author, Book } from '../../types';
-import { quoteService } from '../services/QuoteService';
-import { authorService } from '../services/AuthorService';
-import { BlockService } from '../services/BlockService';
+import { Quote, Author, Book } from '../../shared/api/types';
+import { quoteService } from '../../entities/quote/api/QuoteService';
+import { authorService } from '../../entities/author/api/AuthorService';
+import { BlockService } from '../../shared/api/BlockService';
 
 type DataContextType = {
     quotes: Quote[];

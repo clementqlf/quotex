@@ -15,8 +15,8 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User as UserIcon, Lock, ArrowRight, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react-native';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { useTheme } from '@/src/contexts/ThemeContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

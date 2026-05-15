@@ -9,22 +9,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark, Share as ShareIcon, Check } from 'lucide-react-native';
-import { useData } from '@/src/contexts/DataProvider';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { ThemeColors } from '@/src/theme/theme';
-import { Book, Author } from '@/types';
+import { useData } from '@/src/app/providers/DataProvider';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { ThemeColors } from '@/src/shared/theme';
+import { Book, Author } from '@/src/shared/api/types';
 import { Modal, Alert, Linking, Share, ActionSheetIOS, Platform } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
-import AddBlockModal from './AddBlockModal';
-import BookDictionaryModal from './BookDictionaryModal';
+import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
+import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
 import { TextInput } from 'react-native';
-import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/utils/dataHelpers';
-import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
-import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/config/blocks';
+import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
+import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
 
 const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
 const MYSHEET_BLOCKS = ['notes', 'dictionary'];
@@ -44,7 +44,7 @@ const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
   label: BLOCK_CONFIGS[key].label
 }));
 
-export function BookDetailScreen() {
+export default function BookDetailScreen() {
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string }>();
@@ -159,7 +159,7 @@ export function BookDetailScreen() {
 
 
   const userQuotesCountForThisBook = useMemo(() => quotes.filter(q => {
-    const isMyQuote = q.user?.id == 1 || !q.user;
+    const isMyQuote = String(q.user?.id) === "1" || !q.user;
     return isMyQuote && getBookTitle(q.book) === bookTitle;
   }).length, [quotes, bookTitle]);
 
@@ -276,8 +276,8 @@ export function BookDetailScreen() {
           }
         });
       }
-      if (q.definitions) {
-        q.definitions.forEach(d => {
+      if ((q as any).definitions) {
+        (q as any).definitions.forEach((d: any) => {
           if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
             seenTerms.add(d.term.toLowerCase());
             aggregatedDefinitions.push(d);

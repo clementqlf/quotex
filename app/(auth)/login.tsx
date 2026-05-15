@@ -15,12 +15,12 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, ArrowRight } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { authService } from '@/src/services/AuthService';
-import { API_BASE_URL } from '@/src/config/api';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { API_BASE_URL } from '@/src/shared/config/api';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import QuotexLogo from '@/components/QuotexLogo';
+import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

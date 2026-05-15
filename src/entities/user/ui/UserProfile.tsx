@@ -15,13 +15,13 @@ import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucid
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Author, Book, User } from '@/types';
-import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
-import { useData } from '@/src/contexts/DataProvider';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { ThemeColors } from '@/src/theme/theme';
-import { supabase } from '@/src/lib/supabase';
+import { Author, Book, User } from '@/src/shared/api/types';
+import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { useData } from '@/src/app/providers/DataProvider';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { ThemeColors } from '@/src/shared/theme';
+import { supabase } from '@/src/shared/api/supabase';
 
 interface UserRouteParam {
   id: number | string;

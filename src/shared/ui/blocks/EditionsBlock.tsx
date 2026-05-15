@@ -11,10 +11,10 @@ import {
 } from 'react-native';
 import { BookCopy, ExternalLink } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { ThemeColors } from '@/src/theme/theme';
-import { Book } from '@/types';
-import { API_BASE_URL } from '@/src/config/api';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { ThemeColors } from '@/src/shared/theme';
+import { Book } from '@/src/shared/api/types';
+import { API_BASE_URL } from '@/src/shared/config/api';
 
 interface Edition {
     id: number;

@@ -14,16 +14,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon } from 'lucide-react-native';
-import { useData } from '@/src/contexts/DataProvider';
-import { getBookTitle } from '@/src/utils/dataHelpers';
-import { Author, Book } from '@/types';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { ThemeColors } from '@/src/theme/theme';
+import { useData } from '@/src/app/providers/DataProvider';
+import { getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { Author, Book } from '@/src/shared/api/types';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { ThemeColors } from '@/src/shared/theme';
 import * as WebBrowser from 'expo-web-browser';
 
-export function AuthorDetailScreen() {
+export default function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -109,7 +109,7 @@ export function AuthorDetailScreen() {
   ).length, [quotes, authorName]);
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
-    const isMyQuote = q.user?.id == 1 || !q.user;
+    const isMyQuote = String(q.user?.id) === "1" || !q.user;
     if (!isMyQuote) return false;
     const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
     return qAuthorName === authorName;
@@ -288,7 +288,7 @@ export function AuthorDetailScreen() {
 
           {(() => {
             const userQuotes = quotes.filter(q => {
-              const isMyQuote = q.user?.id == 1 || !q.user;
+              const isMyQuote = String(q.user?.id) === "1" || !q.user;
               if (!isMyQuote) return false;
               const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
               return qAuthorName === authorName;

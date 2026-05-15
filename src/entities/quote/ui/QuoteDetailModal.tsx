@@ -13,25 +13,25 @@ import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus 
 import Svg, { Path } from 'react-native-svg';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSmartNavigation } from '@/src/hooks/useSmartNavigation';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
-import AddBlockModal from './AddBlockModal';
-import ResourceSearchModal from './ResourceSearchModal';
-import { useData } from '@/src/contexts/DataProvider';
-import { Quote, Book, Author } from '@/types';
-import { getBookTitle, getAuthorName } from '@/src/utils/dataHelpers';
-import { formatRelativeDate } from '@/src/utils/dateUtils';
-import WordSelectionModal from './WordSelectionModal';
-import { fetchDefinition } from '@/src/services/WiktionaryService';
-import { authorService } from '@/src/services/AuthorService';
-import { quoteService } from '@/src/services/QuoteService';
-import { BlockDispatcher, BlockContext } from './blocks/BlockDispatcher';
-import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/config/blocks';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { ThemeColors } from '@/src/theme/theme';
+import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
+import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
+import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
+import { useData } from '@/src/app/providers/DataProvider';
+import { Quote, Book, Author } from '@/src/shared/api/types';
+import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
+import { authorService } from '@/src/entities/author/api/AuthorService';
+import { quoteService } from '@/src/entities/quote/api/QuoteService';
+import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
+import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { ThemeColors } from '@/src/shared/theme';
 
-export function QuoteDetailModal() {
+export default function QuoteDetailModal() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();

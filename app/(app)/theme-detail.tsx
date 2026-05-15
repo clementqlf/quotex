@@ -1,2 +1,2 @@
-import { ThemeDetailScreen } from '@/components/ThemeDetailScreen';
+import ThemeDetailScreen from '@/src/entities/theme/ui/ThemeDetail';
 export default ThemeDetailScreen;

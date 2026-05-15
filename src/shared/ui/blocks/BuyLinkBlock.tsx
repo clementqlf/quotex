@@ -2,10 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, Linking, StyleSheet, Modal, ScrollView, Platform } from 'react-native';
 import { ExternalLink, ShoppingCart, ChevronRight, X } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
-import { Book } from '@/types';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { ThemeColors } from '@/src/theme/theme';
-import { BUY_STORES } from '@/src/config/stores';
+import { Book } from '@/src/shared/api/types';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { ThemeColors } from '@/src/shared/theme';
+import { BUY_STORES } from '@/src/shared/config/stores';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface BuyLinkBlockProps {

@@ -2,9 +2,9 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BookOpen, X } from 'lucide-react-native';
 import { BlockWrapper } from './BlockWrapper';
-import { BlockKey } from '@/src/config/blocks';
-import { useTheme } from '@/src/contexts/ThemeContext';
-import { ThemeColors } from '@/src/theme/theme';
+import { BlockKey } from '@/src/shared/config/blocks';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { ThemeColors } from '@/src/shared/theme';
 
 interface Definition {
     term: string;

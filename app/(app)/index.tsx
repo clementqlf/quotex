@@ -8,12 +8,12 @@ import Animated, {
   useEvent 
 } from 'react-native-reanimated';
 
-import MyQuotesScreen from '@/screens/MyQuotesScreen';
-import ScanScreen from '@/screens/ScanScreen';
-import SocialFeedScreen from '@/screens/SocialFeedScreen';
-import { PageIndicator } from '@/components/PageIndicator';
+import MyQuotesScreen from '@/src/pages/MyQuotesScreen';
+import ScanScreen from '@/src/pages/ScanScreen';
+import SocialFeedScreen from '@/src/pages/SocialFeedScreen';
+import { PageIndicator } from '@/src/shared/ui/PageIndicator';
 
-import { TabIndexContext, SwipeEnabledContext } from '@/src/contexts/TabContext';
+import { TabIndexContext, SwipeEnabledContext } from '@/src/app/providers/TabContext';
 
 const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 

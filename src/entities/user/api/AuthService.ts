@@ -1,10 +1,10 @@
-import { User } from '../../types';
-import { API_BASE_URL } from '../config/api';
-import { StorageService, STORAGE_KEYS } from './StorageService';
+import { User } from '@/src/shared/api/types';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/src/shared/api/supabase';
 
 export interface AuthResponse {
     user: User | null;

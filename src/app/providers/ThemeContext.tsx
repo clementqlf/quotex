@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
-import { colors, ThemeColors } from '../theme/theme';
+import { colors, ThemeColors } from '../../shared/theme';
 
 type ThemeContextType = {
     theme: 'light' | 'dark';

@@ -4,14 +4,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
-import { DataProvider } from '@/src/contexts/DataProvider';
-import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
-import { ThemeProvider, useTheme } from '@/src/contexts/ThemeContext';
+import { DataProvider } from '@/src/app/providers/DataProvider';
+import { AuthProvider, useAuth } from '@/src/app/providers/AuthContext';
+import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
 
 import * as SplashScreen from 'expo-splash-screen';
-import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
+import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -117,20 +117,16 @@ function RootLayoutNav() {
   return (
     <>
       <NavThemeProvider value={navigationTheme}>
-        {isReady ? (
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(app)" />
-            <Stack.Screen name="(auth)" />
-          </Stack>
-        ) : (
-          <View style={{ flex: 1, backgroundColor: themeColors.background }} />
-        )}
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="(auth)" />
+        </Stack>
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </NavThemeProvider>
       {(isLoading || !isSplashAnimationFinished) && (
         <AnimatedSplashScreen 
           isDark={isDark} 
-          isLoading={!isReady}
+          isLoading={isLoading}
           onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
         />
       )}
