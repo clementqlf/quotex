@@ -29,56 +29,58 @@ export function useLiveOCR({
 
     useEffect(() => {
         let isMounted = true;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        const scheduleNext = () => {
+            if (isMounted && enabled && isFocused) {
+                timeoutId = setTimeout(runScan, 1000);
+            }
+        };
+
+        const runScan = async () => {
+            if (!isMounted || !canScan()) {
+                scheduleNext();
+                return;
+            }
+
+            // Acquire locks
+            internalBusyRef.current = true;
+            if (scanLockRef) scanLockRef.current = true;
+
+            try {
+                if (!cameraRef.current) return;
+
+                const tempPhoto = await cameraRef.current.takePhoto({
+                    flash: 'off',
+                    enableShutterSound: false,
+                });
+
+                // Check if still active before processing
+                if (isMounted && enabled && isFocused) {
+                    const result = await TextRecognition.recognize(tempPhoto.path);
+                    setIsTextDetectedLive(!!result && result.blocks.length > 0);
+                }
+            } catch (e) {
+                console.log('[useLiveOCR] Scan error:', e);
+                setIsTextDetectedLive(false);
+            } finally {
+                // Release locks
+                if (scanLockRef) scanLockRef.current = false;
+                internalBusyRef.current = false;
+                
+                // Small cooldown before next scan
+                scheduleNext();
+            }
+        };
 
         if (enabled && isFocused) {
-            intervalRef.current = setInterval(async () => {
-                if (!isMounted || !canScan()) return;
-
-                // Acquire lock
-                internalBusyRef.current = true;
-                if (scanLockRef) scanLockRef.current = true;
-
-                try {
-                    if (!cameraRef.current) return;
-
-                    const tempPhoto = await cameraRef.current.takePhoto({
-                        flash: 'off',
-                        enableShutterSound: false,
-                    });
-
-                    // Release lock as soon as photo is taken
-                    if (scanLockRef) scanLockRef.current = false;
-                    internalBusyRef.current = false;
-
-                    // Check if mounted/enabled before processing
-                    if (!isMounted || !enabled || !isFocused) return;
-
-                    const result = await TextRecognition.recognize(tempPhoto.path);
-
-                    if (isMounted) {
-                        setIsTextDetectedLive(!!result && result.blocks.length > 0);
-                    }
-                } catch (e) {
-                    // ignore errors (busy, etc)
-                    if (scanLockRef) scanLockRef.current = false;
-                    internalBusyRef.current = false;
-                }
-            }, 1000);
+            scheduleNext();
         }
 
         return () => {
             isMounted = false;
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
+            if (timeoutId) clearTimeout(timeoutId);
             internalBusyRef.current = false;
-            // Note: We don't reset scanLockRef here because it might be shared/used by others. 
-            // But for the purpose of this interval, we are done.
-            // Ideally, if we acquired it, we should release it, but since we await, 
-            // the finally block usually handles it. 
-            // Safest is to ensure we don't leave it locked if we unmount mid-scan?
-            // For now, relying on the 'finally' block of the async operation is standard.
         };
     }, [enabled, isFocused, cameraRef, scanLockRef]);
 

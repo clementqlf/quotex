@@ -186,6 +186,13 @@ export default function ScanScreen() {
     scanLockRef.current = true; // Lock global (capture + live)
 
     try {
+      // Final check after potential lock wait
+      if (!cameraRef.current || !isFocused) {
+        setIsLoading(false);
+        scanLockRef.current = false;
+        return;
+      }
+
       const photoFile = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
@@ -208,7 +215,10 @@ export default function ScanScreen() {
       setOcrResult(null);
     } finally {
       setIsLoading(false);
-      scanLockRef.current = false;
+      // Small delay before releasing lock to let native camera settle
+      setTimeout(() => {
+        scanLockRef.current = false;
+      }, 100);
     }
   };
 

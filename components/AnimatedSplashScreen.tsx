@@ -14,15 +14,17 @@ import Animated, {
 interface Props {
   onAnimationFinish: () => void;
   isDark: boolean;
+  isLoading: boolean;
 }
 
 // Logo PNG pour une performance maximale (60 FPS)
 const LOGO_SOURCE = require('@/assets/images/quotex_logo.png');
 
-export default function AnimatedSplashScreen({ onAnimationFinish, isDark }: Props) {
+export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoading }: Props) {
   const opacity = useSharedValue(1);
   const logoOpacity = useSharedValue(0);
   const logoScale = useSharedValue(0.8);
+  const [minTimePassed, setMinTimePassed] = React.useState(false);
 
   useEffect(() => {
     // Entrée du logo
@@ -36,8 +38,17 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark }: Prop
       easing: Easing.out(Easing.back(1.2)) 
     });
 
-    // Sortie après un court délai
+    // Minimum display time for branding
     const timer = setTimeout(() => {
+      setMinTimePassed(true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    // Only start fade out if both animation timer finished AND auth is not loading anymore
+    if (minTimePassed && !isLoading) {
       opacity.value = withTiming(0, { 
         duration: 500,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1)
@@ -46,10 +57,8 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark }: Prop
           runOnJS(onAnimationFinish)();
         }
       });
-    }, 1800);
-
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [minTimePassed, isLoading]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

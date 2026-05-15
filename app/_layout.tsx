@@ -16,9 +16,7 @@ import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-export const unstable_settings = {
-  initialRouteName: 'index',
-};
+// Pas d'unstable_settings pour laisser Expo Router gérer les groupes dynamiquement
 
 export default function RootLayout() {
   return (
@@ -44,7 +42,7 @@ function RootLayoutNav() {
   const { isDark, colors: themeColors } = useTheme();
   const { isAuthenticated, isLoading } = useAuth();
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
-  const segments = useSegments();
+  const segments = useSegments() as any;
   const router = useRouter();
   
   // Navigation Logger
@@ -62,23 +60,36 @@ function RootLayoutNav() {
     }
   }, [isLoading]);
 
+  // Auth Redirect Logic
   useEffect(() => {
-    if (isLoading || !isSplashAnimationFinished) return;
+    if (isLoading) return;
 
-    const inAuthGroup = segments[0] === 'auth';
+    // Detection plus robuste du groupe d'auth
+    const inAuthGroup = segments.includes('(auth)') || segments.includes('login') || segments.includes('register');
 
     if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to the login page if the user is not authenticated
-      router.replace('/auth/login');
+      console.log('[AuthDebug] Redirection vers /login');
+      router.replace('/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect away from the auth group if the user is authenticated
+      console.log('[AuthDebug] Redirection vers /');
       router.replace('/');
     }
-  }, [isAuthenticated, segments, isLoading, isSplashAnimationFinished]);
+  }, [isAuthenticated, segments, isLoading]);
 
-  if (isLoading && !isSplashAnimationFinished) {
-    // Show the animated splash screen while loading
-    return <AnimatedSplashScreen isDark={isDark} onAnimationFinish={() => setIsSplashAnimationFinished(true)} />;
+  const inAuthGroup = segments.includes('(auth)') || segments.includes('login') || segments.includes('register');
+  // We are "ready" when loading is done AND we are on the correct side of the auth wall
+  const isReady = !isLoading && ((isAuthenticated && !inAuthGroup) || (!isAuthenticated && inAuthGroup));
+
+  // If we haven't finished the splash AND we aren't ready, 
+  // show only the splash (no background app yet)
+  if (!isSplashAnimationFinished && !isReady) {
+    return (
+      <AnimatedSplashScreen 
+        isDark={isDark} 
+        isLoading={true} 
+        onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
+      />
+    );
   }
 
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
@@ -103,96 +114,23 @@ function RootLayoutNav() {
     },
   };
 
-
   return (
     <>
       <NavThemeProvider value={navigationTheme}>
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="author-detail"
-            options={{
-              presentation: 'modal',
-              headerShown: false,
-              animation: 'slide_from_right',
-              // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
-              getId: ({ params }) => {
-                if (params?.inventaireUri) return `uri-${params.inventaireUri}`;
-                if (params?.authorId) return `id-${params.authorId}`;
-                let name = params?.authorName || params?.name;
-                if (!name && params?.author) {
-                  try {
-                    const p = JSON.parse(params.author);
-                    if (p.inventaireUri) return `uri-${p.inventaireUri}`;
-                    if (p.id) return `id-${p.id}`;
-                    name = p.name;
-                  } catch { name = params.author; }
-                }
-                return name ? String(name).toLowerCase().trim() : undefined;
-              },
-            }}
-          />
-          <Stack.Screen
-            name="book-detail"
-            options={{
-              presentation: 'modal',
-              headerShown: false,
-              animation: 'slide_from_right',
-              // @ts-ignore - getId is supported by React Navigation 7/Expo Router 3+
-              getId: ({ params }) => {
-                if (params?.inventaireUri) return `uri-${params.inventaireUri}`;
-                if (params?.bookId) return `id-${params.bookId}`;
-                let title = params?.bookTitle || params?.title;
-                if (!title && params?.book) {
-                  try {
-                    const p = JSON.parse(params.book);
-                    if (p.inventaireUri) return `uri-${p.inventaireUri}`;
-                    if (p.id) return `id-${p.id}`;
-                    title = p.title;
-                  } catch { title = params.book; }
-                }
-                return title ? String(title).toLowerCase().trim() : undefined;
-              },
-            }}
-          />
-          <Stack.Screen
-            name="user-profile"
-            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="quote-detail"
-            options={{
-              presentation: 'modal',
-              headerShown: false,
-              contentStyle: { backgroundColor: 'transparent' },
-            }}
-          />
-          <Stack.Screen
-            name="theme-detail"
-            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="scan"
-            options={{ presentation: 'fullScreenModal', headerShown: false }}
-          />
-          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/login-password" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/register" options={{ headerShown: false }} />
-          <Stack.Screen name="auth/register-details" options={{ headerShown: false }} />
-        </Stack>
+        {isReady ? (
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="(auth)" />
+          </Stack>
+        ) : (
+          <View style={{ flex: 1, backgroundColor: themeColors.background }} />
+        )}
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </NavThemeProvider>
-      {!isSplashAnimationFinished && (
+      {(isLoading || !isSplashAnimationFinished) && (
         <AnimatedSplashScreen 
           isDark={isDark} 
+          isLoading={!isReady}
           onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
         />
       )}
