@@ -88,10 +88,17 @@ export default function MyQuotesScreen() {
   }, [isFocused]);
 
   // Memoize the check to avoid effect re-runs on every quote update
-  const hasEnrichingItems = useMemo(() => myQuotes.some(q =>
-    (q.book && typeof q.book === 'object' && (q.book as any).isEnriching) ||
-    (q.author && typeof q.author === 'object' && (q.author as any).isEnriching)
-  ), [myQuotes]);
+  const hasEnrichingItems = useMemo(() => myQuotes.some(q => {
+    const isBookEnriching = q.book && typeof q.book === 'object' && (q.book as any).isEnriching;
+    const isAuthorEnriching = q.author && typeof q.author === 'object' && (q.author as any).isEnriching;
+    if (!isBookEnriching && !isAuthorEnriching) return false;
+
+    // Safety: if the quote is more than 30 seconds old, do not poll or show skeleton
+    const quoteAge = q.date ? Date.now() - new Date(q.date).getTime() : 0;
+    if (quoteAge > 30000) return false;
+
+    return true;
+  }), [myQuotes]);
 
   // Polling logic to automatically clear skeletons when enrichment is done
   useEffect(() => {
@@ -305,13 +312,13 @@ export default function MyQuotesScreen() {
             {/* Book Info */}
             <View style={styles.bookInfo}>
               <View style={styles.bookInfoLeft}>
-                {isBookEnriching ? (
+                {isBookEnriching && !getBookTitle(quote.book) ? (
                   <EnrichingSkeleton width={140} />
                 ) : (
                   <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
                 )}
 
-                {isAuthorEnriching ? (
+                {isAuthorEnriching && !getAuthorName(quote.author) ? (
                   <EnrichingSkeleton width={80} height={12} />
                 ) : (
                   <Text style={styles.authorName} onPress={(e) => e.stopPropagation()}>
@@ -689,10 +696,10 @@ export default function MyQuotesScreen() {
                       <Text style={styles.bookCardTitle}>{book.title}</Text>
                       {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
                     </View>
-                    <Text style={styles.bookCardAuthor}>{book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}</Text>
-                    {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                      <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
+                      <Text style={[styles.bookCardAuthor, { marginBottom: 0, flex: 1 }]} numberOfLines={1}>
+                        {book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
+                      </Text>
                       {book.readingStatus && (
                         <View style={[styles.statusBadge, {
                           backgroundColor: getStatusColor(book.readingStatus) + '15',
@@ -705,6 +712,8 @@ export default function MyQuotesScreen() {
                         </View>
                       )}
                     </View>
+                    {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
+                    <Text style={[styles.bookCardCount, { marginTop: 8 }]}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
                   </View>
                 </View>
               </TouchableOpacity>

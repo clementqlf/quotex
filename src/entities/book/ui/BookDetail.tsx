@@ -13,6 +13,7 @@ import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { X, Plus, ChevronLeft, User, Calendar, BookOpen, Star, Quote, Sparkles, Send, MessageSquare, ShoppingCart, ExternalLink, Bookmark, Share as ShareIcon, Check } from 'lucide-react-native';
 import { useData } from '@/src/app/providers/DataProvider';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { Book, Author } from '@/src/shared/api/types';
 import { Modal, Alert, Linking, Share, ActionSheetIOS, Platform } from 'react-native';
@@ -45,6 +46,7 @@ const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
 }));
 
 export default function BookDetailScreen() {
+  const { user: currentUser } = useAuth();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const router = useRouter();
   const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string }>();
@@ -182,9 +184,9 @@ export default function BookDetailScreen() {
 
 
   const userQuotesCountForThisBook = useMemo(() => quotes.filter(q => {
-    const isMyQuote = String(q.user?.id) === "1" || !q.user;
+    const isMyQuote = q.user?.id === currentUser?.id || !q.user;
     return isMyQuote && getBookTitle(q.book) === bookTitle;
-  }).length, [quotes, bookTitle]);
+  }).length, [quotes, bookTitle, currentUser]);
 
   const isSaved = bookInfo?.isSaved || userQuotesCountForThisBook > 0;
   const canToggleSave = userQuotesCountForThisBook === 0;

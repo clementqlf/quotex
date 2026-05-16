@@ -20,6 +20,7 @@ import { useData } from '@/src/app/providers/DataProvider';
 import { getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Author, Book } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -52,6 +53,7 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
 }
 
 export default function AuthorDetailScreen() {
+  const { user: currentUser } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
@@ -72,76 +74,83 @@ export default function AuthorDetailScreen() {
   const [allWorks, setAllWorks] = React.useState<Book[]>([]);
   const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
 
-  React.useEffect(() => {
-    async function loadAuthorData() {
-      if (!nameToUse) return;
+  const loadAuthorData = React.useCallback(async () => {
+    if (!nameToUse) return;
 
-      setIsLoadingAuthor(true);
-      try {
-        const currentAuthorId = authorInfo?.id;
-        const needsFetch = !authorInfo || !currentAuthorId;
+    setIsLoadingAuthor(true);
+    try {
+      const initialAuthorId = author?.id;
+      const needsFetch = !initialAuthorId;
 
-        console.log(`[AuthorDetail] Loading data for: ${nameToUse} (uri: ${paramInventaireUri})`);
+      console.log(`[AuthorDetail] Loading data for: ${nameToUse} (uri: ${paramInventaireUri})`);
 
-        const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
-          getBooksByAuthor(nameToUse, currentAuthorId),
-          needsFetch ? getAuthorByName(nameToUse) : Promise.resolve(null),
-          currentAuthorId ? getNotableWorks(currentAuthorId) : Promise.resolve([])
-        ]);
+      const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
+        getBooksByAuthor(nameToUse, initialAuthorId),
+        needsFetch ? getAuthorByName(nameToUse) : Promise.resolve(null),
+        initialAuthorId ? getNotableWorks(initialAuthorId) : Promise.resolve([])
+      ]);
 
-        const booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
+      const booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
+      let activeAuthor = author || fetchedAuthor;
 
-        if (fetchedAuthor) {
-          setAuthorInfo(fetchedAuthor);
-          
-          // Force enrichment if description is missing
-          if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
-            console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
-            try {
-              const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
-              const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
-              const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-              if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (fetchedAuthor) {
+        setAuthorInfo(fetchedAuthor);
+        activeAuthor = fetchedAuthor;
+        
+        // Force enrichment if description is missing
+        if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
+          console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
+          try {
+            const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+            const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
 
-              const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers });
-              if (enrichRes.ok) {
-                const data = await enrichRes.json();
-                if (data.author) setAuthorInfo(data.author);
-                if (data.books) setAuthorBooks(data.books);
+            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers });
+            if (enrichRes.ok) {
+              const data = await enrichRes.json();
+              if (data.author) {
+                setAuthorInfo(data.author);
+                activeAuthor = data.author;
               }
-            } catch (e) {
-              console.error('[AuthorDetail] Synch enrichment failed:', e);
+              if (data.books) setAuthorBooks(data.books);
             }
-          }
-        } else if (!fetchedAuthor && paramInventaireUri) {
-          // Author not in local DB — enrich from Inventaire using the URI from params
-          console.log(`[AuthorDetail] Author not local, fetching from Inventaire: ${paramInventaireUri}`);
-          const externalDetails = await fetchExternalAuthorDetails(paramInventaireUri);
-          if (externalDetails) {
-            setAuthorInfo(prev => ({
-              ...prev,
-              id: prev?.id ?? 0,
-              name: externalDetails.name || nameToUse || '',
-              description: externalDetails.description || undefined,
-              image: externalDetails.image || undefined,
-              birthDate: externalDetails.birthDate || undefined,
-              nationality: externalDetails.nationality || undefined,
-              inventaireUri: paramInventaireUri,
-              isSaved: false,
-            } as any));
+          } catch (e) {
+            console.error('[AuthorDetail] Synch enrichment failed:', e);
           }
         }
-
-        setAuthorBooks(booksToDisplay);
-
-      } catch (error) {
-        console.error("Error loading author data:", error);
-      } finally {
-        setIsLoadingAuthor(false);
+      } else if (!activeAuthor && paramInventaireUri) {
+        // Author not in local DB — enrich from Inventaire using the URI from params
+        console.log(`[AuthorDetail] Author not local, fetching from Inventaire: ${paramInventaireUri}`);
+        const externalDetails = await fetchExternalAuthorDetails(paramInventaireUri);
+        if (externalDetails) {
+          const newAuthorObj = {
+            id: 0,
+            name: externalDetails.name || nameToUse || '',
+            description: externalDetails.description || undefined,
+            image: externalDetails.image || undefined,
+            birthDate: externalDetails.birthDate || undefined,
+            nationality: externalDetails.nationality || undefined,
+            inventaireUri: paramInventaireUri,
+            isSaved: false,
+          } as any;
+          setAuthorInfo(newAuthorObj);
+          activeAuthor = newAuthorObj;
+        }
       }
+
+      setAuthorBooks(booksToDisplay);
+
+    } catch (error) {
+      console.error("Error loading author data:", error);
+    } finally {
+      setIsLoadingAuthor(false);
     }
+  }, [nameToUse, paramInventaireUri, getBooksByAuthor, getAuthorByName, getNotableWorks, author]);
+
+  React.useEffect(() => {
     loadAuthorData();
-  }, [nameToUse, authorInfo?.id, paramInventaireUri, getBooksByAuthor, getAuthorByName]);
+  }, [loadAuthorData]);
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
@@ -175,11 +184,11 @@ export default function AuthorDetailScreen() {
   ).length, [quotes, authorName]);
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
-    const isMyQuote = String(q.user?.id) === "1" || !q.user;
+    const isMyQuote = q.user?.id === currentUser?.id || !q.user;
     if (!isMyQuote) return false;
     const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
     return qAuthorName === authorName;
-  }).length, [quotes, authorName]);
+  }).length, [quotes, authorName, currentUser]);
 
   const isSaved = authorInfo?.isSaved || userQuotesCount > 0;
   const canToggleSave = userQuotesCount === 0;
@@ -354,7 +363,7 @@ export default function AuthorDetailScreen() {
 
           {(() => {
             const userQuotes = quotes.filter(q => {
-              const isMyQuote = String(q.user?.id) === "1" || !q.user;
+              const isMyQuote = q.user?.id === currentUser?.id || !q.user;
               if (!isMyQuote) return false;
               const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
               return qAuthorName === authorName;
