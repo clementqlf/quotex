@@ -11,6 +11,8 @@ import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatQuote } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
 import { discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
+import { analyzeQuoteWithGemini } from '../_shared/gemini.ts';
+
 
 // ─── DB query helpers ─────────────────────────────────────────────────────────
 
@@ -40,6 +42,36 @@ async function fetchQuotes(userId: string | null, quoteId?: number) {
   `;
   return rows;
 }
+
+async function performQuoteAnalysis(quoteId: number) {
+  try {
+    const rows = await sql`
+      SELECT q.id, q.text, a.name as "authorName", b.title as "bookTitle"
+      FROM "Quote" q
+      LEFT JOIN "Author" a ON a.id = q."authorId"
+      LEFT JOIN "Book" b ON b.id = q."bookId"
+      WHERE q.id = ${quoteId}
+      LIMIT 1
+    `;
+    if (!rows.length) return;
+    const q = rows[0];
+
+    console.log(`[Quotes] Triggering Gemini analysis for quote ID ${quoteId}...`);
+    const result = await analyzeQuoteWithGemini(q.text, q.authorName || 'Inconnu', q.bookTitle || 'Inconnu');
+
+    await sql`
+      UPDATE "Quote"
+      SET 
+        "aiInterpretation" = ${result.interpretation},
+        "theme" = COALESCE("theme", ${result.theme})
+      WHERE id = ${quoteId}
+    `;
+    console.log(`[Quotes] Successfully analyzed quote ID ${quoteId}`);
+  } catch (e) {
+    console.error(`[Quotes] Background analysis failed for quote ID ${quoteId}:`, e);
+  }
+}
+
 
 // ─── serve ────────────────────────────────────────────────────────────────────
 
@@ -138,8 +170,28 @@ serve(async (req: Request) => {
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;
+
+      // Background AI analysis
+      // @ts-ignore deno
+      if (typeof EdgeRuntime !== 'undefined') {
+        // @ts-ignore deno
+        EdgeRuntime.waitUntil(performQuoteAnalysis(newQuoteId));
+      }
+
       const fullQuoteRows = await fetchQuotes(authUser.id, newQuoteId);
       return json(formatQuote(fullQuoteRows[0], authUser.id));
+    }
+
+
+    // POST /quotes/:id/analyze (trigger AI interpretation manually)
+    if (req.method === 'POST' && idParam && subAction === 'analyze') {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      await performQuoteAnalysis(idParam);
+
+      const updatedRows = await fetchQuotes(authUser.id, idParam);
+      return json(formatQuote(updatedRows[0], authUser.id));
     }
 
     // POST /quotes/:id/toggle-save

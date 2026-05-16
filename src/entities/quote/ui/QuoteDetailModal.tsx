@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Dimensions,
   Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -63,6 +65,31 @@ export default function QuoteDetailModal() {
   const [fetchedAuthor, setFetchedAuthor] = React.useState<Author | null>(null);
   const [gridData, setGridData] = React.useState<string[]>([]);
   const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
+  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
+  const handleTriggerAnalysis = async () => {
+    if (!quote?.id) return;
+    setIsAnalyzing(true);
+    try {
+      const updatedQuote = await quoteService.analyzeQuote(quote.id);
+      setQuote(updatedQuote);
+      if (updateQuote) {
+        updateQuote(quote.id, {
+          aiInterpretation: updatedQuote.aiInterpretation,
+          theme: updatedQuote.theme
+        });
+      }
+    } catch (error) {
+      console.error('[AI Analysis]', error);
+      Alert.alert(
+        "Erreur",
+        "Impossible de lancer l'analyse littéraire. Assurez-vous d'avoir configuré votre GEMINI_API_KEY dans Supabase."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
 
   React.useEffect(() => {
     if (quoteId) {
@@ -107,7 +134,7 @@ export default function QuoteDetailModal() {
   const quoteBookTitle = quote ? getBookTitle(quote.book) : '';
 
   // Data helpers based on fetched state
-  const aiInterpretation = quote?.aiInterpretation || "Cette citation nous invite à réfléchir sur notre condition humaine et nos aspirations.";
+  const aiInterpretation = quote?.aiInterpretation;
   const quoteTheme = quote?.theme || 'Thème non renseigné';
 
   // Tab Logic
@@ -402,12 +429,55 @@ export default function QuoteDetailModal() {
 
           {/* AI Interpretation */}
           <View style={styles.aiSection}>
-            <View style={styles.aiHeader}>
-              <Sparkles size={16} color={colors.primary} />
-              <Text style={styles.aiTitle}>Interprétation IA</Text>
-            </View>
-            <Text style={styles.aiText}>{aiInterpretation}</Text>
+            {isAnalyzing ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                <ActivityIndicator color={colors.primary} size="small" style={{ marginBottom: 10 }} />
+                <Text style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
+                  Analyse littéraire par l'IA en cours...
+                </Text>
+              </View>
+            ) : aiInterpretation ? (
+              <>
+                <View style={styles.aiHeader}>
+                  <Sparkles size={16} color={colors.primary} />
+                  <Text style={styles.aiTitle}>Interprétation IA</Text>
+                  <TouchableOpacity onPress={handleTriggerAnalysis} style={{ marginLeft: 'auto', padding: 4 }}>
+                    <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.aiText}>{aiInterpretation}</Text>
+              </>
+            ) : (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
+                <Text style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par l'IA</Text>
+                <Text style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
+                  Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    shadowColor: colors.primary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 4,
+                    elevation: 2,
+                  }}
+                  onPress={handleTriggerAnalysis}
+                >
+                  <Sparkles size={15} color="#FFFFFF" />
+                  <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
+
 
           {/* TABS */}
           <View style={styles.tabContainer}>

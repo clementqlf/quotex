@@ -325,6 +325,43 @@ class QuoteService {
         }
     }
 
+    async analyzeQuote(id: number): Promise<Quote> {
+        console.log(`[QuoteService] Requesting AI analysis for quote ${id}...`);
+        const headers = await this.getHeaders();
+        const response = await fetch(`${this.API_URL}/${id}/analyze`, {
+            method: 'POST',
+            headers
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to analyze quote: ${await response.text()}`);
+        }
+        const q = await response.json();
+        
+        const mappedQuote: Quote = {
+            id: q.id,
+            text: q.text,
+            book: q.book,
+            author: q.author,
+            theme: q.theme,
+            likesCount: q.likesCount || 0,
+            isLiked: q.isLiked || false,
+            date: q.date || new Date().toISOString(),
+            time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
+            isSaved: q.isSaved || false,
+            comments: q.comments || 0,
+            blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
+            user: q.user,
+            aiInterpretation: q.aiInterpretation,
+        };
+
+        // Update local cache
+        const currentQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const updatedQuotes = currentQuotes.map(cq => cq.id === id ? mappedQuote : cq);
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
+
+        return mappedQuote;
+    }
+
     async updateQuote(id: number, updates: Partial<Quote>): Promise<void> {
         // Prefer names for author and book in the payload to match backend "find or create" logic
         const payload: any = { ...updates };
