@@ -37,7 +37,7 @@ export const PrizeService = {
     return data;
   },
 
-  async syncPrize(params: { prizeName?: string; prizeUri?: string }) {
+  async syncPrize(params: { prizeName?: string; prizeUri?: string; offset?: number; limit?: number }) {
     const { data, error } = await supabase.functions.invoke('sync-prizes', {
       body: params,
     });

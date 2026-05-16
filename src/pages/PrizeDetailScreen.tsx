@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,13 +10,15 @@ import {
     FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Award, User, BookOpen } from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ArrowLeft, Award, User, BookOpen, Calendar } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, Laureate } from '@/src/shared/api/types';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { authService } from '@/src/entities/user/api/AuthService';
 
 interface PrizeDetailScreenProps {
     prizeId: number;
@@ -30,22 +32,204 @@ export default function PrizeDetailScreen({ prizeId }: PrizeDetailScreenProps) {
 
     const [prize, setPrize] = useState<LiteraryPrize | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const BATCH_SIZE = 25;
+    // Track which book IDs are currently being enriched to avoid duplicate calls
+    const enrichingBookIds = useRef<Set<number>>(new Set());
 
-    useEffect(() => {
-        fetchPrizeDetails();
-    }, [prizeId]);
+    /**
+     * Fire-and-forget: enrich laureate books that have no cover.
+     * Each successful response patches the local prize state immediately
+     * without any reload or loading indicator.
+     */
+    const enrichMissingCovers = async (laureates: Laureate[]) => {
+        const token = await authService.getToken().catch(() => null);
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const booksToEnrich = laureates.filter(
+            l => l.book?.id && !l.book.cover && !enrichingBookIds.current.has(l.book.id!)
+        );
+
+        for (const laureate of booksToEnrich) {
+            const bookId = laureate.book!.id!;
+            enrichingBookIds.current.add(bookId);
+
+            // Fire-and-forget: no await in the loop, all run concurrently
+            fetch(`${API_BASE_URL}/books/${bookId}/enrich`, { method: 'POST', headers })
+                .then(res => (res.ok ? res.json() : null))
+                .then(enrichedBook => {
+                    if (enrichedBook?.cover) {
+                        // Patch only the cover of this specific book in local state
+                        setPrize(prev => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                laureates: prev.laureates?.map(l =>
+                                    l.book?.id === bookId
+                                        ? { ...l, book: { ...l.book!, cover: enrichedBook.cover } }
+                                        : l
+                                ),
+                            };
+                        });
+                    }
+                })
+                .catch(e => console.warn(`[PrizeDetail] Enrich failed for book ${bookId}:`, e))
+                .finally(() => enrichingBookIds.current.delete(bookId));
+        }
+    };
+
+    const fetchExternalPrizeDetails = async (inventaireUri: string) => {
+        if (!inventaireUri.startsWith('wd:')) return null;
+        const qid = inventaireUri.substring(3);
+        try {
+            const sparql = `
+            SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
+              OPTIONAL { wd:${qid} wdt:P571 ?inception . }
+              OPTIONAL {
+                wd:${qid} wdt:P1027 ?conferredBy .
+                OPTIONAL { ?conferredBy rdfs:label ?lblFr. FILTER(LANG(?lblFr) = "fr") }
+                OPTIONAL { ?conferredBy rdfs:label ?lblEn. FILTER(LANG(?lblEn) = "en") }
+                BIND(COALESCE(?lblFr, ?lblEn) AS ?conferredByLabel)
+              }
+              OPTIONAL {
+                wd:${qid} wdt:P112 ?founder .
+                OPTIONAL { ?founder rdfs:label ?lblFounderFr. FILTER(LANG(?lblFounderFr) = "fr") }
+                OPTIONAL { ?founder rdfs:label ?lblFounderEn. FILTER(LANG(?lblFounderEn) = "en") }
+                BIND(COALESCE(?lblFounderFr, ?lblFounderEn) AS ?founderLabel)
+              }
+            } LIMIT 1
+            `;
+            const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+            const res = await fetch(url, {
+                headers: {
+                    'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
+                    'Accept': 'application/sparql-results+json'
+                }
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            const binding = data.results?.bindings?.[0];
+            if (!binding) return null;
+
+            const inceptionRaw = binding.inception?.value;
+            const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
+            const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
+
+            return { inceptionYear, founder };
+        } catch (e) {
+            console.error('[PrizeDetail] Failed to fetch external prize details:', e);
+            return null;
+        }
+    };
+
+    const fetchWikipediaDescription = async (title: string): Promise<string | null> => {
+        try {
+            const url = `https://fr.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=6&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const data = await res.json();
+            const pages = data.query?.pages;
+            if (!pages) return null;
+            const pageId = Object.keys(pages)[0];
+            if (pageId === '-1') return null;
+            const extract = pages[pageId]?.extract;
+            return extract && extract.trim().length > 0 ? extract.trim() : null;
+        } catch (e) {
+            console.warn('[PrizeDetail] Failed to fetch Wikipedia description:', e);
+            return null;
+        }
+    };
 
     const fetchPrizeDetails = async () => {
-        setIsLoading(true);
         try {
             const data = await PrizeService.getById(prizeId);
-            setPrize(data);
+            if (data) {
+                setPrize(data);
+                // Immediately trigger background enrichment for books without covers
+                if (data.laureates) {
+                    enrichMissingCovers(data.laureates);
+                }
+                
+                // Fetch external metadata if we have a Wikidata/Inventaire URI
+                if (data.inventaireUri) {
+                    fetchExternalPrizeDetails(data.inventaireUri).then(extData => {
+                        if (extData) {
+                            setPrize(prev => prev ? {
+                                ...prev,
+                                inceptionYear: extData.inceptionYear || undefined,
+                                founder: extData.founder || undefined
+                            } : null);
+                        }
+                    });
+                }
+
+                // If description is missing or too short (e.g. less than 50 chars), enrich it from Wikipedia
+                const currentDesc = data.description || '';
+                if (currentDesc.length < 50 || currentDesc.toLowerCase() === 'prix littéraire français') {
+                    const wikiTitle = data.wikipediaTitle || data.name;
+                    fetchWikipediaDescription(wikiTitle).then(wikiDesc => {
+                        if (wikiDesc) {
+                            setPrize(prev => prev ? {
+                                ...prev,
+                                description: wikiDesc
+                            } : null);
+                        }
+                    });
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch prize details:', error);
         } finally {
             setIsLoading(false);
         }
     };
+
+    const loadNextBatch = async () => {
+        if (isFetchingMore || !hasMore || !prize?.inventaireUri) return;
+
+        setIsFetchingMore(true);
+        try {
+            const currentOffset = prize.laureates?.length || 0;
+            console.log(`[PrizeDetail] Loading next batch starting from offset: ${currentOffset}`);
+            
+            const res = await PrizeService.syncPrize({
+                prizeUri: prize.inventaireUri,
+                offset: currentOffset,
+                limit: BATCH_SIZE
+            });
+
+            if (res && res.laureatesCount > 0) {
+                // Fetch the updated prize model with the newly synced laureates from DB
+                const updatedPrize = await PrizeService.getById(prizeId);
+                if (updatedPrize) {
+                    setPrize(updatedPrize);
+                    // Proactively trigger background covers enrichment for the new batch
+                    if (updatedPrize.laureates) {
+                        enrichMissingCovers(updatedPrize.laureates);
+                    }
+                }
+                
+                // If Wikidata has no more items, disable future scrolling requests
+                if (res.hasMore === false || res.laureatesCount < BATCH_SIZE) {
+                    setHasMore(false);
+                }
+            } else {
+                setHasMore(false);
+            }
+        } catch (error) {
+            console.error('[PrizeDetail] Failed to load next batch:', error);
+        } finally {
+            setIsFetchingMore(false);
+        }
+    };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchPrizeDetails();
+        }, [prizeId])
+    );
 
     if (isLoading) {
         return (
@@ -132,22 +316,55 @@ export default function PrizeDetailScreen({ prizeId }: PrizeDetailScreenProps) {
                 data={prize.laureates?.sort((a, b) => b.year - a.year) || []}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderLaureate}
-                ListHeaderComponent={
-                    <View style={styles.prizeHeader}>
-                        <View style={styles.prizeImageContainer}>
-                            {prize.image ? (
-                                <Image source={{ uri: prize.image }} style={styles.prizeImage} />
-                            ) : (
-                                <Award size={48} color={colors.primary} />
-                            )}
+                onEndReached={loadNextBatch}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                    isFetchingMore ? (
+                        <View style={styles.footerLoader}>
+                            <ActivityIndicator size="small" color={colors.primary} />
                         </View>
-                        <Text style={styles.prizeName}>{prize.name}</Text>
+                    ) : null
+                }
+                ListHeaderComponent={
+                    <View style={styles.prizeHeaderContainer}>
+                        <View style={styles.prizeHeader}>
+                            <View style={styles.prizeImageContainer}>
+                                {prize.image ? (
+                                    <Image source={{ uri: prize.image }} style={styles.prizeImage} />
+                                ) : (
+                                    <Award size={48} color={colors.primary} />
+                                )}
+                            </View>
+                            <Text style={styles.prizeName}>{prize.name}</Text>
+                        </View>
+
                         {prize.description && (
-                            <Text style={styles.prizeDescription}>{prize.description}</Text>
+                            <View style={styles.section}>
+                                <View style={styles.sectionHeader}>
+                                    <Award size={16} color={colors.primary} />
+                                    <Text style={styles.sectionTitle}>À propos du prix</Text>
+                                </View>
+                                <Text style={styles.prizeDesc}>{prize.description}</Text>
+                            </View>
                         )}
+
+                        <View style={styles.detailContainerSection}>
+                            <View style={styles.detailsContainer}>
+                                <View style={styles.detailItem}>
+                                    <Calendar size={16} color={colors.textTertiary} />
+                                    <Text style={styles.detailLabel}>Création</Text>
+                                    <Text style={styles.detailValue}>{prize.inceptionYear || 'Inconnu'}</Text>
+                                </View>
+                                <View style={styles.detailItem}>
+                                    <User size={16} color={colors.textTertiary} />
+                                    <Text style={styles.detailLabel}>Créateur</Text>
+                                    <Text style={styles.detailValue}>{prize.founder || 'Inconnu'}</Text>
+                                </View>
+                            </View>
+                        </View>
                         
                         <View style={styles.divider} />
-                        <Text style={styles.sectionTitle}>Palmarès</Text>
+                        <Text style={styles.palmaresTitle}>Palmarès</Text>
                     </View>
                 }
                 contentContainerStyle={styles.listContent}
@@ -182,9 +399,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         color: colors.text,
         flex: 1,
     },
+    prizeHeaderContainer: {
+        paddingHorizontal: 16,
+        paddingTop: 8,
+    },
     prizeHeader: {
         alignItems: 'center',
-        padding: 24,
+        paddingVertical: 24,
     },
     prizeImageContainer: {
         width: 100,
@@ -208,11 +429,57 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         textAlign: 'center',
         marginBottom: 8,
     },
-    prizeDescription: {
-        fontSize: 15,
-        color: colors.textSecondary,
-        textAlign: 'center',
+    section: {
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.surfaceHighlight,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text,
+    },
+    prizeDesc: {
+        fontSize: 14,
         lineHeight: 22,
+        color: colors.textSecondary,
+    },
+    detailContainerSection: {
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.surfaceHighlight,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+    },
+    detailsContainer: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    detailItem: {
+        flex: 1,
+        alignItems: 'center',
+        gap: 6,
+    },
+    detailLabel: {
+        fontSize: 12,
+        color: colors.textTertiary,
+        fontWeight: '500',
+    },
+    detailValue: {
+        fontSize: 13,
+        color: colors.text,
+        fontWeight: '600',
+        textAlign: 'center',
     },
     divider: {
         height: 1,
@@ -220,16 +487,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         width: '100%',
         marginVertical: 24,
     },
-    sectionTitle: {
+    palmaresTitle: {
         fontSize: 18,
         fontWeight: '700',
         color: colors.text,
         alignSelf: 'flex-start',
         marginBottom: 16,
-        paddingHorizontal: 16,
     },
     listContent: {
         paddingBottom: 40,
+    },
+    footerLoader: {
+        paddingVertical: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     laureateCard: {
         backgroundColor: colors.surface,

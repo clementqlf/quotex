@@ -90,6 +90,8 @@ export type LiteraryPrize = {
   inventaireUri?: string;
   wikipediaTitle?: string;
   laureates?: Laureate[];
+  inceptionYear?: string;
+  founder?: string;
 };
 
 export type Laureate = {

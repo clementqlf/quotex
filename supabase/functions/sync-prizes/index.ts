@@ -8,7 +8,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
-import { getInventaireEntities, resolveImageUrl } from '../_shared/inventaire.api.ts';
+import { getInventaireEntities, resolveImageUrl, getBatchInventaireSearchMetadata } from '../_shared/inventaire.api.ts';
 import { getPrizeLaureates } from '../_shared/wikidata.ts';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ serve(async (req: Request) => {
   if (req.method !== 'POST') return error('Method not allowed', 405);
 
   try {
-    const { prizeName, prizeUri } = await req.json();
+    const { prizeName, prizeUri, offset = 0, limit = 30 } = await req.json();
     let uri = prizeUri;
 
     // 1. Resolve URI if only a name was given
@@ -100,9 +100,9 @@ serve(async (req: Request) => {
     // 3. Fetch laureates list from Wikidata SPARQL
     console.log(`[sync-prizes] Fetching laureates for QID: ${qid}`);
     const laureates = await getPrizeLaureates(qid);
-    // Reduced to 50 for stability (avoid timeout)
-    const recentLaureates = laureates.slice(0, 50);
-    console.log(`[sync-prizes] Processing ${recentLaureates.length} laureates`);
+    // Slice based on pagination parameters
+    const recentLaureates = laureates.slice(offset, offset + limit);
+    console.log(`[sync-prizes] Processing batch of ${recentLaureates.length} laureates (offset: ${offset}, limit: ${limit})`);
 
     // 4. Collect all unique URIs to batch-fetch from Inventaire
     const authorUris = [...new Set(
@@ -113,9 +113,10 @@ serve(async (req: Request) => {
     )];
 
     console.log(`[sync-prizes] Batch-fetching ${authorUris.length} authors + ${workUris.length} works from Inventaire`);
-    const [authorEntities, workEntities] = await Promise.all([
+    const [authorEntities, workEntities, workSearchMetadata] = await Promise.all([
       batchFetchEntities(authorUris),
       batchFetchEntities(workUris),
+      getBatchInventaireSearchMetadata(workUris),
     ]);
 
     // 5. For each laureate: upsert Author → upsert Book → upsert Laureate
@@ -160,7 +161,10 @@ serve(async (req: Request) => {
           const workEntity = workEntities[workUri];
           const bookTitle = getLabel(workEntity) || l.workTitle || null;
           const bookDesc = getDescription(workEntity);
-          const bookCover = resolveEntityImage(workEntity);
+          let bookCover = resolveEntityImage(workEntity);
+          if (!bookCover && workSearchMetadata[workUri]?.image) {
+            bookCover = workSearchMetadata[workUri].image;
+          }
           const yearRaw = getClaimValue(workEntity, 'wdt:P577');
           const bookYear = yearRaw ? parseInt(yearRaw.substring(0, 4)) : null;
 
@@ -204,6 +208,7 @@ serve(async (req: Request) => {
       prizeId: prize.id,
       prizeName: prizeName_,
       laureatesCount: synced,
+      hasMore: offset + limit < laureates.length,
     });
 
   } catch (e: any) {
