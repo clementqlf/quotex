@@ -147,6 +147,23 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
     }
   }
 
+  if (details.genreUris && details.genreUris.length > 0) {
+    try {
+      const genreEntities = await api.getInventaireEntities(details.genreUris);
+      const genreLabels = details.genreUris.map(uri => {
+        const entry = genreEntities[uri];
+        const rawLabel = entry?.labels?.['fr'] || entry?.labels?.['en'] || (entry?.labels ? Object.values(entry.labels)[0] : null);
+        return rawLabel ? rawLabel.replace(/\s*\(.*\)/g, '').trim() : null;
+      }).filter(Boolean);
+      if (genreLabels.length > 0) {
+        result.genre = genreLabels.join(', ');
+        console.log(`[Inventaire] Resolved genres for "${result.title || 'Unknown book'}": ${result.genre}`);
+      }
+    } catch (err) {
+      console.error(`[Inventaire] Failed to fetch genre labels:`, err);
+    }
+  }
+
   if (details.wikipediaTitle) {
     const synopsis = await api.fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
     if (synopsis && synopsis.length > (result.description?.length || 0)) {

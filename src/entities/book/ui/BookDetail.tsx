@@ -113,9 +113,9 @@ export default function BookDetailScreen() {
       if (currentBook) {
         setBookInfo(currentBook);
         
-        // If the book is sparse (no description), force a synchronous enrichment
-        if (currentBook.inventaireUri && (!currentBook.description || currentBook.description.length < 50)) {
-          console.log('[BookDetail] Book is sparse, forcing synchronous enrichment...');
+        // If the book is sparse (no description or no genre), force a synchronous enrichment
+        if (currentBook.inventaireUri && (!currentBook.description || currentBook.description.length < 50 || !currentBook.genre || currentBook.genre === 'Unknown' || currentBook.genre === '')) {
+          console.log('[BookDetail] Book is sparse or lacks genre, forcing synchronous enrichment...');
           try {
             const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -523,9 +523,11 @@ export default function BookDetailScreen() {
 
                 {/* Genre Badge */}
                 <View style={styles.badgeContainer}>
-                  <View style={styles.genreBadge}>
-                    <Text style={styles.genreText}>{bookInfo.genre}</Text>
-                  </View>
+                  {bookInfo.genre && bookInfo.genre !== 'Unknown' && bookInfo.genre !== '' && (
+                    <View style={styles.genreBadge}>
+                      <Text style={styles.genreText}>{bookInfo.genre}</Text>
+                    </View>
+                  )}
 
                   {/* Category Badge */}
                   {bookInfo.readingStatus && (

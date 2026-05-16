@@ -69,6 +69,9 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
       if (enriched.description) updateData.description = enriched.description;
       if (enriched.pages && (!book.pages || book.pages === 0)) updateData.pages = enriched.pages;
       if (enriched.year && (!book.year || book.year === 0)) updateData.year = enriched.year;
+      if (enriched.genre && (!book.genre || book.genre === 'Unknown' || book.genre === '')) {
+        updateData.genre = enriched.genre;
+      }
 
       if (enriched.image) {
         const currentIsWiki = !book.cover || book.cover.includes('wikimedia.org');

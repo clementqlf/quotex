@@ -62,9 +62,11 @@ export const BookInfoBlock: React.FC<BookInfoBlockProps> = ({ book, onBookPress,
                             <Text style={styles.metaText}>{book.rating}/5</Text>
                         </View>
                     </View>
-                    <View style={styles.genreBadge}>
-                        <Text style={styles.genreText}>{book.genre}</Text>
-                    </View>
+                    {book.genre && book.genre !== 'Unknown' && book.genre !== '' && (
+                        <View style={styles.genreBadge}>
+                            <Text style={styles.genreText}>{book.genre}</Text>
+                        </View>
+                    )}
                 </View>
             </TouchableOpacity>
             <Text style={styles.bookDesc}>{book.description}</Text>

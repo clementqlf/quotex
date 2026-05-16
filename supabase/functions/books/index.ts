@@ -206,7 +206,7 @@ serve(async (req: Request) => {
       if (!book) return error('Book not found', 404);
 
       // Trigger background enrichment if data is sparse
-      if (book.inventaireUri && (!book.description || book.description.length < 50 || !book.cover)) {
+      if (book.inventaireUri && (!book.description || book.description.length < 50 || !book.cover || !book.genre || book.genre === 'Unknown' || book.genre === '')) {
         // @ts-ignore deno
         if (typeof EdgeRuntime !== 'undefined') {
           console.log(`[books] Triggering background enrichment for book ${idParam}`);

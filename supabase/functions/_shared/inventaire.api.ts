@@ -142,7 +142,7 @@ export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Pa
         year,
         image: imageUrl,
         authorUris: claims['wdt:P50'] || [],
-        genreUris: claims['wdt:P136'] || [],
+        genreUris: Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])])),
         wikipediaTitle: sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null,
         pages: pagesClaim ? parseInt(pagesClaim) : null,
         label: label as string
