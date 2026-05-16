@@ -536,6 +536,29 @@ export default function BookDetailScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {/* Prize Badges */}
+                  {bookInfo.laureates?.map(laureate => (
+                    <TouchableOpacity 
+                      key={`prize-${laureate.id}`} 
+                      onPress={() => {
+                        if (laureate.prizeId) {
+                          router.push({
+                            pathname: '/prize-detail',
+                            params: { prizeId: laureate.prizeId.toString() }
+                          });
+                        }
+                      }}
+                      style={[styles.statusBadge, { 
+                        backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+                        borderColor: 'rgba(239, 68, 68, 0.4)' 
+                      }]}
+                    >
+                      <Text style={[styles.statusText, { color: '#EF4444' }]}>
+                        {laureate.prize?.name} {laureate.year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
             </View>

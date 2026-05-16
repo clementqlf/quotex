@@ -71,12 +71,42 @@ serve(async (req: Request) => {
 
     // GET /authors/:id/books
     if (req.method === 'GET' && idParam && subAction === 'books') {
-      let books = await sql`SELECT * FROM "Book" WHERE "authorId" = ${idParam} ORDER BY year DESC`;
+      let books = await sql`
+        SELECT b.*,
+          COALESCE((
+            SELECT json_agg(json_build_object(
+              'id', l.id,
+              'year', l.year,
+              'prizeId', l."prizeId",
+              'authorId', l."authorId",
+              'bookId', l."bookId",
+              'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+            ))
+            FROM "Laureate" l
+            WHERE l."bookId" = b.id
+          ), '[]'::json) as laureates
+        FROM "Book" b WHERE b."authorId" = ${idParam} ORDER BY b.year DESC
+      `;
       if (books.length <= 1) {
         const authorRows = await sql`SELECT * FROM "Author" WHERE id = ${idParam} LIMIT 1`;
         if (authorRows.length) {
           await enrichAuthorWithInventaire(authorRows[0].id);
-          books = await sql`SELECT * FROM "Book" WHERE "authorId" = ${idParam} ORDER BY year DESC`;
+          books = await sql`
+            SELECT b.*,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', l.id,
+                  'year', l.year,
+                  'prizeId', l."prizeId",
+                  'authorId', l."authorId",
+                  'bookId', l."bookId",
+                  'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+                ))
+                FROM "Laureate" l
+                WHERE l."bookId" = b.id
+              ), '[]'::json) as laureates
+            FROM "Book" b WHERE b."authorId" = ${idParam} ORDER BY b.year DESC
+          `;
         }
       }
       return json(books.map((b: any) => formatBook(b)));

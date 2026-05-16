@@ -16,7 +16,19 @@ async function fetchBook(bookId: number, userId: string | number | null) {
   const rows = await sql`
     SELECT b.*,
       row_to_json(a) as author,
-      COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users
+      COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users,
+      COALESCE((
+        SELECT json_agg(json_build_object(
+          'id', l.id,
+          'year', l.year,
+          'prizeId', l."prizeId",
+          'authorId', l."authorId",
+          'bookId', l."bookId",
+          'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+        ))
+        FROM "Laureate" l
+        WHERE l."bookId" = b.id
+      ), '[]'::json) as laureates
     FROM "Book" b
     LEFT JOIN "Author" a ON a.id = b."authorId"
     WHERE b.id = ${bookId} LIMIT 1
@@ -44,13 +56,37 @@ serve(async (req: Request) => {
       const rows = authorName
         ? await sql`
             SELECT b.*, row_to_json(a) as author,
-              COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users
+              COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', l.id,
+                  'year', l.year,
+                  'prizeId', l."prizeId",
+                  'authorId', l."authorId",
+                  'bookId', l."bookId",
+                  'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+                ))
+                FROM "Laureate" l
+                WHERE l."bookId" = b.id
+              ), '[]'::json) as laureates
             FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
             WHERE a.name = ${authorName}
           `
         : await sql`
             SELECT b.*, row_to_json(a) as author,
-              COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users
+              COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', l.id,
+                  'year', l.year,
+                  'prizeId', l."prizeId",
+                  'authorId', l."authorId",
+                  'bookId', l."bookId",
+                  'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+                ))
+                FROM "Laureate" l
+                WHERE l."bookId" = b.id
+              ), '[]'::json) as laureates
             FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
           `;
       return json(rows.map((b: any) => formatBook(b, userId)));

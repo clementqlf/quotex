@@ -507,9 +507,9 @@ model Author {
   lastEnrichedAt   DateTime?
   lastDiscoveredAt DateTime?
   Book             Book[]
+  Laureate         Laureate[]
   Quote            Quote[]
   UserAuthor       UserAuthor[]
-  Laureate         Laureate[]
 
   @@schema("public")
 }
@@ -535,10 +535,10 @@ model Book {
   lastDiscoveredAt DateTime?
   Author           Author     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Edition          Edition[]
+  Laureate         Laureate[]
   Quote            Quote[]
   Review           Review[]
   UserBook         UserBook[]
-  Laureate         Laureate[]
 
   @@unique([title, authorId])
   @@schema("public")
@@ -608,7 +608,7 @@ model Quote {
   date             DateTime    @default(now())
   theme            String?
   aiInterpretation String?
-  definitions      String?
+  blockData        String?
   Like             Like[]
   Author           Author      @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   Book             Book?       @relation(fields: [bookId], references: [id], onUpdate: NoAction)
@@ -695,20 +695,16 @@ model LiteraryPrize {
 }
 
 model Laureate {
-  id          Int            @id @default(autoincrement())
-  prizeId     Int
-  year        Int
-  authorId    Int?
-  bookId      Int?
-  authorName  String
-  bookTitle   String?
-  authorQid   String?
-  workQid     String?
-  prize       LiteraryPrize  @relation(fields: [prizeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  author      Author?        @relation(fields: [authorId], references: [id], onUpdate: NoAction)
-  book        Book?          @relation(fields: [bookId], references: [id], onUpdate: NoAction)
+  id       Int           @id @default(autoincrement())
+  prizeId  Int
+  year     Int
+  authorId Int
+  bookId   Int?
+  author   Author        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  book     Book?         @relation(fields: [bookId], references: [id])
+  prize    LiteraryPrize @relation(fields: [prizeId], references: [id], onDelete: Cascade)
 
-  @@unique([prizeId, year, authorName])
+  @@unique([prizeId, year, authorId])
   @@schema("public")
 }
 

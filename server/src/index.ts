@@ -54,6 +54,7 @@ const formatBook = (book: any, userId: number = 1) => {
         isSaved: !!userLink,
         readingStatus: userLink?.status || null,
         buyLinks,
+        laureates: book.Laureate || book.laureates || [],
     };
 };
 
@@ -360,6 +361,7 @@ app.get('/authors/:id/books', async (req, res) => {
 
         let books = await prisma.book.findMany({
             where: { authorId },
+            include: { Laureate: { include: { prize: true } } },
             orderBy: { year: 'desc' }
         });
 
@@ -374,6 +376,7 @@ app.get('/authors/:id/books', async (req, res) => {
                 // Refresh books after enrichment
                 books = await prisma.book.findMany({
                     where: { authorId },
+                    include: { Laureate: { include: { prize: true } } },
                     orderBy: { year: 'desc' }
                 });
             } catch (e: any) {
@@ -513,7 +516,8 @@ app.get('/books/:id', optionalAuthenticateToken, async (req: AuthRequest, res) =
                 author: true,
                 similarBooks: true,
                 editions: true,
-                users: { where: { userId } }
+                users: { where: { userId } },
+                Laureate: { include: { prize: true } }
             } as any
         });
 
@@ -531,6 +535,33 @@ app.get('/books/:id', optionalAuthenticateToken, async (req: AuthRequest, res) =
     } catch (e) {
         console.error('Error fetching book:', e);
         res.status(500).json({ error: 'Failed to fetch book' });
+    }
+});
+
+app.post('/books/:id/enrich', optionalAuthenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { id } = req.params;
+        const bookId = parseInt(id);
+        const userId = req.user?.id || 1;
+
+        console.log(`[Server] POST /books/${bookId}/enrich called`);
+        await enrichBookWithInventaire(bookId);
+
+        const book = await prisma.book.findUnique({
+            where: { id: bookId },
+            include: {
+                author: true,
+                similarBooks: true,
+                editions: true,
+                users: { where: { userId } },
+                Laureate: { include: { prize: true } }
+            } as any
+        });
+
+        res.json(formatBook(book, userId));
+    } catch (e) {
+        console.error('Error enriching book:', e);
+        res.status(500).json({ error: 'Failed to enrich book' });
     }
 });
 
@@ -619,7 +650,8 @@ app.get('/books', optionalAuthenticateToken, async (req: AuthRequest, res) => {
             include: {
                 author: true,
                 similarBooks: true,
-                users: { where: { userId } }
+                users: { where: { userId } },
+                Laureate: { include: { prize: true } }
             }
         });
 
@@ -1237,7 +1269,8 @@ app.post('/books/import', async (req, res) => {
             where: { id: newBook.id },
             include: {
                 author: true,
-                editions: true
+                editions: true,
+                Laureate: { include: { prize: true } }
             } as any
         });
 

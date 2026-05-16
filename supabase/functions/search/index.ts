@@ -55,7 +55,19 @@ serve(async (req: Request) => {
       `,
       sql`
         SELECT b.*, row_to_json(a) as author,
-          COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users
+          COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
+          COALESCE((
+            SELECT json_agg(json_build_object(
+              'id', l.id,
+              'year', l.year,
+              'prizeId', l."prizeId",
+              'authorId', l."authorId",
+              'bookId', l."bookId",
+              'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+            ))
+            FROM "Laureate" l
+            WHERE l."bookId" = b.id
+          ), '[]'::json) as laureates
         FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
         WHERE b.title ILIKE ${'%' + query + '%'}
         LIMIT 10

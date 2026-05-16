@@ -19,6 +19,7 @@ export const formatBook = (book: any, userId: string | number | null = 0) => {
     isSaved: !!userLink,
     readingStatus: userLink?.status || null,
     buyLinks,
+    laureates: book.laureates || [],
   };
 };
 
