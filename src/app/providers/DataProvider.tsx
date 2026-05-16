@@ -3,6 +3,7 @@ import { Quote, Author, Book } from '../../shared/api/types';
 import { quoteService } from '../../entities/quote/api/QuoteService';
 import { authorService } from '../../entities/author/api/AuthorService';
 import { BlockService } from '../../shared/api/BlockService';
+import { StorageService, STORAGE_KEYS } from '../../shared/api/StorageService';
 
 type DataContextType = {
     quotes: Quote[];
@@ -44,9 +45,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [books, setBooks] = useState<Book[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    const loadCachedData = async () => {
+        try {
+            console.log('DataProvider: Initial loadCachedData started');
+            const [cachedQuotes, cachedAuthors, cachedBooks] = await Promise.all([
+                StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES),
+                StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS),
+                StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS),
+            ]);
+            if (cachedQuotes) setQuotes(cachedQuotes);
+            if (cachedAuthors) setAuthors(cachedAuthors);
+            if (cachedBooks) setBooks(cachedBooks);
+            
+            console.log('DataProvider: loadCachedData complete', { 
+                quotes: cachedQuotes?.length || 0,
+                authors: cachedAuthors?.length || 0,
+                books: cachedBooks?.length || 0 
+            });
+        } catch (error) {
+            console.error("DataProvider: Failed to load cached data", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const fetchData = async () => {
         try {
-            setIsLoading(true);
             console.log('DataProvider: Initial fetchData started');
             const [fetchedQuotes, fetchedAuthors, fetchedBooks] = await Promise.all([
                 quoteService.getQuotes(),
@@ -63,13 +87,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             setBooks(fetchedBooks);
         } catch (error) {
             console.error("DataProvider: Failed to fetch data", error);
-        } finally {
-            setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
+        const init = async () => {
+            await loadCachedData();
+            await fetchData();
+        };
+        init();
     }, []);
 
     const refreshQuotes = useCallback(async (reason: string = 'unknown') => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
-  TextInput
+  TextInput,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -45,6 +46,72 @@ interface GlobalQuote {
 }
 
 type UserProfileScreenRouteProp = { user: User };
+
+const BookSkeleton = ({ colors }: { colors: ThemeColors }) => {
+  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.8,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 90,
+        height: 135,
+        borderRadius: 8,
+        backgroundColor: colors.surfaceHighlight,
+        opacity: pulseAnim,
+      }}
+    />
+  );
+};
+
+const QuoteSkeleton = ({ colors }: { colors: ThemeColors }) => {
+  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.8,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={{
+        width: '100%',
+        height: 100,
+        borderRadius: 12,
+        backgroundColor: colors.surfaceHighlight,
+        opacity: pulseAnim,
+      }}
+    />
+  );
+};
 
 /**
  * Utility to convert base64 to ArrayBuffer for Supabase Storage
@@ -536,6 +603,12 @@ export default function UserProfileScreen() {
                   );
                 })}
               </View>
+            ) : isLoading ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                <BookSkeleton colors={colors} />
+                <BookSkeleton colors={colors} />
+                <BookSkeleton colors={colors} />
+              </ScrollView>
             ) : (
               <Text style={styles.placeholderText}>Cet utilisateur n'a pas encore de livres dans sa bibliothèque.</Text>
             )}
@@ -566,6 +639,11 @@ export default function UserProfileScreen() {
                     </View>
                   </TouchableOpacity>
                 ))}
+              </View>
+            ) : isLoading ? (
+              <View style={{ gap: 12 }}>
+                <QuoteSkeleton colors={colors} />
+                <QuoteSkeleton colors={colors} />
               </View>
             ) : (
               <Text style={styles.placeholderText}>Cet utilisateur n'a pas encore partagé de citations.</Text>

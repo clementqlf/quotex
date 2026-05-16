@@ -235,17 +235,22 @@ class AuthorService {
             const response = await fetch(`${this.API_URL}/books`, { headers });
             if (response.ok) {
                 const books = await response.json();
-                return books.map((b: any) => ({
+                const mappedBooks = books.map((b: any) => ({
                     ...b,
                     buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
                     similarBooks: b.similarBooks || []
                 }));
+                await StorageService.setItem(STORAGE_KEYS.BOOKS, mappedBooks);
+                return mappedBooks;
             }
         } catch (error) {
             console.error('Error fetching books from server:', error);
         }
-        return [];
+
+        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+        return storedBooks || [];
     }
+
 
     async getNotableWorks(authorId: number): Promise<Book[]> {
         try {
