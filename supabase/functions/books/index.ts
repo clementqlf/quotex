@@ -168,6 +168,22 @@ serve(async (req: Request) => {
     if (req.method === 'GET' && idParam && !subAction) {
       const book = await fetchBook(idParam, userId);
       if (!book) return error('Book not found', 404);
+
+      // Trigger background enrichment if data is sparse
+      if (book.inventaireUri && (!book.description || book.description.length < 50 || !book.cover)) {
+        // @ts-ignore deno
+        if (typeof EdgeRuntime !== 'undefined') {
+          console.log(`[books] Triggering background enrichment for book ${idParam}`);
+          // @ts-ignore deno
+          EdgeRuntime.waitUntil(enrichBookWithInventaire(idParam));
+          
+          if (book.authorId) {
+            // @ts-ignore deno
+            EdgeRuntime.waitUntil(enrichAuthorWithInventaire(book.authorId));
+          }
+        }
+      }
+
       return json(formatBook(book, userId));
     }
 
@@ -222,6 +238,13 @@ serve(async (req: Request) => {
         await sql`INSERT INTO "UserBook" ("userId", "bookId", "addedAt") VALUES (${authUser.id}, ${idParam}, now())`;
         return json({ isSaved: true });
       }
+    }
+
+    // POST /books/:id/enrich
+    if (req.method === 'POST' && idParam && subAction === 'enrich') {
+      await enrichBookWithInventaire(idParam);
+      const updated = await fetchBook(idParam, userId);
+      return json(formatBook(updated, userId));
     }
 
     // PATCH /books/:id/status

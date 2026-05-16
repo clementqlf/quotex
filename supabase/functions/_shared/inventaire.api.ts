@@ -38,6 +38,7 @@ export interface InventaireEdition {
 export interface InventaireWorkDetails {
     uri: string;
     title: string | null;
+    description: string | null;
     image: string | null;
     authorUris: string[];
     year: number | null;
@@ -117,8 +118,10 @@ export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Pa
     if (!entity) return {};
     const claims = entity.claims || {};
     const labels = entity.labels || {};
+    const descriptions = entity.descriptions || {};
     
     const label = labels['fr'] || labels['en'] || entity.label || Object.values(labels)[0] || null;
+    const description = descriptions['fr'] || descriptions['en'] || Object.values(descriptions)[0] || null;
     const publishDateRaw = safeFirstClaim(claims, 'wdt:P577');
     const year = publishDateRaw ? parseInt(publishDateRaw.substring(0, 4)) : null;
     
@@ -135,6 +138,7 @@ export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Pa
     return {
         uri: entity.uri || uri,
         title: label as string | null,
+        description: description as string | null,
         year,
         image: imageUrl,
         authorUris: claims['wdt:P50'] || [],
@@ -330,6 +334,7 @@ export const getInventaireWorkDetails = async (uri: string): Promise<InventaireW
     return {
         uri: formatted.uri!,
         title: formatted.title || null,
+        description: formatted.description || null,
         image: formatted.image || null,
         authorUris: formatted.authorUris || [],
         year: formatted.year || null,

@@ -120,3 +120,44 @@ export const getAuthorNationality = async (qid: string): Promise<string | null> 
         return null;
     }
 };
+
+/**
+ * Fetches laureates for a given prize QID.
+ */
+export const getPrizeLaureates = async (prizeQid: string): Promise<any[]> => {
+    try {
+        const sparql = `
+        SELECT DISTINCT ?year ?laureate ?laureateLabel ?work ?workLabel WHERE {
+          ?laureate wdt:P31 wd:Q5 . # On ne veut que des humains (auteurs)
+          ?laureate p:P166 ?award_stat .
+          ?award_stat ps:P166 wd:${prizeQid} .
+          ?award_stat pq:P585 ?date .
+          BIND(YEAR(?date) AS ?year)
+          OPTIONAL { ?award_stat pq:P1686 ?work . }
+          SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+        } ORDER BY DESC(?year)
+        `;
+        const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+
+        console.log(`[Wikidata] Fetching laureates for prize: ${prizeQid}`);
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
+                'Accept': 'application/sparql-results+json'
+            }
+        });
+
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.results.bindings.map((b: any) => ({
+            year: b.year?.value ? parseInt(b.year.value) : null,
+            authorQid: b.laureate?.value.split('/').pop(),
+            authorName: b.laureateLabel?.value,
+            workQid: b.work?.value.split('/').pop(),
+            workTitle: b.workLabel?.value,
+        }));
+    } catch (e) {
+        console.error(`[Wikidata] Error fetching laureates for ${prizeQid}:`, e);
+        return [];
+    }
+};

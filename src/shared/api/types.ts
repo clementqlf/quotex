@@ -26,6 +26,7 @@ export type Author = {
   isSaved?: boolean;
   isEnriching?: boolean;
   quotesCount?: number;
+  laureates?: Laureate[];
 };
 
 export type ReadingStatus = 'READ' | 'TO_READ' | 'READING' | 'DROPPED';
@@ -49,6 +50,7 @@ export type Book = {
   openLibraryId?: string;
   googleId?: string;
   isbn?: string;
+  laureates?: Laureate[];
 };
 
 export type Quote = {
@@ -78,6 +80,27 @@ export type Review = {
   user: User;
   userId: string;
   bookId: number;
+};
+
+export type LiteraryPrize = {
+  id: number;
+  name: string;
+  description?: string;
+  image?: string;
+  inventaireUri?: string;
+  wikipediaTitle?: string;
+  laureates?: Laureate[];
+};
+
+export type Laureate = {
+  id: number;
+  prizeId: number;
+  year: number;
+  authorId: number;
+  bookId?: number;
+  prize?: LiteraryPrize;
+  author: Author;
+  book?: Book;
 };
 
 // Define TabParamList here to avoid circular dependency

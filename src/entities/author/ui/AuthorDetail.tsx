@@ -23,12 +23,41 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import * as WebBrowser from 'expo-web-browser';
 
+// Fetch author details from Inventaire API (client-side version)
+async function fetchExternalAuthorDetails(inventaireUri: string) {
+  try {
+    const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(inventaireUri)}&lang=fr&props=labels|descriptions|claims|image`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entity = data.entities?.[inventaireUri];
+    if (!entity) return null;
+
+    const labels = entity.labels || {};
+    const descriptions = entity.descriptions || {};
+    const claims = entity.claims || {};
+    const name = labels['fr'] || labels['en'] || null;
+    const description = descriptions['fr'] || descriptions['en'] || null;
+    const image = entity.image?.url || entity.image?.file
+      ? `https://inventaire.io${entity.image?.url || entity.image?.file}`
+      : null;
+    const birthDateRaw = claims['wdt:P569']?.[0];
+    const birthDate = birthDateRaw ? birthDateRaw.substring(0, 4) : null;
+
+    return { name, description, image, birthDate, nationality: null };
+  } catch (e) {
+    console.error('[AuthorDetail] Failed to fetch external author details:', e);
+    return null;
+  }
+}
+
 export default function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
-  const params = useLocalSearchParams<{ author?: string; authorName?: string }>();
+  const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
+  const paramInventaireUri = params.inventaireUri;
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
@@ -52,7 +81,7 @@ export default function AuthorDetailScreen() {
         const currentAuthorId = authorInfo?.id;
         const needsFetch = !authorInfo || !currentAuthorId;
 
-        console.log(`[AuthorDetail] Loading data for: ${nameToUse}`);
+        console.log(`[AuthorDetail] Loading data for: ${nameToUse} (uri: ${paramInventaireUri})`);
 
         const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
           getBooksByAuthor(nameToUse, currentAuthorId),
@@ -64,6 +93,43 @@ export default function AuthorDetailScreen() {
 
         if (fetchedAuthor) {
           setAuthorInfo(fetchedAuthor);
+          
+          // Force enrichment if description is missing
+          if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
+            console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
+            try {
+              const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+              const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+              const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+              if (token) headers['Authorization'] = `Bearer ${token}`;
+
+              const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers });
+              if (enrichRes.ok) {
+                const data = await enrichRes.json();
+                if (data.author) setAuthorInfo(data.author);
+                if (data.books) setAuthorBooks(data.books);
+              }
+            } catch (e) {
+              console.error('[AuthorDetail] Synch enrichment failed:', e);
+            }
+          }
+        } else if (!fetchedAuthor && paramInventaireUri) {
+          // Author not in local DB — enrich from Inventaire using the URI from params
+          console.log(`[AuthorDetail] Author not local, fetching from Inventaire: ${paramInventaireUri}`);
+          const externalDetails = await fetchExternalAuthorDetails(paramInventaireUri);
+          if (externalDetails) {
+            setAuthorInfo(prev => ({
+              ...prev,
+              id: prev?.id ?? 0,
+              name: externalDetails.name || nameToUse || '',
+              description: externalDetails.description || undefined,
+              image: externalDetails.image || undefined,
+              birthDate: externalDetails.birthDate || undefined,
+              nationality: externalDetails.nationality || undefined,
+              inventaireUri: paramInventaireUri,
+              isSaved: false,
+            } as any));
+          }
         }
 
         setAuthorBooks(booksToDisplay);
@@ -75,7 +141,7 @@ export default function AuthorDetailScreen() {
       }
     }
     loadAuthorData();
-  }, [nameToUse, authorInfo?.id, getBooksByAuthor, getAuthorByName]);
+  }, [nameToUse, authorInfo?.id, paramInventaireUri, getBooksByAuthor, getAuthorByName]);
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;

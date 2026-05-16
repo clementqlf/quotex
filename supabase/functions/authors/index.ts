@@ -127,9 +127,15 @@ serve(async (req: Request) => {
     if (req.method === 'POST' && idParam && subAction === 'enrich') {
       const authorRows = await sql`SELECT * FROM "Author" WHERE id = ${idParam} LIMIT 1`;
       if (!authorRows.length) return error('Author not found', 404);
-      await enrichAuthorWithInventaire(authorRows[0].id);
+      
+      const updatedAuthor = await enrichAuthorWithInventaire(authorRows[0].id);
       const books = await sql`SELECT * FROM "Book" WHERE "authorId" = ${idParam} ORDER BY year DESC`;
-      return json({ success: true, books: books.map((b: any) => formatBook(b)) });
+      
+      return json({ 
+        success: true, 
+        author: updatedAuthor ? formatAuthor(updatedAuthor, userId) : null,
+        books: books.map((b: any) => formatBook(b)) 
+      });
     }
 
     // POST /authors/:id/toggle-save
@@ -147,6 +153,30 @@ serve(async (req: Request) => {
         await sql`INSERT INTO "UserAuthor" ("userId", "authorId", "addedAt") VALUES (${authUser.id}, ${idParam}, now())`;
         return json({ isSaved: true });
       }
+    }
+
+    // GET /authors/:id
+    if (req.method === 'GET' && idParam && !subAction) {
+      const authorRows = await sql`
+        SELECT a.*,
+          COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+          json_build_object('quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int) as "_count"
+        FROM "Author" a WHERE a.id = ${idParam} LIMIT 1
+      `;
+      if (!authorRows.length) return error('Author not found', 404);
+      const author = authorRows[0];
+
+      // Trigger background enrichment if data is sparse
+      if (author.inventaireUri && (!author.description || !author.image)) {
+        // @ts-ignore deno
+        if (typeof EdgeRuntime !== 'undefined') {
+          console.log(`[authors] Triggering background enrichment for author ${idParam}`);
+          // @ts-ignore deno
+          EdgeRuntime.waitUntil(enrichAuthorWithInventaire(idParam));
+        }
+      }
+
+      return json(formatAuthor(author, userId));
     }
 
     return error('Not found', 404);

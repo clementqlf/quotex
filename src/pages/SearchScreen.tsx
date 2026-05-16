@@ -13,8 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon } from 'lucide-react-native';
+import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon, Award } from 'lucide-react-native';
 import { searchService, SearchResults } from '@/src/features/search/api/SearchService';
+import { PrizeService } from '@/src/shared/api/PrizeService';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -22,12 +23,14 @@ import { ThemeColors } from '@/src/shared/theme';
 import { API_BASE_URL } from '@/src/shared/config/api';
 
 type SearchSection =
-    | { title: 'Citations'; data: Quote[]; type: 'quote' }
-    | { title: 'Mes Livres'; data: Book[]; type: 'book' }
-    | { title: 'Auteurs'; data: Author[]; type: 'author' }
-    | { title: 'Thèmes'; data: string[]; type: 'theme' }
-    | { title: 'Livres'; data: any[]; type: 'inventaire_book' }
-    | { title: 'Auteurs (Inventaire)'; data: any[]; type: 'inventaire_author' };
+    | { title: string; data: Quote[]; type: 'quote' }
+    | { title: string; data: Book[]; type: 'book' }
+    | { title: string; data: Author[]; type: 'author' }
+    | { title: string; data: string[]; type: 'theme' }
+    | { title: string; data: any[]; type: 'prize' }
+    | { title: string; data: any[]; type: 'inventaire_book' }
+    | { title: string; data: any[]; type: 'inventaire_author' }
+    | { title: string; data: any[]; type: 'inventaire_prize' };
 
 export default function SearchScreen() {
     const router = useRouter();
@@ -36,8 +39,9 @@ export default function SearchScreen() {
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
     const [query, setQuery] = useState('');
+    const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes'>('all');
     const [isLoading, setIsLoading] = useState(false);
-    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] });
+    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] } as any);
     const inputRef = useRef<TextInput>(null);
 
     useEffect(() => {
@@ -52,7 +56,7 @@ export default function SearchScreen() {
             if (query.trim().length > 2) { // Search after 3 chars
                 performSearch(query);
             } else {
-                setResults({ quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] });
+                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] } as any);
             }
         }, 500); // 500ms debounce to reduce server load
 
@@ -97,14 +101,41 @@ export default function SearchScreen() {
         }
     };
 
-    const sections: SearchSection[] = [
-        { title: 'Thèmes', data: results.themes, type: 'theme' },
-        { title: 'Mes Auteurs', data: results.authors, type: 'author' },
-        { title: 'Mes Livres', data: results.books, type: 'book' },
-        { title: 'Citations', data: results.quotes, type: 'quote' },
-        { title: 'Livres', data: results.inventaireWorks || [], type: 'inventaire_book' },
-        { title: 'Auteurs', data: results.inventaireAuthors || [], type: 'inventaire_author' },
-    ].filter(section => section.data.length > 0) as SearchSection[];
+    const handleImportPrize = async (prizeData: any) => {
+        setIsLoading(true);
+        try {
+            const result = await PrizeService.syncPrize({ prizeUri: prizeData.uri });
+            if (result.success) {
+                router.push({ pathname: '/prize-detail', params: { prizeId: result.prizeId } });
+            }
+        } catch (error) {
+            console.error("Failed to import prize", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const sections = React.useMemo(() => {
+        const allSections: SearchSection[] = [
+            { title: 'Thèmes', data: results.themes, type: 'theme' },
+            { title: 'Mes Auteurs', data: results.authors, type: 'author' },
+            { title: 'Mes Livres', data: results.books, type: 'book' },
+            { title: 'Prix Littéraires', data: results.prizes, type: 'prize' },
+            { title: 'Citations', data: results.quotes, type: 'quote' },
+            { title: 'Prix (Inventaire)', data: (results as any).inventairePrizes || [], type: 'inventaire_prize' },
+            { title: 'Livres', data: results.inventaireWorks || [], type: 'inventaire_book' },
+            { title: 'Auteurs', data: results.inventaireAuthors || [], type: 'inventaire_author' },
+        ];
+
+        return allSections.filter(section => {
+            if (section.data.length === 0) return false;
+            if (activeTab === 'all') return true;
+            if (activeTab === 'books') return section.type === 'book' || section.type === 'inventaire_book';
+            if (activeTab === 'authors') return section.type === 'author' || section.type === 'inventaire_author';
+            if (activeTab === 'prizes') return section.type === 'prize' || section.type === 'inventaire_prize';
+            return false;
+        }) as SearchSection[];
+    }, [results, activeTab]);
 
     const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
         if (section.type === 'quote') {
@@ -176,6 +207,26 @@ export default function SearchScreen() {
                     <Text style={styles.itemTitle}>{theme}</Text>
                 </TouchableOpacity>
             );
+        } else if (section.type === 'prize') {
+            const prize = item;
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => router.push({ pathname: '/prize-detail', params: { prizeId: prize.id } })}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                        {prize.image ? (
+                            <Image source={{ uri: prize.image }} style={styles.authorImage} />
+                        ) : (
+                            <Award size={20} color="#F59E0B" />
+                        )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle}>{prize.name}</Text>
+                        <Text style={styles.subText} numberOfLines={2}>{prize.description || 'Prix Littéraire'}</Text>
+                    </View>
+                </TouchableOpacity>
+            );
         } else if (section.type === 'inventaire_book') {
             return (
                 <TouchableOpacity
@@ -216,6 +267,25 @@ export default function SearchScreen() {
                     </View>
                 </TouchableOpacity>
             )
+        } else if (section.type === 'inventaire_prize') {
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => handleImportPrize(item)}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                        {item.image ? (
+                            <Image source={{ uri: item.image }} style={styles.authorImage} />
+                        ) : (
+                            <Award size={20} color="#F59E0B" />
+                        )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle}>{item.label}</Text>
+                        <Text style={styles.subText} numberOfLines={2}>{item.description || 'Importer ce prix'}</Text>
+                    </View>
+                </TouchableOpacity>
+            )
         }
         return null;
     };
@@ -246,7 +316,27 @@ export default function SearchScreen() {
                 </View>
             </View>
 
-            {/* Content */}
+            {/* Tabs */}
+            {query.trim().length > 0 && (
+                <View style={styles.tabsContainer}>
+                    {[
+                        { id: 'all', label: 'Tout' },
+                        { id: 'books', label: 'Livres' },
+                        { id: 'authors', label: 'Auteurs' },
+                        { id: 'prizes', label: 'Prix' }
+                    ].map((tab) => (
+                        <TouchableOpacity
+                            key={tab.id}
+                            style={[styles.tab, activeTab === tab.id && styles.activeTab]}
+                            onPress={() => setActiveTab(tab.id as any)}
+                        >
+                            <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
+                                {tab.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
             {isLoading ? (
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
@@ -307,6 +397,32 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         color: colors.inputText,
         fontSize: 16,
         height: '100%',
+    },
+    tabsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        backgroundColor: colors.background,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+    },
+    tab: {
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        marginRight: 24,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
+    activeTab: {
+        borderBottomColor: colors.primary,
+    },
+    tabText: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: colors.textSecondary,
+    },
+    activeTabText: {
+        color: colors.primary,
+        fontWeight: '600',
     },
     listContent: {
         paddingBottom: 40,

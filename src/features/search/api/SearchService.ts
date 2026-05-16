@@ -6,8 +6,10 @@ export interface SearchResults {
     authors: Author[];
     books: Book[];
     themes: string[];
+    prizes: any[];
     inventaireWorks?: any[];
     inventaireAuthors?: any[];
+    inventairePrizes?: any[];
 }
 
 class SearchService {
@@ -15,7 +17,7 @@ class SearchService {
 
     async search(query: string): Promise<SearchResults> {
         if (!query.trim()) {
-            return { quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] };
+            return { quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
         }
 
         try {
@@ -24,15 +26,15 @@ class SearchService {
 
             if (response.ok) {
                 const results: SearchResults = await response.json();
-                console.log(`[SearchService] Found ${results.quotes.length} quotes, ${results.authors.length} authors, ${results.books.length} books`);
+                console.log(`[SearchService] Results: ${results.quotes.length} quotes, ${results.authors.length} local authors (${results.inventaireAuthors?.length || 0} ext), ${results.books.length} local books (${results.inventaireWorks?.length || 0} ext), ${results.prizes.length} local prizes (${results.inventairePrizes?.length || 0} ext)`);
                 return results;
             } else {
                 console.error('[SearchService] Search failed:', response.status);
-                return { quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] };
+                return { quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
             }
         } catch (error) {
             console.error('[SearchService] Network error:', error);
-            return { quotes: [], authors: [], books: [], themes: [], inventaireWorks: [], inventaireAuthors: [] };
+            return { quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
         }
     }
 }

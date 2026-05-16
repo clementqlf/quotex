@@ -509,6 +509,7 @@ model Author {
   Book             Book[]
   Quote            Quote[]
   UserAuthor       UserAuthor[]
+  Laureate         Laureate[]
 
   @@schema("public")
 }
@@ -537,6 +538,7 @@ model Book {
   Quote            Quote[]
   Review           Review[]
   UserBook         UserBook[]
+  Laureate         Laureate[]
 
   @@unique([title, authorId])
   @@schema("public")
@@ -677,6 +679,36 @@ model UserQuote {
   Profile Profile  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@id([userId, quoteId])
+  @@schema("public")
+}
+
+model LiteraryPrize {
+  id             Int        @id @default(autoincrement())
+  name           String     @unique
+  description    String?
+  image          String?
+  inventaireUri  String?    @unique
+  wikipediaTitle String?
+  laureates      Laureate[]
+
+  @@schema("public")
+}
+
+model Laureate {
+  id          Int            @id @default(autoincrement())
+  prizeId     Int
+  year        Int
+  authorId    Int?
+  bookId      Int?
+  authorName  String
+  bookTitle   String?
+  authorQid   String?
+  workQid     String?
+  prize       LiteraryPrize  @relation(fields: [prizeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  author      Author?        @relation(fields: [authorId], references: [id], onUpdate: NoAction)
+  book        Book?          @relation(fields: [bookId], references: [id], onUpdate: NoAction)
+
+  @@unique([prizeId, year, authorName])
   @@schema("public")
 }
 

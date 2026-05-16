@@ -11,6 +11,7 @@ import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts'
 import {
   searchInventaireWorks,
   searchInventaireAuthors,
+  searchInventaire,
 } from '../_shared/inventaire.api.ts';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -32,9 +33,9 @@ serve(async (req: Request) => {
   try {
     console.log(`[search] Starting search for "${query}"`);
     
-    // 1-4. Local queries
+    // 1-5. Local queries
     console.log(`[search] Executing local DB queries...`);
-    const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw] = await Promise.all([
+    const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw, prizesRaw] = await Promise.all([
       sql`
         SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q."blockData",
           row_to_json(a) as author, row_to_json(b) as book,
@@ -63,13 +64,18 @@ serve(async (req: Request) => {
         SELECT DISTINCT theme FROM "Quote"
         WHERE theme ILIKE ${'%' + query + '%'} AND theme IS NOT NULL
         LIMIT 10
+      `,
+      sql`
+        SELECT * FROM "LiteraryPrize"
+        WHERE name ILIKE ${'%' + query + '%'}
+        LIMIT 10
       `
     ]);
     console.log(`[search] Local queries done.`);
 
-    // 5 & 6. Inventaire searches
+    // 5-7. Inventaire searches
     console.log(`[search] Executing Inventaire searches...`);
-    const [inventaireWorks, inventaireAuthors] = await Promise.all([
+    const [inventaireWorks, inventaireAuthors, inventairePrizes] = await Promise.all([
       (async () => {
         const cached = await sql`SELECT results, "expiresAt" FROM "SearchCache" WHERE query = ${query} AND type = 'sujets' LIMIT 1`.catch(() => []);
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
@@ -95,6 +101,47 @@ serve(async (req: Request) => {
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
         await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(fresh)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
         return fresh;
+      })(),
+      (async () => {
+        // High-performance hybrid search (Search Index + Property Filter)
+        try {
+          // 1. Instant full-text search via Wikidata index
+          const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=fr&format=json&origin=*&type=item&limit=15`;
+          const searchRes = await fetch(searchUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+          const searchData = await searchRes.json();
+          const results = searchData.search || [];
+          if (results.length === 0) return [];
+
+          // 2. Batch check nature of items (P31) in one single request
+          const qids = results.map((r: any) => r.id);
+          const propsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qids.join('|')}&props=claims&format=json&origin=*`;
+          const propsRes = await fetch(propsUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+          const propsData = await propsRes.json();
+
+          // Award-related QIDs: Literary award (Q616509), Prize (Q131647), Award (Q7161), 
+          // Medal (Q131647), Distinction (Q1771146), etc.
+          const prizeTypeQids = ['Q616509', 'Q131647', 'Q7161', 'Q380334', 'Q1771146', 'Q132338', 'Q1033596'];
+
+          return results
+            .filter((r: any) => {
+              const entity = propsData.entities?.[r.id];
+              const p31Claims = entity?.claims?.P31 || [];
+              const instanceOfIds = p31Claims.map((c: any) => c.mainsnak?.datavalue?.value?.id);
+              // We also check if the label/description contains "prix" just in case P31 is missing
+              const hasPrizeKeyword = (r.label || '').toLowerCase().includes('prix') || (r.description || '').toLowerCase().includes('prix');
+              return instanceOfIds.some((id: string) => prizeTypeQids.includes(id)) || hasPrizeKeyword;
+            })
+            .map((r: any) => ({
+               id: r.id,
+               uri: `wd:${r.id}`,
+               label: r.label,
+               description: r.description,
+               image: null
+            }));
+        } catch (e) {
+          console.error('[search] Wikidata hybrid search error:', e);
+          return [];
+        }
       })()
     ]);
     console.log(`[search] Inventaire searches done.`);
@@ -103,9 +150,11 @@ serve(async (req: Request) => {
       quotes: quotesRaw.map((q: any) => formatQuote(q, authUserId)),
       authors: localAuthorsRaw.map((a: any) => formatAuthor(a, 0)),
       books: localBooksRaw.map((b: any) => formatBook(b, 0)),
+      prizes: prizesRaw || [],
       themes: themesRaw.map((t: any) => t.theme),
       inventaireWorks: inventaireWorks || [],
       inventaireAuthors: inventaireAuthors || [],
+      inventairePrizes: inventairePrizes || [],
     });
   } catch (e: any) {
     console.error('[search] Fatal error:', e);

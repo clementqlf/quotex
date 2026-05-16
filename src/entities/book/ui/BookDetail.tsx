@@ -110,9 +110,32 @@ export default function BookDetailScreen() {
 
       if (currentBook) {
         setBookInfo(currentBook);
-        const authorName = getAuthorName(currentBook.author);
-        const fetchedAuthor = await getAuthorByName(authorName);
-        if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+        
+        // If the book is sparse (no description), force a synchronous enrichment
+        if (currentBook.inventaireUri && (!currentBook.description || currentBook.description.length < 50)) {
+          console.log('[BookDetail] Book is sparse, forcing synchronous enrichment...');
+          try {
+            const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            
+            const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+            const enrichRes = await fetch(`${BASE_URL}/books/${currentBook.id}/enrich`, { method: 'POST', headers });
+            if (enrichRes.ok) {
+              const enrichedBook = await enrichRes.json();
+              setBookInfo(enrichedBook);
+              currentBook = enrichedBook;
+            }
+          } catch (e) {
+            console.error('[BookDetail] Synch enrichment failed:', e);
+          }
+        }
+
+        if (currentBook) {
+          const authorName = getAuthorName(currentBook.author);
+          const fetchedAuthor = await getAuthorByName(authorName);
+          if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+        }
       } else {
         console.log('[BookDetail] Book not found');
       }

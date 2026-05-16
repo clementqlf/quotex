@@ -132,7 +132,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
     inventaireUri: nativeUri,
     authorUris: details.authorUris,
     wikipediaTitle: details.wikipediaTitle,
-    description: null,
+    description: details.description || null,
     pages: 0,
     authors: [],
   };
@@ -149,7 +149,9 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
 
   if (details.wikipediaTitle) {
     const synopsis = await api.fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
-    if (synopsis) result.description = synopsis;
+    if (synopsis && synopsis.length > (result.description?.length || 0)) {
+      result.description = synopsis;
+    }
   }
 
   try {
