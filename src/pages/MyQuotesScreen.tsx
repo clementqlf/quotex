@@ -22,6 +22,7 @@ import Animated, {
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -78,14 +79,16 @@ export default function MyQuotesScreen() {
     }
   }, [refreshQuotes, refreshAuthors, refreshBooks]);
 
+  const isScreenFocused = useIsFocused();
+
   useEffect(() => {
-    if (isFocused) {
+    if (isScreenFocused && isFocused) {
       setTabIndex(0);
       refreshQuotes();
       refreshAuthors();
       refreshBooks();
     }
-  }, [isFocused]);
+  }, [isScreenFocused, isFocused]);
 
   // Memoize the check to avoid effect re-runs on every quote update
   const hasEnrichingItems = useMemo(() => myQuotes.some(q => {
@@ -187,7 +190,13 @@ export default function MyQuotesScreen() {
         const authorMatch = !filtersByType.author || filtersByType.author.includes(getAuthorName(q.author));
         const bookMatch = !filtersByType.book || filtersByType.book.includes(getBookTitle(q.book));
         const yearMatch = !filtersByType.year || (bookDescriptions[getBookTitle(q.book)] && filtersByType.year.includes(bookDescriptions[getBookTitle(q.book)].year));
-        const statusMatch = !filtersByType.status || (q.book && typeof q.book === 'object' && q.book.readingStatus && filtersByType.status.includes(q.book.readingStatus));
+        
+        // Find matching book in allBooks to get the up-to-date readingStatus
+        const bookTitle = getBookTitle(q.book);
+        const latestBook = allBooks.find(b => b.title.toLowerCase() === bookTitle.toLowerCase());
+        const currentReadingStatus = latestBook?.readingStatus || (q.book && typeof q.book === 'object' ? q.book.readingStatus : null);
+        
+        const statusMatch = !filtersByType.status || (currentReadingStatus && filtersByType.status.includes(currentReadingStatus));
         return authorMatch && bookMatch && yearMatch && statusMatch;
       });
     }
@@ -433,9 +442,12 @@ export default function MyQuotesScreen() {
       return acc;
     }, {});
 
-    // Ensure we include books who are explicitly saved by the user
+    // Ensure we include books who are explicitly saved by the user or have quotes
     allBooks.forEach(book => {
-      if (book.isSaved && !grouped[book.title]) {
+      if (grouped[book.title]) {
+        // Enforce the latest book info (e.g. status) from the database/allBooks list
+        grouped[book.title].bookObj = book;
+      } else if (book.isSaved) {
         const authorName = getAuthorName(book.author);
         grouped[book.title] = {
           authors: new Set([authorName]),

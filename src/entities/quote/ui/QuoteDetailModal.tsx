@@ -8,19 +8,30 @@ import {
   StyleSheet,
   Dimensions,
   Image,
-  ActivityIndicator,
   Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
+import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus, CheckCircle2, Edit3, Trash2 } from 'lucide-react-native';
+import Svg, { Path, Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedRef,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing
+} from 'react-native-reanimated';
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
 import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
+import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useData } from '@/src/app/providers/DataProvider';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
@@ -32,14 +43,193 @@ import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispa
 import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import AIChatModal from './AIChatModal';
+
+const STANDARD_THEMES = [
+  "Philosophie & Sagesse",
+  "Amour & Relations",
+  "Condition Humaine",
+  "Temps & Mort",
+  "Art & Littérature",
+  "Politique & Société",
+  "Liberté & Justice",
+  "Bonheur & Existence",
+  "Nature & Sciences",
+  "Savoir & Vérité",
+  "Destin & Choix",
+];
+
+const GlowCircle = ({ color1, x, y, scale, size = 200, opacity = 0.55, style }: any) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: x.value },
+        { translateY: y.value },
+        { scale: scale.value }
+      ],
+    };
+  });
+
+  const radius = size / 2;
+
+  return (
+    <Animated.View style={[{ width: size, height: size, position: 'absolute', opacity }, animatedStyle, style]}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <Defs>
+          <RadialGradient id={`grad-${color1}`} cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0%" stopColor={color1} stopOpacity="1" />
+            <Stop offset="60%" stopColor={color1} stopOpacity="0.4" />
+            <Stop offset="100%" stopColor={color1} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={radius} cy={radius} r={radius} fill={`url(#grad-${color1})`} />
+      </Svg>
+    </Animated.View>
+  );
+};
 
 export default function QuoteDetailModal() {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const router = useRouter();
+
+  // Apple Intelligence glowing effect shared values
+  const glow1X = useSharedValue(0);
+  const glow1Y = useSharedValue(0);
+  const glow1Scale = useSharedValue(1);
+
+  const glow2X = useSharedValue(0);
+  const glow2Y = useSharedValue(0);
+  const glow2Scale = useSharedValue(1);
+
+  const glow3X = useSharedValue(0);
+  const glow3Y = useSharedValue(0);
+  const glow3Scale = useSharedValue(1);
+
+  const glow4X = useSharedValue(0);
+  const glow4Y = useSharedValue(0);
+  const glow4Scale = useSharedValue(1);
+
+  React.useEffect(() => {
+    // Glow 1: Top Edge Slider (Indigo)
+    glow1X.value = withRepeat(
+      withSequence(
+        withTiming(-130, { duration: 4500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(130, { duration: 5500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 5000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow1Y.value = withRepeat(
+      withSequence(
+        withTiming(-10, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(10, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 3200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow1Scale.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 4000 }),
+        withTiming(0.85, { duration: 3500 }),
+        withTiming(1.0, { duration: 4500 })
+      ),
+      -1,
+      true
+    );
+
+    // Glow 2: Bottom Edge Slider (Pink)
+    glow2X.value = withRepeat(
+      withSequence(
+        withTiming(130, { duration: 5200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-130, { duration: 4800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 4500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow2Y.value = withRepeat(
+      withSequence(
+        withTiming(10, { duration: 3200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-10, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 3600, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow2Scale.value = withRepeat(
+      withSequence(
+        withTiming(0.85, { duration: 3800 }),
+        withTiming(1.35, { duration: 4800 }),
+        withTiming(1.0, { duration: 3500 })
+      ),
+      -1,
+      true
+    );
+
+    // Glow 3: Left Edge Slider (Cyan)
+    glow3X.value = withRepeat(
+      withSequence(
+        withTiming(-10, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(10, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 3800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow3Y.value = withRepeat(
+      withSequence(
+        withTiming(-75, { duration: 4600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(75, { duration: 4200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 5000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow3Scale.value = withRepeat(
+      withSequence(
+        withTiming(1.25, { duration: 3600 }),
+        withTiming(0.9, { duration: 4100 }),
+        withTiming(1.0, { duration: 3800 })
+      ),
+      -1,
+      true
+    );
+
+    // Glow 4: Right Edge Slider (Blue)
+    glow4X.value = withRepeat(
+      withSequence(
+        withTiming(10, { duration: 3200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-10, { duration: 3800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 3500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow4Y.value = withRepeat(
+      withSequence(
+        withTiming(75, { duration: 4800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-75, { duration: 4400, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 5200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    glow4Scale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 4000 }),
+        withTiming(0.9, { duration: 3500 }),
+        withTiming(1.0, { duration: 4200 })
+      ),
+      -1,
+      true
+    );
+  }, []);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
-  const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote } = useData();
+  const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote } = useData();
 
   // 1. Prioritize lookup by ID from global store
   // 2. Fallback to parsing the stringified quote param
@@ -65,7 +255,128 @@ export default function QuoteDetailModal() {
   const [fetchedAuthor, setFetchedAuthor] = React.useState<Author | null>(null);
   const [gridData, setGridData] = React.useState<string[]>([]);
   const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
+  const [isAIChatVisible, setAIChatVisible] = React.useState(false);
+  const [isThemeSelectorVisible, setThemeSelectorVisible] = React.useState(false);
+  const [themeToModify, setThemeToModify] = React.useState<string | null>(null);
+  const [customThemeText, setCustomThemeText] = React.useState('');
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
+  const removeTheme = async (themeToRemove: string) => {
+    if (!quote) return;
+    const currentTheme = quote.theme;
+    const currentAdditional = quote.blockData?.additionalThemes || [];
+
+    if (currentTheme === themeToRemove) {
+      if (currentAdditional.length > 0) {
+        const newTheme = currentAdditional[0];
+        const newAdditional = currentAdditional.slice(1);
+        const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditional };
+        const updatedQuote = { ...quote, theme: newTheme, blockData: newBlockData };
+        setQuote(updatedQuote);
+        if (quote.id) {
+          await quoteService.updateQuote(quote.id, { theme: newTheme, blockData: newBlockData });
+          if (updateQuote) updateQuote(quote.id, { theme: newTheme, blockData: newBlockData });
+        }
+      } else {
+        const updatedQuote = { ...quote, theme: undefined };
+        setQuote(updatedQuote);
+        if (quote.id) {
+          await quoteService.updateQuote(quote.id, { theme: undefined });
+          if (updateQuote) updateQuote(quote.id, { theme: undefined });
+        }
+      }
+    } else {
+      const newAdditional = currentAdditional.filter((t: string) => t !== themeToRemove);
+      const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditional };
+      const updatedQuote = { ...quote, blockData: newBlockData };
+      setQuote(updatedQuote);
+      if (quote.id) {
+        await quoteService.updateQuote(quote.id, { blockData: newBlockData });
+        if (updateQuote) updateQuote(quote.id, { blockData: newBlockData });
+      }
+    }
+  };
+
+  const addTheme = async (themeToAdd: string) => {
+    if (!quote) return;
+    const currentTheme = quote.theme;
+    const currentAdditional = quote.blockData?.additionalThemes || [];
+
+    if (!currentTheme || currentTheme === 'Thème non renseigné') {
+      const updatedQuote = { ...quote, theme: themeToAdd };
+      setQuote(updatedQuote);
+      if (quote.id) {
+        await quoteService.updateQuote(quote.id, { theme: themeToAdd });
+        if (updateQuote) updateQuote(quote.id, { theme: themeToAdd });
+      }
+    } else {
+      if (currentTheme === themeToAdd || currentAdditional.includes(themeToAdd)) return;
+      const newAdditional = [...currentAdditional, themeToAdd];
+      const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditional };
+      const updatedQuote = { ...quote, blockData: newBlockData };
+      setQuote(updatedQuote);
+      if (quote.id) {
+        await quoteService.updateQuote(quote.id, { blockData: newBlockData });
+        if (updateQuote) updateQuote(quote.id, { blockData: newBlockData });
+      }
+    }
+  };
+
+  const replaceTheme = async (oldTheme: string, newTheme: string) => {
+    if (!quote) return;
+    
+    let newPrimaryTheme = quote.theme;
+    let newAdditionalThemes = [...(quote.blockData?.additionalThemes || [])];
+    
+    if (newPrimaryTheme === oldTheme) {
+      newPrimaryTheme = newTheme;
+    } else {
+      const index = newAdditionalThemes.indexOf(oldTheme);
+      if (index > -1) {
+        newAdditionalThemes[index] = newTheme;
+      } else {
+        newAdditionalThemes.push(newTheme);
+      }
+    }
+    
+    const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean)));
+    newPrimaryTheme = allUnique[0] || undefined;
+    newAdditionalThemes = allUnique.slice(1);
+    
+    const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditionalThemes };
+    const updatedQuote = { ...quote, theme: newPrimaryTheme, blockData: newBlockData };
+    
+    setQuote(updatedQuote);
+    if (quote.id) {
+      await quoteService.updateQuote(quote.id, { theme: newPrimaryTheme, blockData: newBlockData });
+      if (updateQuote) updateQuote(quote.id, { theme: newPrimaryTheme, blockData: newBlockData });
+    }
+  };
+
+  const handleThemeLongPress = (themeStr: string) => {
+    if (themeStr === 'Thème non renseigné') return;
+    Alert.alert(
+      "Options de l'étiquette",
+      `Que souhaitez-vous faire avec le thème "${themeStr}" ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Remplacer",
+          onPress: () => {
+            setThemeToModify(themeStr);
+            setThemeSelectorVisible(true);
+          }
+        },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            await removeTheme(themeStr);
+          }
+        }
+      ]
+    );
+  };
 
   const handleTriggerAnalysis = async () => {
     if (!quote?.id) return;
@@ -135,7 +446,12 @@ export default function QuoteDetailModal() {
 
   // Data helpers based on fetched state
   const aiInterpretation = quote?.aiInterpretation;
-  const quoteTheme = quote?.theme || 'Thème non renseigné';
+  const quoteTheme = quote?.theme;
+  const additionalThemes = quote?.blockData?.additionalThemes || [];
+  const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean)));
+  if (allThemes.length === 0) {
+    allThemes.push('Thème non renseigné');
+  }
 
   // Tab Logic
   type TabType = 'description' | 'my_sheet';
@@ -192,8 +508,8 @@ export default function QuoteDetailModal() {
     setQuote((current: Quote | undefined) => {
       if (!current) return current;
       // Safety check: ensure blockData is an object
-      const safeBlockData = typeof current.blockData === 'object' && current.blockData !== null 
-        ? current.blockData 
+      const safeBlockData = typeof current.blockData === 'object' && current.blockData !== null
+        ? current.blockData
         : {};
       const newBlockData = { ...safeBlockData, [blockId]: data };
       return { ...current, blockData: newBlockData };
@@ -260,6 +576,7 @@ export default function QuoteDetailModal() {
   const [isAddBlockModalVisible, setAddBlockModalVisible] = React.useState(false);
   const [isWordSelectionModalVisible, setWordSelectionModalVisible] = React.useState(false);
   const [currentDefinitionBlockId, setCurrentDefinitionBlockId] = React.useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = React.useState(false);
 
   const handleWordsSelected = async (words: string[]) => {
     if (!currentDefinitionBlockId) return;
@@ -294,9 +611,28 @@ export default function QuoteDetailModal() {
     closeAddBlockModal();
   };
 
+  const handleDeleteQuote = () => {
+    if (!quote) return;
+    Alert.alert(
+      "Supprimer la citation",
+      "Êtes-vous sûr de vouloir supprimer cette citation ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: async () => {
+            await deleteQuote(quote.id);
+            onClose();
+          }
+        }
+      ]
+    );
+  };
+
   const handleRemoveBlock = (itemToRemove: string) => {
     if (itemToRemove === 'addBlock') return;
-    
+
     // 1. Update Layout
     const newLayout = gridData.filter(x => x !== itemToRemove);
     setGridData(newLayout);
@@ -307,7 +643,7 @@ export default function QuoteDetailModal() {
       if (!current) return current;
       const newBlockData = { ...(current.blockData || {}) };
       delete newBlockData[itemToRemove];
-      
+
       const updates: Partial<Quote> = { blockData: newBlockData };
       return { ...current, ...updates };
     });
@@ -351,9 +687,17 @@ export default function QuoteDetailModal() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Détails de la citation</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <X size={24} color={colors.textTertiary} />
-            </TouchableOpacity>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+              <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
+                <Trash2 size={20} color={colors.warning} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
+                <Edit3 size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <X size={24} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
           </View>
           {/* Quote Section */}
           <View style={styles.section}>
@@ -395,8 +739,28 @@ export default function QuoteDetailModal() {
                   </View>
                 )}
               </View>
-              <View style={styles.themeBadgeIA}>
-                <Text style={styles.themeBadgeValue}>{quoteTheme}</Text>
+              <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                {allThemes.map((themeStr, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.themeBadgeIA}
+                    activeOpacity={0.7}
+                    onPress={() => router.navigate({ pathname: '/theme-detail', params: { themeName: themeStr } })}
+                    onLongPress={() => handleThemeLongPress(themeStr)}
+                  >
+                    <Text style={styles.themeBadgeValue}>{themeStr}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={styles.addThemeButton}
+                  onPress={() => {
+                    setThemeToModify(null);
+                    setThemeSelectorVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={14} color={colors.primary} />
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -428,55 +792,91 @@ export default function QuoteDetailModal() {
           </View>
 
           {/* AI Interpretation */}
-          <View style={styles.aiSection}>
-            {isAnalyzing ? (
-              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
-                <ActivityIndicator color={colors.primary} size="small" style={{ marginBottom: 10 }} />
-                <Text style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
-                  Analyse littéraire par l'IA en cours...
-                </Text>
-              </View>
-            ) : aiInterpretation ? (
-              <>
-                <View style={styles.aiHeader}>
-                  <Sparkles size={16} color={colors.primary} />
-                  <Text style={styles.aiTitle}>Interprétation IA</Text>
-                  <TouchableOpacity onPress={handleTriggerAnalysis} style={{ marginLeft: 'auto', padding: 4 }}>
-                    <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.aiText}>{aiInterpretation}</Text>
-              </>
-            ) : (
-              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
-                <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
-                <Text style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par l'IA</Text>
-                <Text style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
-                  Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
-                </Text>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: colors.primary,
-                    paddingHorizontal: 20,
-                    paddingVertical: 10,
-                    borderRadius: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                    shadowColor: colors.primary,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.15,
-                    shadowRadius: 4,
-                    elevation: 2,
-                  }}
-                  onPress={handleTriggerAnalysis}
-                >
-                  <Sparkles size={15} color="#FFFFFF" />
-                  <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</Text>
-                </TouchableOpacity>
+          <View style={styles.aiSectionWrapper}>
+            {!isAnalyzing && (
+              <View style={styles.glowContainer}>
+                {/* Top edge glow */}
+                <GlowCircle color1="#8B5CF6" x={glow1X} y={glow1Y} scale={glow1Scale} size={200} opacity={isDark ? 0.38 : 0.22} style={{ top: -65, left: '25%' }} />
+                {/* Bottom edge glow */}
+                <GlowCircle color1="#EC4899" x={glow2X} y={glow2Y} scale={glow2Scale} size={190} opacity={isDark ? 0.38 : 0.22} style={{ bottom: -65, left: '25%' }} />
+                {/* Left edge glow */}
+                <GlowCircle color1="#06B6D4" x={glow3X} y={glow3Y} scale={glow3Scale} size={180} opacity={isDark ? 0.45 : 0.25} style={{ top: '20%', left: -60 }} />
+                {/* Right edge glow */}
+                <GlowCircle color1="#3B82F6" x={glow4X} y={glow4Y} scale={glow4Scale} size={180} opacity={isDark ? 0.45 : 0.25} style={{ top: '20%', right: -60 }} />
               </View>
             )}
+
+            <TouchableOpacity
+              style={styles.aiSection}
+              activeOpacity={isAnalyzing ? 1 : 0.85}
+              onPress={() => {
+                if (isAnalyzing) return;
+                setAIChatVisible(true);
+              }}
+            >
+              {isAnalyzing ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                  <ActivityIndicator color={colors.primary} size="small" style={{ marginBottom: 10 }} />
+                  <Text style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
+                    Analyse littéraire par l'IA en cours...
+                  </Text>
+                </View>
+              ) : aiInterpretation ? (
+                <>
+                  <View style={styles.aiHeader}>
+                    <Sparkles size={16} color={colors.primary} />
+                    <Text style={styles.aiTitle}>Interprétation IA</Text>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleTriggerAnalysis();
+                      }}
+                      style={{ marginLeft: 'auto', padding: 4 }}
+                    >
+                      <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.aiText}>{aiInterpretation}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 }}>
+                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>Discuter avec l'assistant IA</Text>
+                    <Sparkles size={12} color={colors.primary} />
+                  </View>
+                </>
+              ) : (
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                  <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
+                  <Text style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par l'IA</Text>
+                  <Text style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
+                    Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
+                  </Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.primary,
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      shadowColor: colors.primary,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.15,
+                      shadowRadius: 4,
+                      elevation: 2,
+                    }}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleTriggerAnalysis();
+                    }}
+                  >
+                    <Sparkles size={15} color="#FFFFFF" />
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
+
 
 
           {/* TABS */}
@@ -566,12 +966,120 @@ export default function QuoteDetailModal() {
           </View>
 
         </Animated.ScrollView>
+
+        <AIChatModal
+          visible={isAIChatVisible}
+          onClose={() => setAIChatVisible(false)}
+          quote={quote}
+          book={fetchedBook}
+          author={fetchedAuthor}
+          onUpdateQuote={(updated) => setQuote(updated)}
+        />
+
+        <ScanPreviewModal
+          visible={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onConfirm={async (text, book, author) => {
+            if (quote) {
+              await updateQuote(quote.id, { text, book: book || quote.book, author: author || quote.author });
+              // Mettre à jour l'état local pour refléter les modifications immédiatement
+              setQuote({ ...quote, text, book: book || quote.book, author: author || quote.author });
+            }
+            setShowEditModal(false);
+          }}
+          scannedText={quote?.text || ""}
+          initialBook={quoteBookTitle}
+          initialAuthor={quoteAuthorName}
+        />
+
+        {/* Theme Selector Modal */}
+        <Modal
+          visible={isThemeSelectorVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setThemeSelectorVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setThemeSelectorVisible(false)}
+          >
+            <View style={styles.themeSelectorContainer}>
+              <View style={styles.themeSelectorHeader}>
+                <Text style={styles.themeSelectorTitle}>Changer le thème</Text>
+                <TouchableOpacity onPress={() => setThemeSelectorVisible(false)}>
+                  <X size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.customThemeContainer}>
+                <TextInput
+                  style={styles.customThemeInput}
+                  placeholder="Créer un thème personnalisé..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={customThemeText}
+                  onChangeText={setCustomThemeText}
+                  onSubmitEditing={async () => {
+                    const cleanTheme = customThemeText.trim();
+                    if (cleanTheme.length > 0) {
+                      setThemeSelectorVisible(false);
+                      setCustomThemeText('');
+                      if (themeToModify) {
+                        if (themeToModify !== cleanTheme) {
+                          await replaceTheme(themeToModify, cleanTheme);
+                        }
+                        setThemeToModify(null);
+                      } else {
+                        await addTheme(cleanTheme);
+                      }
+                    }
+                  }}
+                  returnKeyType="done"
+                />
+              </View>
+
+              <ScrollView style={styles.themeSelectorList} showsVerticalScrollIndicator={false}>
+                {STANDARD_THEMES.map((theme) => {
+                  const isSelected = allThemes.includes(theme);
+                  return (
+                    <TouchableOpacity
+                      key={theme}
+                      style={[styles.themeOption, isSelected && styles.themeOptionSelected]}
+                      onPress={async () => {
+                        setThemeSelectorVisible(false);
+                        if (!quote) return;
+
+                        if (themeToModify) {
+                          if (themeToModify !== theme) {
+                            await replaceTheme(themeToModify, theme);
+                          }
+                          setThemeToModify(null);
+                          return;
+                        }
+
+                        if (isSelected) {
+                          await removeTheme(theme);
+                        } else {
+                          await addTheme(theme);
+                        }
+                      }}
+                    >
+                      <Text style={[styles.themeOptionText, isSelected && styles.themeOptionTextSelected]}>{theme}</Text>
+                      {isSelected && <CheckCircle2 size={18} color={colors.primary} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
       </View>
     </View>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-end'
@@ -643,22 +1151,99 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primaryLight,
     borderWidth: 1,
     borderColor: colors.primaryLight,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 90,
+    minWidth: 80,
+    maxWidth: '100%',
     marginLeft: 12,
   },
   themeBadgeValue: {
-    fontSize: 14,
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  addThemeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.surfaceHighlight,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  themeSelectorContainer: {
+    width: '100%',
+    maxHeight: '80%',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  themeSelectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  themeSelectorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  customThemeContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  customThemeInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  themeSelectorList: {
+    padding: 8,
+  },
+  themeOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+  },
+  themeOptionSelected: {
+    backgroundColor: colors.primaryLight,
+  },
+  themeOptionText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  themeOptionTextSelected: {
     color: colors.primary,
     fontWeight: '600',
   },
   quoteText: {
-    fontSize: 24,
-    lineHeight: 36,
+    fontSize: 20,
+    lineHeight: 28,
     color: colors.text,
     marginVertical: 12,
     fontFamily: 'Times New Roman',
@@ -721,13 +1306,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   actionTextActive: {
     color: colors.primary,
   },
+  aiSectionWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'visible',
+  },
+  glowContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'visible',
+  },
   aiSection: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: isDark ? 'rgba(28, 28, 40, 0.78)' : 'rgba(238, 243, 255, 0.82)',
     borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(99, 102, 241, 0.18)',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: isDark ? 0.25 : 0.08,
+    shadowRadius: 18,
+    elevation: 4,
   },
   aiHeader: {
     flexDirection: 'row',

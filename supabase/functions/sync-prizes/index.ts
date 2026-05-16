@@ -8,7 +8,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
-import { getInventaireEntities, resolveImageUrl, getBatchInventaireSearchMetadata } from '../_shared/inventaire.api.ts';
+import { getInventaireEntities, resolveImageUrl, getBatchInventaireSearchMetadata, getBestNativeCovers } from '../_shared/inventaire.api.ts';
 import { getPrizeLaureates } from '../_shared/wikidata.ts';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -113,10 +113,11 @@ serve(async (req: Request) => {
     )];
 
     console.log(`[sync-prizes] Batch-fetching ${authorUris.length} authors + ${workUris.length} works from Inventaire`);
-    const [authorEntities, workEntities, workSearchMetadata] = await Promise.all([
+    const [authorEntities, workEntities, workSearchMetadata, bestNativeCovers] = await Promise.all([
       batchFetchEntities(authorUris),
       batchFetchEntities(workUris),
       getBatchInventaireSearchMetadata(workUris),
+      getBestNativeCovers(workUris),  // Same cover logic as full enrichment
     ]);
 
     // 5. For each laureate: upsert Author → upsert Book → upsert Laureate
@@ -161,9 +162,16 @@ serve(async (req: Request) => {
           const workEntity = workEntities[workUri];
           const bookTitle = getLabel(workEntity) || l.workTitle || null;
           const bookDesc = getDescription(workEntity);
-          let bookCover = resolveEntityImage(workEntity);
+          // Use the same cover priority as enrichWorkMetadata:
+          // 1. Best native edition cover (FR edition + /img/entities/ scan preferred)
+          // 2. Search metadata image (fallback)
+          // 3. Work entity image (last resort)
+          let bookCover: string | null = bestNativeCovers[workUri] || null;
           if (!bookCover && workSearchMetadata[workUri]?.image) {
             bookCover = workSearchMetadata[workUri].image;
+          }
+          if (!bookCover) {
+            bookCover = resolveEntityImage(workEntity);
           }
           const yearRaw = getClaimValue(workEntity, 'wdt:P577');
           const bookYear = yearRaw ? parseInt(yearRaw.substring(0, 4)) : null;
@@ -175,7 +183,7 @@ serve(async (req: Request) => {
               ON CONFLICT ("inventaireUri") DO UPDATE SET
                 title       = COALESCE(EXCLUDED.title, "Book".title),
                 description = COALESCE(EXCLUDED.description, "Book".description),
-                cover       = COALESCE(EXCLUDED.cover, "Book".cover),
+                cover       = COALESCE("Book".cover, EXCLUDED.cover),
                 year        = COALESCE(EXCLUDED.year, "Book".year)
               RETURNING id
             `;

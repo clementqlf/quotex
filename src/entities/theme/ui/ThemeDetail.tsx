@@ -34,8 +34,16 @@ export default function ThemeDetailScreen() {
     );
   }
 
-  // Filtrer les citations par thème (sur toutes les citations dynamiques)
-  const themeQuotes = allQuotes.filter(q => (q.theme || 'Thème non renseigné') === themeName);
+  // Filtrer les citations par thème (sur toutes les citations dynamiques incluant les thèmes secondaires)
+  const themeQuotes = allQuotes.filter(q => {
+    const qTheme = q.theme;
+    const additionalThemes = q.blockData?.additionalThemes || [];
+    const allThemes = Array.from(new Set([qTheme, ...additionalThemes].filter(Boolean)));
+    if (allThemes.length === 0) {
+      allThemes.push('Thème non renseigné');
+    }
+    return allThemes.includes(themeName);
+  });
 
 
   const openQuoteDetail = (quote: Quote) => {

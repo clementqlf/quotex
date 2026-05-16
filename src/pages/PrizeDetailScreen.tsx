@@ -19,12 +19,47 @@ import { LiteraryPrize, Laureate } from '@/src/shared/api/types';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+
+export const PrizeSkeleton = ({ colors }: { colors: ThemeColors }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
+          <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+          <Animated.View style={[{ width: '60%', height: 28, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 8 }, animatedStyle]} />
+       </View>
+       
+       <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       
+       <Animated.View style={[{ width: '30%', height: 24, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 100, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 100, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+    </View>
+  );
+};
 
 interface PrizeDetailScreenProps {
-    prizeId: number;
+    prizeId?: number;
+    prizeData?: string;
 }
 
-export default function PrizeDetailScreen({ prizeId }: PrizeDetailScreenProps) {
+export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScreenProps) {
     const router = useRouter();
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
@@ -144,7 +179,22 @@ export default function PrizeDetailScreen({ prizeId }: PrizeDetailScreenProps) {
 
     const fetchPrizeDetails = async () => {
         try {
-            const data = await PrizeService.getById(prizeId);
+            let currentPrizeId = prizeId;
+            if (!currentPrizeId && prizeData) {
+                console.log('[PrizeDetail] Prize not found locally, importing from search data...');
+                const pData = JSON.parse(prizeData);
+                const result = await PrizeService.syncPrize({ prizeUri: pData.uri || pData.inventaireUri });
+                if (result && result.success) {
+                    currentPrizeId = result.prizeId;
+                }
+            }
+
+            if (!currentPrizeId) {
+                setIsLoading(false);
+                return;
+            }
+
+            const data = await PrizeService.getById(currentPrizeId);
             if (data) {
                 setPrize(data);
                 // Immediately trigger background enrichment for books without covers
@@ -201,8 +251,7 @@ export default function PrizeDetailScreen({ prizeId }: PrizeDetailScreenProps) {
             });
 
             if (res && res.laureatesCount > 0) {
-                // Fetch the updated prize model with the newly synced laureates from DB
-                const updatedPrize = await PrizeService.getById(prizeId);
+                const updatedPrize = await PrizeService.getById(prize.id);
                 if (updatedPrize) {
                     setPrize(updatedPrize);
                     // Proactively trigger background covers enrichment for the new batch
@@ -228,14 +277,20 @@ export default function PrizeDetailScreen({ prizeId }: PrizeDetailScreenProps) {
     useFocusEffect(
         React.useCallback(() => {
             fetchPrizeDetails();
-        }, [prizeId])
+        }, [prizeId, prizeData])
     );
 
     if (isLoading) {
         return (
-            <View style={[styles.container, styles.centerContainer]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </View>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <ArrowLeft size={24} color={colors.text} />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</Text>
+                </View>
+                <PrizeSkeleton colors={colors} />
+            </SafeAreaView>
         );
     }
 

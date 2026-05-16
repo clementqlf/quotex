@@ -11,7 +11,7 @@ import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatQuote } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
 import { discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
-import { analyzeQuoteWithGemini } from '../_shared/gemini.ts';
+import { analyzeQuoteWithGemini, chatAboutQuoteWithGemini } from '../_shared/gemini.ts';
 
 
 // ─── DB query helpers ─────────────────────────────────────────────────────────
@@ -193,6 +193,56 @@ serve(async (req: Request) => {
       const updatedRows = await fetchQuotes(authUser.id, idParam);
       return json(formatQuote(updatedRows[0], authUser.id));
     }
+
+    // POST /quotes/:id/chat
+    if (req.method === 'POST' && idParam && subAction === 'chat') {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      const { messages } = await req.json();
+      if (!messages || !Array.isArray(messages)) return error('Missing or invalid messages parameter', 400);
+
+      const rows = await sql`
+        SELECT q.id, q.text, a.name as "authorName", b.title as "bookTitle", q."aiInterpretation", q."blockData"
+        FROM "Quote" q
+        LEFT JOIN "Author" a ON a.id = q."authorId"
+        LEFT JOIN "Book" b ON b.id = q."bookId"
+        WHERE q.id = ${idParam}
+        LIMIT 1
+      `;
+      if (!rows.length) return error('Quote not found', 404);
+      const q = rows[0];
+
+      const responseText = await chatAboutQuoteWithGemini(
+        q.text,
+        q.authorName || 'Inconnu',
+        q.bookTitle || 'Inconnu',
+        q.aiInterpretation || '',
+        messages
+      );
+
+      // Save updated chat history in the JSON blockData field
+      let blockDataObj: Record<string, any> = {};
+      if (q.blockData) {
+        try {
+          blockDataObj = typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData;
+        } catch (e) {
+          console.error('[Quotes Edge Function] Error parsing blockData:', e);
+        }
+      }
+
+      const updatedHistory = [...messages, { role: 'model', content: responseText }];
+      blockDataObj.chatHistory = updatedHistory;
+
+      await sql`
+        UPDATE "Quote"
+        SET "blockData" = ${JSON.stringify(blockDataObj)}
+        WHERE "id" = ${idParam}
+      `;
+
+      return json({ response: responseText });
+    }
+
 
     // POST /quotes/:id/toggle-save
     if (req.method === 'POST' && idParam && subAction === 'toggle-save') {

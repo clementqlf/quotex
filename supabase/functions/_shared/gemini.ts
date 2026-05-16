@@ -27,12 +27,26 @@ Instructions pour ton analyse (à synthétiser en un seul paragraphe fluide de 3
 3. **Conséquences & Impact** : Mentionne l'impact historique, social ou littéraire qu'a eu ce livre ou cette citation s'il y en a eu.
 4. **Liens & Parallèles** : Fais des parallèles pertinents avec d'autres œuvres, d'autres auteurs célèbres ou des mouvements littéraires/artistiques similaires.
 
+Instructions impératives pour le champ "theme" :
+Pour que le thème agisse comme une étiquette de classification générale permettant de filtrer et de grouper les citations entre elles, tu dois OBLIGATOIREMENT choisir l'un des thèmes généraux suivants (et strictement l'un d'eux, écrit exactement tel quel) :
+- Philosophie & Sagesse
+- Amour & Relations
+- Condition Humaine
+- Temps & Mort
+- Art & Littérature
+- Politique & Société
+- Liberté & Justice
+- Bonheur & Existence
+- Nature & Sciences
+- Savoir & Vérité
+- Destin & Choix
+
 Le ton doit être premium, hautement instructif, culturel et intellectuellement stimulant. Évite les banalités ou les généralités creuses.
 
 Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide sans aucun formatage Markdown (pas de blocs de code triples \`\`\`json ou \`\`\`), avec exactement cette structure :
 {
   "interpretation": "Ton paragraphe d'analyse fluide ici...",
-  "theme": "Le thème principal en 1-2 mots"
+  "theme": "Le thème choisi parmi la liste ci-dessus"
 }
 `;
 
@@ -64,4 +78,66 @@ Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide sans aucun for
   }
 
   return JSON.parse(textResponse.trim()) as GeminiAnalysis;
+}
+
+export async function chatAboutQuoteWithGemini(
+  text: string,
+  author: string,
+  book: string,
+  initialAnalysis: string,
+  messages: { role: 'user' | 'model'; content: string }[]
+): Promise<string> {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured in Supabase secrets.");
+  }
+
+  const systemPrompt = `Tu es un expert littéraire, historien et critique littéraire chevronné. 
+L'utilisateur te pose des questions sur la citation suivante :
+- Citation : "${text}"
+- Auteur : ${author}
+- Livre : ${book}
+
+Tu as déjà fourni l'analyse initiale suivante :
+"${initialAnalysis}"
+
+Réponds de manière concise, captivante, premium et intellectuellement stimulante en français. Rédige une réponse fluide de 2 à 5 lignes maximum, sauf si l'utilisateur te demande explicitement des détails approfondis. Conserve un ton culturel, intelligent et accessible.`;
+
+  // Format messages for Gemini API
+  const contents = [
+    {
+      role: 'user',
+      parts: [{ text: `Système: ${systemPrompt}\n\nCommençons la discussion.` }]
+    },
+    ...messages.map(m => ({
+      role: m.role === 'model' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }))
+  ];
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+  }
+
+  const data = await response.json();
+  const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!textResponse) {
+    throw new Error("Empty response from Gemini API.");
+  }
+
+  return textResponse.trim();
 }

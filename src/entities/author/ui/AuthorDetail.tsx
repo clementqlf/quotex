@@ -23,6 +23,45 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import * as WebBrowser from 'expo-web-browser';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+
+export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
+          <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+          <Animated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       </View>
+       
+       <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       
+       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+          <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+          <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+       </View>
+       
+       <Animated.View style={[{ width: '40%', height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+    </View>
+  );
+};
 
 // Fetch author details from Inventaire API (client-side version)
 async function fetchExternalAuthorDetails(inventaireUri: string) {
@@ -64,7 +103,7 @@ export default function AuthorDetailScreen() {
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
 
-  const { quotes, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor, getNotableWorks } = useData();
+  const { quotes, authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor, getNotableWorks } = useData();
   const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
@@ -77,9 +116,20 @@ export default function AuthorDetailScreen() {
   const loadAuthorData = React.useCallback(async () => {
     if (!nameToUse) return;
 
-    setIsLoadingAuthor(true);
+    // 1. Try to find the author in our local cache first!
+    let localAuthor = author || allAuthors.find(a => a.name.toLowerCase() === nameToUse.toLowerCase());
+    
+    // 2. If we have the author locally, set it and disable full-screen loading immediately!
+    if (localAuthor) {
+      console.log('[AuthorDetail] Found author in local cache, loading instantly');
+      setAuthorInfo(localAuthor);
+      setIsLoadingAuthor(false);
+    } else {
+      setIsLoadingAuthor(true);
+    }
+
     try {
-      const initialAuthorId = author?.id;
+      const initialAuthorId = localAuthor?.id || author?.id;
       const needsFetch = !initialAuthorId;
 
       console.log(`[AuthorDetail] Loading data for: ${nameToUse} (uri: ${paramInventaireUri})`);
@@ -91,7 +141,7 @@ export default function AuthorDetailScreen() {
       ]);
 
       const booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
-      let activeAuthor = author || fetchedAuthor;
+      let activeAuthor = localAuthor || author || fetchedAuthor;
 
       if (fetchedAuthor) {
         setAuthorInfo(fetchedAuthor);
@@ -146,7 +196,7 @@ export default function AuthorDetailScreen() {
     } finally {
       setIsLoadingAuthor(false);
     }
-  }, [nameToUse, paramInventaireUri, getBooksByAuthor, getAuthorByName, getNotableWorks, author]);
+  }, [nameToUse, paramInventaireUri, allAuthors, getBooksByAuthor, getAuthorByName, getNotableWorks, author]);
 
   React.useEffect(() => {
     loadAuthorData();
@@ -226,10 +276,21 @@ export default function AuthorDetailScreen() {
 
   if (isLoadingAuthor) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>Chargement des informations...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <ChevronLeft size={24} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle} numberOfLines={1}>{authorName}</Text>
+            <View style={styles.headerActions} />
+          </View>
+          <AuthorSkeleton colors={colors} />
+        </View>
+      </SafeAreaView>
     );
   }
 

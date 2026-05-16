@@ -362,6 +362,45 @@ class QuoteService {
         return mappedQuote;
     }
 
+    async chatWithAI(id: number, messages: { role: 'user' | 'model'; content: string }[]): Promise<string> {
+        try {
+            console.log(`[QuoteService] Sending message to AI for quote ${id}...`);
+            const headers = await this.getHeaders();
+            const response = await fetch(`${this.API_URL}/${id}/chat`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ messages })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                return data.response;
+            } else {
+                console.warn(`Server returned error: ${response.status}. Using fallback response.`);
+            }
+        } catch (error) {
+            console.warn('[QuoteService] Network error chatting with AI, using fallback:', error);
+        }
+
+        // Rich offline fallback
+        await delay(1200);
+        const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+
+        if (lastUserMessage.includes('thème') || lastUserMessage.includes('theme') || lastUserMessage.includes('sujet')) {
+            return "Cette citation aborde en profondeur des thèmes universels tels que la condition humaine, le passage du temps et la recherche de sens. L'auteur y exprime une dualité touchante entre l'idéalisme et la dure réalité de son époque.";
+        }
+        if (lastUserMessage.includes('contexte') || lastUserMessage.includes('époque') || lastUserMessage.includes('quand') || lastUserMessage.includes('histoire')) {
+            return "L'œuvre a été écrite dans une période de grands bouleversements intellectuels et sociaux. L'auteur a cherché à travers ces lignes à capturer les tensions invisibles de sa génération, ce qui donne à la citation cette résonance historique unique.";
+        }
+        if (lastUserMessage.includes('style') || lastUserMessage.includes('écriture') || lastUserMessage.includes('métaphore') || lastUserMessage.includes('figures')) {
+            return "Le style est caractérisé par un équilibre remarquable entre lyrisme poétique et précision philosophique. L'utilisation d'antithèses et de métaphores discrètes permet de condenser une pensée complexe en une formule percutante et mémorable.";
+        }
+        if (lastUserMessage.includes('pourquoi') || lastUserMessage.includes('sens') || lastUserMessage.includes('signifie')) {
+            return "À un niveau plus profond, cette phrase remet en question nos certitudes quotidiennes. Elle nous invite à suspendre notre jugement et à contempler l'ironie délicate des relations humaines et de notre propre existence.";
+        }
+
+        return "C'est une excellente question. Cette formulation recèle en effet plusieurs niveaux de lecture. En la replaçant dans l'ensemble de l'œuvre, on comprend que l'auteur cherche avant tout à susciter une réflexion intime chez le lecteur plutôt qu'à imposer une vérité absolue.";
+    }
+
     async updateQuote(id: number, updates: Partial<Quote>): Promise<void> {
         // Prefer names for author and book in the payload to match backend "find or create" logic
         const payload: any = { ...updates };

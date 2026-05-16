@@ -19,7 +19,7 @@ import { Book, Author } from '@/src/shared/api/types';
 import { Modal, Alert, Linking, Share, ActionSheetIOS, Platform } from 'react-native';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Animated, { useAnimatedRef, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
 import { TextInput } from 'react-native';
@@ -45,18 +45,49 @@ const blockOptions = BOOK_DETAIL_BLOCK_OPTIONS.map(key => ({
   label: BLOCK_CONFIGS[key].label
 }));
 
+export const DetailSkeleton = ({ colors }: { colors: ThemeColors }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <ScrollView style={{ flex: 1, padding: 16 }} showsVerticalScrollIndicator={false}>
+       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
+          <Animated.View style={[{ width: 120, height: 180, borderRadius: 8, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+          <Animated.View style={[{ width: '70%', height: 24, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 8 }, animatedStyle]} />
+          <Animated.View style={[{ width: '40%', height: 16, borderRadius: 4, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+       </View>
+       
+       <Animated.View style={[{ width: '100%', height: 100, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 150, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+       <Animated.View style={[{ width: '100%', height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+    </ScrollView>
+  );
+};
+
 export default function BookDetailScreen() {
   const { user: currentUser } = useAuth();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const router = useRouter();
-  const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string }>();
+  const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string; bookData?: string }>();
   const bookId = rawParams.bookId ? Number(rawParams.bookId) : undefined;
   const bookTitleParam = rawParams.bookTitle as string | undefined;
 
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { quotes, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook, updateBookStatus } = useData();
+  const { quotes, books: allBooks, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook, updateBookStatus } = useData();
 
   const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
@@ -97,7 +128,29 @@ export default function BookDetailScreen() {
     if (!bookId && !bookTitleParam) return;
 
     console.log('[BookDetail] loadMetadata triggered', { bookId, bookTitleParam });
-    setIsLoadingMetadata(true);
+
+    // 1. Try to find the book in our local cached list first!
+    let localBook: Book | undefined;
+    if (bookId) {
+      localBook = allBooks.find(b => b.id === bookId);
+    } else if (bookTitleParam) {
+      localBook = allBooks.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase());
+    }
+
+    // 2. If we found a local book, set it immediately and bypass the loading screen!
+    if (localBook) {
+      console.log('[BookDetail] Found book in local cache, loading instantly');
+      setBookInfo(localBook);
+      setIsLoadingMetadata(false);
+      
+      // Also load author locally if possible to be fast
+      const authorName = getAuthorName(localBook.author);
+      const fetchedAuthor = await getAuthorByName(authorName);
+      if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+    } else {
+      // If it's a new book not in library, we show the loading spinner initially
+      setIsLoadingMetadata(true);
+    }
 
     try {
       let currentBook: Book | undefined;
@@ -108,6 +161,41 @@ export default function BookDetailScreen() {
       } else if (bookTitleParam) {
         // Fallback: fetch by title (legacy + citations)
         currentBook = await getBookByTitle(bookTitleParam);
+      }
+
+      if (!currentBook && rawParams.bookData) {
+        console.log('[BookDetail] Book not found locally, importing from search data...');
+        try {
+          const bookDataParam = JSON.parse(rawParams.bookData);
+          const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+          const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+          const response = await fetch(`${BASE_URL}/books/import`, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                  title: bookDataParam.label,
+                  description: bookDataParam.description || '',
+                  cover: bookDataParam.image || '',
+                  inventaireUri: bookDataParam.uri,
+                  authors: bookDataParam.authors || [],
+                  authorUris: bookDataParam.authorUris || [],
+              })
+          });
+          if (response.ok) {
+              currentBook = await response.json();
+              if (currentBook) {
+                  setBookInfo(currentBook);
+                  const authorName = getAuthorName(currentBook.author);
+                  const fetchedAuthor = await getAuthorByName(authorName);
+                  if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+              }
+          }
+        } catch (error) {
+          console.error('[BookDetail] Failed to import book from search:', error);
+        }
       }
 
       if (currentBook) {
@@ -144,9 +232,10 @@ export default function BookDetailScreen() {
     } catch (err) {
       console.error('Error loading book/author metadata:', err);
     } finally {
+      // Always ensure loading stops at the very end
       setIsLoadingMetadata(false);
     }
-  }, [bookId, bookTitleParam, getBookById, getBookByTitle, getAuthorByName]);
+  }, [bookId, bookTitleParam, allBooks, getBookById, getBookByTitle, getAuthorByName]);
 
   React.useEffect(() => {
     loadMetadata();
@@ -425,12 +514,10 @@ export default function BookDetailScreen() {
             <TouchableOpacity style={styles.backButton} onPress={() => require('expo-router').router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{bookTitle}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
             <View style={styles.saveButton} />
           </View>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ color: colors.textSecondary }}>Chargement des informations...</Text>
-          </View>
+          <DetailSkeleton colors={colors} />
         </View>
       </SafeAreaView>
     );

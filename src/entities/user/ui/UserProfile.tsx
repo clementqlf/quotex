@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -110,6 +111,43 @@ const QuoteSkeleton = ({ colors }: { colors: ThemeColors }) => {
         opacity: pulseAnim,
       }}
     />
+  );
+};
+
+export const UserProfileSkeleton = ({ colors }: { colors: ThemeColors }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={{ flex: 1, padding: 16 }}>
+       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
+          <AnimatedReanimated.View style={[{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+          <AnimatedReanimated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 4 }, animatedStyle]} />
+          <AnimatedReanimated.View style={[{ width: '30%', height: 16, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+          <AnimatedReanimated.View style={[{ width: '40%', height: 36, borderRadius: 8, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       </View>
+       
+       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+          <AnimatedReanimated.View style={[{ flex: 1, height: 60, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+          <AnimatedReanimated.View style={[{ flex: 1, height: 60, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+          <AnimatedReanimated.View style={[{ flex: 1, height: 60, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+       </View>
+       
+       <AnimatedReanimated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+       <AnimatedReanimated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+    </View>
   );
 };
 
@@ -379,9 +417,19 @@ export default function UserProfileScreen() {
 
   if (!profileData && isLoading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#20B8CD" />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ChevronLeft size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>{username ? `@${username}` : 'Profil'}</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <UserProfileSkeleton colors={colors} />
+      </SafeAreaView>
     );
   }
 

@@ -75,44 +75,24 @@ export default function SearchScreen() {
         }
     };
 
-    const handleImportBook = async (bookData: any) => {
-        setIsLoading(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/books/import`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: bookData.label,
-                    description: bookData.description || '',
-                    cover: bookData.image || '',
-                    inventaireUri: bookData.uri,
-                    authors: bookData.authors || [],
-                    authorUris: bookData.authorUris || [],
-                })
-            });
-            if (response.ok) {
-                const importedBook = await response.json();
-                navigateToBook(importedBook.id);
+    const handleImportBook = (item: any) => {
+        router.push({
+            pathname: '/book-detail',
+            params: {
+                bookTitle: item.label,
+                inventaireUri: item.uri,
+                bookData: JSON.stringify(item)
             }
-        } catch (error) {
-            console.error("Failed to import work", error);
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
-    const handleImportPrize = async (prizeData: any) => {
-        setIsLoading(true);
-        try {
-            const result = await PrizeService.syncPrize({ prizeUri: prizeData.uri });
-            if (result.success) {
-                router.push({ pathname: '/prize-detail', params: { prizeId: result.prizeId } });
+    const handleImportPrize = (item: any) => {
+        router.push({
+            pathname: '/prize-detail',
+            params: {
+                prizeData: JSON.stringify(item)
             }
-        } catch (error) {
-            console.error("Failed to import prize", error);
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     const sections = React.useMemo(() => {
