@@ -1,12 +1,15 @@
 import { useRef, useState, useEffect } from 'react';
 import { Camera, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
+import * as Haptics from 'expo-haptics';
+import { extractIsbn } from './useIsbnScanner';
 
 type UseLiveOCRProps = {
     cameraRef: React.RefObject<Camera | null>;
     isFocused: boolean;
     enabled?: boolean;
     scanLockRef?: React.MutableRefObject<boolean>; // Optional shared lock to prevent concurrent captures
+    onIsbnDetected?: (isbn: string) => void;
 };
 
 export function useLiveOCR({
@@ -14,6 +17,7 @@ export function useLiveOCR({
     isFocused,
     enabled = true,
     scanLockRef,
+    onIsbnDetected,
 }: UseLiveOCRProps) {
     const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
     const internalBusyRef = useRef(false);
@@ -58,7 +62,26 @@ export function useLiveOCR({
                 // Check if still active before processing
                 if (isMounted && enabled && isFocused) {
                     const result = await TextRecognition.recognize(tempPhoto.path);
-                    setIsTextDetectedLive(!!result && result.blocks.length > 0);
+                    if (result && result.blocks.length > 0) {
+                        setIsTextDetectedLive(true);
+                        
+                        // Check if the recognized text contains an ISBN
+                        const fullText = result.blocks.map(b => b.text).join(' ');
+                        const isbn = extractIsbn(fullText);
+                        
+                        if (isbn && onIsbnDetected) {
+                            console.log('[useLiveOCR] ISBN Detected during live preview:', isbn);
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            onIsbnDetected(isbn);
+                            
+                            // Stop scanning loop
+                            if (scanLockRef) scanLockRef.current = false;
+                            internalBusyRef.current = false;
+                            return;
+                        }
+                    } else {
+                        setIsTextDetectedLive(false);
+                    }
                 }
             } catch (e) {
                 console.log('[useLiveOCR] Scan error:', e);
@@ -82,7 +105,7 @@ export function useLiveOCR({
             if (timeoutId) clearTimeout(timeoutId);
             internalBusyRef.current = false;
         };
-    }, [enabled, isFocused, cameraRef, scanLockRef]);
+    }, [enabled, isFocused, cameraRef, scanLockRef, onIsbnDetected]);
 
     return {
         isTextDetectedLive,

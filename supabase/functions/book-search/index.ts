@@ -5,7 +5,7 @@
 // @ts-ignore deno
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
-import { searchInventaireWorks } from '../_shared/inventaire.api.ts';
+import { searchInventaireWorks, getInventaireBookByIsbn } from '../_shared/inventaire.api.ts';
 
 serve(async (req: Request) => {
   const corsResp = handleCors(req);
@@ -19,6 +19,21 @@ serve(async (req: Request) => {
       const q = url.searchParams.get('q');
       if (!q) return error('Missing query parameter "q"', 400);
       
+      const cleanQ = q.replace(/[-\s]/g, '');
+      const isIsbn = /^(?:97[89])?\d{9}[\dxX]$/i.test(cleanQ);
+
+      if (isIsbn) {
+        console.log(`[book-search] ISBN detected: "${cleanQ}". Searching ONLY via Inventaire.`);
+        try {
+          const mappedResult = await getInventaireBookByIsbn(cleanQ);
+          if (mappedResult) {
+            return json([mappedResult]);
+          }
+        } catch (invError) {
+          console.error('[book-search] Inventaire ISBN lookup failed:', invError);
+        }
+      }
+
       console.log(`[book-search] Proxying search to Inventaire for: "${q}"`);
       const inventaireResults = await searchInventaireWorks(q, 20);
       
@@ -36,7 +51,10 @@ serve(async (req: Request) => {
         isbn: null,
         rating: null,
         buyLink: null,
-        price: null
+        price: null,
+        // Add labels for UI compatibility
+        label: r.label,
+        uri: r.uri
       }));
 
       return json(mappedResults);

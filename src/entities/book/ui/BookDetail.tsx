@@ -169,6 +169,9 @@ export default function BookDetailScreen() {
           const bookDataParam = JSON.parse(rawParams.bookData);
           const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
           const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+          
+          console.log('[BookDetail] Sending POST to:', `${BASE_URL}/books/import`);
+          
           const response = await fetch(`${BASE_URL}/books/import`, {
               method: 'POST',
               headers: { 
@@ -176,22 +179,34 @@ export default function BookDetailScreen() {
                   ...(token ? { 'Authorization': `Bearer ${token}` } : {})
               },
               body: JSON.stringify({
-                  title: bookDataParam.label,
+                  title: bookDataParam.label || bookDataParam.title,
                   description: bookDataParam.description || '',
-                  cover: bookDataParam.image || '',
-                  inventaireUri: bookDataParam.uri,
+                  cover: bookDataParam.image || bookDataParam.cover || '',
+                  inventaireUri: bookDataParam.uri || bookDataParam.inventaireUri,
+                  googleId: bookDataParam.googleId,
+                  isbn: bookDataParam.isbn,
+                  year: bookDataParam.year,
+                  pages: bookDataParam.pages,
+                  genre: bookDataParam.genre,
                   authors: bookDataParam.authors || [],
                   authorUris: bookDataParam.authorUris || [],
               })
           });
+          
+          console.log('[BookDetail] Import response status:', response.status);
           if (response.ok) {
-              currentBook = await response.json();
-              if (currentBook) {
-                  setBookInfo(currentBook);
-                  const authorName = getAuthorName(currentBook.author);
+              const imported = await response.json();
+              if (imported) {
+                  const importedBook = imported as Book;
+                  currentBook = importedBook;
+                  setBookInfo(importedBook);
+                  const authorName = getAuthorName(importedBook.author);
                   const fetchedAuthor = await getAuthorByName(authorName);
                   if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
               }
+          } else {
+              const errorText = await response.text();
+              console.error('[BookDetail] Import request failed with status:', response.status, 'body:', errorText);
           }
         } catch (error) {
           console.error('[BookDetail] Failed to import book from search:', error);

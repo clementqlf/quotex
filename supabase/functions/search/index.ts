@@ -12,6 +12,7 @@ import {
   searchInventaireWorks,
   searchInventaireAuthors,
   searchInventaire,
+  getInventaireBookByIsbn,
 } from '../_shared/inventaire.api.ts';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -31,6 +32,30 @@ serve(async (req: Request) => {
   const authUserId = user?.id ?? null;
 
   try {
+    const cleanQ = q.replace(/[-\s]/g, '');
+    const isIsbn = /^(?:97[89])?\d{9}[\dxX]$/i.test(cleanQ);
+
+    if (isIsbn) {
+      console.log(`[search] ISBN detected: "${cleanQ}". Searching ONLY via Inventaire.`);
+      try {
+        const mappedResult = await getInventaireBookByIsbn(cleanQ);
+        if (mappedResult) {
+          return json({
+            quotes: [],
+            authors: [],
+            books: [],
+            prizes: [],
+            themes: [],
+            inventaireWorks: [mappedResult],
+            inventaireAuthors: [],
+            inventairePrizes: [],
+          });
+        }
+      } catch (invError) {
+        console.error('[search] Inventaire ISBN lookup failed:', invError);
+      }
+    }
+
     console.log(`[search] Starting search for "${query}"`);
     
     // 1-5. Local queries

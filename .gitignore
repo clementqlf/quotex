@@ -11,3 +11,13 @@ Pods/
 
 expo-env.d.ts
 # @end expo-cli
+
+# Production builds
+dist/
+web-build/
+
+# Dependency and cache directories
+node_modules/
+.expo/
+.expo-shared/
+.DS_Store

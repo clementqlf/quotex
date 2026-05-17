@@ -25,6 +25,9 @@ import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
+import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
+import * as Haptics from 'expo-haptics';
+import { searchService } from '@/src/features/search/api/SearchService';
 
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -59,12 +62,57 @@ export default function ScanScreen() {
   // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
   const scanLockRef = React.useRef(false);
 
+  const checkAndHandleIsbn = async (text: string): Promise<boolean> => {
+    const isbn = extractIsbn(text);
+    if (!isbn) return false;
+
+    console.log('[ScanScreen] Valid ISBN detected:', isbn);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsLoading(true);
+    try {
+      const data = await searchService.search(isbn);
+      if (data.inventaireWorks && data.inventaireWorks.length > 0) {
+        const item = data.inventaireWorks[0];
+        router.push({
+          pathname: '/book-detail',
+          params: {
+            bookTitle: item.title,
+            inventaireUri: item.inventaireUri || item.uri,
+            bookData: JSON.stringify(item)
+          }
+        });
+        return true;
+      } else if (data.books && data.books.length > 0) {
+        const book = data.books[0];
+        router.push({
+          pathname: '/book-detail',
+          params: {
+            bookId: book.id,
+            inventaireUri: book.inventaireUri,
+          }
+        });
+        return true;
+      } else {
+        alert("Aucun livre trouvé pour cet ISBN.");
+      }
+    } catch (error) {
+      console.error('Error searching ISBN:', error);
+      alert("Erreur lors de la recherche du livre.");
+    } finally {
+      setIsLoading(false);
+    }
+    return false;
+  };
+
   // Hook Live OCR
   const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
     cameraRef,
     isFocused,
     enabled: !photo && !isLoading,
     scanLockRef,
+    onIsbnDetected: (isbn) => {
+      checkAndHandleIsbn(isbn);
+    }
   });
 
   const frameAnim = useSharedValue(0);
@@ -205,6 +253,12 @@ export default function ScanScreen() {
         return;
       }
 
+      const fullText = result.blocks.map(b => b.text).join(' ');
+      const isIsbn = await checkAndHandleIsbn(fullText);
+      if (isIsbn) {
+        return;
+      }
+
       setIsFromGallery(false);
       setPhoto(photoFile);
       setOcrResult(result);
@@ -263,6 +317,13 @@ export default function ScanScreen() {
       const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
 
       const ocrResult = await processImage(cleanPath);
+      if (ocrResult && ocrResult.blocks.length > 0) {
+        const fullText = ocrResult.blocks.map(b => b.text).join(' ');
+        const isIsbn = await checkAndHandleIsbn(fullText);
+        if (isIsbn) {
+          return;
+        }
+      }
 
       const pickedPhoto: PhotoFile = {
         path: cleanPath,
@@ -286,7 +347,7 @@ export default function ScanScreen() {
   if (!hasPermission) {
     return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
-        <Text style={styles.permissionText}>Quotex a besoin de l'accès à la caméra.</Text>
+        <Text style={styles.permissionText}>{"Quotex a besoin de l'accès à la caméra."}</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Autoriser</Text>
         </TouchableOpacity>

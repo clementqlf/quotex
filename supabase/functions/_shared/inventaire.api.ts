@@ -235,6 +235,109 @@ export const searchInventaireWorks = async (query: string, limit = 10): Promise<
     return searchInventaire(query, 'works,genres,movements', limit);
 };
 
+export interface InventaireBookByIsbnResult {
+    inventaireUri: string;
+    title: string;
+    authors: string[];
+    authorUris: string[];
+    description: string;
+    year: number | null;
+    pages: number | null;
+    cover: string | null;
+    isbn: string;
+    label: string;
+    uri: string;
+    image: string | null;
+}
+
+export const getInventaireBookByIsbn = async (isbn: string): Promise<InventaireBookByIsbnResult | null> => {
+    try {
+        console.log(`[Inventaire API] Fetching by ISBN: ${isbn}`);
+        const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=isbn:${isbn}&lang=fr&props=labels|descriptions|claims|sitelinks|image`;
+        const response = await fetchWithAgent(url);
+        if (!response.ok) {
+            console.error(`[Inventaire API] ISBN HTTP error: ${response.status} for ISBN ${isbn}`);
+            return null;
+        }
+        const data = await response.json();
+        const entities = data.entities || {};
+        const entityKeys = Object.keys(entities);
+        if (entityKeys.length === 0) {
+            console.log(`[Inventaire API] No entity found for ISBN ${isbn}`);
+            return null;
+        }
+
+        const editionUri = entityKeys[0];
+        const edition = entities[editionUri];
+        const claims = edition.claims || {};
+        const labels = edition.labels || {};
+
+        const editionTitle = claims['wdt:P1476']?.[0] || labels['fromclaims'] || labels['fr'] || labels['en'] || Object.values(labels)[0] || 'Livre inconnu';
+        const editionYear = claims['wdt:P577']?.[0] ? parseInt(claims['wdt:P577'][0].substring(0, 4)) : null;
+        const editionPages = claims['wdt:P1104']?.[0] ? parseInt(claims['wdt:P1104'][0]) : null;
+        
+        let editionCover = getEntityImage(edition.image);
+        if (!editionCover) {
+            const p18 = safeFirstClaim(claims, 'wdt:P18');
+            if (p18) editionCover = resolveImageUrl(p18);
+        }
+
+        const workUri = safeFirstClaim(claims, 'wdt:P629');
+
+        let title = editionTitle;
+        let description = '';
+        let year = editionYear;
+        let pages = editionPages;
+        let cover = editionCover;
+        let authorUris: string[] = [];
+        let authorNames: string[] = [];
+
+        if (workUri) {
+            console.log(`[Inventaire API] Found Work URI: ${workUri} for ISBN. Fetching work details.`);
+            const workDetails = await getInventaireWorkDetails(workUri);
+            if (workDetails) {
+                title = workDetails.title || title;
+                description = workDetails.description || '';
+                year = workDetails.year || year;
+                pages = workDetails.pages || pages;
+                cover = workDetails.image || cover;
+                authorUris = workDetails.authorUris || [];
+
+                if (authorUris.length > 0) {
+                    const authorEntities = await getInventaireEntities(authorUris);
+                    authorNames = authorUris.map(uri => {
+                        const aEnt = authorEntities[uri];
+                        if (aEnt?.labels) {
+                            return aEnt.labels['fr'] || aEnt.labels['en'] || Object.values(aEnt.labels)[0] || 'Unknown';
+                        }
+                        return 'Unknown';
+                    }).filter(name => name !== 'Unknown');
+                }
+            }
+        }
+
+        const finalUri = workUri || editionUri;
+
+        return {
+            inventaireUri: finalUri,
+            title,
+            authors: authorNames.length > 0 ? authorNames : ['Auteur inconnu'],
+            authorUris,
+            description,
+            year,
+            pages,
+            cover,
+            isbn,
+            label: title,
+            uri: finalUri,
+            image: cover
+        };
+    } catch (e) {
+        console.error('[Inventaire API] Error fetching book by ISBN:', e);
+        return null;
+    }
+};
+
 export const searchInventaireAuthors = async (query: string, limit = 10): Promise<InventaireSearchResult[]> => {
     return searchInventaire(query, 'humans', limit);
 };

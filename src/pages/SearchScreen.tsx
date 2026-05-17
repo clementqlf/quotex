@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon, Award } from 'lucide-react-native';
+import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon, Award, Scan } from 'lucide-react-native';
 import { searchService, SearchResults } from '@/src/features/search/api/SearchService';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { Quote, Book, Author } from '@/src/shared/api/types';
@@ -129,7 +129,7 @@ export default function SearchScreen() {
                         <QuoteIcon size={16} color={colors.primary} fill={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text numberOfLines={2} style={styles.quoteText}>"{quote.text}"</Text>
+                        <Text numberOfLines={2} style={styles.quoteText}>{"\"" + quote.text + "\""}</Text>
                         <Text style={styles.subText}>{getAuthorName(quote.author)} • {getBookTitle(quote.book)}</Text>
                     </View>
                 </TouchableOpacity>
@@ -288,9 +288,13 @@ export default function SearchScreen() {
                         onChangeText={setQuery}
                         returnKeyType="search"
                     />
-                    {query.length > 0 && (
+                    {query.length > 0 ? (
                         <TouchableOpacity onPress={() => { setQuery(''); inputRef.current?.focus(); }}>
                             <X size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity onPress={() => router.push('/scan')} style={{ padding: 4 }}>
+                            <Scan size={20} color={colors.primary} />
                         </TouchableOpacity>
                     )}
                 </View>
