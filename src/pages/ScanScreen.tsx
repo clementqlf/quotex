@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import {
   ActivityIndicator,
@@ -20,7 +20,7 @@ import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
 import * as ExpoImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
@@ -62,7 +62,7 @@ export default function ScanScreen() {
   // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
   const scanLockRef = React.useRef(false);
 
-  const checkAndHandleIsbn = async (text: string): Promise<boolean> => {
+  const checkAndHandleIsbn = useCallback(async (text: string): Promise<boolean> => {
     const isbn = extractIsbn(text);
     if (!isbn) return false;
 
@@ -102,17 +102,19 @@ export default function ScanScreen() {
       setIsLoading(false);
     }
     return false;
-  };
+  }, [router]);
 
-  // Hook Live OCR
+  // Callback mémoïsé pour éviter de redémarrer l'effet useLiveOCR à chaque render
+  const handleIsbnDetected = useCallback((isbn: string) => {
+    checkAndHandleIsbn(isbn);
+  }, [checkAndHandleIsbn]);
+
+  // Hook Live OCR (ne sert désormais qu'à animer le contour bleu lors de la détection de texte)
   const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
     cameraRef,
     isFocused,
     enabled: !photo && !isLoading,
     scanLockRef,
-    onIsbnDetected: (isbn) => {
-      checkAndHandleIsbn(isbn);
-    }
   });
 
   const frameAnim = useSharedValue(0);
@@ -576,14 +578,14 @@ export default function ScanScreen() {
                   style={[
                     styles.scanButton,
                     isLoading && styles.scanButtonActive,
-                    !isTextDetectedLive && styles.scanButtonDisabled
+                    !isTextDetectedLive && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
                   ]}
                   onPress={handleTakePhoto}
-                  disabled={isLoading || !isTextDetectedLive}
+                  disabled={isLoading}
                   activeOpacity={0.9}
                 >
                   <View>
-                    <ScanLine size={28} color={isTextDetectedLive ? colors.primary : "#444"} />
+                    <ScanLine size={28} color={isTextDetectedLive ? colors.primary : "#E5E7EB"} />
                   </View>
                 </TouchableOpacity>
               </View>

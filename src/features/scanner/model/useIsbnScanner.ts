@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
-import { Camera } from 'react-native-vision-camera';
+import { Camera, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system/legacy';
 
 type UseIsbnScannerProps = {
     cameraRef: React.RefObject<Camera | null>;
@@ -72,13 +73,14 @@ export function useIsbnScanner({
             internalBusyRef.current = true;
             setIsScanning(true);
 
+            let tempPhoto: PhotoFile | null = null;
             try {
                 if (!cameraRef.current) {
                     scheduleNext(1000);
                     return;
                 }
 
-                const tempPhoto = await cameraRef.current.takePhoto({
+                tempPhoto = await cameraRef.current.takePhoto({
                     flash: 'off',
                     enableShutterSound: false,
                 });
@@ -93,7 +95,19 @@ export function useIsbnScanner({
                             console.log('[useIsbnScanner] ISBN Detected:', isbn);
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                             onIsbnDetected(isbn);
-                            return; // Stop scanning
+                            
+                            // Stop scanning loop
+                            internalBusyRef.current = false;
+                            setIsScanning(false);
+                            
+                            // Delete immediately before exit
+                            if (tempPhoto?.path) {
+                                FileSystem.deleteAsync(
+                                    tempPhoto.path.startsWith('file://') ? tempPhoto.path : `file://${tempPhoto.path}`,
+                                    { idempotent: true }
+                                ).catch(() => {});
+                            }
+                            return;
                         }
                     }
                 }
@@ -107,6 +121,14 @@ export function useIsbnScanner({
                 internalBusyRef.current = false;
                 setIsScanning(false);
                 scheduleNext(3000); // 3-second cooldown on error to allow AVFoundation to recover
+            } finally {
+                // Delete temp photo to avoid disk leak
+                if (tempPhoto?.path) {
+                    FileSystem.deleteAsync(
+                        tempPhoto.path.startsWith('file://') ? tempPhoto.path : `file://${tempPhoto.path}`,
+                        { idempotent: true }
+                    ).catch(() => {});
+                }
             }
         };
 

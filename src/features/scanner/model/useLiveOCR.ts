@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Camera, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system/legacy';
 import { extractIsbn } from './useIsbnScanner';
 
 type UseLiveOCRProps = {
@@ -51,10 +52,11 @@ export function useLiveOCR({
             internalBusyRef.current = true;
             if (scanLockRef) scanLockRef.current = true;
 
+            let tempPhoto: PhotoFile | null = null;
             try {
                 if (!cameraRef.current) return;
 
-                const tempPhoto = await cameraRef.current.takePhoto({
+                tempPhoto = await cameraRef.current.takePhoto({
                     flash: 'off',
                     enableShutterSound: false,
                 });
@@ -87,6 +89,14 @@ export function useLiveOCR({
                 console.log('[useLiveOCR] Scan error:', e);
                 setIsTextDetectedLive(false);
             } finally {
+                // Delete temp photo to avoid disk leak (takePhoto writes a full-res JPEG each time)
+                if (tempPhoto?.path) {
+                    FileSystem.deleteAsync(
+                        tempPhoto.path.startsWith('file://') ? tempPhoto.path : `file://${tempPhoto.path}`,
+                        { idempotent: true }
+                    ).catch(() => {});
+                }
+
                 // Release locks
                 if (scanLockRef) scanLockRef.current = false;
                 internalBusyRef.current = false;

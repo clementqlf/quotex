@@ -1,0 +1,974 @@
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { PanResponder } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
+import { PhotoFile } from 'react-native-vision-camera';
+import {
+    calculateTextRotation,
+    getBlockRectOnScreen,
+    getPhotoOrientation,
+    ImageSize,
+    isPointInBlock,
+    MLKitText,
+    PATH_SAMPLE_STEP,
+    sampleLinePoints,
+} from '@/src/shared/lib/scanGeometry';
+import { SmartTextSelection } from './SmartSelectionAlgorithm';
+
+const HIGHLIGHT_PADDING = 1;
+
+const NATURAL_HYPHEN_PARTS = new Set([
+    // Pronouns
+    'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles', 'le', 'la', 'les', 'lui', 'leur', 'moi', 'toi', 'soi', 'y', 'en', 'ce', 't', 'm', 's',
+    // Prefixes
+    'anti', 'archi', 'après', 'avant', 'auto', 'bien', 'co', 'contre', 'demi', 'ex', 'extra', 'grand', 'haut', 'hyper', 'infra', 'inter', 'intra', 'mi', 'micro', 'mini', 'multi', 'non', 'néo', 'poly', 'post', 'pré', 'pseudo', 'quasi', 'retro', 'sans', 'semi', 'sous', 'super', 'supra', 'sur', 'télé', 'trans', 'ultra', 'vice',
+    // Common comp
+    'peut', 'est', 'dit', 'rendez', 'arc', 'chou', 'faire', 'porte', 'garde', 'passe', 'tire', 'serre', 'tourne', 'bas', 'arrière', 'extrême',
+    // Numbers
+    'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'cent', 'mille'
+]);
+
+export const useScanSelection = (
+    photo: PhotoFile | null,
+    ocrResult: TextRecognitionResult | null,
+    imageSize: ImageSize,
+    photoDimensions: { width: number; height: number },
+    algoMode: 'legacy' | 'smart' = 'legacy'
+) => {
+    const [selectedBlocks, setSelectedBlocks] = useState<MLKitText[]>([]);
+
+    const [selectionMode, setSelectionModeState] = useState<'drag' | 'native' | 'segment'>('drag');
+    const [segmentStartBlock, setSegmentStartBlockState] = useState<MLKitText | null>(null);
+
+    const selectionModeRef = useRef<'drag' | 'native' | 'segment'>('drag');
+    const segmentStartBlockRef = useRef<MLKitText | null>(null);
+
+    const setSelectionMode = useCallback((mode: 'drag' | 'native' | 'segment') => {
+        selectionModeRef.current = mode;
+        setSelectionModeState(mode);
+    }, []);
+
+    const setSegmentStartBlock = useCallback((block: MLKitText | null) => {
+        segmentStartBlockRef.current = block;
+        setSegmentStartBlockState(block);
+    }, []);
+
+    // Refs for PanResponder to access fresh state without re-render
+    const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
+    const initialYRef = useRef<number | null>(null);
+    const panModeRef = useRef<'add' | 'remove'>('add');
+    const selectedBlocksRef = useRef<MLKitText[]>([]);
+    const activeHandleRef = useRef<'left' | 'right' | null>(null);
+    const handleFirstBlockIndexRef = useRef<number | null>(null);
+    const handleLastBlockIndexRef = useRef<number | null>(null);
+
+    // Memoize word blocks from OCR result
+    const wordBlocks = useMemo<MLKitText[]>(() => {
+        if (!ocrResult) return [];
+        const orientation = getPhotoOrientation(photo);
+
+
+        const computeBoundingBox = (elements: any[]) => {
+            let minLeft = Infinity;
+            let minTop = Infinity;
+            let maxRight = -Infinity;
+            let maxBottom = -Infinity;
+
+            elements.forEach(el => {
+                const f = el.frame;
+                if (!f) return;
+                if (f.left < minLeft) minLeft = f.left;
+                if (f.top < minTop) minTop = f.top;
+                if (f.left + f.width > maxRight) maxRight = f.left + f.width;
+                if (f.top + f.height > maxBottom) maxBottom = f.top + f.height;
+            });
+
+            return {
+                left: minLeft,
+                top: minTop,
+                width: maxRight - minLeft,
+                height: maxBottom - minTop
+            };
+        };
+
+        let globalSegmentIdx = 0;
+        const allSegments: Array<{
+            id: string;
+            elements: Array<{
+                block: MLKitText;
+                rect: { left: number; top: number; width: number; height: number };
+            }>;
+            rect: { left: number; top: number; width: number; height: number };
+        }> = [];
+
+        ocrResult.blocks.forEach(block => {
+            block.lines?.forEach(line => {
+                if (!line.elements || line.elements.length === 0) return;
+
+                // Calcule les coordonnées upright à l'écran pour tous les éléments de la ligne
+                const positionedElements = line.elements
+                    .filter(el => el.frame)
+                    .map(el => {
+                        const rect = photo
+                            ? getBlockRectOnScreen(
+                                { text: el.text, frame: el.frame },
+                                imageSize,
+                                { width: photo.width, height: photo.height },
+                                orientation
+                            )
+                            : null;
+                        return { element: el, rect: rect || el.frame! };
+                    })
+                    .sort((a, b) => a.rect.left - b.rect.left);
+
+                if (positionedElements.length === 0) return;
+
+                // Groupement des mots en segments horizontaux contigus
+                const segments: Array<{
+                    elements: typeof line.elements;
+                    frame: { left: number; top: number; width: number; height: number };
+                }> = [];
+
+                let currentSegment: typeof positionedElements = [];
+
+                positionedElements.forEach((item, idx) => {
+                    const elFrame = item.rect;
+                    if (idx === 0) {
+                        currentSegment.push(item);
+                    } else {
+                        const prevItem = currentSegment[currentSegment.length - 1];
+                        const prevFrame = prevItem.rect;
+
+                        const gap = elFrame.left - (prevFrame.left + prevFrame.width);
+
+                        // 1. Détection par écart de taille de police (Font-size)
+                        // Pour comparer équitablement les tailles de police sans être biaisé par les mots courts (ex: "une", "se"),
+                        // on ne compare la hauteur que si les deux mots contiennent au moins une lettre haute (ascendante ou majuscule).
+                        const hasTallLetters = (text: string) => /[A-ZÂÊÎÔÛÄËÏÖÜÇÉÈÀÙbdfhklt]/.test(text);
+                        let shouldSplitBySize = false;
+                        if (hasTallLetters(prevItem.element.text) && hasTallLetters(item.element.text)) {
+                            const ratio = Math.max(prevFrame.height, elFrame.height) / Math.min(prevFrame.height, elFrame.height);
+                            shouldSplitBySize = ratio > 1.25;
+                            if (shouldSplitBySize) {
+                                console.log(`[SegmentSplit] "${prevItem.element.text}" (${prevFrame.height.toFixed(1)}px) and "${item.element.text}" (${elFrame.height.toFixed(1)}px) -> ratio: ${ratio.toFixed(2)} -> split: true (Font size change)`);
+                            }
+                        }
+
+                        // Seuil de gouttière fixe ajusté (8px) :
+                        // Une séparation de colonne (gouttière) dépasse toujours 8px à l'écran sur mobile,
+                        // tandis qu'un espace normal ou même fortement justifié reste sous ce seuil.
+                        const shouldSplit = gap > 8 || shouldSplitBySize;
+
+                        if (gap > 5 && !shouldSplitBySize) {
+                            console.log(`[SegmentSplit] "${prevItem.element.text}" and "${item.element.text}" -> gap: ${gap.toFixed(1)}px (threshold: 8px) -> split: ${shouldSplit}`);
+                        }
+
+                        if (shouldSplit) {
+                            // Scission : on ferme le segment en cours et on en commence un nouveau
+                            const rawElements = currentSegment.map(x => x.element);
+                            segments.push({
+                                elements: rawElements,
+                                frame: computeBoundingBox(rawElements)
+                            });
+                            currentSegment = [item];
+                        } else {
+                            currentSegment.push(item);
+                        }
+                    }
+                });
+
+                if (currentSegment.length > 0) {
+                    const rawElements = currentSegment.map(x => x.element);
+                    segments.push({
+                        elements: rawElements,
+                        frame: computeBoundingBox(rawElements)
+                    });
+                }
+
+                // Ajout des segments à la liste globale pour tri en colonnes
+                segments.forEach(seg => {
+                    const segmentId = `seg-${globalSegmentIdx++}`;
+
+                    const parentScreenRect = photo
+                        ? getBlockRectOnScreen(
+                            { text: "", frame: seg.frame },
+                            imageSize,
+                            { width: photo.width, height: photo.height },
+                            orientation
+                        )
+                        : null;
+
+                    if (!parentScreenRect) return;
+
+                    const segmentElements = seg.elements.map(element => {
+                        const cornerPoints = (element as any)?.cornerPoints;
+                        const rotation = cornerPoints ? calculateTextRotation(cornerPoints) : undefined;
+
+                        const screenRect = photo
+                            ? getBlockRectOnScreen(
+                                { text: element.text, frame: element.frame! },
+                                imageSize,
+                                { width: photo.width, height: photo.height },
+                                orientation
+                            )
+                            : undefined;
+
+                        return {
+                            block: {
+                                text: element.text,
+                                frame: element.frame!,
+                                cornerPoints,
+                                rotation,
+                                blockId: segmentId,
+                                parentBlockFrame: seg.frame,
+                                screenRect: screenRect || undefined,
+                                parentScreenRect: parentScreenRect || undefined,
+                            },
+                            rect: screenRect || element.frame!
+                        };
+                    });
+
+                    allSegments.push({
+                        id: segmentId,
+                        elements: segmentElements,
+                        rect: parentScreenRect
+                    });
+                });
+            });
+        });
+
+        // --- REGROUPEMENT ET TRI PAR COLONNES NATURELLES DE LECTURE ---
+        if (allSegments.length === 0) return [];
+
+        if (algoMode === 'smart') {
+            const mappedBlocks = allSegments.map(seg => ({
+                id: seg.id,
+                text: '',
+                rect: { left: seg.rect.left, top: seg.rect.top, right: seg.rect.left + seg.rect.width, bottom: seg.rect.top + seg.rect.height },
+                lines: [{
+                    text: '',
+                    rect: { left: seg.rect.left, top: seg.rect.top, right: seg.rect.left + seg.rect.width, bottom: seg.rect.top + seg.rect.height },
+                    elements: seg.elements.map(e => ({
+                        text: e.block.text,
+                        rect: { left: e.rect.left, top: e.rect.top, right: e.rect.left + e.rect.width, bottom: e.rect.top + e.rect.height },
+                        originalBlock: e.block
+                    }))
+                }]
+            }));
+            const smartSelection = new SmartTextSelection(mappedBlocks);
+            const ordered = smartSelection.getOrderedElements();
+            return ordered.map((el: any) => el.originalBlock as MLKitText);
+        }
+
+        // Étape CRUCIALE : On trie tous les segments de haut en bas avant de construire les colonnes.
+        // Cela garantit que l'algorithme découvre la mise en page organiquement de haut en bas.
+        // Ça empêche totalement les bugs de "pontage" où un bloc du bas fusionnait par erreur avec un bloc du haut
+        // à cause d'un ordre de traitement aléatoire des blocs MLKit.
+        allSegments.sort((a, b) => a.rect.top - b.rect.top);
+
+        const columns: Array<{ minLeft: number; maxRight: number; segments: typeof allSegments }> = [];
+
+        allSegments.forEach(seg => {
+            const rect = seg.rect;
+
+            let bestCol: any = null;
+            let bestScore = Infinity;
+
+            columns.forEach(c => {
+                // 1. Distance verticale avec la colonne (le segment le plus proche)
+                let minVertDist = Infinity;
+                c.segments.forEach(s => {
+                    let dist = 0;
+                    if (rect.top > s.rect.top + s.rect.height) {
+                        dist = rect.top - (s.rect.top + s.rect.height);
+                    } else if (rect.top + rect.height < s.rect.top) {
+                        dist = s.rect.top - (rect.top + rect.height);
+                    }
+                    if (dist < minVertDist) minVertDist = dist;
+                });
+
+                // Si trop éloigné verticalement (ex: Cover vs Texte bas)
+                if (minVertDist > 65) return;
+
+                // 2. Chevauchement horizontal minimal
+                const overlap = Math.min(rect.left + rect.width, c.maxRight) - Math.max(rect.left, c.minLeft);
+                const minWidth = Math.min(rect.width, c.maxRight - c.minLeft);
+                if (overlap <= minWidth * 0.25) return;
+
+                // 3. Alignement sur la marge GAUCHE globale
+                const leftDiff = Math.abs(rect.left - c.minLeft);
+
+                if (leftDiff <= 45) {
+                    // Sélection du "Best Match" pour éviter qu'une ligne indentée serve de pont
+                    // entre deux colonnes distinctes.
+                    if (leftDiff < bestScore) {
+                        bestScore = leftDiff;
+                        bestCol = c;
+                    }
+                }
+            });
+
+            if (bestCol) {
+                bestCol.segments.push(seg);
+                bestCol.minLeft = Math.min(bestCol.minLeft, rect.left);
+                bestCol.maxRight = Math.max(bestCol.maxRight, rect.left + rect.width);
+            } else {
+                columns.push({
+                    minLeft: rect.left,
+                    maxRight: rect.left + rect.width,
+                    segments: [seg]
+                });
+            }
+        });
+
+        // --- PASS 2: FUSION DES COLONNES ORPHELINES ---
+        // MLKit fragmente parfois une ligne horizontalement (ex: espaces justifiés ou ponctuation).
+        // Cela crée de petites colonnes orphelines qui se retrouvent "à l'intérieur" des grandes colonnes.
+        // On fusionne les colonnes qui se chevauchent complètement.
+        let merged = true;
+        while (merged) {
+            merged = false;
+            for (let i = 0; i < columns.length; i++) {
+                for (let j = i + 1; j < columns.length; j++) {
+                    const c1 = columns[i];
+                    const c2 = columns[j];
+
+                    const c1Tops = c1.segments.map(s => s.rect.top);
+                    const c1Bottoms = c1.segments.map(s => s.rect.top + s.rect.height);
+                    const c1MinTop = Math.min(...c1Tops);
+                    const c1MaxBottom = Math.max(...c1Bottoms);
+
+                    const c2Tops = c2.segments.map(s => s.rect.top);
+                    const c2Bottoms = c2.segments.map(s => s.rect.top + s.rect.height);
+                    const c2MinTop = Math.min(...c2Tops);
+                    const c2MaxBottom = Math.max(...c2Bottoms);
+
+                    // Chevauchement vertical
+                    const vertOverlap = Math.min(c1MaxBottom, c2MaxBottom) - Math.max(c1MinTop, c2MinTop);
+
+                    // Chevauchement horizontal
+                    const horizOverlap = Math.min(c1.maxRight, c2.maxRight) - Math.max(c1.minLeft, c2.minLeft);
+                    const minWidth = Math.min(c1.maxRight - c1.minLeft, c2.maxRight - c2.minLeft);
+
+                    if (vertOverlap > 0 && horizOverlap > minWidth * 0.5) {
+                        // Fusionner c2 dans c1
+                        c1.segments.push(...c2.segments);
+                        c1.minLeft = Math.min(c1.minLeft, c2.minLeft);
+                        c1.maxRight = Math.max(c1.maxRight, c2.maxRight);
+                        columns.splice(j, 1);
+                        merged = true;
+                        break;
+                    }
+                }
+                if (merged) break;
+            }
+        }
+
+        // Trier les colonnes dans l'ordre naturel de lecture 2D (de haut en bas, puis de gauche à droite pour les colonnes parallèles)
+        columns.sort((a, b) => {
+            const aTops = a.segments.map(s => s.rect.top);
+            const aBottoms = a.segments.map(s => s.rect.top + s.rect.height);
+            const aMinTop = Math.min(...aTops);
+            const aMaxBottom = Math.max(...aBottoms);
+
+            const bTops = b.segments.map(s => s.rect.top);
+            const bBottoms = b.segments.map(s => s.rect.top + s.rect.height);
+            const bMinTop = Math.min(...bTops);
+            const bMaxBottom = Math.max(...bBottoms);
+
+            // Chevauchement vertical
+            const verticalOverlap = Math.min(aMaxBottom, bMaxBottom) - Math.max(aMinTop, bMinTop);
+            const aHeight = aMaxBottom - aMinTop;
+            const bHeight = bMaxBottom - bMinTop;
+            const verticalThreshold = Math.min(aHeight, bHeight) * 0.25;
+
+            if (verticalOverlap <= verticalThreshold) {
+                // Pas de chevauchement vertical significatif -> tri vertical (de haut en bas)
+                return aMinTop - bMinTop;
+            }
+
+            // Colonnes parallèles -> tri horizontal (de gauche à droite)
+            return a.minLeft - b.minLeft;
+        });
+
+        const sortedWords: MLKitText[] = [];
+
+        columns.forEach(col => {
+            // Trier les segments de haut en bas au sein de chaque colonne (rect.top croissant)
+            col.segments.sort((a, b) => a.rect.top - b.rect.top);
+
+            col.segments.forEach(seg => {
+                // Trier les mots de gauche à droite au sein de chaque segment
+                seg.elements.sort((a, b) => a.rect.left - b.rect.left);
+                seg.elements.forEach(item => {
+                    item.block.columnMinLeft = col.minLeft;
+                    item.block.columnMaxRight = col.maxRight;
+                    sortedWords.push(item.block);
+                });
+            });
+        });
+
+        return sortedWords;
+    }, [ocrResult, photo, photoDimensions, imageSize]);
+
+    // Keep refs updated
+    const imageInfoRef = useRef({ photo, photoDimensions, imageSize, wordBlocks });
+    useEffect(() => {
+        imageInfoRef.current = { photo, photoDimensions, imageSize, wordBlocks };
+    }, [photo, photoDimensions, imageSize, wordBlocks]);
+
+    useEffect(() => {
+        selectedBlocksRef.current = selectedBlocks;
+    }, [selectedBlocks]);
+
+    // Calculate global angle using weighted average of ALL detected blocks
+    // (wider blocks have more weight, stable from the beginning and doesn't jump during selections)
+    const angleWeights = wordBlocks
+        .filter(b => b.rotation !== undefined && b.rotation !== 0 && b.frame !== undefined)
+        .map(b => ({
+            angle: b.rotation!,
+            weight: b.frame!.width
+        }));
+
+    const totalWeight = angleWeights.reduce((sum, item) => sum + item.weight, 0);
+    const globalAngle = totalWeight > 0
+        ? angleWeights.reduce((sum, item) => sum + item.angle * item.weight, 0) / totalWeight
+        : 0;
+
+    // Logic to sort blocks and build text (Derive from state using useMemo)
+    const { sortedSelectedBlocks, scannedText, sortedData } = useMemo(() => {
+        if (selectedBlocks.length === 0) {
+            return { sortedSelectedBlocks: [], scannedText: '', sortedData: [] };
+        }
+
+        type PositionedBlock = {
+            block: MLKitText;
+            rect: { left: number; top: number; width: number; height: number; rotation?: number };
+            alignedX: number;
+            alignedY: number;
+        };
+
+        const orientation = getPhotoOrientation(photo);
+
+        const oriented: PositionedBlock[] = selectedBlocks
+            .map<PositionedBlock | null>(block => {
+                if (!photo) return null;
+                const rect = getBlockRectOnScreen(block, imageSize, { width: photo.width, height: photo.height }, orientation);
+                if (!rect) return null;
+
+                const centerX = imageSize.offsetX + imageSize.width / 2;
+                const centerY = imageSize.offsetY + imageSize.height / 2;
+                const dx = rect.left + rect.width / 2 - centerX;
+                const dy = rect.top + rect.height / 2 - centerY;
+
+                let alignedX = rect.left + rect.width / 2;
+                let alignedY = rect.top + rect.height / 2;
+
+                if (globalAngle !== 0) {
+                    const angleRad = (globalAngle * Math.PI) / 180;
+                    const cosA = Math.cos(angleRad);
+                    const sinA = Math.sin(angleRad);
+
+                    // X increases Left -> Right, Y increases Bottom -> Top
+                    alignedX = centerX + (dx * cosA + dy * sinA);
+                    alignedY = centerY - (-dx * sinA + dy * cosA);
+                }
+
+                return { block, rect, alignedX, alignedY };
+            })
+            .filter((item): item is PositionedBlock => item !== null);
+
+        const heights = oriented.map(item => item.rect.height).sort((a, b) => a - b);
+        const medianHeight = heights.length ? heights[Math.floor(heights.length / 2)] : 0;
+        const LINE_TOLERANCE = Math.max(6, medianHeight * 0.5);
+
+        const lines: Array<{ centerY: number; words: PositionedBlock[] }> = [];
+        oriented.forEach(item => {
+            const centerY = item.alignedY;
+            let line = lines.find(l => Math.abs(l.centerY - centerY) < LINE_TOLERANCE);
+            if (!line) {
+                line = { centerY, words: [] };
+                lines.push(line);
+            }
+            line.words.push(item);
+        });
+
+        // Top line has HIGHEST Y in the new system (bottom to top), so sort descending
+        lines.sort((a, b) => b.centerY - a.centerY);
+        const sorted = lines.flatMap(line => line.words.sort((a, b) => a.alignedX - b.alignedX));
+        const finalSortedBlocks = sorted.map(item => item.block);
+
+        const scannedText = finalSortedBlocks.reduce((acc, block, index) => {
+            if (index === 0) return block.text;
+
+            const prevBlock = finalSortedBlocks[index - 1];
+            const prevText = prevBlock.text;
+
+            // If previous word ends with a hyphen, we might need to merge
+            if (prevText.endsWith('-') && prevText.length > 1) {
+                const part1 = prevText.slice(0, -1).toLowerCase();
+                const part2 = block.text.toLowerCase().replace(/[.,!?;:]/g, '');
+
+                const isNaturalHyphen = NATURAL_HYPHEN_PARTS.has(part1) || NATURAL_HYPHEN_PARTS.has(part2);
+
+                if (isNaturalHyphen) {
+                    // It's a natural hyphenated word (like rendez-vous), keep the hyphen but no space
+                    return acc + block.text;
+                } else {
+                    // It's likely a word split across lines, remove the hyphen and no space
+                    return acc.slice(0, -1) + block.text;
+                }
+            }
+
+            return acc + ' ' + block.text;
+        }, '');
+
+        return {
+            sortedSelectedBlocks: finalSortedBlocks,
+            scannedText,
+            sortedData: sorted
+        };
+    }, [selectedBlocks, imageSize, photo, photoDimensions, globalAngle]);
+
+    const lastLoggedRef = useRef<string>('');
+
+    // Debug Logs Effect (Runs only when the sorted data actually changes)
+    useEffect(() => {
+        if (sortedData.length === 0) {
+            lastLoggedRef.current = '';
+            return;
+        }
+
+        // Create a unique key for the current sorting state
+        const logKey = `${scannedText}-${globalAngle.toFixed(1)}`;
+        if (logKey === lastLoggedRef.current) return;
+        lastLoggedRef.current = logKey;
+
+        console.log(`[WordSorting] Angle: ${globalAngle.toFixed(1)}° | Words: ${sortedData.length} | Text: "${scannedText.slice(0, 80)}..."`);
+
+        // Log individual word bounding box sizes in a clean, compact way
+        const sizesLog = sortedData.map(item => `"${item.block.text}": ${item.rect.width.toFixed(1)}x${item.rect.height.toFixed(1)}`).join(' | ');
+        console.log(`[WordSizes] ${sizesLog}`);
+    }, [sortedData, globalAngle, scannedText]);
+
+    // Micro-retour tactile haptique à chaque fois que le nombre de blocs sélectionnés change (snapping de mot fluide)
+    useEffect(() => {
+        if (selectedBlocks.length > 0) {
+            Haptics.selectionAsync().catch(() => { });
+        }
+    }, [selectedBlocks.length]);
+
+    // Helpers for interactions
+    const getBlockKey = (block: MLKitText): string => {
+        return `${block.text}-${block.frame?.left}-${block.frame?.top}`;
+    };
+
+    const getBlocksNearPoint = (x: number, y: number, padding = HIGHLIGHT_PADDING) => {
+        const { wordBlocks, imageSize, photoDimensions, photo } = imageInfoRef.current;
+        if (imageSize.width === 0) return [] as MLKitText[];
+
+        const orientation = getPhotoOrientation(photo);
+
+        return wordBlocks.filter(block => {
+            if (!photo) return false;
+            return isPointInBlock(x, y, block, imageSize, { width: photo.width, height: photo.height }, orientation, padding);
+        });
+    };
+
+    const updateSelectionForBlocks = (blocks: MLKitText[], mode: 'add' | 'remove') => {
+        if (blocks.length === 0) return;
+
+        setSelectedBlocks(prev => {
+            const next = [...prev];
+            const currentKeys = new Set(next.map(getBlockKey));
+
+            blocks.forEach(block => {
+                const key = getBlockKey(block);
+                if (mode === 'add') {
+                    if (!currentKeys.has(key)) {
+                        next.push(block);
+                        currentKeys.add(key);
+                    }
+                } else if (currentKeys.has(key)) {
+                    const index = next.findIndex(b => getBlockKey(b) === key);
+                    if (index > -1) {
+                        next.splice(index, 1);
+                        currentKeys.delete(key);
+                    }
+                }
+            });
+
+            return next;
+        });
+    };
+
+    const applyHighlightStroke = (points: { x: number; y: number }[]) => {
+        const touchedBlocksMap = new Map<string, MLKitText>();
+        points.forEach(point => {
+            getBlocksNearPoint(point.x, point.y).forEach(block => {
+                touchedBlocksMap.set(getBlockKey(block), block);
+            });
+        });
+
+        if (touchedBlocksMap.size === 0) return;
+
+        const { imageSize, photoDimensions, photo } = imageInfoRef.current;
+        const orientation = getPhotoOrientation(photo);
+
+        const blocksToUpdate = Array.from(touchedBlocksMap.values()).sort((a, b) => {
+            if (!photo) return 0;
+            const rectA = getBlockRectOnScreen(a, imageSize, { width: photo.width, height: photo.height }, orientation);
+            const rectB = getBlockRectOnScreen(b, imageSize, { width: photo.width, height: photo.height }, orientation);
+            if (!rectA || !rectB) return 0;
+
+            const tolerance = Math.max(rectA.height, rectB.height) * 0.3;
+            const centerYDiff = Math.abs((rectA.top + rectA.height / 2) - (rectB.top + rectB.height / 2));
+
+            if (centerYDiff < tolerance) {
+                return rectA.left - rectB.left;
+            }
+            return (rectA.top + rectA.height / 2) - (rectB.top + rectB.height / 2);
+        });
+
+        updateSelectionForBlocks(blocksToUpdate, panModeRef.current);
+    };
+
+    const filterBlocksToSameColumn = (
+        slicedBlocks: MLKitText[],
+        startBlock: MLKitText,
+        endBlock: MLKitText
+    ): MLKitText[] => {
+        // Résout les équivalents frais de startBlock et endBlock dans wordBlocks pour éviter les références périmées
+        // (qui datent de l'initialisation asynchrone où photoDimensions = 0 et parentScreenRect = undefined)
+        const freshStart = wordBlocks.find(b => getBlockKey(b) === getBlockKey(startBlock)) || startBlock;
+        const freshEnd = wordBlocks.find(b => getBlockKey(b) === getBlockKey(endBlock)) || endBlock;
+
+        const startFrame = freshStart.parentScreenRect || freshStart.screenRect || freshStart.parentBlockFrame || freshStart.frame;
+        const endFrame = freshEnd.parentScreenRect || freshEnd.screenRect || freshEnd.parentBlockFrame || freshEnd.frame;
+
+        if (!startFrame || !endFrame) return slicedBlocks;
+
+        // Définition de l'enveloppe horizontale par défaut (Union globale de startFrame et endFrame)
+        const globalLeftBound = Math.min(
+            freshStart.columnMinLeft !== undefined ? freshStart.columnMinLeft : startFrame.left,
+            freshEnd.columnMinLeft !== undefined ? freshEnd.columnMinLeft : endFrame.left
+        );
+        const globalRightBound = Math.max(
+            freshStart.columnMaxRight !== undefined ? freshStart.columnMaxRight : startFrame.left + startFrame.width,
+            freshEnd.columnMaxRight !== undefined ? freshEnd.columnMaxRight : endFrame.left + endFrame.width
+        );
+
+        console.log(
+            `[FilterColumn] Selection: "${freshStart.text}" (id:${freshStart.blockId}) -> "${freshEnd.text}" (id:${freshEnd.blockId}) ` +
+            `| Global Col Bounds: [${globalLeftBound.toFixed(1)}, ${globalRightBound.toFixed(1)}]`
+        );
+
+        const loggedSegments = new Set<string>();
+
+        return slicedBlocks.filter(block => {
+            const blockId = block.blockId || 'unknown';
+            const isDirectMatch = blockId === freshStart.blockId || blockId === freshEnd.blockId;
+
+            if (isDirectMatch) {
+                if (!loggedSegments.has(blockId)) {
+                    loggedSegments.add(blockId);
+                    console.log(`[FilterColumn] KEEP direct ID match: segment "${blockId}" (starts with "${block.text}")`);
+                }
+                return true;
+            }
+
+            const blockFrame = block.parentScreenRect || block.screenRect || block.parentBlockFrame || block.frame;
+            if (!blockFrame) return false;
+
+            // Définition adaptative des limites pour ce bloc candidat :
+            // - Si le bloc appartient à la colonne du startBlock, on utilise strictement l'enveloppe de cette colonne (évite de déborder à gauche si le startBlock est à droite)
+            // - Si le bloc appartient à la colonne du endBlock, on utilise strictement l'enveloppe de cette colonne (s'élargit à gauche si le endBlock est à gauche)
+            // - Sinon, on utilise l'union globale
+            let leftBound = globalLeftBound;
+            let rightBound = globalRightBound;
+
+            if (block.columnMinLeft !== undefined) {
+                if (block.columnMinLeft === freshStart.columnMinLeft) {
+                    leftBound = freshStart.columnMinLeft;
+                    rightBound = freshStart.columnMaxRight !== undefined ? freshStart.columnMaxRight : rightBound;
+                } else if (block.columnMinLeft === freshEnd.columnMinLeft) {
+                    leftBound = freshEnd.columnMinLeft;
+                    rightBound = freshEnd.columnMaxRight !== undefined ? freshEnd.columnMaxRight : rightBound;
+                }
+            }
+
+            // Calcul du taux de recouvrement horizontal avec l'enveloppe adaptée
+            const overlapCombined = Math.min(blockFrame.left + blockFrame.width, rightBound) - Math.max(blockFrame.left, leftBound);
+
+            // Seuil d'overlap : au moins 25% de la largeur du bloc
+            const threshold = blockFrame.width * 0.25;
+            const keep = overlapCombined > threshold;
+
+            if (!loggedSegments.has(blockId)) {
+                loggedSegments.add(blockId);
+                console.log(
+                    `[FilterColumn] segment "${blockId}" (starts with "${block.text}") ` +
+                    `L:${blockFrame.left.toFixed(1)}, W:${blockFrame.width.toFixed(1)} -> ` +
+                    `overlapCombined:${overlapCombined.toFixed(1)} ` +
+                    `[threshold:${threshold.toFixed(1)}] (Bounds: [${leftBound.toFixed(1)}, ${rightBound.toFixed(1)}]) -> KEEP: ${keep}`
+                );
+            }
+
+            return keep;
+        });
+    };
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: evt => {
+                if (!evt?.nativeEvent) return;
+                const { photo, imageSize, wordBlocks: currentWordBlocks } = imageInfoRef.current;
+                if (!photo || imageSize.width === 0) return;
+
+                const locationX = evt.nativeEvent.locationX;
+                const locationY = evt.nativeEvent.locationY;
+                if (locationX === undefined || locationY === undefined) return;
+
+                const currentMode = selectionModeRef.current;
+
+                // Mode Segment : Tap de départ puis tap de fin pour sélectionner la plage
+                if (currentMode === 'segment') {
+                    const tappedBlocks = getBlocksNearPoint(locationX, locationY);
+                    if (tappedBlocks.length > 0) {
+                        const tappedBlock = tappedBlocks[0];
+                        const startBlock = segmentStartBlockRef.current;
+                        if (!startBlock) {
+                            setSegmentStartBlock(tappedBlock);
+                            setSelectedBlocks([tappedBlock]);
+                        } else {
+                            const idxStart = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(startBlock));
+                            const idxEnd = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(tappedBlock));
+                            if (idxStart !== -1 && idxEnd !== -1) {
+                                const min = Math.min(idxStart, idxEnd);
+                                const max = Math.max(idxStart, idxEnd);
+                                const range = currentWordBlocks.slice(min, max + 1);
+                                setSelectedBlocks(filterBlocksToSameColumn(range, startBlock, tappedBlock));
+                            }
+                            setSegmentStartBlock(null);
+                        }
+                    }
+                    return;
+                }
+
+                // Mode Poignées (Native Selection) : Ajuste les bornes au clic ou au glissement de poignée
+                if (currentMode === 'native') {
+                    const currentSelection = selectedBlocksRef.current;
+
+                    // 1. Détection si on clique près des poignées de sélection existantes pour démarrer un Drag
+                    if (currentSelection.length > 0) {
+                        const orientation = getPhotoOrientation(photo);
+                        const sortedSel = [...currentSelection].sort((a, b) => {
+                            const ia = currentWordBlocks.findIndex(x => getBlockKey(x) === getBlockKey(a));
+                            const ib = currentWordBlocks.findIndex(x => getBlockKey(x) === getBlockKey(b));
+                            return ia - ib;
+                        });
+
+                        const firstBlock = sortedSel[0];
+                        const lastBlock = sortedSel[sortedSel.length - 1];
+
+                        const firstRect = getBlockRectOnScreen(firstBlock, imageSize, { width: photo.width, height: photo.height }, orientation);
+                        const lastRect = getBlockRectOnScreen(lastBlock, imageSize, { width: photo.width, height: photo.height }, orientation);
+
+                        if (firstRect && lastRect) {
+                            const leftHandleX = firstRect.left - 2;
+                            const leftHandleY = firstRect.top + firstRect.height / 2;
+
+                            const rightHandleX = lastRect.left + lastRect.width + 1;
+                            const rightHandleY = lastRect.top + lastRect.height / 2;
+
+                            const distToLeft = Math.hypot(locationX - leftHandleX, locationY - leftHandleY);
+                            const distToRight = Math.hypot(locationX - rightHandleX, locationY - rightHandleY);
+
+                            const TOUCH_THRESHOLD = 45; // Rayon de détection tactile généreux (45px) pour une préhension parfaite
+                            if (distToLeft < TOUCH_THRESHOLD || distToRight < TOUCH_THRESHOLD) {
+                                if (distToLeft <= distToRight) {
+                                    activeHandleRef.current = 'left';
+                                } else {
+                                    activeHandleRef.current = 'right';
+                                }
+                                handleFirstBlockIndexRef.current = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(firstBlock));
+                                handleLastBlockIndexRef.current = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(lastBlock));
+                                return; // On bypass le clic classique pour se concentrer sur le glissement
+                            }
+                        }
+                    }
+
+                    // 2. Clic classique sur un mot si on ne touche pas une poignée
+                    const tappedBlocks = getBlocksNearPoint(locationX, locationY);
+                    if (tappedBlocks.length > 0) {
+                        const tappedBlock = tappedBlocks[0];
+                        const tappedKey = getBlockKey(tappedBlock);
+
+                        if (currentSelection.length === 0) {
+                            setSelectedBlocks([tappedBlock]);
+                        } else {
+                            // Verrouillage de colonne lors du tap simple :
+                            // Si le mot cliqué est dans une colonne différente, on commence une nouvelle sélection
+                            const anchorBlock = currentSelection[0];
+                            const anchorFrame = anchorBlock.parentScreenRect || anchorBlock.screenRect || anchorBlock.parentBlockFrame || anchorBlock.frame;
+                            const tappedFrame = tappedBlock.parentScreenRect || tappedBlock.screenRect || tappedBlock.parentBlockFrame || tappedBlock.frame;
+                            if (anchorFrame && tappedFrame) {
+                                const overlap = Math.min(tappedFrame.left + tappedFrame.width, anchorFrame.left + anchorFrame.width) - Math.max(tappedFrame.left, anchorFrame.left);
+                                const threshold = tappedFrame.width * 0.25;
+                                if (overlap <= threshold) {
+                                    setSelectedBlocks([tappedBlock]);
+                                    return;
+                                }
+                            }
+
+                            const idxTapped = currentWordBlocks.findIndex(b => getBlockKey(b) === tappedKey);
+                            const sortedSel = [...currentSelection].sort((a, b) => {
+                                const ia = currentWordBlocks.findIndex(x => getBlockKey(x) === getBlockKey(a));
+                                const ib = currentWordBlocks.findIndex(x => getBlockKey(x) === getBlockKey(b));
+                                return ia - ib;
+                            });
+
+                            const idxFirst = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(sortedSel[0]));
+                            const idxLast = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(sortedSel[sortedSel.length - 1]));
+
+                            if (idxTapped < idxFirst) {
+                                const range = currentWordBlocks.slice(idxTapped, idxLast + 1);
+                                setSelectedBlocks(filterBlocksToSameColumn(range, tappedBlock, sortedSel[sortedSel.length - 1]));
+                            } else if (idxTapped > idxLast) {
+                                const range = currentWordBlocks.slice(idxFirst, idxTapped + 1);
+                                setSelectedBlocks(filterBlocksToSameColumn(range, sortedSel[0], tappedBlock));
+                            } else {
+                                const distToStart = idxTapped - idxFirst;
+                                const distToEnd = idxLast - idxTapped;
+                                if (distToStart < distToEnd) {
+                                    const range = currentWordBlocks.slice(idxTapped, idxLast + 1);
+                                    setSelectedBlocks(filterBlocksToSameColumn(range, tappedBlock, sortedSel[sortedSel.length - 1]));
+                                } else {
+                                    const range = currentWordBlocks.slice(idxFirst, idxTapped + 1);
+                                    setSelectedBlocks(filterBlocksToSameColumn(range, sortedSel[0], tappedBlock));
+                                }
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                // Mode Surligneur standard (Drag)
+                lastTouchRef.current = { x: locationX, y: locationY };
+                initialYRef.current = locationY;
+
+                const initialBlocks = getBlocksNearPoint(locationX, locationY);
+                const selectedKeys = new Set(selectedBlocksRef.current.map(getBlockKey));
+                const shouldErase = initialBlocks.some(block => selectedKeys.has(getBlockKey(block)));
+                panModeRef.current = shouldErase ? 'remove' : 'add';
+
+                applyHighlightStroke([{ x: locationX, y: locationY }]);
+            },
+            onPanResponderMove: evt => {
+                if (!evt?.nativeEvent) return;
+                const locationX = evt.nativeEvent.locationX;
+                const locationY = evt.nativeEvent.locationY;
+                if (locationX === undefined || locationY === undefined) return;
+
+                const currentMode = selectionModeRef.current;
+
+                // Mode Poignées (Native Selection) : Déplacement continu de la poignée sélectionnée
+                if (currentMode === 'native' && activeHandleRef.current !== null) {
+                    const { wordBlocks: currentWordBlocks } = imageInfoRef.current;
+                    const draggedBlocks = getBlocksNearPoint(locationX, locationY, 20); // Tolérance de 20px pour rester fluide
+                    if (draggedBlocks.length > 0) {
+                        const draggedBlock = draggedBlocks[0];
+                        const idxTapped = currentWordBlocks.findIndex(b => getBlockKey(b) === getBlockKey(draggedBlock));
+
+                        if (activeHandleRef.current === 'left') {
+                            const idxLast = handleLastBlockIndexRef.current;
+                            if (idxLast !== null && idxTapped !== -1 && idxTapped <= idxLast) {
+                                // Verrouillage de colonne pendant le Drag de la poignée gauche
+                                const anchorBlock = currentWordBlocks[idxLast];
+                                const anchorFrame = anchorBlock.parentScreenRect || anchorBlock.screenRect || anchorBlock.parentBlockFrame || anchorBlock.frame;
+                                const draggedFrame = draggedBlock.parentScreenRect || draggedBlock.screenRect || draggedBlock.parentBlockFrame || draggedBlock.frame;
+                                if (anchorFrame && draggedFrame) {
+                                    const overlap = Math.min(draggedFrame.left + draggedFrame.width, anchorFrame.left + anchorFrame.width) - Math.max(draggedFrame.left, anchorFrame.left);
+                                    const threshold = draggedFrame.width * 0.25;
+                                    if (overlap <= threshold) return; // Ignore si hors-colonne
+                                }
+
+                                const range = currentWordBlocks.slice(idxTapped, idxLast + 1);
+                                setSelectedBlocks(filterBlocksToSameColumn(range, draggedBlock, currentWordBlocks[idxLast]));
+                                handleFirstBlockIndexRef.current = idxTapped; // Enregistre la nouvelle position de départ
+                            }
+                        } else if (activeHandleRef.current === 'right') {
+                            const idxFirst = handleFirstBlockIndexRef.current;
+                            if (idxFirst !== null && idxTapped !== -1 && idxTapped >= idxFirst) {
+                                // Verrouillage de colonne pendant le Drag de la poignée droite
+                                const anchorBlock = currentWordBlocks[idxFirst];
+                                const anchorFrame = anchorBlock.parentScreenRect || anchorBlock.screenRect || anchorBlock.parentBlockFrame || anchorBlock.frame;
+                                const draggedFrame = draggedBlock.parentScreenRect || draggedBlock.screenRect || draggedBlock.parentBlockFrame || draggedBlock.frame;
+                                if (anchorFrame && draggedFrame) {
+                                    const overlap = Math.min(draggedFrame.left + draggedFrame.width, anchorFrame.left + anchorFrame.width) - Math.max(draggedFrame.left, anchorFrame.left);
+                                    const threshold = draggedFrame.width * 0.25;
+                                    if (overlap <= threshold) return; // Ignore si hors-colonne
+                                }
+
+                                const range = currentWordBlocks.slice(idxFirst, idxTapped + 1);
+                                setSelectedBlocks(filterBlocksToSameColumn(range, currentWordBlocks[idxFirst], draggedBlock));
+                                handleLastBlockIndexRef.current = idxTapped; // Enregistre la nouvelle position de fin
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                if (currentMode !== 'drag') return; // Ne réagit au glissé continu qu'en mode surligneur
+
+                // Anti-derapage : si le glissement vertical est minime, on le contraint sur la ligne de départ
+                let activeY = locationY;
+                if (initialYRef.current !== null) {
+                    const diffY = Math.abs(locationY - initialYRef.current);
+                    if (diffY < 18) { // Tolérance de 18 pixels avant de déverrouiller la ligne
+                        activeY = initialYRef.current;
+                    } else {
+                        // Changement de ligne intentionnel : on met à jour la référence Y de la nouvelle ligne
+                        initialYRef.current = locationY;
+                    }
+                }
+
+                const currentPoint = { x: locationX, y: activeY };
+                const lastPoint = lastTouchRef.current;
+                const points = lastPoint ? sampleLinePoints(lastPoint, currentPoint) : [currentPoint];
+                applyHighlightStroke(points);
+                lastTouchRef.current = currentPoint;
+            },
+            onPanResponderRelease: () => {
+                lastTouchRef.current = null;
+                initialYRef.current = null;
+                activeHandleRef.current = null;
+                handleFirstBlockIndexRef.current = null;
+                handleLastBlockIndexRef.current = null;
+            },
+            onPanResponderTerminate: () => {
+                lastTouchRef.current = null;
+                initialYRef.current = null;
+                activeHandleRef.current = null;
+                handleFirstBlockIndexRef.current = null;
+                handleLastBlockIndexRef.current = null;
+            },
+        }),
+    ).current;
+
+    return {
+        wordBlocks,
+        selectedBlocks,
+        sortedSelectedBlocks,
+        setSelectedBlocks,
+        scannedText,
+        panResponder,
+        getBlockKey,
+        globalAngle,
+        selectionMode,
+        setSelectionMode,
+        segmentStartBlock,
+    };
+};

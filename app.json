@@ -75,7 +75,8 @@
           "iosClientId": "635592710276-ejpo7l1bi3jkv6oh1hpd24clnudds1co.apps.googleusercontent.com",
           "iosUrlScheme": "com.googleusercontent.apps.635592710276-ejpo7l1bi3jkv6oh1hpd24clnudds1co"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

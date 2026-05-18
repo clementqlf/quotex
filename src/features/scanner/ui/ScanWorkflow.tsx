@@ -43,6 +43,8 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showDebugAngles, setShowDebugAngles] = useState(false);
   const [showAngleValues, setShowAngleValues] = useState(true);
+  const [showDebugSegments, setShowDebugSegments] = useState(false);
+  const [showDebugColumns, setShowDebugColumns] = useState(false);
 
   useEffect(() => {
     const uri = `file://${photo.path}`;
@@ -62,8 +64,72 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
     scannedText,
     panResponder,
     getBlockKey,
-    globalAngle
+    globalAngle,
+    selectionMode,
+    setSelectionMode,
+    segmentStartBlock,
   } = useScanSelection(photo, ocrResult, imageSize, photoDimensions);
+
+  const uniqueSegments = useMemo(() => {
+    const segmentsMap = new Map<string, { rect: { left: number; top: number; width: number; height: number }; id: string }>();
+    wordBlocks.forEach(block => {
+      if (block.blockId && block.parentScreenRect && !segmentsMap.has(block.blockId)) {
+        segmentsMap.set(block.blockId, {
+          rect: block.parentScreenRect,
+          id: block.blockId,
+        });
+      }
+    });
+    return Array.from(segmentsMap.values());
+  }, [wordBlocks]);
+
+  const uniqueColumns = useMemo(() => {
+    if (wordBlocks.length === 0) return [];
+
+    // Group word blocks by their columnId
+    const columnsMap = new Map<string, {
+      minLeft: number;
+      maxRight: number;
+      minTop: number;
+      maxBottom: number;
+      blocksCount: number;
+    }>();
+
+    wordBlocks.forEach(block => {
+      if (block.columnId) {
+        const key = block.columnId;
+        const rect = block.screenRect || block.parentScreenRect;
+        if (!rect) return;
+
+        const current = columnsMap.get(key) || {
+          minLeft: Infinity,
+          maxRight: -Infinity,
+          minTop: Infinity,
+          maxBottom: -Infinity,
+          blocksCount: 0
+        };
+
+        current.minLeft = Math.min(current.minLeft, rect.left);
+        current.maxRight = Math.max(current.maxRight, rect.left + rect.width);
+        current.minTop = Math.min(current.minTop, rect.top);
+        current.maxBottom = Math.max(current.maxBottom, rect.top + rect.height);
+        current.blocksCount += 1;
+
+        columnsMap.set(key, current);
+      }
+    });
+
+    return Array.from(columnsMap.values()).map((col, index) => ({
+      id: Array.from(columnsMap.keys())[index],
+      rect: {
+        left: col.minLeft,
+        top: col.minTop,
+        width: col.maxRight - col.minLeft,
+        height: col.maxBottom - col.minTop
+      },
+      blocksCount: col.blocksCount
+    }));
+  }, [wordBlocks]);
 
   useEffect(() => {
     const targetScale = isGallery ? 1 : 1.4;
@@ -181,12 +247,63 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
                 </View>
               </>
             )}
+            {showDebugAngles && showDebugSegments && imageSize.width > 0 && uniqueSegments.map((seg, idx) => {
+              const hue = (parseInt(seg.id.replace('seg-', ''), 10) * 137) % 360;
+              return (
+                <View
+                  key={`seg-box-${seg.id}-${idx}`}
+                  style={[
+                    styles.segmentDebugBox,
+                    {
+                      left: seg.rect.left,
+                      top: seg.rect.top,
+                      width: seg.rect.width,
+                      height: seg.rect.height,
+                      transform: [{ rotate: `${globalAngle}deg` }],
+                      borderColor: `hsl(${hue}, 85%, 55%)`,
+                      backgroundColor: `hsl(${hue}, 85%, 55%, 0.08)`,
+                    }
+                  ]}
+                  pointerEvents="none"
+                >
+                  <View style={[styles.segmentDebugBadge, { backgroundColor: `hsl(${hue}, 85%, 45%)` }]}>
+                    <Text style={styles.segmentDebugText}>{seg.id}</Text>
+                  </View>
+                </View>
+              );
+            })}
+            {showDebugAngles && showDebugColumns && imageSize.width > 0 && uniqueColumns.map((col, idx) => {
+              const hue = (idx * 97) % 360;
+              return (
+                <View
+                  key={`col-box-${col.id}-${idx}`}
+                  style={[
+                    styles.columnDebugBox,
+                    {
+                      left: col.rect.left - 2,
+                      top: col.rect.top - 2,
+                      width: col.rect.width + 4,
+                      height: col.rect.height + 4,
+                      transform: [{ rotate: `${globalAngle}deg` }],
+                      borderColor: `hsl(${hue}, 90%, 55%)`,
+                      backgroundColor: `hsl(${hue}, 90%, 55%, 0.08)`,
+                    }
+                  ]}
+                  pointerEvents="none"
+                >
+                  <View style={[styles.columnDebugBadge, { backgroundColor: `hsl(${hue}, 90%, 45%)` }]}>
+                    <Text style={styles.columnDebugText}>{col.id} ({col.blocksCount} mots)</Text>
+                  </View>
+                </View>
+              );
+            })}
             {imageSize.width > 0 && wordBlocks.map((block, index) => {
               const rect = getBlockRectOnScreen(block, imageSize, { width: photo.width, height: photo.height }, orientation);
               if (!rect) return null;
 
               const blockKey = getBlockKey(block);
               const isSelected = selectedBlocks.some(b => getBlockKey(b) === blockKey);
+              const isSegmentStart = selectionMode === 'segment' && segmentStartBlock && getBlockKey(segmentStartBlock) === blockKey;
               const sortedIndex = isSelected
                 ? sortedSelectedBlocks.findIndex(b => getBlockKey(b) === blockKey)
                 : -1;
@@ -204,6 +321,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
                       transform: rect.rotation ? [{ rotate: `${rect.rotation}deg` }] : undefined,
                     },
                     isSelected && styles.textBlockSelected,
+                    isSegmentStart && styles.textBlockSegmentStart,
                   ]}
                   pointerEvents="none"
                 >
@@ -223,6 +341,31 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
                 </View>
               );
             })}
+
+            {/* Rendu des poignées de sélection natives (Apple-style) en mode Poignées */}
+            {selectionMode === 'native' && selectedBlocks.length > 0 && (() => {
+              const firstSelectedBlock = sortedSelectedBlocks[0];
+              const lastSelectedBlock = sortedSelectedBlocks[sortedSelectedBlocks.length - 1];
+              if (!firstSelectedBlock || !lastSelectedBlock) return null;
+
+              const firstRect = getBlockRectOnScreen(firstSelectedBlock, imageSize, { width: photo.width, height: photo.height }, orientation);
+              const lastRect = getBlockRectOnScreen(lastSelectedBlock, imageSize, { width: photo.width, height: photo.height }, orientation);
+              if (!firstRect || !lastRect) return null;
+
+              return (
+                <>
+                  {/* Poignée gauche (point en haut) */}
+                  <View style={[styles.nativeHandle, { left: firstRect.left - 2, top: firstRect.top - 2, height: firstRect.height + 4 }]}>
+                    <View style={[styles.nativeHandleDot, { top: -6 }]} />
+                  </View>
+
+                  {/* Poignée droite (point en bas) */}
+                  <View style={[styles.nativeHandle, { left: lastRect.left + lastRect.width - 1, top: lastRect.top - 2, height: lastRect.height + 4 }]}>
+                    <View style={[styles.nativeHandleDot, { bottom: -6 }]} />
+                  </View>
+                </>
+              );
+            })()}
           </View>
         </Animated.View>
       </View>
@@ -245,12 +388,26 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
           </View>
           <View style={{ flexDirection: 'row' }}>
             {showDebugAngles && (
-              <TouchableOpacity
-                style={[styles.debugButton, { marginRight: 8, backgroundColor: showAngleValues ? 'rgba(32, 184, 205, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
-                onPress={() => setShowAngleValues(prev => !prev)}
-              >
-                <Text style={{ fontSize: 14 }}>📐</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={[styles.debugButton, { marginRight: 8, backgroundColor: showAngleValues ? 'rgba(32, 184, 205, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
+                  onPress={() => setShowAngleValues(prev => !prev)}
+                >
+                  <Text style={{ fontSize: 14 }}>📐</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.debugButton, { marginRight: 8, backgroundColor: showDebugSegments ? 'rgba(168, 85, 247, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
+                  onPress={() => setShowDebugSegments(prev => !prev)}
+                >
+                  <Text style={{ fontSize: 14 }}>📦</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.debugButton, { marginRight: 8, backgroundColor: showDebugColumns ? 'rgba(59, 130, 246, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
+                  onPress={() => setShowDebugColumns(prev => !prev)}
+                >
+                  <Text style={{ fontSize: 14 }}>🏛️</Text>
+                </TouchableOpacity>
+              </>
             )}
             <TouchableOpacity
               style={[styles.debugButton, { backgroundColor: showDebugAngles ? 'rgba(32, 184, 205, 0.4)' : 'rgba(107, 114, 128, 0.3)' }]}
@@ -263,9 +420,46 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrResult, onReset, 
         <Text style={styles.instructionText}>
           {selectedBlocks.length > 0
             ? 'Sélection prête, enregistrez la citation'
-            : 'Glissez votre doigt pour sélectionner la citation'}
+            : ''}
         </Text>
+
+        {/* Menu de sélection du mode de sélection (déboguage chenille) */}
+        {showDebugAngles && (
+          <View style={styles.debugModeSelectorContainer}>
+            <Text style={styles.debugSelectorHeader}>Mode de Sélection (Debug) :</Text>
+            <View style={styles.debugModeRow}>
+              <TouchableOpacity
+                style={[styles.debugModeBtn, selectionMode === 'drag' && styles.debugModeBtnActive]}
+                onPress={() => setSelectionMode('drag')}
+              >
+                <Text style={[styles.debugModeBtnText, selectionMode === 'drag' && styles.debugModeBtnTextActive]}>Surligneur</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.debugModeBtn, selectionMode === 'native' && styles.debugModeBtnActive]}
+                onPress={() => setSelectionMode('native')}
+              >
+                <Text style={[styles.debugModeBtnText, selectionMode === 'native' && styles.debugModeBtnTextActive]}>Poignées</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.debugModeBtn, selectionMode === 'segment' && styles.debugModeBtnActive]}
+                onPress={() => setSelectionMode('segment')}
+              >
+                <Text style={[styles.debugModeBtnText, selectionMode === 'segment' && styles.debugModeBtnTextActive]}>Segment</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
+
+      {/* Carte flottante premium de prévisualisation en direct */}
+      {scannedText ? (
+        <View style={styles.livePreviewCard}>
+          <Text style={styles.livePreviewHeader}>Texte sélectionné :</Text>
+          <Text style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
+            {scannedText}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.controls}>
         <View style={styles.controlsRow}>
@@ -312,6 +506,8 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
     overflow: 'hidden',
+    marginTop: 120, // Évite la superposition avec le bandeau d'information supérieur (debug/chenille)
+    marginBottom: 235, // Évite la superposition avec la carte "Texte sélectionné" et les contrôles inférieurs
   },
   photoContent: {
     width: '100%',
@@ -323,6 +519,7 @@ const styles = StyleSheet.create({
   photo: {
     width: '100%',
     height: '100%',
+    opacity: 0.72, // Assombrit légèrement la page du livre pour faire ressortir le texte interactif
   },
   blocksOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -330,7 +527,9 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     position: 'absolute',
-    backgroundColor: 'rgba(32, 184, 205, 0.3)',
+    backgroundColor: 'rgba(32, 184, 205, 0.12)', // Lueur cyan douce par défaut
+    borderColor: 'rgba(32, 184, 205, 0.25)', // Fine bordure cyan pour marquer le contour des mots
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
@@ -339,7 +538,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   textBlockSelected: {
-    backgroundColor: 'rgba(0, 255, 0, 0.5)',
+    backgroundColor: 'rgba(32, 184, 205, 0.42)', // Remplissage cyan vif uniforme
+    borderRadius: 4,
   },
   blockBaseline: {
     position: 'absolute',
@@ -453,6 +653,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     zIndex: 120,
   },
+  livePreviewCard: {
+    position: 'absolute',
+    bottom: 135,
+    left: 24,
+    right: 24,
+    backgroundColor: 'rgba(10, 10, 10, 0.88)',
+    borderColor: 'rgba(32, 184, 205, 0.3)',
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#20B8CD',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+    zIndex: 110,
+  },
+  livePreviewHeader: {
+    color: '#20B8CD',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  livePreviewText: {
+    color: '#E5E7EB',
+    fontSize: 14,
+    lineHeight: 20,
+    fontStyle: 'italic',
+  },
   controlsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -495,6 +727,107 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#0F0F0F',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  textBlockSegmentStart: {
+    backgroundColor: 'rgba(239, 68, 68, 0.28)', // Rouge/corail translucide doux pour l'ancrage du segment
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+    borderRadius: 4,
+  },
+  nativeHandle: {
+    position: 'absolute',
+    width: 2,
+    backgroundColor: '#20B8CD',
+    zIndex: 1050,
+  },
+  nativeHandleDot: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#20B8CD',
+    left: -4,
+  },
+  debugModeSelectorContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(32, 184, 205, 0.25)',
+  },
+  debugSelectorHeader: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  debugModeRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  debugModeBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  debugModeBtnActive: {
+    backgroundColor: 'rgba(32, 184, 205, 0.15)',
+    borderColor: '#20B8CD',
+  },
+  debugModeBtnText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  debugModeBtnTextActive: {
+    color: '#20B8CD',
+  },
+  columnDebugBox: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderRadius: 8,
+    zIndex: 940,
+  },
+  columnDebugBadge: {
+    position: 'absolute',
+    top: -14,
+    right: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    zIndex: 960,
+  },
+  columnDebugText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  segmentDebugBox: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    zIndex: 950,
+  },
+  segmentDebugBadge: {
+    position: 'absolute',
+    top: -12,
+    left: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    zIndex: 960,
+  },
+  segmentDebugText: {
+    color: '#FFFFFF',
+    fontSize: 9,
     fontWeight: 'bold',
   },
 });

@@ -5,6 +5,13 @@ export type MLKitText = {
     frame?: { left: number; top: number; width: number; height: number };
     cornerPoints?: Array<{ x: number; y: number }>;
     rotation?: number;
+    blockId?: string;
+    parentBlockFrame?: { left: number; top: number; width: number; height: number };
+    screenRect?: { left: number; top: number; width: number; height: number; rotation?: number };
+    parentScreenRect?: { left: number; top: number; width: number; height: number; rotation?: number };
+    columnMinLeft?: number;
+    columnMaxRight?: number;
+    columnId?: string;
 };
 
 export const PATH_SAMPLE_STEP = 1;
@@ -64,7 +71,18 @@ export const sampleLinePoints = (from: { x: number; y: number }, to: { x: number
 };
 
 export const getPhotoOrientation = (photo: PhotoFile | null): number => {
-    if (!photo) return 1;
+    if (!photo) return 0;
+
+    // Support direct string/number property from Vision Camera v3/v4
+    const directOrientation = (photo as any)?.orientation;
+    if (directOrientation !== undefined) {
+        if (directOrientation === 'portrait') return 0;
+        if (directOrientation === 'landscape-right') return 90;
+        if (directOrientation === 'portrait-upside-down') return 180;
+        if (directOrientation === 'landscape-left') return 270;
+        if (typeof directOrientation === 'number') return directOrientation;
+    }
+
     const rawOrientation =
         (photo as any)?.metadata?.Orientation ||
         (photo as any)?.metadata?.orientation ||
@@ -132,7 +150,7 @@ export const getBlockRectOnScreen = (
     photoDimensions: { width: number; height: number },
     orientation: number
 ) => {
-    if (!block.frame || imageSize.width === 0) return null;
+    if (!block.frame || imageSize.width === 0 || photoDimensions.width === 0) return null;
 
     const isNormalized =
         block.frame.left <= 1 && block.frame.top <= 1 &&
@@ -142,17 +160,53 @@ export const getBlockRectOnScreen = (
     const baseWidth = isNormalized ? 1 : photoW;
     const baseHeight = isNormalized ? 1 : photoH;
 
-    const rotatedFrame = rotateFrameToUpright(
-        {
-            left: block.frame.left ?? 0,
-            top: block.frame.top ?? 0,
-            width: block.frame.width ?? 0,
-            height: block.frame.height ?? 0,
-        },
-        orientation,
-        baseWidth,
-        baseHeight,
-    );
+    let width = block.frame.width;
+    let height = block.frame.height;
+    let centerX = block.frame.left + block.frame.width / 2;
+    let centerY = block.frame.top + block.frame.height / 2;
+
+    // Si on a les cornerPoints, on calcule la largeur et la hauteur réelles non-déformées par la rotation
+    if (block.cornerPoints && block.cornerPoints.length >= 4) {
+        const p0 = block.cornerPoints[0];
+        const p1 = block.cornerPoints[1];
+        const p2 = block.cornerPoints[2];
+        const p3 = block.cornerPoints[3];
+
+        // Largeur réelle (distance euclidienne entre haut-gauche et haut-droite)
+        const trueW = Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2);
+        // Hauteur réelle (distance euclidienne entre haut-gauche et bas-gauche)
+        const trueH = Math.sqrt((p3.x - p0.x) ** 2 + (p3.y - p0.y) ** 2);
+
+        // Centre exact des 4 coins
+        const trueCenterX = (p0.x + p1.x + p2.x + p3.x) / 4;
+        const trueCenterY = (p0.y + p1.y + p2.y + p3.y) / 4;
+
+        width = trueW;
+        height = trueH;
+        centerX = trueCenterX;
+        centerY = trueCenterY;
+    }
+
+    // Rotation du centre vers l'orientation upright
+    let rotatedCenterX = centerX;
+    let rotatedCenterY = centerY;
+    let rotatedWidth = width;
+    let rotatedHeight = height;
+
+    if (orientation === 90) {
+        rotatedCenterX = baseHeight - centerY;
+        rotatedCenterY = centerX;
+        rotatedWidth = height;
+        rotatedHeight = width;
+    } else if (orientation === 180) {
+        rotatedCenterX = baseWidth - centerX;
+        rotatedCenterY = baseHeight - centerY;
+    } else if (orientation === 270) {
+        rotatedCenterX = centerY;
+        rotatedCenterY = baseWidth - centerX;
+        rotatedWidth = height;
+        rotatedHeight = width;
+    }
 
     const orientedBaseWidth = orientation === 90 || orientation === 270 ? baseHeight : baseWidth;
     const orientedBaseHeight = orientation === 90 || orientation === 270 ? baseWidth : baseHeight;
@@ -160,16 +214,19 @@ export const getBlockRectOnScreen = (
     const scaleX = imageSize.width / orientedBaseWidth;
     const scaleY = imageSize.height / orientedBaseHeight;
 
-    const left = rotatedFrame.left * scaleX + imageSize.offsetX;
-    const top = rotatedFrame.top * scaleY + imageSize.offsetY;
-    const width = rotatedFrame.width * scaleX;
-    const height = rotatedFrame.height * scaleY;
+    const screenCenterX = rotatedCenterX * scaleX + imageSize.offsetX;
+    const screenCenterY = rotatedCenterY * scaleY + imageSize.offsetY;
+    const screenWidth = rotatedWidth * scaleX;
+    const screenHeight = rotatedHeight * scaleY;
+
+    const left = screenCenterX - screenWidth / 2;
+    const top = screenCenterY - screenHeight / 2;
 
     return {
         left,
         top,
-        width,
-        height,
+        width: screenWidth,
+        height: screenHeight,
         rotation: block.rotation,
     };
 };
