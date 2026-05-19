@@ -68,8 +68,8 @@ export default function BookDictionaryModal({
         setSearchResult(null);
         try {
             const def = await fetchDefinition(searchQuery.trim());
-            if (def) {
-                setSearchResult(def);
+            if (def && def.length > 0) {
+                setSearchResult(def[0]);
             } else {
                 // Fallback
                 setSearchResult({

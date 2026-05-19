@@ -44,6 +44,7 @@ export default function BarcodeScannerModal({
     const cameraRef = useRef<Camera | null>(null);
     const [torch, setTorch] = useState<'off' | 'on'>('off');
     const [isLoading, setIsLoading] = useState(false);
+    const [isPickerActive, setIsPickerActive] = useState(false);
 
     // Scan line animation
     const scanLineY = useSharedValue(0);
@@ -80,47 +81,66 @@ export default function BarcodeScannerModal({
 
     const handlePickImage = async () => {
         try {
-            if (isLoading) return;
-            setIsLoading(true);
+            if (isLoading || isPickerActive) return;
 
-            const { status } = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-                setIsLoading(false);
-                return;
-            }
-
-            const result = await ExpoImagePicker.launchImageLibraryAsync({
-                mediaTypes: ExpoImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 1,
-            });
-
-            if (result.canceled || !result.assets || result.assets.length === 0) {
-                setIsLoading(false);
-                return;
-            }
-
-            const asset = result.assets[0];
-            const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
-            
-            const ocrResult = await TextRecognition.recognize(cleanPath);
-            if (ocrResult && ocrResult.blocks.length > 0) {
-                const fullText = ocrResult.blocks.map(b => b.text).join(' ');
-                const isbn = extractIsbn(fullText);
-                if (isbn) {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    onIsbnDetected(isbn);
-                } else {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                    alert("Aucun ISBN ou code-barres lisible trouvé sur cette image.");
+            // 1. Vérifier la permission sans lancer la boîte de dialogue directement
+            let permission = await ExpoImagePicker.getMediaLibraryPermissionsAsync();
+            if (permission.status !== 'granted') {
+                permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
+                if (permission.status !== 'granted') {
+                    return;
                 }
-            } else {
-                alert("Aucun texte détecté sur l'image.");
+                // Attendre que l'animation de fermeture du dialogue iOS se termine
+                await new Promise(resolve => setTimeout(resolve, 600));
             }
+
+            // Désactiver le flux de la caméra
+            setIsPickerActive(true);
+
+            // 2. Lancer la galerie après un court délai pour stabiliser l'arborescence
+            setTimeout(async () => {
+                try {
+                    const result = await ExpoImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ['images'],
+                        allowsEditing: true,
+                        quality: 1,
+                    });
+
+                    if (result.canceled || !result.assets || result.assets.length === 0) {
+                        setIsPickerActive(false);
+                        return;
+                    }
+
+                    setIsLoading(true);
+
+                    const asset = result.assets[0];
+                    const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
+                    
+                    const ocrResult = await TextRecognition.recognize(cleanPath);
+                    if (ocrResult && ocrResult.blocks.length > 0) {
+                        const fullText = ocrResult.blocks.map(b => b.text).join(' ');
+                        const isbn = extractIsbn(fullText);
+                        if (isbn) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            onIsbnDetected(isbn);
+                        } else {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            alert("Aucun ISBN ou code-barres lisible trouvé sur cette image.");
+                        }
+                    } else {
+                        alert("Aucun texte détecté sur l'image.");
+                    }
+                } catch (innerError) {
+                    console.error('[BarcodeScannerModal] Inner picker error:', innerError);
+                } finally {
+                    setIsLoading(false);
+                    setIsPickerActive(false);
+                }
+            }, 300);
         } catch (error) {
             console.error('[BarcodeScannerModal] Picker error:', error);
-        } finally {
             setIsLoading(false);
+            setIsPickerActive(false);
         }
     };
 
@@ -161,15 +181,17 @@ export default function BarcodeScannerModal({
                     </View>
                 ) : (
                     <>
-                        <Camera
-                            ref={cameraRef}
-                            style={StyleSheet.absoluteFillObject}
-                            device={device}
-                            isActive={visible}
-                            photo={true}
-                            torch={torch}
-                            outputOrientation="preview"
-                        />
+                        {!isPickerActive && (
+                            <Camera
+                                ref={cameraRef}
+                                style={StyleSheet.absoluteFillObject}
+                                device={device}
+                                isActive={visible}
+                                photo={true}
+                                torch={torch}
+                                outputOrientation="preview"
+                            />
+                        )}
 
                         {/* Custom Dark Mask Overlay */}
                         <View style={styles.overlayContainer}>

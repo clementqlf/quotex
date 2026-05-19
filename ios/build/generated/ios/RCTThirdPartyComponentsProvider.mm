@@ -54,6 +54,7 @@
 		@"RNSVGText": NSClassFromString(@"RNSVGText"), // react-native-svg
 		@"RNSVGTextPath": NSClassFromString(@"RNSVGTextPath"), // react-native-svg
 		@"RNSVGUse": NSClassFromString(@"RNSVGUse"), // react-native-svg
+		@"RNCWebView": NSClassFromString(@"RNCWebView"), // react-native-webview
 		@"RNSFullWindowOverlay": NSClassFromString(@"RNSFullWindowOverlay"), // react-native-screens
 		@"RNSModalScreen": NSClassFromString(@"RNSModalScreen"), // react-native-screens
 		@"RNSScreenContainer": NSClassFromString(@"RNSScreenContainerView"), // react-native-screens

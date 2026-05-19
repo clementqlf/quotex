@@ -1,4 +1,4 @@
-import { Book, Author } from '../../types';
+import { Book, Author } from '../api/types';
 
 export const getBookTitle = (book: string | Book | undefined | null): string => {
     if (!book) return 'Livre inconnu';

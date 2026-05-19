@@ -275,37 +275,43 @@ export default function UserProfileScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      const originalUri = result.assets[0].uri;
-      
-      // Compress and resize the image
-      const manipResult = await ImageManipulator.manipulateAsync(
-        originalUri,
-        [{ resize: { width: 400, height: 400 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      );
-
-      // On utilise le base64 pour l'upload mais l'URI pour l'aperçu local
-      const imageUri = manipResult.uri;
-      setEditedImage(imageUri);
-      
-      // Stockage temporaire du base64 pour handleSave
-      (global as any).lastPickedBase64 = manipResult.base64;
-
-      // Nettoyage des fichiers temporaires (uniquement l'original)
+    setTimeout(async () => {
       try {
-        await FileSystem.deleteAsync(originalUri, { idempotent: true });
-      } catch (e) {
-        console.log("Erreur lors de la suppression du fichier temporaire:", e);
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.7,
+        });
+
+        if (!result.canceled) {
+          const originalUri = result.assets[0].uri;
+          
+          // Compress and resize the image
+          const manipResult = await ImageManipulator.manipulateAsync(
+            originalUri,
+            [{ resize: { width: 400, height: 400 } }],
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+
+          // On utilise le base64 pour l'upload mais l'URI pour l'aperçu local
+          const imageUri = manipResult.uri;
+          setEditedImage(imageUri);
+          
+          // Stockage temporaire du base64 pour handleSave
+          (global as any).lastPickedBase64 = manipResult.base64;
+
+          // Nettoyage des fichiers temporaires (uniquement l'original)
+          try {
+            await FileSystem.deleteAsync(originalUri, { idempotent: true });
+          } catch (e) {
+            console.log("Erreur lors de la suppression du fichier temporaire:", e);
+          }
+        }
+      } catch (err) {
+        console.error('[UserProfile] Picker launch error:', err);
       }
-    }
+    }, 100);
   };
 
   const handleCancel = () => {

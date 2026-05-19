@@ -18,7 +18,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import TextRecognition, { TextRecognitionResult } from '@react-native-ml-kit/text-recognition';
+import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
+import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import * as ExpoImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
@@ -43,9 +44,11 @@ export default function ScanScreen() {
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
-  const [ocrResult, setOcrResult] = React.useState<TextRecognitionResult | null>(null);
+  const [ocrElements, setOcrElements] = React.useState<TextElement[] | null>(null);
+  const [ocrBlocks, setOcrBlocks] = React.useState<TextBlock[] | null>(null);
   const [isFromGallery, setIsFromGallery] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isPickerActive, setIsPickerActive] = React.useState(false);
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [scanFrameLayout, setScanFrameLayout] = React.useState<{
     x: number;
@@ -166,14 +169,15 @@ export default function ScanScreen() {
 
       // Réinitialiser les états
       setPhoto(null);
-      setOcrResult(null);
+      setOcrElements(null);
+      setOcrBlocks(null);
       setIsTextDetectedLive(false); // Le hook le fera si unmount, mais on force ici si besoin
     }
   }, [isFocused, setTabIndex]);
 
   React.useEffect(() => {
-    setSwipeEnabled(!(photo && ocrResult));
-  }, [photo, ocrResult, setSwipeEnabled]);
+    setSwipeEnabled(!(photo && ocrElements));
+  }, [photo, ocrElements, setSwipeEnabled]);
 
   // useEffect(() => {
   //   if (photo) {
@@ -204,18 +208,7 @@ export default function ScanScreen() {
   //   outputRange: [-140, 140],
   // });
 
-  const processImage = async (path: string): Promise<TextRecognitionResult | null> => {
-    const cleanPath = path.startsWith('file://') ? path : `file://${path}`;
-    console.log('ScanScreen: Processing image path:', cleanPath);
-
-    try {
-      const result = await TextRecognition.recognize(cleanPath);
-      return result;
-    } catch (error) {
-      console.error('ScanScreen: OCR Failed', error);
-      return null;
-    }
-  };
+  // processImage a été déplacé dans mlKitParser.ts sous le nom recognizeAndExtractElements
 
   const handleTakePhoto = async () => {
     if (!cameraRef.current || isLoading || !isFocused) return;
@@ -247,15 +240,17 @@ export default function ScanScreen() {
         enableShutterSound: false,
       });
 
-      const result = await processImage(photoFile.path);
+      const ocrResult = await recognizeText(photoFile.path);
+      const elements = ocrResult.elements;
 
-      if (!result || result.blocks.length === 0) {
+      if (!elements || elements.length === 0) {
         setPhoto(null);
-        setOcrResult(null);
+        setOcrElements(null);
+        setOcrBlocks(null);
         return;
       }
 
-      const fullText = result.blocks.map(b => b.text).join(' ');
+      const fullText = elements.map(e => e.text).join(' ');
       const isIsbn = await checkAndHandleIsbn(fullText);
       if (isIsbn) {
         return;
@@ -263,11 +258,12 @@ export default function ScanScreen() {
 
       setIsFromGallery(false);
       setPhoto(photoFile);
-      setOcrResult(result);
+      setOcrElements(elements);
+      setOcrBlocks(ocrResult.blocks);
     } catch (error) {
       console.error('Failed to take photo or recognize text:', error);
       setPhoto(null);
-      setOcrResult(null);
+      setOcrElements(null);
     } finally {
       setIsLoading(false);
       // Small delay before releasing lock to let native camera settle
@@ -288,61 +284,85 @@ export default function ScanScreen() {
       }
     }
     setPhoto(null);
-    setOcrResult(null);
+    setOcrElements(null);
+    setOcrBlocks(null);
     setIsFromGallery(false);
     setIsTextDetectedLive(false);
   };
 
   const handlePickImage = async () => {
     try {
-      if (isLoading) return;
-      setIsLoading(true);
+      if (isLoading || isPickerActive) return;
 
-      const { status } = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        setIsLoading(false);
-        return;
-      }
-
-      const result = await ExpoImagePicker.launchImageLibraryAsync({
-        mediaTypes: ExpoImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 1,
-      });
-
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        setIsLoading(false);
-        return;
-      }
-
-      const asset = result.assets[0];
-      const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
-
-      const ocrResult = await processImage(cleanPath);
-      if (ocrResult && ocrResult.blocks.length > 0) {
-        const fullText = ocrResult.blocks.map(b => b.text).join(' ');
-        const isIsbn = await checkAndHandleIsbn(fullText);
-        if (isIsbn) {
+      // 1. Vérifier la permission sans lancer la boîte de dialogue directement
+      let permission = await ExpoImagePicker.getMediaLibraryPermissionsAsync();
+      
+      if (permission.status !== 'granted') {
+        permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== 'granted') {
           return;
         }
+        // Attendre que l'animation de fermeture du dialogue iOS se termine
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
 
-      const pickedPhoto: PhotoFile = {
-        path: cleanPath,
-        width: asset.width,
-        height: asset.height,
-        isRawPhoto: false,
-        metadata: { Orientation: 1 } as any,
-      } as PhotoFile;
+      // Désactiver le flux de la caméra
+      setIsPickerActive(true);
 
-      setIsFromGallery(true);
-      setPhoto(pickedPhoto);
-      setOcrResult(ocrResult || { blocks: [] } as any);
+      // 2. Lancer la galerie après un court délai pour stabiliser l'arborescence
+      setTimeout(async () => {
+        try {
+          const result = await ExpoImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            quality: 1,
+          });
+
+          if (result.canceled || !result.assets || result.assets.length === 0) {
+            setIsPickerActive(false);
+            return;
+          }
+
+          setIsLoading(true);
+
+          const asset = result.assets[0];
+          const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
+
+          const ocrResult = await recognizeText(cleanPath);
+          const elements = ocrResult.elements;
+          if (elements && elements.length > 0) {
+            const fullText = elements.map(e => e.text).join(' ');
+            const isIsbn = await checkAndHandleIsbn(fullText);
+            if (isIsbn) {
+              setIsPickerActive(false);
+              return;
+            }
+          }
+
+          const pickedPhoto: PhotoFile = {
+            path: cleanPath,
+            width: asset.width,
+            height: asset.height,
+            isRawPhoto: false,
+            metadata: { Orientation: 1 } as any,
+          } as PhotoFile;
+
+          setIsFromGallery(true);
+          setPhoto(pickedPhoto);
+          setOcrElements(elements || []);
+          setOcrBlocks(ocrResult.blocks || []);
+        } catch (innerError) {
+          console.error('Picker launch error:', innerError);
+        } finally {
+          setIsLoading(false);
+          setIsPickerActive(false);
+        }
+      }, 300);
 
     } catch (error: any) {
       console.error('Picker error:', error);
-    } finally {
       setIsLoading(false);
+      setIsPickerActive(false);
     }
   };
 
@@ -405,9 +425,15 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {photo && ocrResult ? (
-        <ScanWorkflow photo={photo} ocrResult={ocrResult} onReset={handleResetCapture} isGallery={isFromGallery} />
-      ) : isFocused && !photo ? (
+      {photo && ocrElements ? (
+        <ScanWorkflow
+          photo={photo}
+          ocrElements={ocrElements}
+          ocrBlocks={ocrBlocks || []}
+          onReset={handleResetCapture}
+          isGallery={isFromGallery}
+        />
+      ) : isFocused && !photo && !isPickerActive ? (
         <Camera
           style={StyleSheet.absoluteFill}
           device={device}
