@@ -47,6 +47,10 @@ export function useScanWorkflow({
   const previewScale = useSharedValue(1);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
+  // Dev Mode States
+  const [isDevMode, setIsDevMode] = useState<boolean>(false);
+  const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
+
   // Apple Live Text states
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [isHighlightMode, setIsHighlightMode] = useState<boolean>(true);
@@ -116,7 +120,7 @@ export function useScanWorkflow({
   }, [ocrElements, imageSize, photo, photoDimensions, orientation]);
 
   // Helpers for gestures
-  const findClosestWord = (x: number, y: number) => {
+  const findClosestWordToPoint = (x: number, y: number) => {
     let closest = null;
     let minDist = Infinity;
     for (const w of wordsWithRects) {
@@ -138,6 +142,7 @@ export function useScanWorkflow({
 
   const handleTouchStart = (x: number, y: number) => {
     if (wordsWithRects.length === 0) return;
+    setDebugTouch({x, y});
 
     touchStartPosRef.current = { x, y };
     isSelectionGestureActiveRef.current = false;
@@ -151,7 +156,7 @@ export function useScanWorkflow({
       const { photoW, photoH } = getPhotoDims();
       const photoSize = { width: photoW, height: photoH };
 
-      // Cherche si l'appui long touche un mot (avec tolérance augmentée)
+      // Cherche si l'appui long touche un mot (avec tolérance)
       const clickedWord = wordsWithRects.find(w =>
         isPointInBlock(x, y, w.element as any, imageSize, photoSize, orientation, 16)
       );
@@ -170,6 +175,7 @@ export function useScanWorkflow({
   };
 
   const handleTouchMove = (x: number, y: number) => {
+    setDebugTouch({x, y});
     // Si la sélection n'est pas encore active, on vérifie si le mouvement dépasse le seuil (glissement/scroll)
     if (!isSelectionGestureActiveRef.current) {
       if (touchStartPosRef.current) {
@@ -177,7 +183,6 @@ export function useScanWorkflow({
         const dy = y - touchStartPosRef.current.y;
         const dist = Math.hypot(dx, dy);
         if (dist > 25) {
-          // Annulation du minuteur de long press si l'utilisateur glisse (il veut défiler ou scroller)
           if (longPressTimerRef.current) {
             clearTimeout(longPressTimerRef.current);
             longPressTimerRef.current = null;
@@ -189,11 +194,14 @@ export function useScanWorkflow({
 
     if (touchStartIdxRef.current === null || wordsWithRects.length === 0) return;
 
-    const closestWord = findClosestWord(x, y);
+    const closestWord = findClosestWordToPoint(x, y);
     if (closestWord && selectionRange) {
       const newEnd = closestWord.index;
       if (newEnd !== selectionRange.end) {
         Haptics.selectionAsync();
+        // Allow dynamic selection range but keeping start/end ordered logically if needed,
+        // Actually, during drag we just set start = initial tap, end = current drag.
+        // We will sort them in the UI and when calculating pins.
         setSelectionRange({
           start: touchStartIdxRef.current,
           end: newEnd,
@@ -203,6 +211,7 @@ export function useScanWorkflow({
   };
 
   const handleTouchRelease = () => {
+    setDebugTouch(null);
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -252,7 +261,6 @@ export function useScanWorkflow({
         handleTouchRelease();
       },
       onPanResponderTerminationRequest: () => {
-        // Permet au conteneur parent (scroll/swipe) de récupérer le geste seulement si la sélection n'a pas encore commencé
         return !isSelectionGestureActiveRef.current;
       },
       onPanResponderTerminate: () => {
@@ -262,15 +270,61 @@ export function useScanWorkflow({
   ).current;
 
   // Draggable pin handlers
-  const startPinPosRef = useRef({ x: 0, y: 0 });
+  // Instead of tracking arbitrary deltas, we track the absolute touch coordinate
+  // and find the closest word to snap to.
+  
+  // Start Pin
   const startPinPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        // In dev mode or normal mode, we can show debug coords, but let's just do it
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (!selectionRange) return;
+        // The event coordinates here are relative to the pin's view. It's better to use moveX, moveY
+        // or just calculate absolute position.
+        // But gestureState.moveX / moveY are global screen coords. We need them relative to the image container.
+        // It's safer to use gestureState.dx/dy relative to the initial pin position, OR better yet,
+        // calculate based on the bounding box of the image.
+        // Actually evt.nativeEvent.pageX/pageY can be used but React Native provides them.
+        
+        // Let's use a simpler approach: we know where the pin started.
+        // We calculate targetX and targetY based on dx and dy from initial grant.
+        
+      },
+      onPanResponderRelease: () => { setDebugTouch(null); },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminate: () => { setDebugTouch(null); },
+    })
+  ).current;
+
+  // We need a stable reference to selection to avoid recreating PanResponders,
+  // or we need to recreate them when selection changes?
+  // Recreating them on every render is bad for performance. We can use Refs to hold current selection state.
+  const currentSelectionRef = useRef<{start: number, end: number} | null>(null);
+  useEffect(() => {
+    if (selectionRange) {
+      // Ensure min/max sorting is always stored
+      const min = Math.min(selectionRange.start, selectionRange.end);
+      const max = Math.max(selectionRange.start, selectionRange.end);
+      currentSelectionRef.current = { start: min, end: max };
+    } else {
+      currentSelectionRef.current = null;
+    }
+  }, [selectionRange]);
+
+  // Let's rebuild the Start Pin Pan Responder using the Ref pattern for stability
+  const startPinPosRef = useRef({ x: 0, y: 0 });
+  const startPinPanResponderStable = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        if (!selectionRange || wordsWithRects.length === 0) return;
-        const sortedRange = [selectionRange.start, selectionRange.end].sort((a, b) => a - b);
-        const firstWord = wordsWithRects.find(w => w.index === sortedRange[0]);
+        if (!currentSelectionRef.current || wordsWithRects.length === 0) return;
+        const firstWord = wordsWithRects.find(w => w.index === currentSelectionRef.current!.start);
         if (firstWord) {
           startPinPosRef.current = {
             x: firstWord.rect.left,
@@ -279,39 +333,42 @@ export function useScanWorkflow({
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (!selectionRange) return;
+        if (!currentSelectionRef.current) return;
         const targetX = startPinPosRef.current.x + gestureState.dx;
         const targetY = startPinPosRef.current.y + gestureState.dy;
+        
+        setDebugTouch({x: targetX, y: targetY});
 
-        const closestWord = findClosestWord(targetX, targetY);
+        const closestWord = findClosestWordToPoint(targetX, targetY);
         if (closestWord) {
-          const sortedRange = [selectionRange.start, selectionRange.end].sort((a, b) => a - b);
-          const otherEnd = selectionRange.start === sortedRange[0] ? selectionRange.end : selectionRange.start;
-
-          if (closestWord.index !== selectionRange.start) {
+          const currentEnd = currentSelectionRef.current.end;
+          // Clamp start so it doesn't go past end
+          const newStart = Math.min(closestWord.index, currentEnd);
+          
+          if (newStart !== currentSelectionRef.current.start) {
             Haptics.selectionAsync();
             setSelectionRange({
-              start: closestWord.index,
-              end: otherEnd,
+              start: newStart,
+              end: currentEnd,
             });
           }
         }
       },
-      onPanResponderRelease: () => {},
+      onPanResponderRelease: () => { setDebugTouch(null); },
       onPanResponderTerminationRequest: () => false,
-      onPanResponderTerminate: () => {},
+      onPanResponderTerminate: () => { setDebugTouch(null); },
     })
   ).current;
 
+  // End Pin
   const endPinPosRef = useRef({ x: 0, y: 0 });
-  const endPinPanResponder = useRef(
+  const endPinPanResponderStable = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        if (!selectionRange || wordsWithRects.length === 0) return;
-        const sortedRange = [selectionRange.start, selectionRange.end].sort((a, b) => a - b);
-        const lastWord = wordsWithRects.find(w => w.index === sortedRange[1]);
+        if (!currentSelectionRef.current || wordsWithRects.length === 0) return;
+        const lastWord = wordsWithRects.find(w => w.index === currentSelectionRef.current!.end);
         if (lastWord) {
           endPinPosRef.current = {
             x: lastWord.rect.left + lastWord.rect.width,
@@ -320,27 +377,30 @@ export function useScanWorkflow({
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (!selectionRange) return;
+        if (!currentSelectionRef.current) return;
         const targetX = endPinPosRef.current.x + gestureState.dx;
         const targetY = endPinPosRef.current.y + gestureState.dy;
 
-        const closestWord = findClosestWord(targetX, targetY);
-        if (closestWord) {
-          const sortedRange = [selectionRange.start, selectionRange.end].sort((a, b) => a - b);
-          const otherStart = selectionRange.start === sortedRange[0] ? selectionRange.start : selectionRange.end;
+        setDebugTouch({x: targetX, y: targetY});
 
-          if (closestWord.index !== selectionRange.end) {
+        const closestWord = findClosestWordToPoint(targetX, targetY);
+        if (closestWord) {
+          const currentStart = currentSelectionRef.current.start;
+          // Clamp end so it doesn't go before start
+          const newEnd = Math.max(closestWord.index, currentStart);
+
+          if (newEnd !== currentSelectionRef.current.end) {
             Haptics.selectionAsync();
             setSelectionRange({
-              start: otherStart,
-              end: closestWord.index,
+              start: currentStart,
+              end: newEnd,
             });
           }
         }
       },
-      onPanResponderRelease: () => {},
+      onPanResponderRelease: () => { setDebugTouch(null); },
       onPanResponderTerminationRequest: () => false,
-      onPanResponderTerminate: () => {},
+      onPanResponderTerminate: () => { setDebugTouch(null); },
     })
   ).current;
 
@@ -452,6 +512,11 @@ export function useScanWorkflow({
   }, [pinsGeometry, viewportSize]);
 
   return {
+    // Dev Mode
+    isDevMode,
+    setIsDevMode,
+    debugTouch,
+
     // Geometry / layout values
     photoDimensions,
     viewportSize,
@@ -476,8 +541,8 @@ export function useScanWorkflow({
 
     // PanResponders
     imagePanResponder,
-    startPinPanResponder,
-    endPinPanResponder,
+    startPinPanResponder: startPinPanResponderStable,
+    endPinPanResponder: endPinPanResponderStable,
 
     // UI helper geometries
     pinsGeometry,

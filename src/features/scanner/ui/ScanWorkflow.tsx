@@ -1,4 +1,3 @@
-// ScanWorkflow.tsx
 import React from 'react';
 import {
   Image,
@@ -8,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { Trash2, ScanLine } from 'lucide-react-native';
+import { Trash2, ScanLine, Bug } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import ScanPreviewModal from './ScanPreviewModal';
@@ -25,6 +24,9 @@ type ScanWorkflowProps = {
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBlocks = [], onReset, isGallery }) => {
   const {
+    isDevMode,
+    setIsDevMode,
+    debugTouch,
     viewportSize,
     setViewportSize,
     imageSize,
@@ -64,7 +66,6 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
       <View
         style={styles.photoContainer}
         onLayout={event => {
-          // --- CALCUL DE L'ÉCHELLE POUR LE RESIZEMODE="CONTAIN" ---
           const { width: containerWidth, height: containerHeight } = event.nativeEvent.layout;
           setViewportSize({ width: containerWidth, height: containerHeight });
 
@@ -95,8 +96,28 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
             resizeMode="contain"
           />
 
-          {/* Subtly highlight detected text boxes in the background (Live Text mode) */}
-          {isHighlightMode && wordsWithRects.map((w) => (
+          {/* Dev Mode: All words outlines */}
+          {isDevMode && wordsWithRects.map((w) => (
+            <View
+              key={`dev-word-${w.index}`}
+              style={{
+                position: 'absolute',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 0, 0, 0.5)',
+                left: w.rect.left,
+                top: w.rect.top,
+                width: w.rect.width,
+                height: w.rect.height,
+                transform: [{ rotate: `${w.rect.rotation || 0}deg` }],
+                zIndex: 1,
+              }}
+            >
+              <Text style={{ fontSize: 8, color: 'red', position: 'absolute', top: -10 }}>{w.index}</Text>
+            </View>
+          ))}
+
+          {/* Live Text mode: Subtly highlight detected text boxes in the background */}
+          {!isDevMode && isHighlightMode && wordsWithRects.map((w) => (
             <View
               key={`detect-${w.index}`}
               style={[
@@ -155,6 +176,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
                 {...startPinPanResponder.panHandlers}
                 style={[
                   styles.grabberPin,
+                  isDevMode && styles.devGrabberPin,
                   {
                     left: pinsGeometry.startPin.left,
                     top: pinsGeometry.startPin.top,
@@ -171,6 +193,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
                 {...endPinPanResponder.panHandlers}
                 style={[
                   styles.grabberPin,
+                  isDevMode && styles.devGrabberPin,
                   {
                     left: pinsGeometry.endPin.left,
                     top: pinsGeometry.endPin.top,
@@ -185,7 +208,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
           )}
 
           {/* Floating Context Action Menu */}
-          {menuPosition && (
+          {menuPosition && !isDevMode && (
             <View
               style={[
                 styles.contextMenu,
@@ -214,7 +237,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
           )}
 
           {/* Apple Photos style Live Text Toggle Icon in the bottom right corner */}
-          {wordsWithRects.length > 0 && imageSize.width > 0 && (
+          {wordsWithRects.length > 0 && imageSize.width > 0 && !isDevMode && (
             <TouchableOpacity
               style={[
                 styles.liveTextButton,
@@ -228,18 +251,58 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
               <ScanLine size={22} color={isHighlightMode ? '#0F0F0F' : '#E5E7EB'} />
             </TouchableOpacity>
           )}
+
+          {/* Dev Mode debug touch point */}
+          {isDevMode && debugTouch && (
+            <View
+              style={{
+                position: 'absolute',
+                left: debugTouch.x - 15,
+                top: debugTouch.y - 15,
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                backgroundColor: 'rgba(0, 255, 0, 0.4)',
+                borderWidth: 2,
+                borderColor: '#0f0',
+                zIndex: 999,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+
         </Animated.View>
       </View>
 
+      {/* --- Dev Mode Data Overlay --- */}
+      {isDevMode && (
+        <View style={styles.devOverlay}>
+          <Text style={styles.devText}>DEV MODE ACTIVE</Text>
+          <Text style={styles.devText}>Touch: {debugTouch ? `${Math.round(debugTouch.x)}, ${Math.round(debugTouch.y)}` : 'None'}</Text>
+          <Text style={styles.devText}>Selection: {selectionRange ? `[${selectionRange.start}, ${selectionRange.end}]` : 'None'}</Text>
+          <Text style={styles.devText}>Words: {wordsWithRects.length}</Text>
+        </View>
+      )}
+
+      {/* Dev Mode Toggle Button */}
+      <TouchableOpacity
+        style={styles.devToggleButton}
+        onPress={() => setIsDevMode(!isDevMode)}
+      >
+        <Bug size={24} color={isDevMode ? '#20B8CD' : '#666'} />
+      </TouchableOpacity>
+
       {/* --- UI PAR DESSUS --- */}
-      <View style={styles.resultInfoContainer}>
-        <Text style={styles.instructionText}>
-          {scannedText ? 'Sélection prête !' : 'Restez appuyé sur le texte pour le sélectionner'}
-        </Text>
-      </View>
+      {!isDevMode && (
+        <View style={styles.resultInfoContainer}>
+          <Text style={styles.instructionText}>
+            {scannedText ? 'Sélection prête !' : 'Restez appuyé sur le texte pour le sélectionner'}
+          </Text>
+        </View>
+      )}
 
       {/* Carte flottante premium de prévisualisation en direct */}
-      {scannedText ? (
+      {scannedText && !isDevMode ? (
         <View style={styles.livePreviewCard}>
           <Text style={styles.livePreviewHeader}>Texte sélectionné :</Text>
           <Text style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
@@ -323,12 +386,15 @@ const styles = StyleSheet.create({
   },
   grabberPin: {
     position: 'absolute',
-    width: 24,
-    marginLeft: -12, // Offset to center the line in touch targets
+    width: 32, // Increased width for better touch target
+    marginLeft: -16, // Offset to center the line in touch targets
     zIndex: 15,
     overflow: 'visible',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  devGrabberPin: {
+    backgroundColor: 'rgba(255, 100, 100, 0.4)', // Visible hitbox in dev mode
   },
   grabberLine: {
     width: 2.5,
@@ -505,6 +571,38 @@ const styles = StyleSheet.create({
     color: '#0F0F0F',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  devOverlay: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0f0',
+    zIndex: 200,
+    pointerEvents: 'none',
+  },
+  devText: {
+    color: '#0f0',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  devToggleButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    width: 44,
+    height: 44,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+    borderWidth: 1,
+    borderColor: '#333',
   },
 });
 
