@@ -1,562 +1,458 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
-import {
-  Image,
-  PanResponder,
-  Share,
-} from 'react-native';
-import {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useState, useMemo, useRef, useCallback } from 'react';
+import { PanResponder, Share, Clipboard } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { useData } from '@/src/app/providers/DataProvider';
-import { getBlockRectOnScreen, getPhotoOrientation, isPointInBlock } from '@/src/shared/lib/scanGeometry';
-import { reconstructTextFromBlocks } from '@/src/features/scanner/model/textReconstructor';
 import * as Haptics from 'expo-haptics';
 
-export interface UseScanWorkflowProps {
+type Size = { width: number; height: number };
+
+export type WordData = {
+  index: number;
+  text: string;
+  originalFrame: { left: number; top: number; width: number; height: number };
+  scaledFrame: { left: number; top: number; width: number; height: number };
+  centerX: number;
+  centerY: number;
+};
+
+type ScanWorkflowProps = {
   photo: PhotoFile;
   ocrElements: TextElement[];
   ocrBlocks?: TextBlock[];
   onReset: () => void;
   isGallery?: boolean;
-}
+};
 
-export function useScanWorkflow({
+export const useScanWorkflow = ({
   photo,
   ocrElements,
-  ocrBlocks = [],
+  ocrBlocks,
   onReset,
-  isGallery,
-}: UseScanWorkflowProps) {
-  const router = useRouter();
-  const { addQuote } = useData();
-
-  // States pour la géométrie de l'image
-  const [photoDimensions, setPhotoDimensions] = useState({ width: 0, height: 0 });
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0, offsetX: 0, offsetY: 0 });
-
-  // State pour le texte sélectionné par l'utilisateur
-  const [scannedText, setScannedText] = useState<string>('');
-
-  // States UI
-  const previewScale = useSharedValue(1);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-
-  // Dev Mode States
-  const [isDevMode, setIsDevMode] = useState<boolean>(false);
+}: ScanWorkflowProps) => {
+  const [isDevMode, setIsDevMode] = useState(true);
   const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
+  const [viewportSize, setViewportSize] = useState<Size>({ width: 0, height: 0 });
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Apple Live Text states
-  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
-  const [isHighlightMode, setIsHighlightMode] = useState<boolean>(true);
-  const [copied, setCopied] = useState<boolean>(false);
-
-  useEffect(() => {
-    const uri = `file://${photo.path}`;
-    Image.getSize(
-      uri,
-      (width, height) => setPhotoDimensions({ width, height }),
-      () => setPhotoDimensions({ width: photo.width || 0, height: photo.height || 0 }),
-    );
-  }, [photo]);
-
-  useEffect(() => {
-    const targetScale = 1;
-    previewScale.value = withSpring(photo && ocrElements ? targetScale : 1, {
-      damping: 12,
-      stiffness: 90,
-    });
-  }, [photo, ocrElements, isGallery]);
-
-  const animatedPhotoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: previewScale.value }],
-  }));
-
-  const getPhotoDims = () => {
-    const photoW = photo?.width || photoDimensions.width || 1;
-    const photoH = photo?.height || photoDimensions.height || 1;
-    return { photoW, photoH };
-  };
-
-  const handleSaveQuote = () => {
-    if (!scannedText) return;
-    setShowPreviewModal(true);
-  };
-
-  const handleConfirmSave = async (quote: string, book: string, author: string) => {
-    await addQuote(quote, book, author);
-    setShowPreviewModal(false);
-    setScannedText('');
-    setSelectionRange(null);
-    router.back();
-    onReset();
-  };
-
-  const orientation = getPhotoOrientation(photo);
-
-  // Mapped words list with coordinate rectangles on viewport
-  const wordsWithRects = useMemo(() => {
-    if (imageSize.width === 0 || !ocrElements || ocrElements.length === 0) return [];
-    const { photoW, photoH } = getPhotoDims();
-    const photoSize = { width: photoW, height: photoH };
-
-    return ocrElements.map((el, index) => {
-      const rect = getBlockRectOnScreen(el as any, imageSize, photoSize, orientation);
-      return {
-        element: el,
-        index,
-        rect,
-      };
-    }).filter(item => item.rect !== null) as Array<{
-      element: TextElement;
-      index: number;
-      rect: { left: number; top: number; width: number; height: number; rotation?: number };
-    }>;
-  }, [ocrElements, imageSize, photo, photoDimensions, orientation]);
-
-  // Helpers for gestures
-  const findClosestWordToPoint = (x: number, y: number) => {
-    let closest = null;
-    let minDist = Infinity;
-    for (const w of wordsWithRects) {
-      const centerX = w.rect.left + w.rect.width / 2;
-      const centerY = w.rect.top + w.rect.height / 2;
-      const dist = Math.hypot(x - centerX, y - centerY);
-      if (dist < minDist) {
-        minDist = dist;
-        closest = w;
-      }
+  const imageDisplayInfo = useMemo(() => {
+    if (viewportSize.width === 0 || viewportSize.height === 0) {
+      return { width: 0, height: 0, offsetX: 0, offsetY: 0, scale: 1 };
     }
-    return closest;
-  };
+    
+    const photoW = photo.width;
+    const photoH = photo.height;
+    const imageAspectRatio = photoW / photoH;
+    const containerAspectRatio = viewportSize.width / viewportSize.height;
 
-  const touchStartIdxRef = useRef<number | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isSelectionGestureActiveRef = useRef<boolean>(false);
+    let displayedWidth, displayedHeight, offsetX = 0, offsetY = 0, scale = 1;
 
-  const handleTouchStart = (x: number, y: number) => {
-    if (wordsWithRects.length === 0) return;
-    setDebugTouch({x, y});
-
-    touchStartPosRef.current = { x, y };
-    isSelectionGestureActiveRef.current = false;
-
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
+    if (imageAspectRatio > containerAspectRatio) {
+      displayedWidth = viewportSize.width;
+      displayedHeight = viewportSize.width / imageAspectRatio;
+      offsetY = (viewportSize.height - displayedHeight) / 2;
+      scale = viewportSize.width / photoW;
+    } else {
+      displayedHeight = viewportSize.height;
+      displayedWidth = viewportSize.height * imageAspectRatio;
+      offsetX = (viewportSize.width - displayedWidth) / 2;
+      scale = viewportSize.height / photoH;
     }
 
-    // Lance un minuteur de 350ms pour le long press
-    longPressTimerRef.current = setTimeout(() => {
-      const { photoW, photoH } = getPhotoDims();
-      const photoSize = { width: photoW, height: photoH };
+    return { width: displayedWidth, height: displayedHeight, offsetX, offsetY, scale };
+  }, [viewportSize, photo.width, photo.height]);
 
-      // Cherche si l'appui long touche un mot (avec tolérance)
-      const clickedWord = wordsWithRects.find(w =>
-        isPointInBlock(x, y, w.element as any, imageSize, photoSize, orientation, 16)
-      );
+  const words = useMemo(() => {
+    if (!ocrElements || ocrElements.length === 0 || imageDisplayInfo.scale === 1) return [];
 
-      if (clickedWord) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        setSelectionRange({ start: clickedWord.index, end: clickedWord.index });
-        touchStartIdxRef.current = clickedWord.index;
-        isSelectionGestureActiveRef.current = true;
-      } else {
-        // Clic dans le vide sur appui long -> désélectionne
-        setSelectionRange(null);
-        touchStartIdxRef.current = null;
+    let sortedElements: TextElement[] = [];
+
+    if (ocrBlocks && ocrBlocks.length > 0) {
+      // 1. Group words using ML Kit's native line segmentation to guarantee correct grouping
+      interface LineInfo {
+        line: any;
+        centerY: number;
+        left: number;
       }
-    }, 350);
-  };
+      const linesInfo: LineInfo[] = [];
 
-  const handleTouchMove = (x: number, y: number) => {
-    setDebugTouch({x, y});
-    // Si la sélection n'est pas encore active, on vérifie si le mouvement dépasse le seuil (glissement/scroll)
-    if (!isSelectionGestureActiveRef.current) {
-      if (touchStartPosRef.current) {
-        const dx = x - touchStartPosRef.current.x;
-        const dy = y - touchStartPosRef.current.y;
-        const dist = Math.hypot(dx, dy);
-        if (dist > 25) {
-          if (longPressTimerRef.current) {
-            clearTimeout(longPressTimerRef.current);
-            longPressTimerRef.current = null;
-          }
+      for (const block of ocrBlocks) {
+        for (const line of block.lines) {
+          const frame = (line as any).frame || (line as any).rect || { left: 0, top: 0, width: 0, height: 0 };
+          const centerY = frame.top + frame.height / 2;
+          linesInfo.push({
+            line,
+            centerY,
+            left: frame.left,
+          });
         }
       }
-      return;
-    }
 
-    if (touchStartIdxRef.current === null || wordsWithRects.length === 0) return;
+      // 2. Sort the lines from top to bottom
+      linesInfo.sort((a, b) => a.centerY - b.centerY);
 
-    const closestWord = findClosestWordToPoint(x, y);
-    if (closestWord && selectionRange) {
-      const newEnd = closestWord.index;
-      if (newEnd !== selectionRange.end) {
-        Haptics.selectionAsync();
-        // Allow dynamic selection range but keeping start/end ordered logically if needed,
-        // Actually, during drag we just set start = initial tap, end = current drag.
-        // We will sort them in the UI and when calculating pins.
-        setSelectionRange({
-          start: touchStartIdxRef.current,
-          end: newEnd,
+      // 3. Sort elements within each line from left to right
+      for (const lineInfo of linesInfo) {
+        const sortedLineElements = [...lineInfo.line.elements].sort((a, b) => {
+          const aFrame = (a as any).frame || (a as any).rect || { left: 0 };
+          const bFrame = (b as any).frame || (b as any).rect || { left: 0 };
+          return aFrame.left - bFrame.left;
         });
+        
+        for (const el of sortedLineElements) {
+          sortedElements.push(el);
+        }
+      }
+    } else {
+      // Fallback heuristic if ocrBlocks is not provided
+      let mappedWords = ocrElements.map(el => {
+        const frame = (el as any).frame || (el as any).rect || { left: 0, top: 0, width: 0, height: 0 };
+        return { text: el.text, originalFrame: frame };
+      });
+
+      let sortedByVertical = mappedWords.map(w => {
+        const centerY = w.originalFrame.top + w.originalFrame.height / 2;
+        return { ...w, centerY };
+      }).sort((a, b) => a.centerY - b.centerY);
+
+      let lines: typeof mappedWords[] = [];
+      for (const word of sortedByVertical) {
+        let placed = false;
+        const wordTop = word.originalFrame.top;
+        const wordBottom = word.originalFrame.top + word.originalFrame.height;
+        const wordHeight = word.originalFrame.height;
+
+        for (const line of lines) {
+          const avgTop = line.reduce((sum, w) => sum + w.originalFrame.top, 0) / line.length;
+          const avgHeight = line.reduce((sum, w) => sum + w.originalFrame.height, 0) / line.length;
+          const avgBottom = avgTop + avgHeight;
+
+          const overlap = Math.min(wordBottom, avgBottom) - Math.max(wordTop, avgTop);
+          const minHeight = Math.min(wordHeight, avgHeight);
+
+          if (overlap > minHeight * 0.4) {
+            line.push(word);
+            placed = true;
+            break;
+          }
+        }
+
+        if (!placed) {
+          lines.push([word]);
+        }
+      }
+
+      lines.sort((lineA, lineB) => {
+        const avgYA = lineA.reduce((sum, w) => sum + (w.originalFrame.top + w.originalFrame.height / 2), 0) / lineA.length;
+        const avgYB = lineB.reduce((sum, w) => sum + (w.originalFrame.top + w.originalFrame.height / 2), 0) / lineB.length;
+        return avgYA - avgYB;
+      });
+
+      for (const line of lines) {
+        line.sort((a, b) => a.originalFrame.left - b.originalFrame.left);
+      }
+
+      sortedElements = lines.flat() as any;
+    }
+
+    return sortedElements.map((el, index) => {
+      const frame = (el as any).frame || (el as any).rect || { left: 0, top: 0, width: 0, height: 0 };
+      const scaledFrame = {
+        left: frame.left * imageDisplayInfo.scale,
+        top: frame.top * imageDisplayInfo.scale,
+        width: frame.width * imageDisplayInfo.scale,
+        height: frame.height * imageDisplayInfo.scale,
+      };
+      
+      return {
+        index,
+        text: el.text,
+        originalFrame: frame,
+        scaledFrame,
+        centerX: scaledFrame.left + scaledFrame.width / 2,
+        centerY: scaledFrame.top + scaledFrame.height / 2,
+      } as WordData;
+    });
+  }, [ocrElements, ocrBlocks, imageDisplayInfo.scale]);
+
+  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  
+  const [isEraserMode, setIsEraserMode] = useState(false);
+  const isEraserModeRef = useRef(isEraserMode);
+  isEraserModeRef.current = isEraserMode;
+
+  const [excludedIndices, setExcludedIndices] = useState<Set<number>>(new Set());
+  const excludedIndicesRef = useRef(excludedIndices);
+  excludedIndicesRef.current = excludedIndices;
+  
+  // Use REFS for all state that PanResponders need to access!
+  const selectionRef = useRef(selectionRange);
+  selectionRef.current = selectionRange;
+
+  const wordsRef = useRef(words);
+  wordsRef.current = words;
+
+  const findWordAtPosition = useCallback((x: number, y: number): number | null => {
+    const currentWords = wordsRef.current;
+    if (currentWords.length === 0) return null;
+    
+    const touchRadius = 30; // 30px active touch radius for easy tapping
+    let nearestIndex = -1;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < currentWords.length; i++) {
+      const w = currentWords[i];
+      
+      const isNearX = x >= w.scaledFrame.left - touchRadius && x <= w.scaledFrame.left + w.scaledFrame.width + touchRadius;
+      const isNearY = y >= w.scaledFrame.top - touchRadius && y <= w.scaledFrame.top + w.scaledFrame.height + touchRadius;
+      
+      if (isNearX && isNearY) {
+        const dx = x - w.centerX;
+        const dy = y - w.centerY;
+        const dist = dx * dx + dy * dy;
+        
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearestIndex = i;
+        }
       }
     }
-  };
+    
+    return nearestIndex !== -1 ? nearestIndex : null;
+  }, []);
 
-  const handleTouchRelease = () => {
-    setDebugTouch(null);
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+  const findNearestWordIndex = useCallback((x: number, y: number): number | null => {
+    const currentWords = wordsRef.current;
+    if (currentWords.length === 0) return null;
+    let minDistance = Infinity;
+    let nearestIndex = -1;
 
-    // Gestion du clic simple (sans appui long) : sélectionne ou désélectionne immédiatement
-    if (!isSelectionGestureActiveRef.current && touchStartPosRef.current) {
-      const { x, y } = touchStartPosRef.current;
-      const { photoW, photoH } = getPhotoDims();
-      const photoSize = { width: photoW, height: photoH };
+    for (let i = 0; i < currentWords.length; i++) {
+      const w = currentWords[i];
+      if (
+        x >= w.scaledFrame.left &&
+        x <= w.scaledFrame.left + w.scaledFrame.width &&
+        y >= w.scaledFrame.top &&
+        y <= w.scaledFrame.top + w.scaledFrame.height
+      ) {
+        return i;
+      }
 
-      const clickedWord = wordsWithRects.find(w =>
-        isPointInBlock(x, y, w.element as any, imageSize, photoSize, orientation, 12)
-      );
-
-      if (clickedWord) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSelectionRange({ start: clickedWord.index, end: clickedWord.index });
-      } else {
-        setSelectionRange(null);
+      const dx = x - w.centerX;
+      const dy = y - w.centerY;
+      const dist = dx * dx + dy * dy;
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestIndex = i;
       }
     }
+    
+    if (minDistance < 6000) return nearestIndex; // ~77px radius for dragging
+    return null;
+  }, []);
 
-    touchStartIdxRef.current = null;
-    touchStartPosRef.current = null;
-    isSelectionGestureActiveRef.current = false;
-  };
-
-  // PanResponder pour capturer les clics et le drag sur l'image
   const imagePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        const containerX = locationX + imageSize.offsetX;
-        const containerY = locationY + imageSize.offsetY;
-        handleTouchStart(containerX, containerY);
-      },
-      onPanResponderMove: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        const containerX = locationX + imageSize.offsetX;
-        const containerY = locationY + imageSize.offsetY;
-        handleTouchMove(containerX, containerY);
-      },
-      onPanResponderRelease: () => {
-        handleTouchRelease();
-      },
-      onPanResponderTerminationRequest: () => {
-        return !isSelectionGestureActiveRef.current;
-      },
-      onPanResponderTerminate: () => {
-        handleTouchRelease();
-      },
-    })
-  ).current;
-
-  // Draggable pin handlers
-  // Instead of tracking arbitrary deltas, we track the absolute touch coordinate
-  // and find the closest word to snap to.
-  
-  // Start Pin
-  const startPinPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        // In dev mode or normal mode, we can show debug coords, but let's just do it
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (!selectionRange) return;
-        // The event coordinates here are relative to the pin's view. It's better to use moveX, moveY
-        // or just calculate absolute position.
-        // But gestureState.moveX / moveY are global screen coords. We need them relative to the image container.
-        // It's safer to use gestureState.dx/dy relative to the initial pin position, OR better yet,
-        // calculate based on the bounding box of the image.
-        // Actually evt.nativeEvent.pageX/pageY can be used but React Native provides them.
+        // locationX/Y are relative to the GestureOverlay view
+        const x = evt.nativeEvent.locationX;
+        const y = evt.nativeEvent.locationY;
         
-        // Let's use a simpler approach: we know where the pin started.
-        // We calculate targetX and targetY based on dx and dy from initial grant.
-        
-      },
-      onPanResponderRelease: () => { setDebugTouch(null); },
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderTerminate: () => { setDebugTouch(null); },
-    })
-  ).current;
+        setIsDevMode(prev => {
+          if (prev) setDebugTouch({ x, y });
+          return prev;
+        });
 
-  // We need a stable reference to selection to avoid recreating PanResponders,
-  // or we need to recreate them when selection changes?
-  // Recreating them on every render is bad for performance. We can use Refs to hold current selection state.
-  const currentSelectionRef = useRef<{start: number, end: number} | null>(null);
-  useEffect(() => {
-    if (selectionRange) {
-      // Ensure min/max sorting is always stored
-      const min = Math.min(selectionRange.start, selectionRange.end);
-      const max = Math.max(selectionRange.start, selectionRange.end);
-      currentSelectionRef.current = { start: min, end: max };
-    } else {
-      currentSelectionRef.current = null;
-    }
-  }, [selectionRange]);
-
-  // Let's rebuild the Start Pin Pan Responder using the Ref pattern for stability
-  const startPinPosRef = useRef({ x: 0, y: 0 });
-  const startPinPanResponderStable = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        if (!currentSelectionRef.current || wordsWithRects.length === 0) return;
-        const firstWord = wordsWithRects.find(w => w.index === currentSelectionRef.current!.start);
-        if (firstWord) {
-          startPinPosRef.current = {
-            x: firstWord.rect.left,
-            y: firstWord.rect.top + firstWord.rect.height / 2,
-          };
-        }
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        if (!currentSelectionRef.current) return;
-        const targetX = startPinPosRef.current.x + gestureState.dx;
-        const targetY = startPinPosRef.current.y + gestureState.dy;
-        
-        setDebugTouch({x: targetX, y: targetY});
-
-        const closestWord = findClosestWordToPoint(targetX, targetY);
-        if (closestWord) {
-          const currentEnd = currentSelectionRef.current.end;
-          // Clamp start so it doesn't go past end
-          const newStart = Math.min(closestWord.index, currentEnd);
+        const nearestIndex = findWordAtPosition(x, y);
+        if (nearestIndex !== null) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           
-          if (newStart !== currentSelectionRef.current.start) {
-            Haptics.selectionAsync();
-            setSelectionRange({
-              start: newStart,
-              end: currentEnd,
-            });
+          if (isEraserModeRef.current) {
+            const currentSelection = selectionRef.current;
+            if (currentSelection && nearestIndex >= currentSelection.start && nearestIndex <= currentSelection.end) {
+              setExcludedIndices(prev => {
+                const next = new Set(prev);
+                if (next.has(nearestIndex)) {
+                  next.delete(nearestIndex);
+                } else {
+                  next.add(nearestIndex);
+                }
+                return next;
+              });
+            }
+          } else {
+            setSelectionRange({ start: nearestIndex, end: nearestIndex });
+            setExcludedIndices(new Set());
+          }
+        } else {
+          if (!isEraserModeRef.current) {
+            setSelectionRange(null);
+            setExcludedIndices(new Set());
           }
         }
       },
-      onPanResponderRelease: () => { setDebugTouch(null); },
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderTerminate: () => { setDebugTouch(null); },
     })
   ).current;
 
-  // End Pin
-  const endPinPosRef = useRef({ x: 0, y: 0 });
-  const endPinPanResponderStable = useRef(
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  const startPinResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        if (!currentSelectionRef.current || wordsWithRects.length === 0) return;
-        const lastWord = wordsWithRects.find(w => w.index === currentSelectionRef.current!.end);
-        if (lastWord) {
-          endPinPosRef.current = {
-            x: lastWord.rect.left + lastWord.rect.width,
-            y: lastWord.rect.top + lastWord.rect.height / 2,
+      onPanResponderGrant: (evt, gestureState) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!selectionRef.current || wordsRef.current.length === 0) return;
+        const startWord = wordsRef.current[selectionRef.current.start];
+        if (startWord) {
+          dragStartPos.current = {
+            x: startWord.scaledFrame.left,
+            y: startWord.scaledFrame.top + startWord.scaledFrame.height / 2,
           };
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (!currentSelectionRef.current) return;
-        const targetX = endPinPosRef.current.x + gestureState.dx;
-        const targetY = endPinPosRef.current.y + gestureState.dy;
+        if (!selectionRef.current) return;
+        const currentX = dragStartPos.current.x + gestureState.dx;
+        const currentY = dragStartPos.current.y + gestureState.dy;
 
-        setDebugTouch({x: targetX, y: targetY});
+        setIsDevMode(prev => {
+          if (prev) setDebugTouch({ x: currentX, y: currentY });
+          return prev;
+        });
 
-        const closestWord = findClosestWordToPoint(targetX, targetY);
-        if (closestWord) {
-          const currentStart = currentSelectionRef.current.start;
-          // Clamp end so it doesn't go before start
-          const newEnd = Math.max(closestWord.index, currentStart);
-
-          if (newEnd !== currentSelectionRef.current.end) {
-            Haptics.selectionAsync();
-            setSelectionRange({
-              start: currentStart,
-              end: newEnd,
-            });
-          }
+        const nearestIndex = findNearestWordIndex(currentX, currentY);
+        if (nearestIndex !== null && nearestIndex !== selectionRef.current.start) {
+          setSelectionRange(prev => {
+            if (!prev) return null;
+            return { start: Math.min(nearestIndex, prev.end), end: prev.end };
+          });
         }
       },
-      onPanResponderRelease: () => { setDebugTouch(null); },
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderTerminate: () => { setDebugTouch(null); },
     })
   ).current;
 
-  // Text reconstruction when selection changes
-  useEffect(() => {
-    if (!selectionRange || !wordsWithRects || wordsWithRects.length === 0) {
-      setScannedText('');
-      return;
-    }
+  const endPinResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt, gestureState) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!selectionRef.current || wordsRef.current.length === 0) return;
+        const endWord = wordsRef.current[selectionRef.current.end];
+        if (endWord) {
+          dragStartPos.current = {
+            x: endWord.scaledFrame.left + endWord.scaledFrame.width,
+            y: endWord.scaledFrame.top + endWord.scaledFrame.height / 2,
+          };
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (!selectionRef.current) return;
+        const currentX = dragStartPos.current.x + gestureState.dx;
+        const currentY = dragStartPos.current.y + gestureState.dy;
 
-    const sortedRange = [selectionRange.start, selectionRange.end].sort((a, b) => a - b);
-    const selectedElements = wordsWithRects
-      .filter(w => w.index >= sortedRange[0] && w.index <= sortedRange[1])
-      .map(w => w.element);
+        setIsDevMode(prev => {
+          if (prev) setDebugTouch({ x: currentX, y: currentY });
+          return prev;
+        });
 
-    const { photoW, photoH } = getPhotoDims();
-    const photoSize = { width: photoW, height: photoH };
+        const nearestIndex = findNearestWordIndex(currentX, currentY);
+        if (nearestIndex !== null && nearestIndex !== selectionRef.current.end) {
+          setSelectionRange(prev => {
+            if (!prev) return null;
+            return { start: prev.start, end: Math.max(nearestIndex, prev.start) };
+          });
+        }
+      },
+    })
+  ).current;
 
-    const { scannedText: reconstructed } = reconstructTextFromBlocks(
-      selectedElements as any[],
-      imageSize,
-      photo,
-      0
-    );
+  const scannedText = useMemo(() => {
+    if (!selectionRange || words.length === 0) return '';
+    const selectedWords = words.slice(selectionRange.start, selectionRange.end + 1);
+    const filteredWords = selectedWords.filter(w => !excludedIndices.has(w.index));
+    return filteredWords.map(w => w.text).join(' ');
+  }, [selectionRange, words, excludedIndices]);
 
-    setScannedText(reconstructed);
-  }, [selectionRange, wordsWithRects, imageSize, photo]);
-
-  // Actions for Context Menu
-  const handleCopy = () => {
-    if (!scannedText) return;
-    try {
-      const ClipboardModule = require('react-native').Clipboard;
-      if (ClipboardModule && ClipboardModule.setString) {
-        ClipboardModule.setString(scannedText);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } else {
-        console.log('Clipboard is not available in react-native core.');
-      }
-    } catch (err) {
-      console.log('Error copying to clipboard:', err);
+  const handleCopy = async () => {
+    if (scannedText) {
+      Clipboard.setString(scannedText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
   };
 
   const handleShare = async () => {
-    if (!scannedText) return;
-    try {
-      await Share.share({
-        message: scannedText,
-      });
-    } catch (err) {
-      console.log('Error sharing text:', err);
+    if (scannedText) {
+      await Share.share({ message: scannedText });
     }
   };
 
-  const handleSelectAll = () => {
-    if (wordsWithRects.length === 0) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectionRange({
-      start: 0,
-      end: wordsWithRects.length - 1,
-    });
+  const handleSaveQuote = () => setShowPreviewModal(true);
+  
+  const handleConfirmSave = (text: string) => {
+    setShowPreviewModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onReset();
   };
 
-  // Determine sorted selected indexes for rendering highlights
-  const selectionIndexes = useMemo(() => {
-    if (!selectionRange) return { min: -1, max: -1 };
-    const min = Math.min(selectionRange.start, selectionRange.end);
-    const max = Math.max(selectionRange.start, selectionRange.end);
-    return { min, max };
-  }, [selectionRange]);
+  const handleSelectAll = () => {
+    if (words.length > 0) {
+      setSelectionRange({ start: 0, end: words.length - 1 });
+    }
+  };
 
-  // Find geometry for Start & End pins
+  const handleClearSelection = () => {
+    setSelectionRange(null);
+    setExcludedIndices(new Set());
+    setIsEraserMode(false);
+  };
+
   const pinsGeometry = useMemo(() => {
-    if (!selectionRange || wordsWithRects.length === 0) return null;
-    const minIdx = selectionIndexes.min;
-    const maxIdx = selectionIndexes.max;
-
-    const startWord = wordsWithRects.find(w => w.index === minIdx);
-    const endWord = wordsWithRects.find(w => w.index === maxIdx);
-
-    if (!startWord || !endWord) return null;
+    if (!selectionRange || words.length === 0) return null;
+    const startWord = words[selectionRange.start];
+    const endWord = words[selectionRange.end];
 
     return {
       startPin: {
-        left: startWord.rect.left - 8,
-        top: startWord.rect.top,
-        height: startWord.rect.height,
+        left: startWord.scaledFrame.left,
+        top: startWord.scaledFrame.top,
+        height: startWord.scaledFrame.height,
       },
       endPin: {
-        left: endWord.rect.left + endWord.rect.width - 8,
-        top: endWord.rect.top,
-        height: endWord.rect.height,
-      },
-      topWord: startWord.rect.top < endWord.rect.top ? startWord : endWord,
+        left: endWord.scaledFrame.left + endWord.scaledFrame.width,
+        top: endWord.scaledFrame.top,
+        height: endWord.scaledFrame.height,
+      }
     };
-  }, [selectionRange, selectionIndexes, wordsWithRects]);
-
-  // Floating Context Menu Geometry
-  const menuPosition = useMemo(() => {
-    if (!pinsGeometry || !viewportSize.width) return null;
-    const { topWord } = pinsGeometry;
-    const menuWidth = 220; // estimate
-    const left = Math.max(16, Math.min(viewportSize.width - menuWidth - 16, topWord.rect.left + topWord.rect.width / 2 - menuWidth / 2));
-    const top = Math.max(16, topWord.rect.top - 58);
-    return { left, top };
-  }, [pinsGeometry, viewportSize]);
+  }, [selectionRange, words]);
 
   return {
-    // Dev Mode
     isDevMode,
     setIsDevMode,
     debugTouch,
-
-    // Geometry / layout values
-    photoDimensions,
-    viewportSize,
     setViewportSize,
-    imageSize,
-    setImageSize,
-    getPhotoDims,
-
-    // Animation values
-    animatedPhotoStyle,
-
-    // Selection & highlight states
-    scannedText,
-    setScannedText,
+    imageDisplayInfo,
+    words,
     selectionRange,
-    setSelectionRange,
-    selectionIndexes,
-    isHighlightMode,
-    setIsHighlightMode,
-    wordsWithRects,
+    scannedText,
     copied,
-
-    // PanResponders
-    imagePanResponder,
-    startPinPanResponder: startPinPanResponderStable,
-    endPinPanResponder: endPinPanResponderStable,
-
-    // UI helper geometries
-    pinsGeometry,
-    menuPosition,
-
-    // Modal controls
     showPreviewModal,
     setShowPreviewModal,
-
-    // Actions
-    handleSaveQuote,
-    handleConfirmSave,
+    imagePanResponder,
+    startPinResponder,
+    endPinResponder,
+    pinsGeometry,
+    handleClearSelection,
     handleCopy,
     handleShare,
+    handleSaveQuote,
+    handleConfirmSave,
     handleSelectAll,
+    onReset,
+    isEraserMode,
+    setIsEraserMode,
+    excludedIndices,
   };
-}
+};

@@ -6,12 +6,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated from 'react-native-reanimated';
-import { Trash2, ScanLine, Bug } from 'lucide-react-native';
+import { Trash2, Bug, Eraser } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import ScanPreviewModal from './ScanPreviewModal';
-import * as Haptics from 'expo-haptics';
 import { useScanWorkflow } from '../model/useScanWorkflow';
 
 type ScanWorkflowProps = {
@@ -22,265 +20,190 @@ type ScanWorkflowProps = {
   isGallery?: boolean;
 };
 
-const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBlocks = [], onReset, isGallery }) => {
+const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
   const {
     isDevMode,
     setIsDevMode,
     debugTouch,
-    viewportSize,
     setViewportSize,
-    imageSize,
-    setImageSize,
-    getPhotoDims,
-    animatedPhotoStyle,
-    scannedText,
+    imageDisplayInfo,
+    words,
     selectionRange,
-    setSelectionRange,
-    selectionIndexes,
-    isHighlightMode,
-    setIsHighlightMode,
-    wordsWithRects,
+    scannedText,
     copied,
-    imagePanResponder,
-    startPinPanResponder,
-    endPinPanResponder,
-    pinsGeometry,
-    menuPosition,
     showPreviewModal,
     setShowPreviewModal,
+    imagePanResponder,
+    startPinResponder,
+    endPinResponder,
+    pinsGeometry,
+    handleClearSelection,
+    handleCopy,
     handleSaveQuote,
     handleConfirmSave,
-    handleCopy,
-    handleShare,
     handleSelectAll,
-  } = useScanWorkflow({
-    photo,
-    ocrElements,
-    ocrBlocks,
     onReset,
-    isGallery,
-  });
+    isEraserMode,
+    setIsEraserMode,
+    excludedIndices,
+  } = useScanWorkflow(props);
 
   return (
     <>
       <View
         style={styles.photoContainer}
         onLayout={event => {
-          const { width: containerWidth, height: containerHeight } = event.nativeEvent.layout;
-          setViewportSize({ width: containerWidth, height: containerHeight });
-
-          const { photoW, photoH } = getPhotoDims();
-
-          const imageAspectRatio = photoW / photoH;
-          const containerAspectRatio = containerWidth / containerHeight;
-
-          let displayedWidth, displayedHeight, offsetX = 0, offsetY = 0;
-
-          if (imageAspectRatio > containerAspectRatio) {
-            displayedWidth = containerWidth;
-            displayedHeight = containerWidth / imageAspectRatio;
-            offsetY = (containerHeight - displayedHeight) / 2;
-          } else {
-            displayedHeight = containerHeight;
-            displayedWidth = containerHeight * imageAspectRatio;
-            offsetX = (containerWidth - displayedWidth) / 2;
-          }
-
-          setImageSize({ width: displayedWidth, height: displayedHeight, offsetX, offsetY });
+          const { width, height } = event.nativeEvent.layout;
+          setViewportSize({ width, height });
         }}
       >
-        <Animated.View style={[styles.photoContent, animatedPhotoStyle]}>
+        <View 
+          style={[styles.photoContent, { width: imageDisplayInfo.width, height: imageDisplayInfo.height }]}
+        >
           <Image
-            source={{ uri: `file://${photo.path}` }}
-            style={styles.photo}
+            source={{ uri: `file://${props.photo.path}` }}
+            style={{ width: '100%', height: '100%', opacity: isDevMode ? 0.4 : 0.9 }}
             resizeMode="contain"
           />
 
-          {/* Dev Mode: All words outlines */}
-          {isDevMode && wordsWithRects.map((w) => (
-            <View
-              key={`dev-word-${w.index}`}
-              style={{
-                position: 'absolute',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 0, 0, 0.5)',
-                left: w.rect.left,
-                top: w.rect.top,
-                width: w.rect.width,
-                height: w.rect.height,
-                transform: [{ rotate: `${w.rect.rotation || 0}deg` }],
-                zIndex: 1,
-              }}
-            >
-              <Text style={{ fontSize: 8, color: 'red', position: 'absolute', top: -10 }}>{w.index}</Text>
-            </View>
-          ))}
+          {/* 1. Gesture overlay covers exactly the displayed image area to receive background touches */}
+          <View
+            {...imagePanResponder.panHandlers}
+            style={StyleSheet.absoluteFillObject}
+          />
 
-          {/* Live Text mode: Subtly highlight detected text boxes in the background */}
-          {!isDevMode && isHighlightMode && wordsWithRects.map((w) => (
-            <View
-              key={`detect-${w.index}`}
-              style={[
-                styles.detectedHighlight,
-                {
-                  left: w.rect.left,
-                  top: w.rect.top,
-                  width: w.rect.width,
-                  height: w.rect.height,
-                  transform: [{ rotate: `${w.rect.rotation || 0}deg` }],
-                }
-              ]}
-            />
-          ))}
-
-          {/* Draw selection highlights over the selected text */}
-          {selectionRange && wordsWithRects
-            .filter(w => w.index >= selectionIndexes.min && w.index <= selectionIndexes.max)
-            .map((w) => (
+          {/* 2. Highlights and boxes (pointerEvents="none" to not block touches) */}
+          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            {/* Dev Mode: All words bounding boxes & reading order */}
+            {isDevMode && words.map((w) => (
               <View
-                key={`select-${w.index}`}
-                style={[
-                  styles.selectionHighlight,
-                  {
-                    left: w.rect.left - 2,
-                    top: w.rect.top - 2,
-                    width: w.rect.width + 4,
-                    height: w.rect.height + 4,
-                    transform: [{ rotate: `${w.rect.rotation || 0}deg` }],
-                  }
-                ]}
-              />
+                key={`dev-word-${w.index}`}
+                style={{
+                  position: 'absolute',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 0, 0, 0.7)',
+                  left: w.scaledFrame.left,
+                  top: w.scaledFrame.top,
+                  width: w.scaledFrame.width,
+                  height: w.scaledFrame.height,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 9, color: 'white', fontWeight: 'bold', backgroundColor: 'rgba(255,0,0,0.5)', padding: 1 }}>{w.index}</Text>
+              </View>
             ))}
 
-          {/* Gesture overlay covers the image viewport exactly to receive touch events */}
-          {imageSize.width > 0 && (
-            <View
-              {...imagePanResponder.panHandlers}
-              style={[
-                styles.gestureOverlay,
-                {
-                  left: imageSize.offsetX,
-                  top: imageSize.offsetY,
-                  width: imageSize.width,
-                  height: imageSize.height,
+            {/* Selection Highlight */}
+            {selectionRange && words
+              .filter(w => w.index >= selectionRange.start && w.index <= selectionRange.end)
+              .map((w) => {
+                const isExcluded = excludedIndices.has(w.index);
+                if (isExcluded) {
+                  if (isEraserMode) {
+                    return (
+                      <View
+                        key={`select-${w.index}`}
+                        style={[
+                          styles.excludedHighlight,
+                          {
+                            left: w.scaledFrame.left,
+                            top: w.scaledFrame.top,
+                            width: w.scaledFrame.width,
+                            height: w.scaledFrame.height,
+                          }
+                        ]}
+                      />
+                    );
+                  }
+                  return null;
                 }
-              ]}
-            />
-          )}
+                return (
+                  <View
+                    key={`select-${w.index}`}
+                    style={[
+                      styles.selectionHighlight,
+                      {
+                        left: w.scaledFrame.left,
+                        top: w.scaledFrame.top,
+                        width: w.scaledFrame.width,
+                        height: w.scaledFrame.height,
+                      }
+                    ]}
+                  />
+                );
+              })}
 
-          {/* Selection Pins (Grabber Handles) */}
+            {/* Dev Mode debug touch point */}
+            {isDevMode && debugTouch && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: debugTouch.x - 10,
+                  top: debugTouch.y - 10,
+                  width: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(0, 255, 0, 0.6)',
+                  borderWidth: 2,
+                  borderColor: '#0f0',
+                }}
+              />
+            )}
+          </View>
+
+          {/* 3. Pins (They must be outside the background GestureOverlay to receive their own touches) */}
+          {/* Start Pin */}
           {pinsGeometry && (
-            <>
-              {/* Start Handle */}
-              <View
-                {...startPinPanResponder.panHandlers}
-                style={[
-                  styles.grabberPin,
-                  isDevMode && styles.devGrabberPin,
-                  {
-                    left: pinsGeometry.startPin.left,
-                    top: pinsGeometry.startPin.top,
-                    height: pinsGeometry.startPin.height,
-                  }
-                ]}
-              >
-                <View style={styles.grabberLine} />
-                <View style={[styles.grabberKnob, { top: -10 }]} />
-              </View>
-
-              {/* End Handle */}
-              <View
-                {...endPinPanResponder.panHandlers}
-                style={[
-                  styles.grabberPin,
-                  isDevMode && styles.devGrabberPin,
-                  {
-                    left: pinsGeometry.endPin.left,
-                    top: pinsGeometry.endPin.top,
-                    height: pinsGeometry.endPin.height,
-                  }
-                ]}
-              >
-                <View style={styles.grabberLine} />
-                <View style={[styles.grabberKnob, { bottom: -10 }]} />
-              </View>
-            </>
-          )}
-
-          {/* Floating Context Action Menu */}
-          {menuPosition && !isDevMode && (
             <View
+              {...startPinResponder.panHandlers}
+              pointerEvents={isEraserMode ? 'none' : 'auto'}
               style={[
-                styles.contextMenu,
+                styles.grabberPin,
+                isDevMode && styles.devGrabberPin,
                 {
-                  left: menuPosition.left,
-                  top: menuPosition.top,
+                  left: pinsGeometry.startPin.left,
+                  top: pinsGeometry.startPin.top,
+                  height: pinsGeometry.startPin.height,
                 }
               ]}
             >
-              <TouchableOpacity style={styles.menuButton} onPress={handleCopy}>
-                <Text style={styles.menuButtonText}>{copied ? 'Copié !' : 'Copier'}</Text>
-              </TouchableOpacity>
-              <View style={styles.menuSeparator} />
-              <TouchableOpacity style={styles.menuButton} onPress={handleSaveQuote}>
-                <Text style={styles.menuButtonText}>Enregistrer</Text>
-              </TouchableOpacity>
-              <View style={styles.menuSeparator} />
-              <TouchableOpacity style={styles.menuButton} onPress={handleShare}>
-                <Text style={styles.menuButtonText}>Partager</Text>
-              </TouchableOpacity>
-              <View style={styles.menuSeparator} />
-              <TouchableOpacity style={styles.menuButton} onPress={handleSelectAll}>
-                <Text style={styles.menuButtonText}>Tout</Text>
-              </TouchableOpacity>
+              <View style={styles.grabberLine} />
+              <View style={[styles.grabberKnob, { top: -10 }]} />
             </View>
           )}
 
-          {/* Apple Photos style Live Text Toggle Icon in the bottom right corner */}
-          {wordsWithRects.length > 0 && imageSize.width > 0 && !isDevMode && (
-            <TouchableOpacity
-              style={[
-                styles.liveTextButton,
-                isHighlightMode && styles.liveTextButtonActive
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setIsHighlightMode(!isHighlightMode);
-              }}
-            >
-              <ScanLine size={22} color={isHighlightMode ? '#0F0F0F' : '#E5E7EB'} />
-            </TouchableOpacity>
-          )}
-
-          {/* Dev Mode debug touch point */}
-          {isDevMode && debugTouch && (
+          {/* End Pin */}
+          {pinsGeometry && (
             <View
-              style={{
-                position: 'absolute',
-                left: debugTouch.x - 15,
-                top: debugTouch.y - 15,
-                width: 30,
-                height: 30,
-                borderRadius: 15,
-                backgroundColor: 'rgba(0, 255, 0, 0.4)',
-                borderWidth: 2,
-                borderColor: '#0f0',
-                zIndex: 999,
-                pointerEvents: 'none',
-              }}
-            />
+              {...endPinResponder.panHandlers}
+              pointerEvents={isEraserMode ? 'none' : 'auto'}
+              style={[
+                styles.grabberPin,
+                isDevMode && styles.devGrabberPin,
+                {
+                  left: pinsGeometry.endPin.left,
+                  top: pinsGeometry.endPin.top,
+                  height: pinsGeometry.endPin.height,
+                }
+              ]}
+            >
+              <View style={styles.grabberLine} />
+              <View style={[styles.grabberKnob, { bottom: -10 }]} />
+            </View>
           )}
-
-        </Animated.View>
+        </View>
       </View>
 
-      {/* --- Dev Mode Data Overlay --- */}
+      {/* --- Dev Mode Overlay --- */}
       {isDevMode && (
         <View style={styles.devOverlay}>
-          <Text style={styles.devText}>DEV MODE ACTIVE</Text>
+          <Text style={styles.devText}>=== DEV MODE ===</Text>
+          <Text style={styles.devText}>Photo: {props.photo.width}x{props.photo.height}</Text>
+          <Text style={styles.devText}>Scale: {imageDisplayInfo.scale.toFixed(3)}</Text>
           <Text style={styles.devText}>Touch: {debugTouch ? `${Math.round(debugTouch.x)}, ${Math.round(debugTouch.y)}` : 'None'}</Text>
           <Text style={styles.devText}>Selection: {selectionRange ? `[${selectionRange.start}, ${selectionRange.end}]` : 'None'}</Text>
-          <Text style={styles.devText}>Words: {wordsWithRects.length}</Text>
+          <Text style={styles.devText}>Words Total: {words.length}</Text>
         </View>
       )}
 
@@ -289,25 +212,33 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
         style={styles.devToggleButton}
         onPress={() => setIsDevMode(!isDevMode)}
       >
-        <Bug size={24} color={isDevMode ? '#20B8CD' : '#666'} />
+        <Bug size={24} color={isDevMode ? '#0f0' : '#666'} />
       </TouchableOpacity>
 
-      {/* --- UI PAR DESSUS --- */}
+      {/* Basic Prod UI */}
       {!isDevMode && (
         <View style={styles.resultInfoContainer}>
           <Text style={styles.instructionText}>
-            {scannedText ? 'Sélection prête !' : 'Restez appuyé sur le texte pour le sélectionner'}
+            {isEraserMode 
+              ? "Touchez un mot sélectionné pour l'enlever" 
+              : scannedText 
+                ? 'Ajustez avec les poignées' 
+                : 'Appuyez sur un mot pour sélectionner'}
           </Text>
         </View>
       )}
 
-      {/* Carte flottante premium de prévisualisation en direct */}
       {scannedText && !isDevMode ? (
         <View style={styles.livePreviewCard}>
           <Text style={styles.livePreviewHeader}>Texte sélectionné :</Text>
           <Text style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
             {scannedText}
           </Text>
+          <View style={styles.miniActionBar}>
+             <TouchableOpacity onPress={handleCopy}><Text style={styles.actionText}>{copied ? 'Copié' : 'Copier'}</Text></TouchableOpacity>
+             <View style={styles.separator} />
+             <TouchableOpacity onPress={handleSelectAll}><Text style={styles.actionText}>Tout Sélectionner</Text></TouchableOpacity>
+          </View>
         </View>
       ) : null}
 
@@ -318,12 +249,20 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = ({ photo, ocrElements, ocrBloc
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.trashButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelectionRange(null);
-            }}
+            onPress={handleClearSelection}
           >
             <Trash2 size={20} color="#E5E7EB" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.eraserButton,
+              isEraserMode && styles.eraserButtonActive,
+              !selectionRange && styles.eraserButtonDisabled
+            ]}
+            onPress={() => setIsEraserMode(!isEraserMode)}
+            disabled={!selectionRange}
+          >
+            <Eraser size={20} color={isEraserMode ? '#0F0F0F' : '#E5E7EB'} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.saveButton, !scannedText && styles.saveButtonDisabled]}
@@ -352,49 +291,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    position: 'relative',
-    overflow: 'hidden',
   },
   photoContent: {
-    width: '100%',
-    height: '100%',
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  photo: {
-    width: '100%',
-    height: '100%',
-    opacity: 0.85,
-  },
-  detectedHighlight: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 4,
-    zIndex: 1,
-  },
   selectionHighlight: {
     position: 'absolute',
-    backgroundColor: 'rgba(32, 184, 205, 0.35)', // Cyan blue translucent highlight
-    borderRadius: 4,
+    backgroundColor: 'rgba(32, 184, 205, 0.4)',
+    borderRadius: 2,
     zIndex: 2,
   },
-  gestureOverlay: {
+  excludedHighlight: {
     position: 'absolute',
-    backgroundColor: 'transparent',
-    zIndex: 5,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 2,
+    zIndex: 2,
   },
   grabberPin: {
     position: 'absolute',
-    width: 32, // Increased width for better touch target
-    marginLeft: -16, // Offset to center the line in touch targets
+    width: 32,
+    marginLeft: -16, 
     zIndex: 15,
-    overflow: 'visible',
     justifyContent: 'center',
     alignItems: 'center',
   },
   devGrabberPin: {
-    backgroundColor: 'rgba(255, 100, 100, 0.4)', // Visible hitbox in dev mode
+    backgroundColor: 'rgba(255, 100, 100, 0.4)',
   },
   grabberLine: {
     width: 2.5,
@@ -412,64 +339,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 3,
-  },
-  contextMenu: {
-    position: 'absolute',
-    width: 260,
-    height: 40,
-    backgroundColor: 'rgba(20, 20, 20, 0.95)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-    zIndex: 100,
-  },
-  menuButton: {
-    flex: 1,
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuButtonText: {
-    color: '#E5E7EB',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  menuSeparator: {
-    width: 1,
-    height: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  liveTextButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: 'rgba(26, 26, 26, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 6,
-    zIndex: 20,
-  },
-  liveTextButtonActive: {
-    backgroundColor: '#20B8CD',
-    borderColor: '#20B8CD',
   },
   resultInfoContainer: {
     position: 'absolute',
@@ -507,11 +376,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    shadowColor: '#20B8CD',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
     zIndex: 110,
   },
   livePreviewHeader: {
@@ -527,6 +391,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     fontStyle: 'italic',
+  },
+  miniActionBar: {
+    flexDirection: 'row',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  actionText: {
+    color: '#20B8CD',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 15,
+  },
+  separator: {
+    width: 1,
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginRight: 15,
   },
   controlsRow: {
     flexDirection: 'row',
@@ -555,6 +438,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 8,
   },
+  eraserButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  eraserButtonActive: {
+    backgroundColor: '#20B8CD',
+  },
+  eraserButtonDisabled: {
+    opacity: 0.5,
+  },
   saveButton: {
     flex: 1,
     paddingVertical: 16,
@@ -576,8 +474,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     left: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#0f0',
@@ -587,8 +485,8 @@ const styles = StyleSheet.create({
   devText: {
     color: '#0f0',
     fontFamily: 'monospace',
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 11,
+    marginBottom: 6,
   },
   devToggleButton: {
     position: 'absolute',
@@ -596,13 +494,13 @@ const styles = StyleSheet.create({
     right: 20,
     width: 44,
     height: 44,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 200,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#0f0',
   },
 });
 
