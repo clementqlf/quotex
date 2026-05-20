@@ -3,6 +3,7 @@ import { PanResponder, Share, Clipboard } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
+import { calculateTextRotation } from '../../../shared/lib/scanGeometry';
 
 type Size = { width: number; height: number };
 
@@ -13,6 +14,7 @@ export type WordData = {
   scaledFrame: { left: number; top: number; width: number; height: number };
   centerX: number;
   centerY: number;
+  rotation: number;
 };
 
 type ScanWorkflowProps = {
@@ -29,7 +31,7 @@ export const useScanWorkflow = ({
   ocrBlocks,
   onReset,
 }: ScanWorkflowProps) => {
-  const [isDevMode, setIsDevMode] = useState(true);
+  const [isDevMode, setIsDevMode] = useState(false);
   const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
   const [viewportSize, setViewportSize] = useState<Size>({ width: 0, height: 0 });
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -43,20 +45,26 @@ export const useScanWorkflow = ({
     const photoW = photo.width;
     const photoH = photo.height;
     const imageAspectRatio = photoW / photoH;
-    const containerAspectRatio = viewportSize.width / viewportSize.height;
+
+    // Use constant paddings (120 top / 270 bottom) to keep the photo in the upper half of the screen
+    // so it never overlaps the bottom controls or the "Texte selectionné" card.
+    const topPadding = 120;
+    const bottomPadding = 270;
+    const containerHeight = Math.max(100, viewportSize.height - topPadding - bottomPadding);
+    const containerAspectRatio = viewportSize.width / containerHeight;
 
     let displayedWidth, displayedHeight, offsetX = 0, offsetY = 0, scale = 1;
 
     if (imageAspectRatio > containerAspectRatio) {
       displayedWidth = viewportSize.width;
       displayedHeight = viewportSize.width / imageAspectRatio;
-      offsetY = (viewportSize.height - displayedHeight) / 2;
+      offsetY = (containerHeight - displayedHeight) / 2;
       scale = viewportSize.width / photoW;
     } else {
-      displayedHeight = viewportSize.height;
-      displayedWidth = viewportSize.height * imageAspectRatio;
+      displayedHeight = containerHeight;
+      displayedWidth = containerHeight * imageAspectRatio;
       offsetX = (viewportSize.width - displayedWidth) / 2;
-      scale = viewportSize.height / photoH;
+      scale = containerHeight / photoH;
     }
 
     return { width: displayedWidth, height: displayedHeight, offsetX, offsetY, scale };
@@ -164,6 +172,8 @@ export const useScanWorkflow = ({
         height: frame.height * imageDisplayInfo.scale,
       };
       
+      const rotation = el.cornerPoints ? calculateTextRotation(el.cornerPoints as any) : 0;
+      
       return {
         index,
         text: el.text,
@@ -171,6 +181,7 @@ export const useScanWorkflow = ({
         scaledFrame,
         centerX: scaledFrame.left + scaledFrame.width / 2,
         centerY: scaledFrame.top + scaledFrame.height / 2,
+        rotation,
       } as WordData;
     });
   }, [ocrElements, ocrBlocks, imageDisplayInfo.scale]);

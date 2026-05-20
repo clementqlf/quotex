@@ -9,6 +9,7 @@ import {
 import { Trash2, Bug, Eraser } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
+import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import ScanPreviewModal from './ScanPreviewModal';
 import { useScanWorkflow } from '../model/useScanWorkflow';
 
@@ -57,14 +58,58 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           setViewportSize({ width, height });
         }}
       >
-        <View 
+        <View
           style={[styles.photoContent, { width: imageDisplayInfo.width, height: imageDisplayInfo.height }]}
         >
           <Image
             source={{ uri: `file://${props.photo.path}` }}
-            style={{ width: '100%', height: '100%', opacity: isDevMode ? 0.4 : 0.9 }}
+            style={{ width: '100%', height: '100%', opacity: isDevMode ? 0.4 : 1.0 }}
             resizeMode="contain"
           />
+
+          {/* Apple Live Text inverse dimming effect (masking backdrop) */}
+          {!isDevMode && (
+            <Svg
+              width={imageDisplayInfo.width}
+              height={imageDisplayInfo.height}
+              style={StyleSheet.absoluteFillObject}
+              pointerEvents="none"
+            >
+              <Defs>
+                <Mask id="textMask">
+                  <Rect
+                    width={imageDisplayInfo.width}
+                    height={imageDisplayInfo.height}
+                    fill="white"
+                  />
+                  {words.map((w) => {
+                    const cx = w.scaledFrame.left + w.scaledFrame.width / 2;
+                    const cy = w.scaledFrame.top + w.scaledFrame.height / 2;
+                    const transform = w.rotation ? `rotate(${w.rotation}, ${cx}, ${cy})` : undefined;
+                    return (
+                      <Rect
+                        key={`mask-rect-${w.index}`}
+                        x={w.scaledFrame.left}
+                        y={w.scaledFrame.top}
+                        width={w.scaledFrame.width}
+                        height={w.scaledFrame.height}
+                        rx={2}
+                        ry={2}
+                        fill="black"
+                        transform={transform}
+                      />
+                    );
+                  })}
+                </Mask>
+              </Defs>
+              <Rect
+                width={imageDisplayInfo.width}
+                height={imageDisplayInfo.height}
+                fill="rgba(0, 0, 0, 0.55)"
+                mask="url(#textMask)"
+              />
+            </Svg>
+          )}
 
           {/* 1. Gesture overlay covers exactly the displayed image area to receive background touches */}
           <View
@@ -94,6 +139,29 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
               </View>
             ))}
 
+            {/* Selectable Words (Apple Live Text effect) */}
+            {!isDevMode && words.map((w) => {
+              const isSelected = selectionRange && w.index >= selectionRange.start && w.index <= selectionRange.end;
+              const isExcluded = excludedIndices.has(w.index);
+              if (isSelected || isExcluded) return null;
+
+              return (
+                <View
+                  key={`selectable-${w.index}`}
+                  style={[
+                    styles.selectableHighlight,
+                    {
+                      left: w.scaledFrame.left,
+                      top: w.scaledFrame.top,
+                      width: w.scaledFrame.width,
+                      height: w.scaledFrame.height,
+                      transform: w.rotation ? [{ rotate: `${w.rotation}deg` }] : undefined,
+                    }
+                  ]}
+                />
+              );
+            })}
+
             {/* Selection Highlight */}
             {selectionRange && words
               .filter(w => w.index >= selectionRange.start && w.index <= selectionRange.end)
@@ -111,6 +179,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
                             top: w.scaledFrame.top,
                             width: w.scaledFrame.width,
                             height: w.scaledFrame.height,
+                            transform: w.rotation ? [{ rotate: `${w.rotation}deg` }] : undefined,
                           }
                         ]}
                       />
@@ -128,6 +197,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
                         top: w.scaledFrame.top,
                         width: w.scaledFrame.width,
                         height: w.scaledFrame.height,
+                        transform: w.rotation ? [{ rotate: `${w.rotation}deg` }] : undefined,
                       }
                     ]}
                   />
@@ -219,10 +289,10 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
       {!isDevMode && (
         <View style={styles.resultInfoContainer}>
           <Text style={styles.instructionText}>
-            {isEraserMode 
-              ? "Touchez un mot sélectionné pour l'enlever" 
-              : scannedText 
-                ? 'Ajustez avec les poignées' 
+            {isEraserMode
+              ? "Touchez un mot sélectionné pour l'enlever"
+              : scannedText
+                ? 'Ajustez avec les poignées'
                 : 'Appuyez sur un mot pour sélectionner'}
           </Text>
         </View>
@@ -235,9 +305,9 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             {scannedText}
           </Text>
           <View style={styles.miniActionBar}>
-             <TouchableOpacity onPress={handleCopy}><Text style={styles.actionText}>{copied ? 'Copié' : 'Copier'}</Text></TouchableOpacity>
-             <View style={styles.separator} />
-             <TouchableOpacity onPress={handleSelectAll}><Text style={styles.actionText}>Tout Sélectionner</Text></TouchableOpacity>
+            <TouchableOpacity onPress={handleCopy}><Text style={styles.actionText}>{copied ? 'Copié' : 'Copier'}</Text></TouchableOpacity>
+            <View style={styles.separator} />
+            <TouchableOpacity onPress={handleSelectAll}><Text style={styles.actionText}>Tout Sélectionner</Text></TouchableOpacity>
           </View>
         </View>
       ) : null}
@@ -288,14 +358,22 @@ const styles = StyleSheet.create({
   photoContainer: {
     flex: 1,
     backgroundColor: '#0F0F0F',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     width: '100%',
+    paddingTop: 120,
+    paddingBottom: 270,
   },
   photoContent: {
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  selectableHighlight: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 2,
+    zIndex: 1,
   },
   selectionHighlight: {
     position: 'absolute',
@@ -315,7 +393,7 @@ const styles = StyleSheet.create({
   grabberPin: {
     position: 'absolute',
     width: 32,
-    marginLeft: -16, 
+    marginLeft: -16,
     zIndex: 15,
     justifyContent: 'center',
     alignItems: 'center',
