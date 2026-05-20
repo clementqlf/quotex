@@ -38,7 +38,7 @@ export default function LoginPasswordScreen() {
     setIsLoading(true);
     try {
       await login(userEmail, password);
-      router.replace('/');
+      // Navigation handled by auth redirect in layout
     } catch (error: any) {
       Alert.alert('Erreur de connexion', error.message || 'Identifiants incorrects');
     } finally {

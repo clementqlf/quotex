@@ -81,7 +81,7 @@ export default function LoginScreen() {
     try {
       if (platform === 'google') {
         await authService.signInWithGoogleNative();
-        router.replace('/');
+        // Navigation handled by auth redirect in layout
       } else {
         // Apple est désactivé pour le moment
         Alert.alert('Information', 'La connexion avec Apple nécessite un compte développeur payant.');

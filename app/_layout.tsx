@@ -118,7 +118,7 @@ function RootLayoutNav() {
     <>
       <NavThemeProvider value={navigationTheme}>
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(app)" />
+          <Stack.Screen name="(app)" options={{ animation: 'none' }} />
           <Stack.Screen name="(auth)" />
         </Stack>
         <StatusBar style={isDark ? 'light' : 'dark'} />

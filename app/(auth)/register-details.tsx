@@ -53,7 +53,7 @@ export default function RegisterDetailsScreen() {
     setIsLoading(true);
     try {
       await register(username, email!, password);
-      router.replace('/');
+      // Navigation handled by auth redirect in layout
     } catch (error: any) {
       Alert.alert("Erreur lors de l'inscription", error.message || "Impossible de créer le compte");
     } finally {
