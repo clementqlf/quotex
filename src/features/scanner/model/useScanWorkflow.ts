@@ -3,7 +3,8 @@ import { PanResponder, Share, Clipboard } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
-import { calculateTextRotation } from '../../../shared/lib/scanGeometry';
+import { calculateTextRotation, MLKitText } from '../../../shared/lib/scanGeometry';
+import { calculateGlobalAngle, reconstructTextFromBlocks } from './textReconstructor';
 
 type Size = { width: number; height: number };
 
@@ -378,12 +379,44 @@ export const useScanWorkflow = ({
     })
   ).current;
 
+  const globalAngle = useMemo(() => {
+    const mlKitTexts: MLKitText[] = words.map(w => ({
+      text: w.text,
+      frame: w.originalFrame,
+      rotation: w.rotation
+    }));
+    return calculateGlobalAngle(mlKitTexts);
+  }, [words]);
+
   const scannedText = useMemo(() => {
     if (!selectionRange || words.length === 0) return '';
     const selectedWords = words.slice(selectionRange.start, selectionRange.end + 1);
     const filteredWords = selectedWords.filter(w => !excludedIndices.has(w.index));
-    return filteredWords.map(w => w.text).join(' ');
-  }, [selectionRange, words, excludedIndices]);
+    
+    if (filteredWords.length === 0) return '';
+
+    const selectedMLKitBlocks: MLKitText[] = filteredWords.map(w => ({
+      text: w.text,
+      frame: w.originalFrame,
+      rotation: w.rotation
+    }));
+
+    const imageSize = {
+      width: imageDisplayInfo.width,
+      height: imageDisplayInfo.height,
+      offsetX: imageDisplayInfo.offsetX,
+      offsetY: imageDisplayInfo.offsetY
+    };
+
+    const reconstruction = reconstructTextFromBlocks(
+      selectedMLKitBlocks,
+      imageSize,
+      photo,
+      globalAngle
+    );
+
+    return reconstruction.scannedText;
+  }, [selectionRange, words, excludedIndices, imageDisplayInfo, photo, globalAngle]);
 
   const handleCopy = async () => {
     if (scannedText) {
