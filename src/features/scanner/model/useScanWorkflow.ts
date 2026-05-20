@@ -24,6 +24,7 @@ type ScanWorkflowProps = {
   ocrBlocks?: TextBlock[];
   onReset: () => void;
   isGallery?: boolean;
+  normalizedSize?: { width: number; height: number } | null;
 };
 
 export const useScanWorkflow = ({
@@ -31,6 +32,7 @@ export const useScanWorkflow = ({
   ocrElements,
   ocrBlocks,
   onReset,
+  normalizedSize,
 }: ScanWorkflowProps) => {
   const [isDevMode, setIsDevMode] = useState(false);
   const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
@@ -38,38 +40,29 @@ export const useScanWorkflow = ({
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // needsRotation is always false: React Native <Image> auto-applies EXIF.
+  // ML Kit coordinates are in the normalizedSize space (portrait, after ImageManipulator normalization).
+  const needsRotation = false;
+
   const imageDisplayInfo = useMemo(() => {
-    if (viewportSize.width === 0 || viewportSize.height === 0) {
+    // Use normalizedSize (from ImageManipulator output) as the ground truth for image dimensions.
+    // This is the same coordinate space that ML Kit used when processing the normalized image.
+    const photoW = normalizedSize?.width || photo.width || 1;
+    const photoH = normalizedSize?.height || photo.height || 1;
+
+    if (viewportSize.width === 0 || viewportSize.height === 0 || !photoW || !photoH) {
       return { width: 0, height: 0, offsetX: 0, offsetY: 0, scale: 1 };
     }
-    
-    const photoW = photo.width;
-    const photoH = photo.height;
+
+    // Always fill the full screen width. Height is proportional to the image aspect ratio.
+    // Controls are absolutely positioned so they overlay the image without affecting layout.
+    const displayedWidth = viewportSize.width;
     const imageAspectRatio = photoW / photoH;
+    const displayedHeight = displayedWidth / imageAspectRatio;
+    const scale = displayedWidth / photoW;
 
-    // Use constant paddings (120 top / 270 bottom) to keep the photo in the upper half of the screen
-    // so it never overlaps the bottom controls or the "Texte selectionné" card.
-    const topPadding = 120;
-    const bottomPadding = 270;
-    const containerHeight = Math.max(100, viewportSize.height - topPadding - bottomPadding);
-    const containerAspectRatio = viewportSize.width / containerHeight;
-
-    let displayedWidth, displayedHeight, offsetX = 0, offsetY = 0, scale = 1;
-
-    if (imageAspectRatio > containerAspectRatio) {
-      displayedWidth = viewportSize.width;
-      displayedHeight = viewportSize.width / imageAspectRatio;
-      offsetY = (containerHeight - displayedHeight) / 2;
-      scale = viewportSize.width / photoW;
-    } else {
-      displayedHeight = containerHeight;
-      displayedWidth = containerHeight * imageAspectRatio;
-      offsetX = (viewportSize.width - displayedWidth) / 2;
-      scale = containerHeight / photoH;
-    }
-
-    return { width: displayedWidth, height: displayedHeight, offsetX, offsetY, scale };
-  }, [viewportSize, photo.width, photo.height]);
+    return { width: displayedWidth, height: displayedHeight, offsetX: 0, offsetY: 0, scale };
+  }, [viewportSize, normalizedSize, photo.width, photo.height]);
 
   const words = useMemo(() => {
     if (!ocrElements || ocrElements.length === 0 || imageDisplayInfo.scale === 1) return [];
@@ -166,6 +159,7 @@ export const useScanWorkflow = ({
 
     return sortedElements.map((el, index) => {
       const frame = (el as any).frame || (el as any).rect || { left: 0, top: 0, width: 0, height: 0 };
+      // No CSS rotation is applied to the image, so OCR coordinates map directly.
       const scaledFrame = {
         left: frame.left * imageDisplayInfo.scale,
         top: frame.top * imageDisplayInfo.scale,
@@ -498,5 +492,6 @@ export const useScanWorkflow = ({
     isEraserMode,
     setIsEraserMode,
     excludedIndices,
+    needsRotation,
   };
 };

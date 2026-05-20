@@ -279,6 +279,11 @@ export default function ScanPreviewModal({
         return () => clearTimeout(timer);
     }, [editedAuthor, isEditingAuthor]);
 
+    const bookTitle = resolveBookTitle();
+    const authorName = resolveAuthorName();
+    const isBookUnknown = bookTitle === 'Livre inconnu';
+    const isAuthorUnknown = authorName === 'Auteur inconnu';
+
     return (
         <Modal
             animationType="slide"
@@ -408,6 +413,8 @@ export default function ScanPreviewModal({
                                                                                         console.error('[ScanPreviewModal] Failed to import Inventaire book:', e);
                                                                                     }
                                                                                     setIsLoadingSuggestions(false);
+                                                                                } else if (item.author) {
+                                                                                    setEditedAuthor(typeof item.author === 'string' ? item.author : getAuthorName(item.author));
                                                                                 }
                                                                                 setEditedBook(item.title);
                                                                                 setIsEditingBook(false);
@@ -434,6 +441,22 @@ export default function ScanPreviewModal({
                                                             </View>
                                                         )}
                                                     </View>
+                                                ) : isBookUnknown ? (
+                                                    <TouchableOpacity
+                                                        style={styles.bookPlaceholderButton}
+                                                        onPress={() => {
+                                                            setIsEditingBook(true);
+                                                            setEditedBook(''); // Clear on click as requested
+                                                            setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
+                                                            setShowSuggestions(true);
+                                                            // Close other dropdowns
+                                                            setIsEditingAuthor(false);
+                                                            setShowAuthorSuggestions(false);
+                                                        }}
+                                                    >
+                                                        <BookIcon size={14} color={colors.textTertiary} style={{ marginRight: 8 }} />
+                                                        <Text style={styles.bookPlaceholderText}>Veuillez renseigner un livre</Text>
+                                                    </TouchableOpacity>
                                                 ) : (
                                                     <TouchableOpacity
                                                         onPress={() => {
@@ -446,7 +469,7 @@ export default function ScanPreviewModal({
                                                             setShowAuthorSuggestions(false);
                                                         }}
                                                     >
-                                                        <Text style={styles.bookTitle}>{resolveBookTitle()}</Text>
+                                                        <Text style={styles.bookTitle}>{bookTitle}</Text>
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
@@ -502,6 +525,22 @@ export default function ScanPreviewModal({
                                                             </View>
                                                         )}
                                                     </View>
+                                                ) : isAuthorUnknown ? (
+                                                    <TouchableOpacity
+                                                        style={styles.authorPlaceholderButton}
+                                                        onPress={() => {
+                                                            setIsEditingAuthor(true);
+                                                            setEditedAuthor(''); // Clear on click as requested
+                                                            setAuthorSuggestions(initialAuthors);
+                                                            setShowAuthorSuggestions(true);
+                                                            // Close other dropdowns
+                                                            setIsEditingBook(false);
+                                                            setShowSuggestions(false);
+                                                        }}
+                                                    >
+                                                        <UserIcon size={12} color={colors.textTertiary} style={{ marginRight: 8 }} />
+                                                        <Text style={styles.authorPlaceholderText}>Veuillez renseigner un auteur</Text>
+                                                    </TouchableOpacity>
                                                 ) : (
                                                     <TouchableOpacity
                                                         onPress={() => {
@@ -514,7 +553,7 @@ export default function ScanPreviewModal({
                                                             setShowSuggestions(false);
                                                         }}
                                                     >
-                                                        <Text style={styles.authorName}>{resolveAuthorName()}</Text>
+                                                        <Text style={styles.authorName}>{authorName}</Text>
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
@@ -589,8 +628,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
     },
     previewTitle: {
         fontSize: 18,
@@ -635,9 +674,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 16,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.surfaceHighlight,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: colors.surfaceHighlight,
         zIndex: 100, // Ensure dropdowns appear on top
     },
     bookInfoLeft: {
@@ -658,6 +697,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         paddingVertical: 8,
         marginBottom: 4,
     },
+    bookPlaceholderButton: {
+        borderWidth: 0,
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: colors.inputBackground,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    bookPlaceholderText: {
+        fontSize: 14,
+        color: colors.textTertiary,
+        fontWeight: '600',
+        fontStyle: 'italic',
+    },
     authorName: {
         fontSize: 12,
         color: colors.textSecondary,
@@ -669,6 +724,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         borderRadius: 6,
         paddingHorizontal: 6,
         paddingVertical: 8,
+    },
+    authorPlaceholderButton: {
+        borderWidth: 0,
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        backgroundColor: colors.inputBackground,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    authorPlaceholderText: {
+        fontSize: 12,
+        color: colors.textTertiary,
+        fontWeight: '500',
+        fontStyle: 'italic',
     },
     dateText: {
         fontSize: 12,

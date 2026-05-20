@@ -19,6 +19,7 @@ type ScanWorkflowProps = {
   ocrBlocks?: TextBlock[];
   onReset: () => void;
   isGallery?: boolean;
+  normalizedSize?: { width: number; height: number } | null;
 };
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
@@ -47,6 +48,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     isEraserMode,
     setIsEraserMode,
     excludedIndices,
+    needsRotation,
   } = useScanWorkflow(props);
 
   return (
@@ -59,11 +61,18 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
         }}
       >
         <View
-          style={[styles.photoContent, { width: imageDisplayInfo.width, height: imageDisplayInfo.height }]}
+          style={[
+            styles.photoContent,
+            { width: imageDisplayInfo.width, height: imageDisplayInfo.height }
+          ]}
         >
           <Image
             source={{ uri: `file://${props.photo.path}` }}
-            style={{ width: '100%', height: '100%', opacity: isDevMode ? 0.4 : 1.0 }}
+            style={{ 
+              width: '100%',
+              height: '100%',
+              opacity: isDevMode ? 0.4 : 1.0,
+            }}
             resizeMode="contain"
           />
 
@@ -358,11 +367,9 @@ const styles = StyleSheet.create({
   photoContainer: {
     flex: 1,
     backgroundColor: '#0F0F0F',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
-    paddingTop: 120,
-    paddingBottom: 270,
   },
   photoContent: {
     position: 'relative',

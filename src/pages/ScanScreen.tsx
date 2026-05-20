@@ -46,6 +46,7 @@ export default function ScanScreen() {
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
   const [ocrElements, setOcrElements] = React.useState<TextElement[] | null>(null);
   const [ocrBlocks, setOcrBlocks] = React.useState<TextBlock[] | null>(null);
+  const [ocrNormalizedSize, setOcrNormalizedSize] = React.useState<{ width: number; height: number } | null>(null);
   const [isFromGallery, setIsFromGallery] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isPickerActive, setIsPickerActive] = React.useState(false);
@@ -260,6 +261,7 @@ export default function ScanScreen() {
       setPhoto(photoFile);
       setOcrElements(elements);
       setOcrBlocks(ocrResult.blocks);
+      setOcrNormalizedSize(ocrResult.normalizedSize);
     } catch (error) {
       console.error('Failed to take photo or recognize text:', error);
       setPhoto(null);
@@ -286,6 +288,7 @@ export default function ScanScreen() {
     setPhoto(null);
     setOcrElements(null);
     setOcrBlocks(null);
+    setOcrNormalizedSize(null);
     setIsFromGallery(false);
     setIsTextDetectedLive(false);
   };
@@ -351,6 +354,7 @@ export default function ScanScreen() {
           setPhoto(pickedPhoto);
           setOcrElements(elements || []);
           setOcrBlocks(ocrResult.blocks || []);
+          setOcrNormalizedSize(ocrResult.normalizedSize);
         } catch (innerError) {
           console.error('Picker launch error:', innerError);
         } finally {
@@ -432,6 +436,7 @@ export default function ScanScreen() {
           ocrBlocks={ocrBlocks || []}
           onReset={handleResetCapture}
           isGallery={isFromGallery}
+          normalizedSize={ocrNormalizedSize}
         />
       ) : isFocused && !photo && !isPickerActive ? (
         <Camera
