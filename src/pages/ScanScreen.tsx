@@ -29,6 +29,7 @@ import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
 import * as Haptics from 'expo-haptics';
 import { searchService } from '@/src/features/search/api/SearchService';
+import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/AnimatedISBNPopup';
 
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -50,6 +51,8 @@ export default function ScanScreen() {
   const [isFromGallery, setIsFromGallery] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isPickerActive, setIsPickerActive] = React.useState(false);
+  const [isbnBookData, setIsbnBookData] = React.useState<IsbnBookData | null>(null);
+  const [showIsbnPopup, setShowIsbnPopup] = React.useState(false);
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [scanFrameLayout, setScanFrameLayout] = React.useState<{
     x: number;
@@ -72,41 +75,129 @@ export default function ScanScreen() {
 
     console.log('[ScanScreen] Valid ISBN detected:', isbn);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setIsLoading(true);
     try {
       const data = await searchService.search(isbn);
       if (data.inventaireWorks && data.inventaireWorks.length > 0) {
         const item = data.inventaireWorks[0];
-        router.push({
-          pathname: '/book-detail',
-          params: {
-            bookTitle: item.title,
-            inventaireUri: item.inventaireUri || item.uri,
-            bookData: JSON.stringify(item)
+        const authorName = item.authors && item.authors.length > 0
+          ? item.authors.join(', ')
+          : 'Auteur inconnu';
+
+        // Import the book to get the same cover that BookDetail will show
+        try {
+          const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+          const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+          const importRes = await fetch(`${BASE_URL}/books/import`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              title: item.label || item.title,
+              description: item.description || '',
+              cover: item.image || item.cover || '',
+              inventaireUri: item.uri || item.inventaireUri,
+              googleId: item.googleId,
+              isbn,
+              year: item.year,
+              pages: item.pages,
+              genre: item.genre,
+              authors: item.authors || [],
+              authorUris: item.authorUris || [],
+            }),
+          });
+
+          if (importRes.ok) {
+            const imported = await importRes.json();
+            setIsbnBookData({
+              title: imported.title || item.title || item.label || 'Livre inconnu',
+              author: authorName,
+              cover: imported.cover || item.image || item.cover || undefined,
+              bookId: imported.id?.toString(),
+              inventaireUri: imported.inventaireUri || item.inventaireUri || item.uri,
+            });
+            setShowIsbnPopup(true);
+            return true;
           }
+        } catch (importErr) {
+          console.error('[ScanScreen] Import failed, falling back to search cover:', importErr);
+        }
+
+        // Fallback: use search result cover
+        setIsbnBookData({
+          title: item.title || item.label || 'Livre inconnu',
+          author: authorName,
+          cover: item.image || item.cover || undefined,
+          inventaireUri: item.inventaireUri || item.uri,
+          bookData: item,
         });
+        setShowIsbnPopup(true);
         return true;
       } else if (data.books && data.books.length > 0) {
         const book = data.books[0];
-        router.push({
-          pathname: '/book-detail',
-          params: {
-            bookId: book.id,
-            inventaireUri: book.inventaireUri,
-          }
+        const authorName = typeof book.author === 'string'
+          ? book.author
+          : (book.author as any)?.name || 'Auteur inconnu';
+        setIsbnBookData({
+          title: book.title,
+          author: authorName,
+          cover: book.cover || undefined,
+          bookId: book.id ?? undefined,
+          inventaireUri: book.inventaireUri,
         });
+        setShowIsbnPopup(true);
         return true;
       } else {
-        alert("Aucun livre trouvé pour cet ISBN.");
+        console.log('[ScanScreen] No book found for ISBN:', isbn);
       }
     } catch (error) {
       console.error('Error searching ISBN:', error);
-      alert("Erreur lors de la recherche du livre.");
-    } finally {
-      setIsLoading(false);
     }
     return false;
-  }, [router]);
+  }, []);
+
+  const handleIsbnPopupPress = useCallback(() => {
+    if (!isbnBookData) return;
+    setShowIsbnPopup(false);
+
+    const coverParam = isbnBookData.cover || undefined;
+
+    if (isbnBookData.bookData) {
+      router.push({
+        pathname: '/book-detail',
+        params: {
+          bookTitle: isbnBookData.title,
+          inventaireUri: isbnBookData.inventaireUri,
+          bookData: JSON.stringify(isbnBookData.bookData),
+          ...(coverParam ? { cover: coverParam } : {}),
+        },
+      });
+    } else if (isbnBookData.bookId) {
+      router.push({
+        pathname: '/book-detail',
+        params: {
+          bookId: isbnBookData.bookId,
+          inventaireUri: isbnBookData.inventaireUri,
+          ...(coverParam ? { cover: coverParam } : {}),
+        },
+      });
+    } else if (isbnBookData.inventaireUri) {
+      router.push({
+        pathname: '/book-detail',
+        params: {
+          bookTitle: isbnBookData.title,
+          inventaireUri: isbnBookData.inventaireUri,
+        },
+      });
+    }
+    setIsbnBookData(null);
+  }, [isbnBookData, router]);
+
+  const handleIsbnPopupDismiss = useCallback(() => {
+    setShowIsbnPopup(false);
+    setIsbnBookData(null);
+  }, []);
 
   // Callback mémoïsé pour éviter de redémarrer l'effet useLiveOCR à chaque render
   const handleIsbnDetected = useCallback((isbn: string) => {
@@ -117,8 +208,9 @@ export default function ScanScreen() {
   const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
     cameraRef,
     isFocused,
-    enabled: !photo && !isLoading,
+    enabled: !photo && !isLoading && !showIsbnPopup,
     scanLockRef,
+    onIsbnDetected: handleIsbnDetected,
   });
 
   const frameAnim = useSharedValue(0);
@@ -596,6 +688,15 @@ export default function ScanScreen() {
                 mask="url(#scanMask)"
               />
             </Svg>
+          )}
+
+          {/* ISBN Popup */}
+          {showIsbnPopup && isbnBookData && (
+            <AnimatedISBNPopup
+              bookData={isbnBookData}
+              onPress={handleIsbnPopupPress}
+              onDismiss={handleIsbnPopupDismiss}
+            />
           )}
 
           <View style={styles.controls}>

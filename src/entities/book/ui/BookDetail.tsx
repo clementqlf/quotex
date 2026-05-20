@@ -80,9 +80,10 @@ export default function BookDetailScreen() {
   const { user: currentUser } = useAuth();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const router = useRouter();
-  const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string; bookData?: string }>();
+  const rawParams = useLocalSearchParams<{ bookId?: string; bookTitle?: string; bookData?: string; cover?: string }>();
   const bookId = rawParams.bookId ? Number(rawParams.bookId) : undefined;
   const bookTitleParam = rawParams.bookTitle as string | undefined;
+  const bookCoverParam = rawParams.cover as string | undefined;
 
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -240,6 +241,12 @@ export default function BookDetailScreen() {
           const authorName = getAuthorName(currentBook.author);
           const fetchedAuthor = await getAuthorByName(authorName);
           if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
+
+          // Ensure cover matches the ISBN popup
+          if (bookCoverParam && currentBook.cover !== bookCoverParam) {
+            currentBook = { ...currentBook, cover: bookCoverParam };
+            setBookInfo(currentBook);
+          }
         }
       } else {
         console.log('[BookDetail] Book not found');

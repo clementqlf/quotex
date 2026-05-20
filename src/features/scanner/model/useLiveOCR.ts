@@ -24,6 +24,30 @@ export function useLiveOCR({
     const internalBusyRef = useRef(false);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // Auto-reset: if no text confirmed for 1500ms, force reset to false
+    const autoResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const consecutiveEmptyFramesRef = useRef(0);
+
+    const confirmTextDetected = (detected: boolean) => {
+        if (detected) {
+            consecutiveEmptyFramesRef.current = 0;
+            setIsTextDetectedLive(true);
+            // Refresh the auto-reset window each time text IS confirmed
+            if (autoResetRef.current) clearTimeout(autoResetRef.current);
+            autoResetRef.current = setTimeout(() => {
+                setIsTextDetectedLive(false);
+            }, 1500);
+        } else {
+            consecutiveEmptyFramesRef.current += 1;
+            // Require 2 frames without text before clearing status
+            if (consecutiveEmptyFramesRef.current >= 2) {
+                if (autoResetRef.current) clearTimeout(autoResetRef.current);
+                autoResetRef.current = null;
+                setIsTextDetectedLive(false);
+            }
+        }
+    };
+
     // Helper to check if we can scan
     const canScan = () => {
         if (!enabled || !isFocused || !cameraRef.current) return false;
@@ -38,7 +62,7 @@ export function useLiveOCR({
 
         const scheduleNext = () => {
             if (isMounted && enabled && isFocused) {
-                timeoutId = setTimeout(runScan, 1000);
+                timeoutId = setTimeout(runScan, 500);
             }
         };
 
@@ -65,7 +89,7 @@ export function useLiveOCR({
                 if (isMounted && enabled && isFocused) {
                     const result = await TextRecognition.recognize(tempPhoto.path);
                     if (result && result.blocks.length > 0) {
-                        setIsTextDetectedLive(true);
+                        confirmTextDetected(true);
                         
                         // Check if the recognized text contains an ISBN
                         const fullText = result.blocks.map(b => b.text).join(' ');
@@ -82,12 +106,12 @@ export function useLiveOCR({
                             return;
                         }
                     } else {
-                        setIsTextDetectedLive(false);
+                        confirmTextDetected(false);
                     }
                 }
             } catch (e) {
                 console.log('[useLiveOCR] Scan error:', e);
-                setIsTextDetectedLive(false);
+                confirmTextDetected(false);
             } finally {
                 // Delete temp photo to avoid disk leak (takePhoto writes a full-res JPEG each time)
                 if (tempPhoto?.path) {
@@ -113,6 +137,7 @@ export function useLiveOCR({
         return () => {
             isMounted = false;
             if (timeoutId) clearTimeout(timeoutId);
+            if (autoResetRef.current) clearTimeout(autoResetRef.current);
             internalBusyRef.current = false;
         };
     }, [enabled, isFocused, cameraRef, scanLockRef, onIsbnDetected]);
