@@ -5,13 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Modal,
   ActivityIndicator,
   FlatList,
   Share,
   Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
@@ -110,6 +110,7 @@ export default function AuthorDetailScreen() {
 
   // New state for All Works Modal
   const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);
+  const [hasRenderedModal, setHasRenderedModal] = React.useState(false);
   const [allWorks, setAllWorks] = React.useState<Book[]>([]);
   const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
 
@@ -140,12 +141,25 @@ export default function AuthorDetailScreen() {
         initialAuthorId ? getNotableWorks(initialAuthorId) : Promise.resolve([])
       ]);
 
-      const booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
+      let booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
       let activeAuthor = localAuthor || author || fetchedAuthor;
 
       if (fetchedAuthor) {
         setAuthorInfo(fetchedAuthor);
         activeAuthor = fetchedAuthor;
+        
+        // If we didn't have an ID initially, we couldn't fetch notable works. Fetch them now!
+        if (!initialAuthorId && fetchedAuthor.id) {
+          console.log(`[AuthorDetail] Author fetched with ID ${fetchedAuthor.id}, now fetching notable works...`);
+          try {
+            const fetchedWikiBooks = await getNotableWorks(fetchedAuthor.id);
+            if (fetchedWikiBooks && fetchedWikiBooks.length > 0) {
+              booksToDisplay = fetchedWikiBooks;
+            }
+          } catch (e) {
+            console.error('[AuthorDetail] Failed to fetch notable works after author retrieval:', e);
+          }
+        }
         
         // Force enrichment if description is missing
         if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
@@ -204,6 +218,7 @@ export default function AuthorDetailScreen() {
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
+    setHasRenderedModal(true);
     if (allWorks.length > 0) {
       setShowAllWorksModal(true);
       return;
@@ -472,60 +487,62 @@ export default function AuthorDetailScreen() {
           })()}
         </ScrollView>
 
-        <Modal
-          visible={showAllWorksModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setShowAllWorksModal(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Toutes les œuvres</Text>
-              <TouchableOpacity onPress={() => setShowAllWorksModal(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {isLoadingAllWorks ? (
-              <View style={styles.centered}>
-                <ActivityIndicator size="large" color={colors.primary} />
+        {hasRenderedModal && (
+          <Modal
+            visible={showAllWorksModal}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setShowAllWorksModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Toutes les œuvres</Text>
+                <TouchableOpacity onPress={() => setShowAllWorksModal(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
               </View>
-            ) : (
-              <FlatList
-                data={allWorks}
-                keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
-                contentContainerStyle={{ padding: 16 }}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.bookItem}
-                    onPress={() => {
-                      setShowAllWorksModal(false);
-                      navigateToBook(item.id ?? item.title, item.inventaireUri);
-                    }}>
-                    <View style={styles.bookCoverContainer}>
-                      {item.cover ? (
-                        <Image source={{ uri: item.cover }} style={styles.bookCover} />
-                      ) : (
-                        <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                          <BookOpen size={20} color={colors.textTertiary} />
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.bookInfo}>
-                      <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
-                      {item.year > 0 && (
-                        <Text style={styles.bookMetaText}>Publié en {item.year}</Text>
-                      )}
-                      {item.genre ? (
-                        <Text style={[styles.bookMetaText, { marginTop: 2 }]} numberOfLines={1}>{item.genre}</Text>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                )}
-              />
-            )}
-          </View>
-        </Modal>
+
+              {isLoadingAllWorks ? (
+                <View style={styles.centered}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              ) : (
+                <FlatList
+                  data={allWorks}
+                  keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
+                  contentContainerStyle={{ padding: 16 }}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.bookItem}
+                      onPress={() => {
+                        setShowAllWorksModal(false);
+                        navigateToBook(item.id ?? item.title, item.inventaireUri);
+                      }}>
+                      <View style={styles.bookCoverContainer}>
+                        {item.cover ? (
+                          <Image source={{ uri: item.cover }} style={styles.bookCover} />
+                        ) : (
+                          <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
+                            <BookOpen size={20} color={colors.textTertiary} />
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.bookInfo}>
+                        <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
+                        {item.year > 0 && (
+                          <Text style={styles.bookMetaText}>Publié en {item.year}</Text>
+                        )}
+                        {item.genre ? (
+                          <Text style={[styles.bookMetaText, { marginTop: 2 }]} numberOfLines={1}>{item.genre}</Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          </Modal>
+        )}
       </View>
     </SafeAreaView>
   );

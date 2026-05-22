@@ -6,6 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  runOnJS
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -36,6 +42,119 @@ export default function SocialFeedScreen() {
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('');
+  };
+
+  const FeedQuoteCard = ({ quote }: { quote: any }) => {
+    const isPressed = useSharedValue(false);
+
+    const tapGesture = Gesture.Tap()
+      .onBegin(() => {
+        isPressed.value = true;
+      })
+      .onFinalize(() => {
+        isPressed.value = false;
+      })
+      .onEnd(() => {
+        runOnJS(router.push)({ pathname: '/quote-detail', params: { quoteId: quote.id } });
+      });
+
+    const panGesture = Gesture.Pan()
+      .activeOffsetX([-10, 10]);
+
+    const animatedContentStyle = useAnimatedStyle(() => ({
+      opacity: isPressed.value ? 0.75 : 1,
+    }));
+
+    return (
+      <View style={styles.quoteCard}>
+        {/* User Info - Cliquable */}
+        <TouchableOpacity
+          style={styles.userInfo}
+          activeOpacity={0.7}
+          onPress={() => {
+            router.push({ 
+              pathname: '/user-profile', 
+              params: { 
+                username: quote.user?.username
+              } 
+            });
+          }}
+        >
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(quote.user?.name || 'A')}</Text>
+          </View>
+          <View style={styles.userDetails}>
+            <Text style={styles.userName}>{quote.user?.name}</Text>
+            <Text style={styles.userMeta}>
+              @{quote.user?.username} · {quote.time || quote.date}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Quote content - with exclusive gesture detection to prevent parent swipe interference */}
+        <GestureDetector gesture={Gesture.Exclusive(panGesture, tapGesture)}>
+          <Animated.View style={[styles.quoteContent, animatedContentStyle]}>
+            <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                fill="#20B8CD"
+                opacity={0.2}
+              />
+            </Svg>
+            <Text style={styles.quoteText}>{quote.text}</Text>
+
+            {/* Book Tag */}
+            <View style={styles.bookTag}>
+              <Text style={styles.bookName}>{getBookTitle(quote.book)}</Text>
+              <Text style={styles.separator}>·</Text>
+              <Text style={styles.authorName}>{getAuthorName(quote.author)}</Text>
+            </View>
+          </Animated.View>
+        </GestureDetector>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <View style={styles.actionsLeft}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              activeOpacity={0.7}
+              onPress={() => toggleLikeQuote(quote.id)}
+            >
+              <Heart
+                size={20}
+                fill={quote.isLiked ? colors.primary : 'transparent'}
+                color={quote.isLiked ? colors.primary : colors.textTertiary}
+              />
+              <Text
+                style={[
+                  styles.actionText,
+                  quote.isLiked && styles.actionTextActive,
+                ]}
+              >
+                {quote.likesCount}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+              <MessageCircle size={20} color={colors.textTertiary} />
+              <Text style={styles.actionText}>{quote.comments}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+              <Share2 size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity onPress={() => toggleSaveQuote(quote.id)} activeOpacity={0.7}>
+            <Bookmark
+              fill={quote.isSaved ? colors.primary : 'transparent'}
+              size={20}
+              color={quote.isSaved ? colors.primary : colors.textTertiary}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -69,102 +188,9 @@ export default function SocialFeedScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {feedQuotes.map((quote) => {
-          // On s'assure que l'objet passé à QuoteDetail contient toutes les informations nécessaires,
-          // y compris l'objet `user` complet avec son `id`.
-          // On mappe aussi `time` vers `date` pour la cohérence.
-          const quoteForDetail = { ...quote, date: quote.time, user: quote.user };
-
-          return (
-            <TouchableOpacity key={quote.id} style={styles.quoteCard} activeOpacity={0.8} onPress={() => {
-              router.push({ pathname: '/quote-detail', params: { quoteId: quote.id } });
-            }}>
-              {/* User Info - Cliquable */}
-              <TouchableOpacity
-                style={styles.userInfo}
-                onPress={(e) => {
-                  e.stopPropagation(); // Empêche le clic de se propager à la carte parente
-                  router.push({ 
-                    pathname: '/user-profile', 
-                    params: { 
-                      username: quote.user?.username
-                    } 
-                  });
-                }}
-              >
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{getInitials(quote.user?.name || 'A')}</Text>
-                </View>
-                <View style={styles.userDetails}>
-                  <Text style={styles.userName}>{quote.user?.name}</Text>
-                  <Text style={styles.userMeta}>
-                    @{quote.user?.username} · {quote.time || quote.date}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Quote */}
-              <View style={styles.quoteContent}>
-                <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                    fill="#20B8CD"
-                    opacity={0.2}
-                  />
-                </Svg>
-                <Text style={styles.quoteText}>{quote.text}</Text>
-
-                {/* Book Tag */}
-                <View style={styles.bookTag}>
-                  <Text style={styles.bookName}>{getBookTitle(quote.book)}</Text>
-                  <Text style={styles.separator}>·</Text>
-                  <Text style={styles.authorName}>{getAuthorName(quote.author)}</Text>
-                </View>
-              </View>
-
-              {/* Actions */}
-              <View style={styles.actions}>
-                <View style={styles.actionsLeft}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => toggleLikeQuote(quote.id)}
-                  >
-                    <Heart
-                      size={20}
-                      fill={quote.isLiked ? colors.primary : 'transparent'}
-                      color={quote.isLiked ? colors.primary : colors.textTertiary}
-                    />
-                    <Text
-                      style={[
-                        styles.actionText,
-                        quote.isLiked && styles.actionTextActive,
-                      ]}
-                    >
-                      {quote.likesCount}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.actionButton}>
-                    <MessageCircle size={20} color={colors.textTertiary} />
-                    <Text style={styles.actionText}>{quote.comments}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.actionButton}>
-                    <Share2 size={20} color={colors.textTertiary} />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity onPress={() => toggleSaveQuote(quote.id)}>
-                  <Bookmark
-                    fill={quote.isSaved ? colors.primary : 'transparent'}
-                    size={20}
-                    color={quote.isSaved ? colors.primary : colors.textTertiary}
-                  />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          )
-        })}
+        {feedQuotes.map((quote) => (
+          <FeedQuoteCard key={quote.id} quote={quote} />
+        ))}
       </ScrollView>
 
       {/* Floating Refresh Button */}

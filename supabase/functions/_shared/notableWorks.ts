@@ -10,7 +10,8 @@ export const getNotableWorksDetailed = async (authorName: string): Promise<Notab
   try {
     const sparql = `
       SELECT ?oeuvre ?oeuvreLabel WHERE {
-        ?hugo rdfs:label "${authorName}"@fr .
+        VALUES ?label { "${authorName}"@fr "${authorName}"@en "${authorName}"@mul }
+        ?hugo rdfs:label ?label .
         ?hugo wdt:P31 wd:Q5 .
         ?hugo wdt:P800 ?oeuvre .
         SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }

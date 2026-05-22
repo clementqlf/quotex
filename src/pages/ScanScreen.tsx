@@ -143,7 +143,7 @@ export default function ScanScreen() {
           title: book.title,
           author: authorName,
           cover: book.cover || undefined,
-          bookId: book.id ?? undefined,
+          bookId: book.id?.toString() ?? undefined,
           inventaireUri: book.inventaireUri,
         });
         setShowIsbnPopup(true);

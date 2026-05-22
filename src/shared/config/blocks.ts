@@ -100,7 +100,8 @@ export const BOOK_DETAIL_BLOCK_OPTIONS: BlockKey[] = [
     'author',
     'savedQuotes',
     'similarBooks',
-    'dictionary'
+    'dictionary',
+    'connection'
 ];
 
 export const QUOTE_DETAIL_BLOCK_OPTIONS: BlockKey[] = [

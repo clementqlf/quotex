@@ -35,6 +35,14 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
       console.error(`[BookEnrichment] Book ID ${bookId} not found in database.`);
       return null;
     }
+
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
+    if (Date.now() - lastEnriched < SEVEN_DAYS && book.description && book.description.length > 50) {
+      console.log(`[BookEnrichment] Book "${book.title}" freshly enriched. Skipping.`);
+      return book;
+    }
+
     if (!book.inventaireUri) {
       console.warn(`[BookEnrichment] Book ${bookId} ("${book.title}") has no inventaireUri. Skipping detailed enrichment.`);
       return null;
@@ -45,7 +53,9 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
     console.log(`[BookEnrichment] Inventaire returned: ${enriched ? 'Data found' : 'No data'}`);
 
     if (enriched) {
-      const updateData: Record<string, any> = {};
+      const updateData: Record<string, any> = {
+        lastEnrichedAt: new Date(),
+      };
 
       // Title standardization / merge
       if (enriched.title && book.title !== enriched.title) {
@@ -143,6 +153,13 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
     const book = rows[0];
     if (!book) {
       console.error(`[BookEnrichment/Discovery] Book ID ${bookId} not found in database.`);
+      return;
+    }
+
+    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+    const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
+    if (Date.now() - lastEnriched < SEVEN_DAYS && book.description && book.description.length > 50) {
+      console.log(`[BookEnrichment/Discovery] Book "${book.title}" freshly enriched. Skipping.`);
       return;
     }
 

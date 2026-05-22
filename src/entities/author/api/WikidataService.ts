@@ -30,7 +30,8 @@ class WikidataService {
     async getNotableWorks(authorName: string): Promise<Book[]> {
         const query = `
       SELECT ?oeuvre ?oeuvreLabel ?article ?openLibraryID ?cover WHERE {
-        ?hugo rdfs:label "${authorName}"@fr .
+        VALUES ?label { "${authorName}"@fr "${authorName}"@en "${authorName}"@mul }
+        ?hugo rdfs:label ?label .
         ?hugo wdt:P31 wd:Q5 . # Ensure it's a human (Author)
         
         # Œuvres notables (P800)

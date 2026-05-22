@@ -17,7 +17,7 @@ export function useSmartNavigation() {
       url += `&inventaireUri=${encodeURIComponent(inventaireUri)}`;
     }
     
-    router.navigate(url as any);
+    router.push(url as any);
   };
 
   /**
@@ -29,7 +29,7 @@ export function useSmartNavigation() {
     if (inventaireUri) {
       url += `&inventaireUri=${encodeURIComponent(inventaireUri)}`;
     }
-    router.navigate(url as any);
+    router.push(url as any);
   };
 
   return { navigateToBook, navigateToAuthor };

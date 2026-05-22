@@ -5,8 +5,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
@@ -22,18 +22,20 @@ import Sortable from 'react-native-sortables';
 import Animated, { useAnimatedRef, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
+import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
 import { TextInput } from 'react-native';
 import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
+import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
 
 const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
-const MYSHEET_BLOCKS = ['notes', 'dictionary'];
+const MYSHEET_BLOCKS = ['notes', 'dictionary', 'connection'];
 type TabType = 'description' | 'my_sheet';
 
 const isBlockInTab = (blockKey: string, tab: TabType) => {
   // blockKey e.g. "author#123" or "addBlock"
-  if (blockKey === 'addBlock') return true;
+  if (blockKey === 'addBlock') return false;
   const base = blockKey.split('#')[0];
   if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
   if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
@@ -76,6 +78,11 @@ export const DetailSkeleton = ({ colors }: { colors: ThemeColors }) => {
   );
 };
 
+const isBookEnriched = (book: Book | null | undefined): boolean => {
+  if (!book) return false;
+  return !!(book.description && book.description.length >= 50);
+};
+
 export default function BookDetailScreen() {
   const { user: currentUser } = useAuth();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
@@ -90,26 +97,40 @@ export default function BookDetailScreen() {
 
   const { quotes, books: allBooks, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook, updateBookStatus } = useData();
 
-  const [bookInfo, setBookInfo] = useState<Book | null>(null);
+  // Check if book is already in local cached list to initialize state immediately
+  const initialLocalBook = useMemo(() => {
+    if (!bookId && !bookTitleParam) return null;
+    if (bookId) {
+      return allBooks.find(b => b.id === bookId) || null;
+    }
+    if (bookTitleParam) {
+      return allBooks.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase()) || null;
+    }
+    return null;
+  }, [bookId, bookTitleParam, allBooks]);
+
+  const [bookInfo, setBookInfo] = useState<Book | null>(initialLocalBook);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(!initialLocalBook || !isBookEnriched(initialLocalBook));
   const bookTitle = bookInfo?.title || bookTitleParam;
 
   // Reset state when bookId changes
   React.useEffect(() => {
-    setBookInfo(null);
+    setBookInfo(initialLocalBook);
     setAuthorInfo(null);
     setGridData([]);
     setBlockData({});
     setIsLoadingLayout(true);
-    setIsLoadingMetadata(true);
+    setIsLoadingMetadata(!initialLocalBook || !isBookEnriched(initialLocalBook));
     setActiveTab('description');
-  }, [bookId, bookTitleParam]);
+  }, [bookId, bookTitleParam, initialLocalBook]);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
+  const [isResourceSearchModalVisible, setResourceSearchModalVisible] = useState(false);
+  const [currentConnectionBlockId, setCurrentConnectionBlockId] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<TabType>('description');
 
@@ -138,11 +159,13 @@ export default function BookDetailScreen() {
       localBook = allBooks.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase());
     }
 
-    // 2. If we found a local book, set it immediately and bypass the loading screen!
+    // 2. If we found a local book, set it immediately and bypass the loading screen if it's already enriched!
     if (localBook) {
-      console.log('[BookDetail] Found book in local cache, loading instantly');
+      console.log('[BookDetail] Found book in local cache');
       setBookInfo(localBook);
-      setIsLoadingMetadata(false);
+      if (isBookEnriched(localBook)) {
+        setIsLoadingMetadata(false);
+      }
       
       // Also load author locally if possible to be fast
       const authorName = getAuthorName(localBook.author);
@@ -218,7 +241,7 @@ export default function BookDetailScreen() {
         setBookInfo(currentBook);
         
         // If the book is sparse (no description or no genre), force a synchronous enrichment
-        if (currentBook.inventaireUri && (!currentBook.description || currentBook.description.length < 50 || !currentBook.genre || currentBook.genre === 'Unknown' || currentBook.genre === '')) {
+        if (!currentBook.description || currentBook.description.length < 50 || !currentBook.genre || currentBook.genre === 'Unknown' || currentBook.genre === '') {
           console.log('[BookDetail] Book is sparse or lacks genre, forcing synchronous enrichment...');
           try {
             const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
@@ -270,7 +293,9 @@ export default function BookDetailScreen() {
         getBlockLayout(bookTitle, 'book'),
         getBookData(bookTitle)
       ]).then(([layout, data]) => {
-        setGridData(layout || []);
+        // Filter out legacy 'addBlock' from layout if present
+        const filteredLayout = (layout || []).filter(x => x !== 'addBlock');
+        setGridData(filteredLayout);
         setBlockData(data || {});
         setIsLoadingLayout(false);
       });
@@ -375,21 +400,79 @@ export default function BookDetailScreen() {
   };
 
   const savedQuotes = quotes.filter(q => getBookTitle(q.book) === bookTitle);
-  // Logique pour trouver les livres similaires à partir des citations sauvegardées
-  const currentBookQuotes = savedQuotes.map(mq => mq.text);
-  // 2. Aplatir les listes de livres similaires pour ces citations et s'assurer qu'ils sont uniques.
-  const similarBookList = bookInfo?.similarBooks || [];
-  const normalizedSimilarBooks = (similarBookList as any[]).map(b => {
-    if (typeof b === 'string') return b;
-    if (b && typeof b === 'object' && 'title' in b) return b.title;
-    return null;
-  }).filter(Boolean);
-  const uniqueSimilarBooks = [...new Set(normalizedSimilarBooks)];
+
+  // Résoudre la liste consolidée de livres similaires (serveur + citations statiques + fallback auteur/genre)
+  const resolvedSimilarBooks = useMemo(() => {
+    const serverSimilar = bookInfo?.similarBooks || [];
+    
+    // 1. Récupérer les recommandations curées basées sur les citations
+    const quoteMatchedTitles = savedQuotes
+      .map(q => staticSimilarBooksMap[q.text])
+      .filter((item): item is string[] => !!item)
+      .flat();
+
+    const allTitlesOrBooks = [...serverSimilar];
+
+    // 2. Ajouter les recommandations par citation si non présentes
+    quoteMatchedTitles.forEach(title => {
+      const alreadyHas = allTitlesOrBooks.some(b => 
+        b.title.toLowerCase() === title.toLowerCase()
+      );
+      if (!alreadyHas) {
+        const matchedBook = allBooks.find(b => b.title.toLowerCase() === title.toLowerCase());
+        if (matchedBook) {
+          allTitlesOrBooks.push(matchedBook);
+        } else {
+          // Objet livre partiel
+          allTitlesOrBooks.push({ title, cover: null, description: '', year: 0, pages: 0, rating: 0, genre: '', author: '' } as any);
+        }
+      }
+    });
+
+    // 3. Fallback sur les livres du même auteur ou même genre si vide
+    if (allTitlesOrBooks.length === 0 && bookInfo) {
+      const authorName = getAuthorName(bookInfo.author);
+      const sameAuthor = allBooks.filter(b => 
+        b.id !== bookInfo.id && 
+        getAuthorName(b.author).toLowerCase() === authorName.toLowerCase()
+      );
+      const sameGenre = allBooks.filter(b => 
+        b.id !== bookInfo.id && 
+        b.genre && b.genre !== 'Unknown' && b.genre !== '' &&
+        b.genre.toLowerCase() === bookInfo.genre?.toLowerCase()
+      );
+      
+      const fallbacks = [...sameAuthor, ...sameGenre];
+      const uniqueFallbacks = fallbacks.filter((item, index, self) =>
+        self.findIndex(b => b.id === item.id) === index
+      );
+      
+      allTitlesOrBooks.push(...uniqueFallbacks.slice(0, 5));
+    }
+
+    return allTitlesOrBooks;
+  }, [bookInfo, savedQuotes, allBooks]);
+
+  const enrichedBookInfo = useMemo(() => {
+    if (!bookInfo) return null;
+    return {
+      ...bookInfo,
+      similarBooks: resolvedSimilarBooks
+    };
+  }, [bookInfo, resolvedSimilarBooks]);
 
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setBlockData(current => ({ ...current, [blockId]: data }));
   }, []);
+
+  const handleResourceSelected = (resource: any) => {
+    if (currentConnectionBlockId) {
+      handleUpdateBlockData(currentConnectionBlockId, resource);
+      setResourceSearchModalVisible(false);
+      setCurrentConnectionBlockId(null);
+    }
+  };
 
   const blockContext = useMemo((): BlockContext => {
     // Dictionary aggregation logic for context
@@ -441,7 +524,7 @@ export default function BookDetailScreen() {
       .sort((a, b) => a.term.localeCompare(b.term));
 
     return {
-      book: bookInfo,
+      book: enrichedBookInfo,
       author: authorInfo,
       savedQuotes,
       blockData,
@@ -451,10 +534,14 @@ export default function BookDetailScreen() {
       onBookPress: (idOrTitle, uri) => navigateToBook(idOrTitle, uri),
       onAuthorPress: (name, uri) => navigateToAuthor(name, uri),
       onQuotePress: (quote) => router.navigate(`/quote-detail?quote=${encodeURIComponent(JSON.stringify(quote))}`),
+      onConnectionSearchPress: (blockId) => {
+        setCurrentConnectionBlockId(blockId);
+        setResourceSearchModalVisible(true);
+      },
       // Extra properties for dictionary block
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
-  }, [bookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, loadMetadata, router]);
+  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, loadMetadata, router]);
 
   // Extract dictionary props for the Modal which sits outside Dispatcher
   const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (blockContext as any);
@@ -478,7 +565,7 @@ export default function BookDetailScreen() {
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
 
   const handleAddBlock = (blockKey: string) => {
-    const newLayout = [...gridData.filter(x => x !== 'addBlock'), `${blockKey}#${Date.now()}`, 'addBlock'];
+    const newLayout = [...gridData.filter(x => x !== 'addBlock'), `${blockKey}#${Date.now()}`];
     setGridData(newLayout);
     if (bookTitle) updateBlockLayout(bookTitle, 'book', newLayout);
     closeAddBlockModal();
@@ -496,19 +583,6 @@ export default function BookDetailScreen() {
 
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item, index }) => {
-    // We do NOT want to wrap 'addBlock' in the removable wrapper if it's the button
-    // Actually, 'addBlock' is usually NOT in the grid data in my new design,
-    // but legacy data might have it.
-    // Also, previous implementation allowed 'addBlock' in the grid.
-    if (item === 'addBlock') {
-      return (
-        <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
-          <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
-          <Text style={styles.placeholderText}>Ajouter un bloc</Text>
-        </TouchableOpacity>
-      );
-    }
-
     return (
       <BlockDispatcher
         blockId={item}
@@ -516,7 +590,7 @@ export default function BookDetailScreen() {
         onRemove={() => handleRemoveBlock(item)}
       />
     );
-  }, [blockContext, handleRemoveBlock, styles]);
+  }, [blockContext, handleRemoveBlock]);
 
   if (!bookTitle) {
     return (
@@ -818,6 +892,15 @@ export default function BookDetailScreen() {
           onUpdate={(newManuals, newHidden) => {
             handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
           }}
+        />
+
+        <ResourceSearchModal
+          visible={isResourceSearchModalVisible}
+          onClose={() => {
+            setResourceSearchModalVisible(false);
+            setCurrentConnectionBlockId(null);
+          }}
+          onSelect={handleResourceSelected}
         />
 
       </View>

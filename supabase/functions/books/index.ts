@@ -28,7 +28,34 @@ async function fetchBook(bookId: number, userId: string | number | null) {
         ))
         FROM "Laureate" l
         WHERE l."bookId" = b.id
-      ), '[]'::json) as laureates
+      ), '[]'::json) as laureates,
+      COALESCE((
+        SELECT json_agg(sb) FROM (
+          SELECT S.id, S.title, S.cover, S.genre, S.year, S.pages, S.rating, S."inventaireUri",
+                 row_to_json(sa) as author,
+                 (
+                   (CASE WHEN S."authorId" = b."authorId" THEN 12 ELSE 0 END) +
+                   (CASE WHEN b.genre IS NOT NULL AND b.genre != '' AND b.genre != 'Unknown' AND S.genre = b.genre THEN 5 ELSE 0 END) +
+                   COALESCE((
+                     SELECT COUNT(*)*8 
+                     FROM "Laureate" l1 
+                     JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId" 
+                     WHERE l1."bookId" = b.id AND l2."bookId" = S.id
+                   ), 0) +
+                   COALESCE((
+                     SELECT COUNT(*)*3 
+                     FROM "UserBook" ub1 
+                     JOIN "UserBook" ub2 ON ub1."userId" = ub2."userId" 
+                     WHERE ub1."bookId" = b.id AND ub2."bookId" = S.id
+                   ), 0)
+                 ) as score
+          FROM "Book" S
+          LEFT JOIN "Author" sa ON sa.id = S."authorId"
+          WHERE S.id != b.id
+          ORDER BY score DESC, S.rating DESC, S.year DESC
+          LIMIT 10
+        ) sb
+      ), '[]'::json) as "similarBooks"
     FROM "Book" b
     LEFT JOIN "Author" a ON a.id = b."authorId"
     WHERE b.id = ${bookId} LIMIT 1
@@ -278,7 +305,16 @@ serve(async (req: Request) => {
 
     // POST /books/:id/enrich
     if (req.method === 'POST' && idParam && subAction === 'enrich') {
-      await enrichBookWithInventaire(idParam);
+      // Ensure the lastEnrichedAt column exists in the database
+      await sql`ALTER TABLE "Book" ADD COLUMN IF NOT EXISTS "lastEnrichedAt" timestamp with time zone`
+        .catch((e) => console.error('[Migration] Failed to add lastEnrichedAt column:', e));
+
+      const bookRows = await sql`SELECT "inventaireUri" FROM "Book" WHERE id = ${idParam} LIMIT 1`;
+      if (bookRows.length && !bookRows[0].inventaireUri) {
+        await discoverAndEnrichBook(idParam);
+      } else {
+        await enrichBookWithInventaire(idParam);
+      }
       const updated = await fetchBook(idParam, userId);
       return json(formatBook(updated, userId));
     }

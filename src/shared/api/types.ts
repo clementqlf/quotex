@@ -51,6 +51,7 @@ export type Book = {
   googleId?: string;
   isbn?: string;
   laureates?: Laureate[];
+  lastEnrichedAt?: string;
 };
 
 export type Quote = {
