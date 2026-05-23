@@ -61,12 +61,18 @@ export interface InventaireAuthorDetails {
 
 const USER_AGENT = 'QuotexApp/1.0 (chantreau@example.com)'; // Replace with actual email later if needed
 
-export const fetchWithAgent = async (url: string, options: RequestInit = {}): Promise<Response> => {
+export const fetchWithAgent = async (url: string, options: RequestInit = {}, timeoutMs = 8000): Promise<Response> => {
     const headers = {
         'User-Agent': USER_AGENT,
         ...(options.headers || {})
     };
-    return fetch(url, { ...options, headers });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, headers, signal: controller.signal });
+    } finally {
+        clearTimeout(timeoutId);
+    }
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -294,25 +300,33 @@ export const getInventaireBookByIsbn = async (isbn: string): Promise<InventaireB
 
         if (workUri) {
             console.log(`[Inventaire API] Found Work URI: ${workUri} for ISBN. Fetching work details.`);
-            const workDetails = await getInventaireWorkDetails(workUri);
-            if (workDetails) {
-                title = workDetails.title || title;
-                description = workDetails.description || '';
-                year = workDetails.year || year;
-                pages = workDetails.pages || pages;
-                cover = workDetails.image || cover;
-                authorUris = workDetails.authorUris || [];
+            try {
+                const workDetails = await getInventaireWorkDetails(workUri);
+                if (workDetails) {
+                    title = workDetails.title || title;
+                    description = workDetails.description || '';
+                    year = workDetails.year || year;
+                    pages = workDetails.pages || pages;
+                    cover = workDetails.image || cover;
+                    authorUris = workDetails.authorUris || [];
 
-                if (authorUris.length > 0) {
-                    const authorEntities = await getInventaireEntities(authorUris);
-                    authorNames = authorUris.map(uri => {
-                        const aEnt = authorEntities[uri];
-                        if (aEnt?.labels) {
-                            return aEnt.labels['fr'] || aEnt.labels['en'] || Object.values(aEnt.labels)[0] || 'Unknown';
+                    if (authorUris.length > 0) {
+                        try {
+                            const authorEntities = await getInventaireEntities(authorUris);
+                            authorNames = authorUris.map(uri => {
+                                const aEnt = authorEntities[uri];
+                                if (aEnt?.labels) {
+                                    return aEnt.labels['fr'] || aEnt.labels['en'] || Object.values(aEnt.labels)[0] || 'Unknown';
+                                }
+                                return 'Unknown';
+                            }).filter(name => name !== 'Unknown');
+                        } catch (authorErr) {
+                            console.warn('[Inventaire API] Author fetch timed out, using edition data only.');
                         }
-                        return 'Unknown';
-                    }).filter(name => name !== 'Unknown');
+                    }
                 }
+            } catch (workErr) {
+                console.warn('[Inventaire API] Work fetch timed out, using edition data only.');
             }
         }
 

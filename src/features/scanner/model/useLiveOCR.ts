@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { Camera, PhotoFile } from 'react-native-vision-camera';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
-import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { extractIsbn } from './useIsbnScanner';
 
@@ -77,6 +76,7 @@ export function useLiveOCR({
             if (scanLockRef) scanLockRef.current = true;
 
             let tempPhoto: PhotoFile | null = null;
+            let isbnDetected = false;
             try {
                 if (!cameraRef.current) return;
 
@@ -97,12 +97,8 @@ export function useLiveOCR({
                         
                         if (isbn && onIsbnDetected) {
                             console.log('[useLiveOCR] ISBN Detected during live preview:', isbn);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            isbnDetected = true;
                             onIsbnDetected(isbn);
-                            
-                            // Stop scanning loop
-                            if (scanLockRef) scanLockRef.current = false;
-                            internalBusyRef.current = false;
                             return;
                         }
                     } else {
@@ -121,9 +117,13 @@ export function useLiveOCR({
                     ).catch(() => {});
                 }
 
-                // Release locks
-                if (scanLockRef) scanLockRef.current = false;
+                // Release internal busy flag
                 internalBusyRef.current = false;
+
+                // Release global scan lock only if no ISBN was detected
+                if (!isbnDetected) {
+                    if (scanLockRef) scanLockRef.current = false;
+                }
                 
                 // Small cooldown before next scan
                 scheduleNext();

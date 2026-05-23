@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 
 import {
   ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -30,6 +31,8 @@ import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
 import * as Haptics from 'expo-haptics';
 import { searchService } from '@/src/features/search/api/SearchService';
 import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/AnimatedISBNPopup';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { API_BASE_URL } from '@/src/shared/config/api';
 
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -68,13 +71,23 @@ export default function ScanScreen() {
 
   // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
   const scanLockRef = React.useRef(false);
+  const isSearchingIsbnRef = React.useRef(false);
 
   const checkAndHandleIsbn = useCallback(async (text: string): Promise<boolean> => {
     const isbn = extractIsbn(text);
     if (!isbn) return false;
 
     console.log('[ScanScreen] Valid ISBN detected:', isbn);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (isSearchingIsbnRef.current) {
+      console.log('[ScanScreen] Already processing or popup visible, ignoring duplicate trigger.');
+      return false;
+    }
+
+    // Mark as searching to prevent duplicate calls — but don't block live OCR or show loading
+    isSearchingIsbnRef.current = true;
+
+    let popupShown = false;
     try {
       const data = await searchService.search(isbn);
       if (data.inventaireWorks && data.inventaireWorks.length > 0) {
@@ -85,9 +98,8 @@ export default function ScanScreen() {
 
         // Import the book to get the same cover that BookDetail will show
         try {
-          const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
-          const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
-          const importRes = await fetch(`${BASE_URL}/books/import`, {
+          const token = await authService.getToken();
+          const importRes = await fetch(`${API_BASE_URL}/books/import`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -110,6 +122,7 @@ export default function ScanScreen() {
 
           if (importRes.ok) {
             const imported = await importRes.json();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setIsbnBookData({
               title: imported.title || item.title || item.label || 'Livre inconnu',
               author: authorName,
@@ -118,6 +131,7 @@ export default function ScanScreen() {
               inventaireUri: imported.inventaireUri || item.inventaireUri || item.uri,
             });
             setShowIsbnPopup(true);
+            popupShown = true;
             return true;
           }
         } catch (importErr) {
@@ -125,6 +139,7 @@ export default function ScanScreen() {
         }
 
         // Fallback: use search result cover
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setIsbnBookData({
           title: item.title || item.label || 'Livre inconnu',
           author: authorName,
@@ -133,12 +148,14 @@ export default function ScanScreen() {
           bookData: item,
         });
         setShowIsbnPopup(true);
+        popupShown = true;
         return true;
       } else if (data.books && data.books.length > 0) {
         const book = data.books[0];
         const authorName = typeof book.author === 'string'
           ? book.author
           : (book.author as any)?.name || 'Auteur inconnu';
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setIsbnBookData({
           title: book.title,
           author: authorName,
@@ -147,15 +164,18 @@ export default function ScanScreen() {
           inventaireUri: book.inventaireUri,
         });
         setShowIsbnPopup(true);
+        popupShown = true;
         return true;
       } else {
         console.log('[ScanScreen] No book found for ISBN:', isbn);
       }
     } catch (error) {
       console.error('Error searching ISBN:', error);
+    } finally {
+      isSearchingIsbnRef.current = false;
     }
     return false;
-  }, []);
+  }, [showIsbnPopup]);
 
   const handleIsbnPopupPress = useCallback(() => {
     if (!isbnBookData) return;
@@ -197,6 +217,7 @@ export default function ScanScreen() {
   const handleIsbnPopupDismiss = useCallback(() => {
     setShowIsbnPopup(false);
     setIsbnBookData(null);
+    isSearchingIsbnRef.current = false;
   }, []);
 
   // Callback mémoïsé pour éviter de redémarrer l'effet useLiveOCR à chaque render
@@ -208,7 +229,7 @@ export default function ScanScreen() {
   const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
     cameraRef,
     isFocused,
-    enabled: !photo && !isLoading && !showIsbnPopup,
+    enabled: !photo && !isLoading,
     scanLockRef,
     onIsbnDetected: handleIsbnDetected,
   });

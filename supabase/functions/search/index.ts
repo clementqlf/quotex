@@ -36,7 +36,84 @@ serve(async (req: Request) => {
     const isIsbn = /^(?:97[89])?\d{9}[\dxX]$/i.test(cleanQ);
 
     if (isIsbn) {
-      console.log(`[search] ISBN detected: "${cleanQ}". Searching ONLY via Inventaire.`);
+      console.log(`[search] ISBN detected: "${cleanQ}". Checking local database first.`);
+      try {
+        // 1. Search in Edition table first (ISBN belongs to an edition, not a work)
+        const editionMatch = await sql`
+          SELECT b.*, row_to_json(a) as author,
+            COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                'id', l.id,
+                'year', l.year,
+                'prizeId', l."prizeId",
+                'authorId', l."authorId",
+                'bookId', l."bookId",
+                'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+              ))
+              FROM "Laureate" l
+              WHERE l."bookId" = b.id
+            ), '[]'::json) as laureates
+          FROM "Edition" e
+          JOIN "Book" b ON b.id = e."bookId"
+          LEFT JOIN "Author" a ON a.id = b."authorId"
+          WHERE replace(e.isbn, '-', '') = ${cleanQ}
+          LIMIT 1
+        `;
+
+        if (editionMatch.length > 0) {
+          console.log(`[search] ISBN "${cleanQ}" found in Edition table → parent book ID: ${editionMatch[0].id}.`);
+          return json({
+            quotes: [],
+            authors: [],
+            books: editionMatch.map((b: any) => formatBook(b, authUserId)),
+            prizes: [],
+            themes: [],
+            inventaireWorks: [],
+            inventaireAuthors: [],
+            inventairePrizes: [],
+          });
+        }
+
+        // 2. Fallback: search directly on Book.isbn (legacy / scan-imported books)
+        const localBooks = await sql`
+          SELECT b.*, row_to_json(a) as author,
+            COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                'id', l.id,
+                'year', l.year,
+                'prizeId', l."prizeId",
+                'authorId', l."authorId",
+                'bookId', l."bookId",
+                'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+              ))
+              FROM "Laureate" l
+              WHERE l."bookId" = b.id
+            ), '[]'::json) as laureates
+          FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
+          WHERE replace(b.isbn, '-', '') = ${cleanQ}
+          LIMIT 1
+        `;
+
+        if (localBooks.length > 0) {
+          console.log(`[search] ISBN "${cleanQ}" found in local DB.`);
+          return json({
+            quotes: [],
+            authors: [],
+            books: localBooks.map((b: any) => formatBook(b, 0)),
+            prizes: [],
+            themes: [],
+            inventaireWorks: [],
+            inventaireAuthors: [],
+            inventairePrizes: [],
+          });
+        }
+      } catch (dbError) {
+        console.error('[search] Local ISBN lookup failed:', dbError);
+      }
+
+      console.log(`[search] ISBN "${cleanQ}" not found in local DB. Searching via Inventaire.`);
       try {
         const mappedResult = await getInventaireBookByIsbn(cleanQ);
         if (mappedResult) {
@@ -54,6 +131,18 @@ serve(async (req: Request) => {
       } catch (invError) {
         console.error('[search] Inventaire ISBN lookup failed:', invError);
       }
+
+      // If it is an ISBN but wasn't found in local DB or Inventaire, return empty immediately
+      return json({
+        quotes: [],
+        authors: [],
+        books: [],
+        prizes: [],
+        themes: [],
+        inventaireWorks: [],
+        inventaireAuthors: [],
+        inventairePrizes: [],
+      });
     }
 
     console.log(`[search] Starting search for "${query}"`);

@@ -13,7 +13,9 @@ type UseIsbnScannerProps = {
 
 export function extractIsbn(text: string): string | null {
     const cleanText = text.replace(/\n/g, ' ');
-    const candidates = cleanText.match(/(?:[0-9xX][-\s]?){9,17}/g) || [];
+    const candidates = cleanText.match(/(?:[0-9xX][-\s]*){9,17}/g) || [];
+    
+    let found10: string | null = null;
     
     for (const cand of candidates) {
         const cleaned = cand.replace(/[-\s]/g, '');
@@ -21,7 +23,7 @@ export function extractIsbn(text: string): string | null {
             return cleaned;
         }
         if (cleaned.length === 10 && /^\d{9}[\dxX]$/i.test(cleaned)) {
-            return cleaned;
+            if (!found10) found10 = cleaned;
         }
     }
     
@@ -29,6 +31,10 @@ export function extractIsbn(text: string): string | null {
     const fallbackMatch = /(97[89]\d{10})/.exec(digitsOnly);
     if (fallbackMatch) {
         return fallbackMatch[1];
+    }
+    
+    if (found10) {
+        return found10;
     }
     
     const fallbackMatch10 = /(\b\d{9}[\dxX]\b)/i.exec(digitsOnly);
