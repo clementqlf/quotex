@@ -8,7 +8,6 @@ import {
   Modal,
   Pressable,
   Image,
-  PanResponder,
   Share,
   RefreshControl,
 } from 'react-native';
@@ -17,16 +16,14 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withRepeat,
-  withSequence,
-  runOnJS
+  withSequence
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { BookOpen, Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
+import { Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
@@ -40,8 +37,6 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 
 type FilterType = { type: 'author' | 'book' | 'year' | 'status'; value: string | number };
-const EDGE_SWIPE_ZONE = 28;
-const SWIPE_ACTIVATION_THRESHOLD = 60;
 
 export default function MyQuotesScreen() {
   const router = useRouter();
@@ -284,27 +279,8 @@ export default function MyQuotesScreen() {
 
   // Quote Card without Swipe
   const QuoteCard = ({ quote }: { quote: Quote }) => {
-    const isPressed = useSharedValue(false);
     const isBookEnriching = isEnriching(quote.book);
     const isAuthorEnriching = isEnriching(quote.author);
-
-    const tapGesture = Gesture.Tap()
-      .onBegin(() => {
-        isPressed.value = true;
-      })
-      .onFinalize(() => {
-        isPressed.value = false;
-      })
-      .onEnd(() => {
-        runOnJS(router.navigate)({ pathname: '/quote-detail', params: { quoteId: quote.id } });
-      });
-
-    const panGesture = Gesture.Pan()
-      .activeOffsetX([-10, 10]);
-
-    const animatedCardStyle = useAnimatedStyle(() => ({
-      opacity: isPressed.value ? 0.75 : 1,
-    }));
 
     return (
       <View style={styles.cardWrapper}>
@@ -321,41 +297,42 @@ export default function MyQuotesScreen() {
             <MoreVertical size={20} color={colors.textTertiary} />
           </TouchableOpacity>
 
-          <GestureDetector gesture={Gesture.Exclusive(panGesture, tapGesture)}>
-            <Animated.View style={animatedCardStyle}>
-              {/* Quote Icon (custom SVG) */}
-              <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
-                <Path
-                  d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                  fill={colors.primary}
-                  opacity={0.12}
-                />
-              </Svg>
+          <Pressable
+            onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+            style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+          >
+            {/* Quote Icon (custom SVG) */}
+            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
+              <Path
+                d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
+                fill={colors.primary}
+                opacity={0.12}
+              />
+            </Svg>
 
-              {/* Quote Text */}
-              <Text style={styles.quoteText}>{quote.text}</Text>
+            {/* Quote Text */}
+            <Text style={styles.quoteText}>{quote.text}</Text>
 
-              {/* Book Info */}
-              <View style={styles.bookInfo}>
-                <View style={styles.bookInfoLeft}>
-                  {isBookEnriching && !getBookTitle(quote.book) ? (
-                    <EnrichingSkeleton width={140} />
-                  ) : (
-                    <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
-                  )}
+            {/* Book Info */}
+            <View style={styles.bookInfo}>
+              <View style={styles.bookInfoLeft}>
+                {isBookEnriching && !getBookTitle(quote.book) ? (
+                  <EnrichingSkeleton width={140} />
+                ) : (
+                  <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
+                )}
 
-                  {isAuthorEnriching && !getAuthorName(quote.author) ? (
-                    <EnrichingSkeleton width={80} height={12} />
-                  ) : (
-                    <Text style={styles.authorName}>
-                      {getAuthorName(quote.author)}
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>
+                {isAuthorEnriching && !getAuthorName(quote.author) ? (
+                  <EnrichingSkeleton width={80} height={12} />
+                ) : (
+                  <Text style={styles.authorName}>
+                    {getAuthorName(quote.author)}
+                  </Text>
+                )}
               </View>
-            </Animated.View>
-          </GestureDetector>
+              <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>
+            </View>
+          </Pressable>
 
           {/* Actions */}
           <View style={styles.actions}>
@@ -397,145 +374,97 @@ export default function MyQuotesScreen() {
 
   // Book Card Item
   const BookCardItem = ({ book }: { book: any }) => {
-    const isPressed = useSharedValue(false);
-
-    const tapGesture = Gesture.Tap()
-      .onBegin(() => {
-        isPressed.value = true;
-      })
-      .onFinalize(() => {
-        isPressed.value = false;
-      })
-      .onEnd(() => {
-        runOnJS(navigateToBook)(book.id ?? book.title, book.inventaireUri);
-      });
-
-    const panGesture = Gesture.Pan()
-      .activeOffsetX([-10, 10]);
-
-    const animatedCardStyle = useAnimatedStyle(() => ({
-      opacity: isPressed.value ? 0.85 : 1,
-    }));
-
     return (
-      <GestureDetector gesture={Gesture.Exclusive(panGesture, tapGesture)}>
-        <Animated.View style={[styles.bookCard, animatedCardStyle]}>
-          <View style={styles.bookCardContent}>
-            {book.cover ? (
-              <Image source={{ uri: book.cover }} style={styles.bookCardCover} />
-            ) : (
-              <View style={styles.bookCardCoverPlaceholder} />
-            )}
-            <View style={styles.bookCardInfo}>
-              <View style={styles.bookCardHeader}>
-                <Text style={styles.bookCardTitle}>{book.title}</Text>
-                {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
-                <Text style={[styles.bookCardAuthor, { marginBottom: 0, flex: 1 }]} numberOfLines={1}>
-                  {book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
-                </Text>
-                {book.readingStatus && (
-                  <View style={[styles.statusBadge, {
-                    backgroundColor: getStatusColor(book.readingStatus) + '15',
-                    borderColor: getStatusColor(book.readingStatus) + '40',
-                    marginTop: 0
-                  }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(book.readingStatus) }]}>
-                      {getStatusLabel(book.readingStatus)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
-              <Text style={[styles.bookCardCount, { marginTop: 8 }]}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
+      <Pressable
+        style={({ pressed }) => [
+          styles.bookCard,
+          { opacity: pressed ? 0.85 : 1 }
+        ]}
+        onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
+      >
+        <View style={styles.bookCardContent}>
+          {book.cover ? (
+            <Image source={{ uri: book.cover }} style={styles.bookCardCover} />
+          ) : (
+            <View style={styles.bookCardCoverPlaceholder} />
+          )}
+          <View style={styles.bookCardInfo}>
+            <View style={styles.bookCardHeader}>
+              <Text style={styles.bookCardTitle}>{book.title}</Text>
+              {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
             </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
+              <Text style={[styles.bookCardAuthor, { marginBottom: 0, flex: 1 }]} numberOfLines={1}>
+                {book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
+              </Text>
+              {book.readingStatus && (
+                <View style={[styles.statusBadge, {
+                  backgroundColor: getStatusColor(book.readingStatus) + '15',
+                  borderColor: getStatusColor(book.readingStatus) + '40',
+                  marginTop: 0
+                }]}>
+                  <Text style={[styles.statusText, { color: getStatusColor(book.readingStatus) }]}>
+                    {getStatusLabel(book.readingStatus)}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
+            <Text style={[styles.bookCardCount, { marginTop: 8 }]}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
           </View>
-        </Animated.View>
-      </GestureDetector>
+        </View>
+      </Pressable>
     );
   };
 
   // Author Card Item
   const AuthorCardItem = ({ author }: { author: any }) => {
-    const isPressed = useSharedValue(false);
-
-    const tapGesture = Gesture.Tap()
-      .onBegin(() => {
-        isPressed.value = true;
-      })
-      .onFinalize(() => {
-        isPressed.value = false;
-      })
-      .onEnd(() => {
-        runOnJS(navigateToAuthor)(author.name, author.inventaireUri);
-      });
-
-    const panGesture = Gesture.Pan()
-      .activeOffsetX([-10, 10]);
-
-    const animatedCardStyle = useAnimatedStyle(() => ({
-      opacity: isPressed.value ? 0.85 : 1,
-    }));
-
     return (
-      <GestureDetector gesture={Gesture.Exclusive(panGesture, tapGesture)}>
-        <Animated.View style={[styles.bookCard, animatedCardStyle]}>
-          <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
-            {author.image ? (
-              <Image source={{ uri: author.image }} style={styles.authorAvatar} />
-            ) : (
-              <View style={styles.authorAvatarPlaceholder}>
-                <Text style={styles.authorAvatarText}>{author.name.charAt(0)}</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.bookCardTitle, { marginBottom: 4 }]}>{author.name}</Text>
-              <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
+      <Pressable
+        style={({ pressed }) => [
+          styles.bookCard,
+          { opacity: pressed ? 0.85 : 1 }
+        ]}
+        onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
+      >
+        <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
+          {author.image ? (
+            <Image source={{ uri: author.image }} style={styles.authorAvatar} />
+          ) : (
+            <View style={styles.authorAvatarPlaceholder}>
+              <Text style={styles.authorAvatarText}>{author.name.charAt(0)}</Text>
             </View>
-            <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.bookCardTitle, { marginBottom: 4 }]}>{author.name}</Text>
+            <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
           </View>
-        </Animated.View>
-      </GestureDetector>
+          <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
+        </View>
+      </Pressable>
     );
   };
 
   // Theme Card Item
   const ThemeCardItem = ({ theme }: { theme: any }) => {
-    const isPressed = useSharedValue(false);
-
-    const tapGesture = Gesture.Tap()
-      .onBegin(() => {
-        isPressed.value = true;
-      })
-      .onFinalize(() => {
-        isPressed.value = false;
-      })
-      .onEnd(() => {
-        runOnJS(router.navigate)({ pathname: '/theme-detail', params: { themeName: theme.theme } });
-      });
-
-    const panGesture = Gesture.Pan()
-      .activeOffsetX([-10, 10]);
-
-    const animatedCardStyle = useAnimatedStyle(() => ({
-      opacity: isPressed.value ? 0.85 : 1,
-    }));
-
     return (
-      <GestureDetector gesture={Gesture.Exclusive(panGesture, tapGesture)}>
-        <Animated.View style={[styles.bookCard, animatedCardStyle]}>
-          <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
-            <View style={styles.themeIconContainer}>
-              <Text style={styles.themeIconText}>{theme.theme[0]}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.themeTitle}>{theme.theme}</Text>
-              <Text style={styles.themeSubText}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
-            </View>
+      <Pressable
+        style={({ pressed }) => [
+          styles.bookCard,
+          { opacity: pressed ? 0.85 : 1 }
+        ]}
+        onPress={() => router.navigate({ pathname: '/theme-detail', params: { themeName: theme.theme } })}
+      >
+        <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
+          <View style={styles.themeIconContainer}>
+            <Text style={styles.themeIconText}>{theme.theme[0]}</Text>
           </View>
-        </Animated.View>
-      </GestureDetector>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeTitle}>{theme.theme}</Text>
+            <Text style={styles.themeSubText}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+      </Pressable>
     );
   };
 

@@ -1,19 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  StyleSheet
+  StyleSheet,
+  Pressable
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  runOnJS
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -31,7 +25,7 @@ export default function SocialFeedScreen() {
   const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
   const feedQuotes = quotes.filter(q => q.user && q.user.id !== "1"); // Global quotes except mine
 
-  const { tabIndex, setTabIndex } = useTabIndex();
+  const { tabIndex } = useTabIndex();
   const isFocused = tabIndex === 2;
 
   useEffect(() => {
@@ -45,26 +39,6 @@ export default function SocialFeedScreen() {
   };
 
   const FeedQuoteCard = ({ quote }: { quote: any }) => {
-    const isPressed = useSharedValue(false);
-
-    const tapGesture = Gesture.Tap()
-      .onBegin(() => {
-        isPressed.value = true;
-      })
-      .onFinalize(() => {
-        isPressed.value = false;
-      })
-      .onEnd(() => {
-        runOnJS(router.push)({ pathname: '/quote-detail', params: { quoteId: quote.id } });
-      });
-
-    const panGesture = Gesture.Pan()
-      .activeOffsetX([-10, 10]);
-
-    const animatedContentStyle = useAnimatedStyle(() => ({
-      opacity: isPressed.value ? 0.75 : 1,
-    }));
-
     return (
       <View style={styles.quoteCard}>
         {/* User Info - Cliquable */}
@@ -91,9 +65,12 @@ export default function SocialFeedScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Quote content - with exclusive gesture detection to prevent parent swipe interference */}
-        <GestureDetector gesture={Gesture.Exclusive(panGesture, tapGesture)}>
-          <Animated.View style={[styles.quoteContent, animatedContentStyle]}>
+        {/* Quote content - clickable */}
+        <Pressable
+          onPress={() => router.push({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+        >
+          <View style={styles.quoteContent}>
             <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
@@ -109,8 +86,8 @@ export default function SocialFeedScreen() {
               <Text style={styles.separator}>·</Text>
               <Text style={styles.authorName}>{getAuthorName(quote.author)}</Text>
             </View>
-          </Animated.View>
-        </GestureDetector>
+          </View>
+        </Pressable>
 
         {/* Actions */}
         <View style={styles.actions}>
