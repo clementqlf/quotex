@@ -86,6 +86,8 @@ export default function ScanScreen() {
 
     // Mark as searching to prevent duplicate calls — but don't block live OCR or show loading
     isSearchingIsbnRef.current = true;
+    scanLockRef.current = true;
+    console.log('[ScanScreen] Starting ISBN search. Set scanLockRef.current = true');
 
     let popupShown = false;
     try {
@@ -123,6 +125,7 @@ export default function ScanScreen() {
           if (importRes.ok) {
             const imported = await importRes.json();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            console.log('[ScanScreen] Book imported successfully from inventaireWorks. Showing popup.');
             setIsbnBookData({
               title: imported.title || item.title || item.label || 'Livre inconnu',
               author: authorName,
@@ -140,6 +143,7 @@ export default function ScanScreen() {
 
         // Fallback: use search result cover
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        console.log('[ScanScreen] Fallback: showing popup using search result cover.');
         setIsbnBookData({
           title: item.title || item.label || 'Livre inconnu',
           author: authorName,
@@ -156,6 +160,7 @@ export default function ScanScreen() {
           ? book.author
           : (book.author as any)?.name || 'Auteur inconnu';
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        console.log('[ScanScreen] Book found in books array. Showing popup.');
         setIsbnBookData({
           title: book.title,
           author: authorName,
@@ -173,13 +178,21 @@ export default function ScanScreen() {
       console.error('Error searching ISBN:', error);
     } finally {
       isSearchingIsbnRef.current = false;
+      if (!popupShown) {
+        scanLockRef.current = false;
+        console.log('[ScanScreen] ISBN search finished, no popup shown. Released scanLockRef.current = false');
+      } else {
+        console.log('[ScanScreen] ISBN search finished, popup shown. Keeping scanLockRef.current = true');
+      }
     }
     return false;
   }, [showIsbnPopup]);
 
   const handleIsbnPopupPress = useCallback(() => {
     if (!isbnBookData) return;
+    console.log('[ScanScreen] ISBN popup pressed. Releasing scanLockRef.current = false and navigating.');
     setShowIsbnPopup(false);
+    scanLockRef.current = false;
 
     const coverParam = isbnBookData.cover || undefined;
 
@@ -215,9 +228,11 @@ export default function ScanScreen() {
   }, [isbnBookData, router]);
 
   const handleIsbnPopupDismiss = useCallback(() => {
+    console.log('[ScanScreen] ISBN popup dismissed. Releasing scanLockRef.current = false.');
     setShowIsbnPopup(false);
     setIsbnBookData(null);
     isSearchingIsbnRef.current = false;
+    scanLockRef.current = false;
   }, []);
 
   // Callback mémoïsé pour éviter de redémarrer l'effet useLiveOCR à chaque render
@@ -229,7 +244,7 @@ export default function ScanScreen() {
   const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
     cameraRef,
     isFocused,
-    enabled: !photo && !isLoading,
+    enabled: !photo && !isLoading && !showIsbnPopup,
     scanLockRef,
     onIsbnDetected: handleIsbnDetected,
   });
@@ -265,6 +280,7 @@ export default function ScanScreen() {
   // Cleanup au unmount du composant
   React.useEffect(() => {
     return () => {
+      console.log('[ScanScreen] Unmounting component, releasing scanLockRef.current to false');
       scanLockRef.current = false;
     };
   }, []);
@@ -279,6 +295,7 @@ export default function ScanScreen() {
     if (isFocused) {
       setTabIndex(1);
     } else {
+      console.log('[ScanScreen] Lost focus, resetting state and scanLockRef.current to false');
       scanLockRef.current = false;
 
       // Réinitialiser les états
@@ -329,17 +346,23 @@ export default function ScanScreen() {
 
     // Retry mechanism for the lock: If busy (Live OCR is capturing), wait a bit
     if (scanLockRef.current) {
+      console.log('[ScanScreen] handleTakePhoto: scanLockRef.current is true, retrying...');
       let retries = 5; // ~250ms max
       while (scanLockRef.current && retries > 0) {
         await new Promise(resolve => setTimeout(resolve, 50));
         retries--;
       }
       // If still busy after retries, abort
-      if (scanLockRef.current) return;
+      if (scanLockRef.current) {
+        console.log('[ScanScreen] handleTakePhoto: aborted, scanLockRef.current is still busy');
+        return;
+      }
     }
 
     setIsLoading(true);
     scanLockRef.current = true; // Lock global (capture + live)
+    console.log('[ScanScreen] handleTakePhoto: scanLockRef.current set to true');
+    let isIsbnDetected = false;
 
     try {
       // Final check after potential lock wait
@@ -349,15 +372,18 @@ export default function ScanScreen() {
         return;
       }
 
+      console.log('[ScanScreen] handleTakePhoto: taking photo...');
       const photoFile = await cameraRef.current.takePhoto({
         flash: 'off',
         enableShutterSound: false,
       });
 
+      console.log('[ScanScreen] handleTakePhoto: recognizing text...');
       const ocrResult = await recognizeText(photoFile.path);
       const elements = ocrResult.elements;
 
       if (!elements || elements.length === 0) {
+        console.log('[ScanScreen] handleTakePhoto: no text recognized');
         setPhoto(null);
         setOcrElements(null);
         setOcrBlocks(null);
@@ -365,8 +391,10 @@ export default function ScanScreen() {
       }
 
       const fullText = elements.map(e => e.text).join(' ');
+      console.log('[ScanScreen] handleTakePhoto: text recognized:', fullText);
       const isIsbn = await checkAndHandleIsbn(fullText);
       if (isIsbn) {
+        isIsbnDetected = true;
         return;
       }
 
@@ -381,10 +409,15 @@ export default function ScanScreen() {
       setOcrElements(null);
     } finally {
       setIsLoading(false);
-      // Small delay before releasing lock to let native camera settle
-      setTimeout(() => {
-        scanLockRef.current = false;
-      }, 100);
+      if (!isIsbnDetected) {
+        // Small delay before releasing lock to let native camera settle
+        setTimeout(() => {
+          scanLockRef.current = false;
+          console.log('[ScanScreen] handleTakePhoto finished: scanLockRef.current released to false');
+        }, 100);
+      } else {
+        console.log('[ScanScreen] handleTakePhoto finished: ISBN popup active, scanLockRef.current remains true');
+      }
     }
   };
 
@@ -408,7 +441,11 @@ export default function ScanScreen() {
 
   const handlePickImage = async () => {
     try {
-      if (isLoading || isPickerActive) return;
+      if (isLoading || isPickerActive) {
+        console.log('[ScanScreen] handlePickImage: ignored, loading or picker active');
+        return;
+      }
+      console.log('[ScanScreen] handlePickImage: starting gallery image selection');
 
       // 1. Vérifier la permission sans lancer la boîte de dialogue directement
       let permission = await ExpoImagePicker.getMediaLibraryPermissionsAsync();
@@ -416,6 +453,7 @@ export default function ScanScreen() {
       if (permission.status !== 'granted') {
         permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
         if (permission.status !== 'granted') {
+          console.log('[ScanScreen] handlePickImage: permission denied');
           return;
         }
         // Attendre que l'animation de fermeture du dialogue iOS se termine
@@ -435,6 +473,7 @@ export default function ScanScreen() {
           });
 
           if (result.canceled || !result.assets || result.assets.length === 0) {
+            console.log('[ScanScreen] handlePickImage: gallery selection canceled');
             setIsPickerActive(false);
             return;
           }
@@ -443,16 +482,21 @@ export default function ScanScreen() {
 
           const asset = result.assets[0];
           const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
+          console.log('[ScanScreen] handlePickImage: asset selected:', cleanPath);
 
           const ocrResult = await recognizeText(cleanPath);
           const elements = ocrResult.elements;
           if (elements && elements.length > 0) {
             const fullText = elements.map(e => e.text).join(' ');
+            console.log('[ScanScreen] handlePickImage: recognized text:', fullText);
             const isIsbn = await checkAndHandleIsbn(fullText);
             if (isIsbn) {
+              console.log('[ScanScreen] handlePickImage: ISBN popup active, exiting pickImage');
               setIsPickerActive(false);
               return;
             }
+          } else {
+            console.log('[ScanScreen] handlePickImage: no text elements recognized in selection');
           }
 
           const pickedPhoto: PhotoFile = {

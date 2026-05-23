@@ -49,9 +49,13 @@ export function useLiveOCR({
 
     // Helper to check if we can scan
     const canScan = () => {
-        if (!enabled || !isFocused || !cameraRef.current) return false;
-        if (internalBusyRef.current) return false;
-        if (scanLockRef && scanLockRef.current) return false;
+        const cannotScanReason = !enabled ? 'disabled' : !isFocused ? 'not focused' : !cameraRef.current ? 'no camera' : internalBusyRef.current ? 'internal busy' : (scanLockRef && scanLockRef.current) ? 'global scan lock' : null;
+        if (cannotScanReason) {
+            if (cannotScanReason === 'global scan lock') {
+                console.log('[useLiveOCR] Live scan skipped: blocked by global scanLockRef.current');
+            }
+            return false;
+        }
         return true;
     };
 
@@ -71,9 +75,13 @@ export function useLiveOCR({
                 return;
             }
 
+            console.log('[useLiveOCR] Starting live scan...');
             // Acquire locks
             internalBusyRef.current = true;
-            if (scanLockRef) scanLockRef.current = true;
+            if (scanLockRef) {
+                scanLockRef.current = true;
+                console.log('[useLiveOCR] scanLockRef.current set to true');
+            }
 
             let tempPhoto: PhotoFile | null = null;
             let isbnDetected = false;
@@ -122,7 +130,12 @@ export function useLiveOCR({
 
                 // Release global scan lock only if no ISBN was detected
                 if (!isbnDetected) {
-                    if (scanLockRef) scanLockRef.current = false;
+                    if (scanLockRef) {
+                        scanLockRef.current = false;
+                        console.log('[useLiveOCR] Live scan finished: scanLockRef.current released to false');
+                    }
+                } else {
+                    console.log('[useLiveOCR] Live scan finished: ISBN detected, keeping scanLockRef.current true');
                 }
                 
                 // Small cooldown before next scan
