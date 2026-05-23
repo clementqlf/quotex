@@ -7,10 +7,10 @@ import {
   StyleSheet,
   Modal,
   ActivityIndicator,
-  FlatList,
   Share,
   Alert,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -507,7 +507,7 @@ export default function AuthorDetailScreen() {
                   <ActivityIndicator size="large" color={colors.primary} />
                 </View>
               ) : (
-                <FlatList
+                <FlashList
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
                   contentContainerStyle={{ padding: 16 }}

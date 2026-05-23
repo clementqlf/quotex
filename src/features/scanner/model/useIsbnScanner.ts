@@ -1,17 +1,17 @@
 import { useRef, useState, useEffect } from 'react';
-import { Camera, PhotoFile } from 'react-native-vision-camera';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
-import * as Haptics from 'expo-haptics';
-import * as FileSystem from 'expo-file-system/legacy';
+import { Camera, useFrameProcessor } from 'react-native-vision-camera';
+import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
 type UseIsbnScannerProps = {
-    cameraRef: React.RefObject<Camera | null>;
+    cameraRef?: React.RefObject<Camera | null>; // Kept for backward compatibility
     isFocused: boolean;
     enabled?: boolean;
     onIsbnDetected: (isbn: string) => void;
 };
 
 export function extractIsbn(text: string): string | null {
+    'worklet';
     const cleanText = text.replace(/\n/g, ' ');
     const candidates = cleanText.match(/(?:[0-9xX][-\s]*){9,17}/g) || [];
     
@@ -46,110 +46,48 @@ export function extractIsbn(text: string): string | null {
 }
 
 export function useIsbnScanner({
-    cameraRef,
     isFocused,
     enabled = true,
     onIsbnDetected,
 }: UseIsbnScannerProps) {
     const [isScanning, setIsScanning] = useState(false);
-    const internalBusyRef = useRef(false);
+    const lastProcessed = useSharedValue(0);
 
-    const canScan = () => {
-        if (!enabled || !isFocused || !cameraRef.current) return false;
-        if (internalBusyRef.current) return false;
-        return true;
-    };
+    // Initialize native OCR plugin
+    const { scanText } = useTextRecognition({
+        language: 'latin',
+    });
 
-    useEffect(() => {
-        let isMounted = true;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const isScanningActive = enabled && isFocused;
 
-        const scheduleNext = (delay = 1000) => {
-            if (isMounted && enabled && isFocused) {
-                timeoutId = setTimeout(runScan, delay);
-            }
-        };
+    // Use Frame Processor for in-memory ISBN scanning (runs at 2 FPS for fast barcode capture)
+    const frameProcessor = useFrameProcessor((frame) => {
+        'worklet';
 
-        const runScan = async () => {
-            if (!isMounted || !canScan()) {
-                scheduleNext(1000);
-                return;
-            }
+        if (!isScanningActive) return;
 
-            internalBusyRef.current = true;
-            setIsScanning(true);
-
-            let tempPhoto: PhotoFile | null = null;
+        const now = Date.now();
+        // 500ms threshold = 2 FPS
+        if (now - lastProcessed.value >= 500) {
+            lastProcessed.value = now;
             try {
-                if (!cameraRef.current) {
-                    scheduleNext(1000);
-                    return;
-                }
-
-                tempPhoto = await cameraRef.current.takePhoto({
-                    flash: 'off',
-                    enableShutterSound: false,
-                });
-
-                if (isMounted && enabled && isFocused) {
-                    const result = await TextRecognition.recognize(tempPhoto.path);
-                    if (result && result.blocks.length > 0) {
-                        const fullText = result.blocks.map(b => b.text).join(' ');
-                        const isbn = extractIsbn(fullText);
-                        
-                        if (isbn) {
-                            console.log('[useIsbnScanner] ISBN Detected:', isbn);
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            onIsbnDetected(isbn);
-                            
-                            // Stop scanning loop
-                            internalBusyRef.current = false;
-                            setIsScanning(false);
-                            
-                            // Delete immediately before exit
-                            if (tempPhoto?.path) {
-                                FileSystem.deleteAsync(
-                                    tempPhoto.path.startsWith('file://') ? tempPhoto.path : `file://${tempPhoto.path}`,
-                                    { idempotent: true }
-                                ).catch(() => {});
-                            }
-                            return;
-                        }
+                runOnJS(setIsScanning)(true);
+                const result = scanText(frame);
+                if (result && result.resultText) {
+                    const isbn = extractIsbn(result.resultText);
+                    if (isbn) {
+                        runOnJS(onIsbnDetected)(isbn);
                     }
                 }
-                
-                // Normal scan loop
-                internalBusyRef.current = false;
-                setIsScanning(false);
-                scheduleNext(1000);
-            } catch (e) {
-                console.log('[useIsbnScanner] Scan error (will retry after cooldown):', e);
-                internalBusyRef.current = false;
-                setIsScanning(false);
-                scheduleNext(3000); // 3-second cooldown on error to allow AVFoundation to recover
-            } finally {
-                // Delete temp photo to avoid disk leak
-                if (tempPhoto?.path) {
-                    FileSystem.deleteAsync(
-                        tempPhoto.path.startsWith('file://') ? tempPhoto.path : `file://${tempPhoto.path}`,
-                        { idempotent: true }
-                    ).catch(() => {});
-                }
+                runOnJS(setIsScanning)(false);
+            } catch (err) {
+                runOnJS(setIsScanning)(false);
             }
-        };
-
-        if (enabled && isFocused) {
-            scheduleNext(2500); // 2.5 seconds initial warmup delay for camera hardware to initialize
         }
-
-        return () => {
-            isMounted = false;
-            if (timeoutId) clearTimeout(timeoutId);
-            internalBusyRef.current = false;
-        };
-    }, [enabled, isFocused, cameraRef, onIsbnDetected]);
+    }, [isScanningActive, scanText, onIsbnDetected]);
 
     return {
         isScanning,
+        frameProcessor,
     };
 }

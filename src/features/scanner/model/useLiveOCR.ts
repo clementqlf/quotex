@@ -1,44 +1,37 @@
 import { useRef, useState, useEffect } from 'react';
-import { Camera, PhotoFile } from 'react-native-vision-camera';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
-import * as FileSystem from 'expo-file-system/legacy';
+import { Camera, useFrameProcessor } from 'react-native-vision-camera';
+import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
+import { useSharedValue } from 'react-native-reanimated';
+import { useRunOnJS } from 'react-native-worklets-core';
 import { extractIsbn } from './useIsbnScanner';
 
 type UseLiveOCRProps = {
-    cameraRef: React.RefObject<Camera | null>;
+    cameraRef?: React.RefObject<Camera | null>; // Kept for API backward compatibility
     isFocused: boolean;
     enabled?: boolean;
-    scanLockRef?: React.MutableRefObject<boolean>; // Optional shared lock to prevent concurrent captures
-    onIsbnDetected?: (isbn: string) => void;
+    scanInterval?: number;
 };
 
 export function useLiveOCR({
-    cameraRef,
     isFocused,
     enabled = true,
-    scanLockRef,
-    onIsbnDetected,
+    scanInterval = 500,
 }: UseLiveOCRProps) {
     const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
-    const internalBusyRef = useRef(false);
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-    // Auto-reset: if no text confirmed for 1500ms, force reset to false
-    const autoResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const consecutiveEmptyFramesRef = useRef(0);
+    const autoResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastProcessed = useSharedValue(0);
 
     const confirmTextDetected = (detected: boolean) => {
         if (detected) {
             consecutiveEmptyFramesRef.current = 0;
             setIsTextDetectedLive(true);
-            // Refresh the auto-reset window each time text IS confirmed
             if (autoResetRef.current) clearTimeout(autoResetRef.current);
             autoResetRef.current = setTimeout(() => {
                 setIsTextDetectedLive(false);
             }, 1500);
         } else {
             consecutiveEmptyFramesRef.current += 1;
-            // Require 2 frames without text before clearing status
             if (consecutiveEmptyFramesRef.current >= 2) {
                 if (autoResetRef.current) clearTimeout(autoResetRef.current);
                 autoResetRef.current = null;
@@ -47,116 +40,51 @@ export function useLiveOCR({
         }
     };
 
-    // Helper to check if we can scan
-    const canScan = () => {
-        const cannotScanReason = !enabled ? 'disabled' : !isFocused ? 'not focused' : !cameraRef.current ? 'no camera' : internalBusyRef.current ? 'internal busy' : (scanLockRef && scanLockRef.current) ? 'global scan lock' : null;
-        if (cannotScanReason) {
-            if (cannotScanReason === 'global scan lock') {
-                console.log('[useLiveOCR] Live scan skipped: blocked by global scanLockRef.current');
-            }
-            return false;
-        }
-        return true;
-    };
+    // Native OCR plugin initializer
+    const { scanText } = useTextRecognition({
+        language: 'latin',
+    });
 
-    useEffect(() => {
-        let isMounted = true;
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const isScanningActive = enabled && isFocused;
 
-        const scheduleNext = () => {
-            if (isMounted && enabled && isFocused) {
-                timeoutId = setTimeout(runScan, 500);
-            }
-        };
+    const confirmTextDetectedJS = useRunOnJS((detected: boolean) => {
+        confirmTextDetected(detected);
+    }, []);
 
-        const runScan = async () => {
-            if (!isMounted || !canScan()) {
-                scheduleNext();
-                return;
-            }
+    // Use Vision Camera's Frame Processor (runs natively on camera thread)
+    const frameProcessor = useFrameProcessor((frame) => {
+        'worklet';
 
-            console.log('[useLiveOCR] Starting live scan...');
-            // Acquire locks
-            internalBusyRef.current = true;
-            if (scanLockRef) {
-                scanLockRef.current = true;
-                console.log('[useLiveOCR] scanLockRef.current set to true');
-            }
+        const now = Date.now();
+        // Process frames at defined interval to save battery (500ms default = 2 FPS)
+        if (now - lastProcessed.value >= scanInterval) {
+            lastProcessed.value = now;
 
-            let tempPhoto: PhotoFile | null = null;
-            let isbnDetected = false;
+            if (!isScanningActive) return;
+
             try {
-                if (!cameraRef.current) return;
-
-                tempPhoto = await cameraRef.current.takePhoto({
-                    flash: 'off',
-                    enableShutterSound: false,
-                });
-
-                // Check if still active before processing
-                if (isMounted && enabled && isFocused) {
-                    const result = await TextRecognition.recognize(tempPhoto.path);
-                    if (result && result.blocks.length > 0) {
-                        confirmTextDetected(true);
-                        
-                        // Check if the recognized text contains an ISBN
-                        const fullText = result.blocks.map(b => b.text).join(' ');
-                        const isbn = extractIsbn(fullText);
-                        
-                        if (isbn && onIsbnDetected) {
-                            console.log('[useLiveOCR] ISBN Detected during live preview:', isbn);
-                            isbnDetected = true;
-                            onIsbnDetected(isbn);
-                            return;
-                        }
-                    } else {
-                        confirmTextDetected(false);
-                    }
-                }
-            } catch (e) {
-                console.log('[useLiveOCR] Scan error:', e);
-                confirmTextDetected(false);
-            } finally {
-                // Delete temp photo to avoid disk leak (takePhoto writes a full-res JPEG each time)
-                if (tempPhoto?.path) {
-                    FileSystem.deleteAsync(
-                        tempPhoto.path.startsWith('file://') ? tempPhoto.path : `file://${tempPhoto.path}`,
-                        { idempotent: true }
-                    ).catch(() => {});
-                }
-
-                // Release internal busy flag
-                internalBusyRef.current = false;
-
-                // Release global scan lock only if no ISBN was detected
-                if (!isbnDetected) {
-                    if (scanLockRef) {
-                        scanLockRef.current = false;
-                        console.log('[useLiveOCR] Live scan finished: scanLockRef.current released to false');
-                    }
+                const result = scanText(frame);
+                if (result && result.blocks && result.blocks.length > 0) {
+                    confirmTextDetectedJS(true);
                 } else {
-                    console.log('[useLiveOCR] Live scan finished: ISBN detected, keeping scanLockRef.current true');
+                    confirmTextDetectedJS(false);
                 }
-                
-                // Small cooldown before next scan
-                scheduleNext();
+            } catch (err: any) {
+                // Fail silently in native context
             }
-        };
-
-        if (enabled && isFocused) {
-            scheduleNext();
         }
+    }, [isScanningActive, scanText, confirmTextDetectedJS, scanInterval]);
 
+    // Clean up debouncing timers on unmount
+    useEffect(() => {
         return () => {
-            isMounted = false;
-            if (timeoutId) clearTimeout(timeoutId);
             if (autoResetRef.current) clearTimeout(autoResetRef.current);
-            internalBusyRef.current = false;
         };
-    }, [enabled, isFocused, cameraRef, scanLockRef, onIsbnDetected]);
+    }, []);
 
     return {
         isTextDetectedLive,
-        setIsTextDetectedLive, // Exposed in case we need to reset it manually
+        setIsTextDetectedLive,
+        frameProcessor,
     };
 }

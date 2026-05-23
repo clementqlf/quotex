@@ -6,9 +6,9 @@ import {
     ScrollView,
     TouchableOpacity,
     Image,
-    ActivityIndicator,
-    FlatList
+    ActivityIndicator
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, Award, User, BookOpen, Calendar } from 'lucide-react-native';
@@ -367,7 +367,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                 <Text style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</Text>
             </View>
 
-            <FlatList
+            <FlashList
                 data={prize.laureates?.sort((a, b) => b.year - a.year) || []}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderLaureate}

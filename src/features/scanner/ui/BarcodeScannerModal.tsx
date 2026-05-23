@@ -70,7 +70,7 @@ export default function BarcodeScannerModal({
     }));
 
     // Start scanner hook
-    const { isScanning } = useIsbnScanner({
+    const { isScanning, frameProcessor } = useIsbnScanner({
         cameraRef,
         isFocused: visible,
         enabled: visible && !isLoading,
@@ -189,6 +189,7 @@ export default function BarcodeScannerModal({
                                 isActive={visible}
                                 photo={true}
                                 torch={torch}
+                                frameProcessor={frameProcessor}
                                 outputOrientation="preview"
                             />
                         )}

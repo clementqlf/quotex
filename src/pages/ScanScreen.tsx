@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-import { Camera, PhotoFile, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { recognizeText } from '../features/scanner/model/mlKitParser';
 import * as ExpoImagePicker from 'expo-image-picker';
@@ -26,6 +26,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
+import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
 import * as Haptics from 'expo-haptics';
@@ -56,6 +57,7 @@ export default function ScanScreen() {
   const [isPickerActive, setIsPickerActive] = React.useState(false);
   const [isbnBookData, setIsbnBookData] = React.useState<IsbnBookData | null>(null);
   const [showIsbnPopup, setShowIsbnPopup] = React.useState(false);
+  const [isSearchingIsbn, setIsSearchingIsbn] = React.useState(false);
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [scanFrameLayout, setScanFrameLayout] = React.useState<{
     x: number;
@@ -73,18 +75,20 @@ export default function ScanScreen() {
   const scanLockRef = React.useRef(false);
   const isSearchingIsbnRef = React.useRef(false);
 
+  const DEBUG_SCAN_AREA = false;
+
   const checkAndHandleIsbn = useCallback(async (text: string): Promise<boolean> => {
     const isbn = extractIsbn(text);
     if (!isbn) return false;
 
     console.log('[ScanScreen] Valid ISBN detected:', isbn);
 
-    if (isSearchingIsbnRef.current) {
+    if (isSearchingIsbnRef.current || isSearchingIsbn) {
       console.log('[ScanScreen] Already processing or popup visible, ignoring duplicate trigger.');
       return false;
     }
 
-    // Mark as searching to prevent duplicate calls — but don't block live OCR or show loading
+    setIsSearchingIsbn(true);
     isSearchingIsbnRef.current = true;
     scanLockRef.current = true;
     console.log('[ScanScreen] Starting ISBN search. Set scanLockRef.current = true');
@@ -179,6 +183,7 @@ export default function ScanScreen() {
     } finally {
       isSearchingIsbnRef.current = false;
       if (!popupShown) {
+        setIsSearchingIsbn(false);
         scanLockRef.current = false;
         console.log('[ScanScreen] ISBN search finished, no popup shown. Released scanLockRef.current = false');
       } else {
@@ -186,13 +191,14 @@ export default function ScanScreen() {
       }
     }
     return false;
-  }, [showIsbnPopup]);
+  }, [showIsbnPopup, isSearchingIsbn]);
 
   const handleIsbnPopupPress = useCallback(() => {
     if (!isbnBookData) return;
     console.log('[ScanScreen] ISBN popup pressed. Releasing scanLockRef.current = false and navigating.');
     setShowIsbnPopup(false);
     scanLockRef.current = false;
+    setIsSearchingIsbn(false);
 
     const coverParam = isbnBookData.cover || undefined;
 
@@ -233,45 +239,115 @@ export default function ScanScreen() {
     setIsbnBookData(null);
     isSearchingIsbnRef.current = false;
     scanLockRef.current = false;
+    setIsSearchingIsbn(false);
   }, []);
 
-  // Callback mémoïsé pour éviter de redémarrer l'effet useLiveOCR à chaque render
-  const handleIsbnDetected = useCallback((isbn: string) => {
-    checkAndHandleIsbn(isbn);
-  }, [checkAndHandleIsbn]);
-
-  // Hook Live OCR (ne sert désormais qu'à animer le contour bleu lors de la détection de texte)
-  const { isTextDetectedLive, setIsTextDetectedLive } = useLiveOCR({
+  // Hook Live OCR (permet d'animer le contour bleu en temps réel)
+  const { isTextDetectedLive, setIsTextDetectedLive, frameProcessor } = useLiveOCR({
     cameraRef,
     isFocused,
-    enabled: !photo && !isLoading && !showIsbnPopup,
-    scanLockRef,
-    onIsbnDetected: handleIsbnDetected,
+    enabled: !photo && !isLoading && !showIsbnPopup && !isSearchingIsbn,
+    scanInterval: 500,
   });
 
-  const frameAnim = useSharedValue(0);
+  const regionOfInterest = useMemo(() => {
+    if (!scanFrameLayout || containerSize.width === 0 || containerSize.height === 0) {
+      return undefined;
+    }
+    return {
+      x: scanFrameLayout.x / containerSize.width,
+      y: (scanAreaY + scanFrameLayout.y) / containerSize.height,
+      width: scanFrameLayout.width / containerSize.width,
+      height: scanFrameLayout.height / containerSize.height,
+    };
+  }, [scanFrameLayout, scanAreaY, containerSize]);
+
+  const codeScanner = useCodeScanner({
+    codeTypes: ['ean-13', 'ean-8'],
+    onCodeScanned: (codes, scannerFrame) => {
+      if (!isFocused || photo || isLoading || showIsbnPopup || isSearchingIsbn) {
+        return;
+      }
+      if (codes.length > 0 && codes[0].value) {
+        const code = codes[0];
+        
+        // Filter codes to only those inside the visual scan frame area (in DP)
+        if (code.frame && scanFrameLayout && containerSize.width > 0 && scannerFrame.width > 0 && scannerFrame.height > 0) {
+          const isFrameLandscape = scannerFrame.width > scannerFrame.height;
+          
+          let x_screen = 0;
+          let y_screen = 0;
+          
+          if (isFrameLandscape) {
+            // Camera sensor is landscape, screen is portrait (90 deg rotation)
+            const scaleX = containerSize.width / scannerFrame.height;
+            const scaleY = containerSize.height / scannerFrame.width;
+            const scale = Math.max(scaleX, scaleY);
+            
+            const scaledWidth = scannerFrame.height * scale;
+            const scaledHeight = scannerFrame.width * scale;
+            
+            const offsetX = (scaledWidth - containerSize.width) / 2;
+            const offsetY = (scaledHeight - containerSize.height) / 2;
+            
+            const codeCenterX = code.frame.x + code.frame.width / 2;
+            const codeCenterY = code.frame.y + code.frame.height / 2;
+            
+            x_screen = codeCenterY * scale - offsetX;
+            y_screen = codeCenterX * scale - offsetY;
+          } else {
+            // Camera frame is already portrait (no rotation needed)
+            const scaleX = containerSize.width / scannerFrame.width;
+            const scaleY = containerSize.height / scannerFrame.height;
+            const scale = Math.max(scaleX, scaleY);
+            
+            const scaledWidth = scannerFrame.width * scale;
+            const scaledHeight = scannerFrame.height * scale;
+            
+            const offsetX = (scaledWidth - containerSize.width) / 2;
+            const offsetY = (scaledHeight - containerSize.height) / 2;
+            
+            const codeCenterX = code.frame.x + code.frame.width / 2;
+            const codeCenterY = code.frame.y + code.frame.height / 2;
+            
+            x_screen = codeCenterX * scale - offsetX;
+            y_screen = codeCenterY * scale - offsetY;
+          }
+          
+          const frameLeft = scanFrameLayout.x;
+          const frameRight = scanFrameLayout.x + scanFrameLayout.width;
+          const frameTop = scanAreaY + scanFrameLayout.y;
+          const frameBottom = scanAreaY + scanFrameLayout.y + scanFrameLayout.height;
+          
+          const isInside = x_screen >= frameLeft && x_screen <= frameRight &&
+                           y_screen >= frameTop && y_screen <= frameBottom;
+          
+          if (!isInside) {
+            console.log('[ScanScreen] Ignored barcode outside visual frame:', code.value, { 
+              x_screen, 
+              y_screen, 
+              frameLeft, 
+              frameRight, 
+              frameTop, 
+              frameBottom 
+            });
+            return;
+          }
+        }
+        
+        console.log('[ScanScreen] Barcode scanned:', code.value);
+        checkAndHandleIsbn(code.value!);
+      }
+    },
+    regionOfInterest: regionOfInterest,
+  });
+
   const fadeAnim = useSharedValue(1);
 
   // Animation des coins vers cadre complet (live)
   React.useEffect(() => {
-    frameAnim.value = withTiming(isTextDetectedLive ? 1 : 0, { duration: 400 });
     fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
   }, [isTextDetectedLive]);
-
-  const cornerStyle = useAnimatedStyle(() => {
-    if (!scanFrameLayout) return {};
-    const expandedWidth = scanFrameLayout.width - 32;
-    const expandedHeight = scanFrameLayout.height - 32;
-    
-    // Manual interpolation for Reanimated
-    const width = 32 + (expandedWidth - 32) * frameAnim.value;
-    const height = 32 + (expandedHeight - 32) * frameAnim.value;
-
-    return {
-      width,
-      height,
-    };
-  });
 
   const fadeStyle = useAnimatedStyle(() => ({
     opacity: fadeAnim.value,
@@ -342,21 +418,13 @@ export default function ScanScreen() {
   // processImage a été déplacé dans mlKitParser.ts sous le nom recognizeAndExtractElements
 
   const handleTakePhoto = async () => {
-    if (!cameraRef.current || isLoading || !isFocused) return;
-
-    // Retry mechanism for the lock: If busy (Live OCR is capturing), wait a bit
-    if (scanLockRef.current) {
-      console.log('[ScanScreen] handleTakePhoto: scanLockRef.current is true, retrying...');
-      let retries = 5; // ~250ms max
-      while (scanLockRef.current && retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        retries--;
-      }
-      // If still busy after retries, abort
-      if (scanLockRef.current) {
-        console.log('[ScanScreen] handleTakePhoto: aborted, scanLockRef.current is still busy');
-        return;
-      }
+    if (!cameraRef.current || isLoading || !isFocused) {
+      console.log('[ScanScreen] handleTakePhoto: cameraRef is null, loading, or screen not focused. Aborting.', {
+        hasCameraRef: !!cameraRef.current,
+        isLoading,
+        isFocused,
+      });
+      return;
     }
 
     setIsLoading(true);
@@ -367,6 +435,7 @@ export default function ScanScreen() {
     try {
       // Final check after potential lock wait
       if (!cameraRef.current || !isFocused) {
+        console.log('[ScanScreen] handleTakePhoto: Camera unmounted or screen lost focus during setup. Aborting.');
         setIsLoading(false);
         scanLockRef.current = false;
         return;
@@ -378,15 +447,21 @@ export default function ScanScreen() {
         enableShutterSound: false,
       });
 
+      console.log('[ScanScreen] handleTakePhoto: photo taken successfully. Path:', photoFile.path);
+
       console.log('[ScanScreen] handleTakePhoto: recognizing text...');
       const ocrResult = await recognizeText(photoFile.path);
       const elements = ocrResult.elements;
 
       if (!elements || elements.length === 0) {
-        console.log('[ScanScreen] handleTakePhoto: no text recognized');
+        console.log('[ScanScreen] handleTakePhoto: no text recognized in the photo');
         setPhoto(null);
         setOcrElements(null);
         setOcrBlocks(null);
+        Alert.alert(
+          "Aucun texte détecté",
+          "Nous n'avons détecté aucun texte dans l'image. Assurez-vous d'avoir bien cadré le texte et qu'il y a assez de lumière."
+        );
         return;
       }
 
@@ -394,10 +469,12 @@ export default function ScanScreen() {
       console.log('[ScanScreen] handleTakePhoto: text recognized:', fullText);
       const isIsbn = await checkAndHandleIsbn(fullText);
       if (isIsbn) {
+        console.log('[ScanScreen] handleTakePhoto: ISBN detected in manual photo, showing popup.');
         isIsbnDetected = true;
         return;
       }
 
+      console.log('[ScanScreen] handleTakePhoto: regular quote text detected. Transitioning to scan workflow...');
       setIsFromGallery(false);
       setPhoto(photoFile);
       setOcrElements(elements);
@@ -407,6 +484,10 @@ export default function ScanScreen() {
       console.error('Failed to take photo or recognize text:', error);
       setPhoto(null);
       setOcrElements(null);
+      Alert.alert(
+        "Erreur de scan",
+        `Une erreur est survenue lors de la prise de photo ou de la détection de texte : ${error instanceof Error ? error.message : String(error)}`
+      );
     } finally {
       setIsLoading(false);
       if (!isIsbnDetected) {
@@ -601,8 +682,11 @@ export default function ScanScreen() {
           device={device}
           isActive={true}
           photo
+          pixelFormat="yuv"
           outputOrientation="preview"
           ref={cameraRef}
+          frameProcessor={frameProcessor}
+          codeScanner={(!showIsbnPopup && !isSearchingIsbn && !isLoading) ? codeScanner : undefined}
           onError={(error) => {
             console.log('Camera error:', error);
           }}
@@ -634,78 +718,11 @@ export default function ScanScreen() {
 
               {/* Animation des coins vers cadre complet */}
               {/* Correction : outputRange numériques, largeur réelle du cadre, animation live OCR */}
-              {scanFrameLayout && (
-                <>
-                  {/* Coin supérieur gauche (s'étend vers le bas et la droite) */}
-                  <Animated.View
-                    style={[
-                      styles.corner,
-                      {
-                        left: -3,
-                        top: -3,
-                        borderTopWidth: 3,
-                        borderLeftWidth: 3,
-                        borderTopLeftRadius: 24,
-                        borderRightWidth: 0,
-                        borderBottomWidth: 0,
-                        zIndex: 10,
-                      },
-                      cornerStyle
-                    ]}
-                  />
-                  {/* Coin supérieur droit (s'étend vers le bas et la gauche) */}
-                  <Animated.View
-                    style={[
-                      styles.corner,
-                      {
-                        right: -3,
-                        top: -3,
-                        borderTopWidth: 3,
-                        borderRightWidth: 3,
-                        borderTopRightRadius: 24,
-                        borderLeftWidth: 0,
-                        borderBottomWidth: 0,
-                        zIndex: 10,
-                      },
-                      cornerStyle
-                    ]}
-                  />
-                  {/* Coin inférieur gauche (s'étend vers le haut et la droite) */}
-                  <Animated.View
-                    style={[
-                      styles.corner,
-                      {
-                        left: -3,
-                        bottom: -3,
-                        borderBottomWidth: 3,
-                        borderLeftWidth: 3,
-                        borderBottomLeftRadius: 24,
-                        borderTopWidth: 0,
-                        borderRightWidth: 0,
-                        zIndex: 10,
-                      },
-                      cornerStyle
-                    ]}
-                  />
-                  {/* Coin inférieur droit (s'étend vers le haut et la gauche) */}
-                  <Animated.View
-                    style={[
-                      styles.corner,
-                      {
-                        right: -3,
-                        bottom: -3,
-                        borderBottomWidth: 3,
-                        borderRightWidth: 3,
-                        borderBottomRightRadius: 24,
-                        borderTopWidth: 0,
-                        borderLeftWidth: 0,
-                        zIndex: 10,
-                      },
-                      cornerStyle
-                    ]}
-                  />
-                </>
-              )}
+              <ScanFrameOverlay
+                isTextDetectedLive={isTextDetectedLive}
+                scanFrameLayout={scanFrameLayout}
+                colors={colors}
+              />
 
               {/* Ligne de scan animée supprimée */}
 
@@ -753,6 +770,25 @@ export default function ScanScreen() {
                 mask="url(#scanMask)"
               />
             </Svg>
+          )}
+
+          {/* Debugging Barcode Scan Area Outline */}
+          {DEBUG_SCAN_AREA && scanFrameLayout && (
+            <View
+              style={{
+                position: 'absolute',
+                left: scanFrameLayout.x,
+                top: scanAreaY + scanFrameLayout.y,
+                width: scanFrameLayout.width,
+                height: scanFrameLayout.height,
+                borderWidth: 2,
+                borderColor: 'red',
+                borderStyle: 'dashed',
+                borderRadius: 24,
+                zIndex: 99,
+                pointerEvents: 'none',
+              }}
+            />
           )}
 
           {/* ISBN Popup */}

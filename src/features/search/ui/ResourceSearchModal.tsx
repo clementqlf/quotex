@@ -6,11 +6,11 @@ import {
     TouchableOpacity,
     Modal,
     TextInput,
-    FlatList,
     Image,
     ActivityIndicator,
     Dimensions
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { X, Search, BookOpen, User, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
@@ -155,7 +155,7 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
                         {isLoading ? (
                             <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
                         ) : (
-                            <FlatList
+                            <FlashList
                                 data={flattenedResults}
                                 renderItem={renderItem}
                                 keyExtractor={(item, index) => `${item.type}-${item.id || index}`}
