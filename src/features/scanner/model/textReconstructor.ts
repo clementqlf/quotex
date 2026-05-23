@@ -60,7 +60,7 @@ export const reconstructTextFromBlocks = (
             const dy = rect.top + rect.height / 2 - centerY;
 
             let alignedX = rect.left + rect.width / 2;
-            let alignedY = rect.top + rect.height / 2;
+            let alignedY = centerY - dy; // Invert Y (Bottom -> Top) by default
 
             if (globalAngle !== 0) {
                 const angleRad = (globalAngle * Math.PI) / 180;
@@ -139,4 +139,40 @@ export const reconstructTextFromBlocks = (
         scannedText,
         sortedData: sorted
     };
+};
+
+export const reconstructTextFromWords = (
+    selectedWords: Array<{ text: string; lineIndex: number }>
+): string => {
+    if (selectedWords.length === 0) return '';
+
+    return selectedWords.reduce((acc, currentItem, index) => {
+        const currentText = currentItem.text;
+        if (index === 0) return currentText;
+
+        const prevItem = selectedWords[index - 1];
+        const prevText = prevItem.text;
+
+        // If previous word ends with a hyphen, we might need to merge
+        const lastChar = prevText.slice(-1);
+        const isHyphen = HYPHEN_CHARS.has(lastChar);
+
+        if (isHyphen && prevText.length > 1) {
+            const part1 = prevText.slice(0, -1).toLowerCase();
+            const part2 = currentText.toLowerCase().replace(/[.,!?;:]/g, '');
+
+            const isSameLine = prevItem.lineIndex === currentItem.lineIndex;
+            const isNaturalHyphen = isSameLine || NATURAL_HYPHEN_PARTS.has(part1) || NATURAL_HYPHEN_PARTS.has(part2);
+
+            if (isNaturalHyphen) {
+                // It's a natural hyphenated word (like rendez-vous), keep the hyphen but no space
+                return acc + currentText;
+            } else {
+                // It's likely a word split across lines, remove the hyphen and no space
+                return acc.slice(0, -1) + currentText;
+            }
+        }
+
+        return acc + ' ' + currentText;
+    }, '');
 };

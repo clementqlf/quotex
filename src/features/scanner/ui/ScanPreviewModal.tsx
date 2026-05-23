@@ -308,7 +308,7 @@ export default function ScanPreviewModal({
                             }}
                         >
                             <View style={styles.previewHeader}>
-                                <Text style={styles.previewTitle}>{initialBook ? "Modifier la citation" : "Aperçu de la citation"}</Text>
+                                <Text style={styles.previewTitle}>Aperçu de la citation</Text>
                                 <TouchableOpacity onPress={onClose}>
                                     <X size={24} color={colors.textSecondary} />
                                 </TouchableOpacity>
@@ -339,7 +339,6 @@ export default function ScanPreviewModal({
                                             multiline
                                             onChangeText={setEditedQuote}
                                             onBlur={() => setIsEditingQuote(false)}
-                                            placeholder="Modifier la citation"
                                             placeholderTextColor={colors.textTertiary}
                                             returnKeyType="done"
                                         />
@@ -350,7 +349,7 @@ export default function ScanPreviewModal({
                                                 setEditedQuote(editedQuote || scannedText);
                                             }}
                                         >
-                                            <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: colors.textTertiary, fontStyle: 'normal' }]}>
+                                            <Text style={[styles.previewQuoteText, !editedQuote && !scannedText && { color: colors.textTertiary, fontStyle: 'italic', fontFamily: 'Times New Roman' }]}>
                                                 {editedQuote || scannedText || "Toucher pour ajouter une citation..."}
                                             </Text>
                                         </TouchableOpacity>
@@ -454,8 +453,7 @@ export default function ScanPreviewModal({
                                                             setShowAuthorSuggestions(false);
                                                         }}
                                                     >
-                                                        <BookIcon size={14} color={colors.textTertiary} style={{ marginRight: 8 }} />
-                                                        <Text style={styles.bookPlaceholderText}>Veuillez renseigner un livre</Text>
+                                                        <Text style={styles.bookPlaceholderText}>Ajouter un livre</Text>
                                                     </TouchableOpacity>
                                                 ) : (
                                                     <TouchableOpacity
@@ -538,8 +536,7 @@ export default function ScanPreviewModal({
                                                             setShowSuggestions(false);
                                                         }}
                                                     >
-                                                        <UserIcon size={12} color={colors.textTertiary} style={{ marginRight: 8 }} />
-                                                        <Text style={styles.authorPlaceholderText}>Veuillez renseigner un auteur</Text>
+                                                        <Text style={styles.authorPlaceholderText}>Ajouter un auteur</Text>
                                                     </TouchableOpacity>
                                                 ) : (
                                                     <TouchableOpacity
@@ -665,9 +662,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         lineHeight: 28,
         color: colors.text,
         marginBottom: 16,
+        fontFamily: 'Times New Roman',
+        fontStyle: 'italic',
         backgroundColor: colors.inputBackground,
         borderRadius: 6,
-        padding: 10,
+        padding: 0,
     },
     previewBookInfo: {
         flexDirection: 'row',
@@ -687,59 +686,56 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         fontSize: 14,
         color: colors.primary,
         marginBottom: 4,
+        paddingHorizontal: 0,
     },
     bookTitleInput: {
         fontSize: 14,
         color: colors.primary,
         backgroundColor: colors.inputBackground,
         borderRadius: 6,
-        paddingHorizontal: 6,
+        paddingHorizontal: 0,
         paddingVertical: 8,
         marginBottom: 4,
     },
     bookPlaceholderButton: {
         borderWidth: 0,
-        borderRadius: 8,
-        paddingHorizontal: 12,
+        borderRadius: 6,
+        paddingHorizontal: 0,
         paddingVertical: 8,
         backgroundColor: colors.inputBackground,
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 6,
+        marginBottom: 4,
     },
     bookPlaceholderText: {
         fontSize: 14,
-        color: colors.textTertiary,
-        fontWeight: '600',
-        fontStyle: 'italic',
+        color: colors.primary,
     },
     authorName: {
         fontSize: 12,
         color: colors.textSecondary,
+        paddingHorizontal: 0,
     },
     authorInput: {
         fontSize: 12,
         color: colors.textSecondary,
         backgroundColor: colors.inputBackground,
         borderRadius: 6,
-        paddingHorizontal: 6,
+        paddingHorizontal: 0,
         paddingVertical: 8,
     },
     authorPlaceholderButton: {
         borderWidth: 0,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        borderRadius: 6,
+        paddingHorizontal: 0,
+        paddingVertical: 8,
         backgroundColor: colors.inputBackground,
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 4,
     },
     authorPlaceholderText: {
         fontSize: 12,
-        color: colors.textTertiary,
-        fontWeight: '500',
-        fontStyle: 'italic',
+        color: colors.textSecondary,
     },
     dateText: {
         fontSize: 12,

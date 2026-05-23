@@ -15,6 +15,7 @@ export const recognizeText = async (imagePath: string): Promise<{
   elements: TextElement[];
   blocks: TextBlock[];
   normalizedSize: { width: number; height: number } | null;
+  normalizedUri: string;
 }> => {
   try {
     // Normalize orientation: ImageManipulator reads EXIF and applies it to pixels,
@@ -43,7 +44,7 @@ export const recognizeText = async (imagePath: string): Promise<{
     // Return the normalized dimensions so the workflow can use the correct portrait scale
     const normalizedSize = { width: normalized.width, height: normalized.height };
     
-    return { elements, blocks, normalizedSize };
+    return { elements, blocks, normalizedSize, normalizedUri: normalized.uri };
   } catch (error) {
     console.error("Text recognition error:", error);
     throw error;

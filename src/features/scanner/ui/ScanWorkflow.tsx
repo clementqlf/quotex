@@ -67,7 +67,11 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           ]}
         >
           <Image
-            source={{ uri: `file://${props.photo.path}` }}
+            source={{ 
+              uri: props.photo.path.startsWith('file://') 
+                ? props.photo.path 
+                : `file://${props.photo.path}` 
+            }}
             style={{ 
               width: '100%',
               height: '100%',

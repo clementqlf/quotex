@@ -3,8 +3,10 @@ import { PanResponder, Share, Clipboard } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
-import { calculateTextRotation, MLKitText } from '../../../shared/lib/scanGeometry';
-import { calculateGlobalAngle, reconstructTextFromBlocks } from './textReconstructor';
+import { calculateTextRotation } from '../../../shared/lib/scanGeometry';
+import { reconstructTextFromWords } from './textReconstructor';
+import { useData } from '@/src/app/providers/DataProvider';
+import { useTabIndex } from '@/src/app/providers/TabContext';
 
 type Size = { width: number; height: number };
 
@@ -16,6 +18,7 @@ export type WordData = {
   centerX: number;
   centerY: number;
   rotation: number;
+  lineIndex: number;
 };
 
 type ScanWorkflowProps = {
@@ -34,6 +37,8 @@ export const useScanWorkflow = ({
   onReset,
   normalizedSize,
 }: ScanWorkflowProps) => {
+  const { addQuote } = useData();
+  const { setTabIndex } = useTabIndex();
   const [isDevMode, setIsDevMode] = useState(false);
   const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
   const [viewportSize, setViewportSize] = useState<Size>({ width: 0, height: 0 });
@@ -94,7 +99,7 @@ export const useScanWorkflow = ({
       linesInfo.sort((a, b) => a.centerY - b.centerY);
 
       // 3. Sort elements within each line from left to right
-      for (const lineInfo of linesInfo) {
+      linesInfo.forEach((lineInfo, lineIndex) => {
         const sortedLineElements = [...lineInfo.line.elements].sort((a, b) => {
           const aFrame = (a as any).frame || (a as any).rect || { left: 0 };
           const bFrame = (b as any).frame || (b as any).rect || { left: 0 };
@@ -102,9 +107,10 @@ export const useScanWorkflow = ({
         });
         
         for (const el of sortedLineElements) {
+          (el as any).lineIndex = lineIndex;
           sortedElements.push(el);
         }
-      }
+      });
     } else {
       // Fallback heuristic if ocrBlocks is not provided
       let mappedWords = ocrElements.map(el => {
@@ -150,9 +156,12 @@ export const useScanWorkflow = ({
         return avgYA - avgYB;
       });
 
-      for (const line of lines) {
+      lines.forEach((line, lineIndex) => {
         line.sort((a, b) => a.originalFrame.left - b.originalFrame.left);
-      }
+        for (const word of line) {
+          (word as any).lineIndex = lineIndex;
+        }
+      });
 
       sortedElements = lines.flat() as any;
     }
@@ -177,6 +186,7 @@ export const useScanWorkflow = ({
         centerX: scaledFrame.left + scaledFrame.width / 2,
         centerY: scaledFrame.top + scaledFrame.height / 2,
         rotation,
+        lineIndex: (el as any).lineIndex ?? 0,
       } as WordData;
     });
   }, [ocrElements, ocrBlocks, imageDisplayInfo.scale]);
@@ -373,15 +383,6 @@ export const useScanWorkflow = ({
     })
   ).current;
 
-  const globalAngle = useMemo(() => {
-    const mlKitTexts: MLKitText[] = words.map(w => ({
-      text: w.text,
-      frame: w.originalFrame,
-      rotation: w.rotation
-    }));
-    return calculateGlobalAngle(mlKitTexts);
-  }, [words]);
-
   const scannedText = useMemo(() => {
     if (!selectionRange || words.length === 0) return '';
     const selectedWords = words.slice(selectionRange.start, selectionRange.end + 1);
@@ -389,28 +390,8 @@ export const useScanWorkflow = ({
     
     if (filteredWords.length === 0) return '';
 
-    const selectedMLKitBlocks: MLKitText[] = filteredWords.map(w => ({
-      text: w.text,
-      frame: w.originalFrame,
-      rotation: w.rotation
-    }));
-
-    const imageSize = {
-      width: imageDisplayInfo.width,
-      height: imageDisplayInfo.height,
-      offsetX: imageDisplayInfo.offsetX,
-      offsetY: imageDisplayInfo.offsetY
-    };
-
-    const reconstruction = reconstructTextFromBlocks(
-      selectedMLKitBlocks,
-      imageSize,
-      photo,
-      globalAngle
-    );
-
-    return reconstruction.scannedText;
-  }, [selectionRange, words, excludedIndices, imageDisplayInfo, photo, globalAngle]);
+    return reconstructTextFromWords(filteredWords);
+  }, [selectionRange, words, excludedIndices]);
 
   const handleCopy = async () => {
     if (scannedText) {
@@ -429,10 +410,17 @@ export const useScanWorkflow = ({
 
   const handleSaveQuote = () => setShowPreviewModal(true);
   
-  const handleConfirmSave = (text: string) => {
-    setShowPreviewModal(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onReset();
+  const handleConfirmSave = async (text: string, book: string, author: string) => {
+    try {
+      await addQuote(text, book, author);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTabIndex(0);
+    } catch (error) {
+      console.error("Error saving scanned quote:", error);
+    } finally {
+      setShowPreviewModal(false);
+      onReset();
+    }
   };
 
   const handleSelectAll = () => {

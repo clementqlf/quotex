@@ -430,7 +430,6 @@ export default function ScanScreen() {
     setIsLoading(true);
     scanLockRef.current = true; // Lock global (capture + live)
     console.log('[ScanScreen] handleTakePhoto: scanLockRef.current set to true');
-    let isIsbnDetected = false;
 
     try {
       // Final check after potential lock wait
@@ -465,18 +464,20 @@ export default function ScanScreen() {
         return;
       }
 
-      const fullText = elements.map(e => e.text).join(' ');
-      console.log('[ScanScreen] handleTakePhoto: text recognized:', fullText);
-      const isIsbn = await checkAndHandleIsbn(fullText);
-      if (isIsbn) {
-        console.log('[ScanScreen] handleTakePhoto: ISBN detected in manual photo, showing popup.');
-        isIsbnDetected = true;
-        return;
-      }
-
       console.log('[ScanScreen] handleTakePhoto: regular quote text detected. Transitioning to scan workflow...');
+      
+      // Use the portrait-normalized image file path
+      const normalizedPath = ocrResult.normalizedUri.replace('file://', '');
+      const pickedPhoto: PhotoFile = {
+        ...photoFile,
+        path: normalizedPath,
+        width: ocrResult.normalizedSize?.width || photoFile.width,
+        height: ocrResult.normalizedSize?.height || photoFile.height,
+        metadata: { Orientation: 1 } as any, // 1 = upright portrait
+      };
+
       setIsFromGallery(false);
-      setPhoto(photoFile);
+      setPhoto(pickedPhoto);
       setOcrElements(elements);
       setOcrBlocks(ocrResult.blocks);
       setOcrNormalizedSize(ocrResult.normalizedSize);
@@ -490,15 +491,11 @@ export default function ScanScreen() {
       );
     } finally {
       setIsLoading(false);
-      if (!isIsbnDetected) {
-        // Small delay before releasing lock to let native camera settle
-        setTimeout(() => {
-          scanLockRef.current = false;
-          console.log('[ScanScreen] handleTakePhoto finished: scanLockRef.current released to false');
-        }, 100);
-      } else {
-        console.log('[ScanScreen] handleTakePhoto finished: ISBN popup active, scanLockRef.current remains true');
-      }
+      // Small delay before releasing lock to let native camera settle
+      setTimeout(() => {
+        scanLockRef.current = false;
+        console.log('[ScanScreen] handleTakePhoto finished: scanLockRef.current released to false');
+      }, 100);
     }
   };
 
