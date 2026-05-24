@@ -1,4 +1,93 @@
 {
-  "name": "Quotex",
-  "displayName": "Quotex"
+  "expo": {
+    "name": "Quotex",
+    "slug": "quotex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/Icon-iOS-Default-1024x1024@1x.png",
+    "scheme": "quotex",
+    "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.quotex.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.quotex.app"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "root": "./app"
+        }
+      ],
+      "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/quotex_logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Quotex a besoin d'accéder à vos photos pour sélectionner des citations.",
+          "cameraPermission": "Quotex a besoin d'accéder à votre caméra pour scanner des citations."
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Quotex a besoin de l'accès à la caméra pour scanner des citations."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosClientId": "635592710276-ejpo7l1bi3jkv6oh1hpd24clnudds1co.apps.googleusercontent.com",
+          "iosUrlScheme": "com.googleusercontent.apps.635592710276-ejpo7l1bi3jkv6oh1hpd24clnudds1co"
+        }
+      ],
+      "expo-web-browser",
+      "expo-font",
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "supabaseUrl": "https://neurbzkkfxrjzjykthtn.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldXJiemtrZnhyanpqeWt0aHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTc1NzcsImV4cCI6MjA5MzI5MzU3N30.vwvQQCjuIfCwcJ1vyrPt1bx09_oouKATvNQnO4axIvQ",
+      "apiBaseUrl": "https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1"
+    }
+  }
 }
