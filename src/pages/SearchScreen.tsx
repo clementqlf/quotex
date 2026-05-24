@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon, Award, Scan } from 'lucide-react-native';
 import { searchService, SearchResults } from '@/src/features/search/api/SearchService';
@@ -34,11 +34,12 @@ type SearchSection =
 
 export default function SearchScreen() {
     const router = useRouter();
+    const { q } = useLocalSearchParams<{ q?: string }>();
     const { navigateToBook, navigateToAuthor } = useSmartNavigation();
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
-    const [query, setQuery] = useState('');
+    const [query, setQuery] = useState(q || '');
     const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes'>('all');
     const [isLoading, setIsLoading] = useState(false);
     const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] } as any);

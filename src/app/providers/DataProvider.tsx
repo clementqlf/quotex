@@ -210,15 +210,48 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const getBookByTitle = useCallback(async (title: string) => {
-        return await authorService.getBookByTitle(title);
+        const book = await authorService.getBookByTitle(title);
+        if (book) {
+            setBooks(prev => {
+                const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
+                if (!prev.some(b => b.id === book.id)) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
     }, []);
 
     const getBookById = useCallback(async (id: number) => {
-        return await authorService.getBookById(id);
+        const book = await authorService.getBookById(id);
+        if (book) {
+            setBooks(prev => {
+                const updated = prev.map(b => b.id === id ? { ...b, ...book } : b);
+                if (!prev.some(b => b.id === id)) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
     }, []);
 
     const importBook = useCallback(async (bookData: Partial<Book>) => {
-        return await authorService.importBook(bookData);
+        const book = await authorService.importBook(bookData);
+        if (book) {
+            setBooks(prev => {
+                const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
+                if (!prev.some(b => b.id === book.id)) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
     }, []);
 
     const toggleSaveAuthor = useCallback(async (id: number) => {

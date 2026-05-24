@@ -41,6 +41,10 @@ export async function mergeBooks(sourceId: number, targetId: number) {
   console.log(`[Inventaire] Merging book ${sourceId} → ${targetId}`);
   try {
     await sql.begin(async (tx) => {
+      // 0. Get target book details
+      const targetRows = await tx`SELECT title FROM "Book" WHERE id = ${targetId} LIMIT 1`;
+      const targetBookTitle = targetRows[0]?.title || null;
+
       // 1. Move library status
       const userBooks = await tx`SELECT * FROM "UserBook" WHERE "bookId" = ${sourceId}`;
       for (const ub of userBooks) {
@@ -51,9 +55,47 @@ export async function mergeBooks(sourceId: number, targetId: number) {
             "status" = COALESCE("UserBook".status, EXCLUDED.status)
         `;
       }
+
       // 2. Move relations
       await tx`UPDATE "Quote" SET "bookId" = ${targetId} WHERE "bookId" = ${sourceId}`;
       await tx`UPDATE "Review" SET "bookId" = ${targetId} WHERE "bookId" = ${sourceId}`;
+
+      // 2.5 Update recommended books in Quote blockData JSON
+      const quotesWithRecs = await tx`
+        SELECT id, "blockData" FROM "Quote"
+        WHERE "blockData" IS NOT NULL
+      `;
+      for (const q of quotesWithRecs) {
+        let blockDataObj: Record<string, any> = {};
+        try {
+          blockDataObj = typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData;
+        } catch {
+          continue;
+        }
+        if (blockDataObj && blockDataObj.recommendedBooks && Array.isArray(blockDataObj.recommendedBooks)) {
+          let modified = false;
+          blockDataObj.recommendedBooks = blockDataObj.recommendedBooks.map((b: any) => {
+            if (b.id && Number(b.id) === Number(sourceId)) {
+              modified = true;
+              return {
+                ...b,
+                id: Number(targetId),
+                title: targetBookTitle || b.title
+              };
+            }
+            return b;
+          });
+          if (modified) {
+            console.log(`[Inventaire] Updating recommended book reference in Quote ID ${q.id}: ${sourceId} → ${targetId}`);
+            await tx`
+              UPDATE "Quote"
+              SET "blockData" = ${JSON.stringify(blockDataObj)}
+              WHERE id = ${q.id}
+            `;
+          }
+        }
+      }
+
       // 3. Delete source
       await tx`DELETE FROM "UserBook" WHERE "bookId" = ${sourceId}`;
       await tx`DELETE FROM "Book" WHERE id = ${sourceId}`;

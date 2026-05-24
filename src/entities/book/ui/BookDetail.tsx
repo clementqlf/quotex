@@ -99,6 +99,11 @@ export default function BookDetailScreen() {
 
   const { quotes, books: allBooks, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook, updateBookStatus } = useData();
 
+  const allBooksRef = React.useRef(allBooks);
+  React.useEffect(() => {
+    allBooksRef.current = allBooks;
+  }, [allBooks]);
+
   // Check if book is already in local cached list to initialize state immediately
   const initialLocalBook = useMemo(() => {
     if (!bookId && !bookTitleParam) return null;
@@ -126,7 +131,7 @@ export default function BookDetailScreen() {
     setIsLoadingLayout(true);
     setIsLoadingMetadata(!initialLocalBook || !isBookEnriched(initialLocalBook));
     setActiveTab('description');
-  }, [bookId, bookTitleParam, initialLocalBook]);
+  }, [bookId, bookTitleParam]);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const lastSavedBookBlockData = React.useRef<string>('{}');
@@ -158,9 +163,9 @@ export default function BookDetailScreen() {
     // 1. Try to find the book in our local cached list first!
     let localBook: Book | undefined;
     if (bookId) {
-      localBook = allBooks.find(b => b.id === bookId);
+      localBook = allBooksRef.current.find(b => b.id === bookId);
     } else if (bookTitleParam) {
-      localBook = allBooks.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase());
+      localBook = allBooksRef.current.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase());
     }
 
     // 2. If we found a local book, set it immediately and bypass the loading screen if it's already enriched!
@@ -297,7 +302,7 @@ export default function BookDetailScreen() {
       // Always ensure loading stops at the very end
       setIsLoadingMetadata(false);
     }
-  }, [bookId, bookTitleParam, allBooks, getBookById, getBookByTitle, getAuthorByName, bookCoverParam, rawParams.bookData]);
+  }, [bookId, bookTitleParam, getBookById, getBookByTitle, getAuthorByName, bookCoverParam, rawParams.bookData]);
 
   React.useEffect(() => {
     const controller = new AbortController();

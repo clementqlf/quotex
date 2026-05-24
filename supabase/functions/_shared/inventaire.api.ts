@@ -356,6 +356,16 @@ export const searchInventaireAuthors = async (query: string, limit = 10): Promis
     return searchInventaire(query, 'humans', limit);
 };
 
+export const normalizeTitle = (t: string): string => {
+    return t
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove accents
+        .replace(/^(le\s+|la\s+|les\s+|l'|un\s+|une\s+|des\s+|du\s+|de\s+|d'|the\s+|a\s+|an\s+)/i, "") // Strip leading articles
+        .replace(/[^a-z0-9]/g, "") // Remove punctuation/spaces
+        .trim();
+};
+
 export const findWorkUriByTitleAndAuthor = async (title: string, authorName: string): Promise<string | null> => {
     if (!title || !authorName) return null;
     const cleanTitle = title.trim();
@@ -366,9 +376,12 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
 
     if (results.length === 0) return null;
 
+    const normTitleQuery = normalizeTitle(cleanTitle);
+
     // 1. Precise match (Title + Author)
     for (const res of results) {
-        const titleMatch = res.label.toLowerCase().trim() === cleanTitle.toLowerCase();
+        const normResTitle = normalizeTitle(res.label);
+        const titleMatch = normResTitle === normTitleQuery;
         const authorMatch = res.authors?.some(a => 
             a.toLowerCase().includes(cleanAuthor.toLowerCase()) || 
             cleanAuthor.toLowerCase().includes(a.toLowerCase())
@@ -382,8 +395,9 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
             a.toLowerCase().includes(cleanAuthor.toLowerCase()) || 
             cleanAuthor.toLowerCase().includes(a.toLowerCase())
         ) || false;
-        const titleIncluded = res.label.toLowerCase().includes(cleanTitle.toLowerCase()) || 
-                             cleanTitle.toLowerCase().includes(res.label.toLowerCase());
+        const normResTitle = normalizeTitle(res.label);
+        const titleIncluded = normResTitle.includes(normTitleQuery) || 
+                              normTitleQuery.includes(normResTitle);
         
         if (authorMatch && titleIncluded) return res.uri;
     }

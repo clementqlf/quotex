@@ -9,9 +9,9 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatQuote } from '../_shared/formatters.ts';
-import { enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
+import { enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor, normalizeTitle } from '../_shared/inventaire.ts';
 import { discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
-import { analyzeQuoteWithGemini, chatAboutQuoteWithGemini } from '../_shared/gemini.ts';
+import { analyzeQuoteWithGroq, chatAboutQuoteWithGroq } from '../_shared/groq.ts';
 
 
 // ─── DB query helpers ─────────────────────────────────────────────────────────
@@ -40,13 +40,51 @@ async function fetchQuotes(userId: string | null, quoteId?: number) {
     WHERE 1=1 ${where}
     ORDER BY q."date" DESC
   `;
+
+  // Resolve dynamic data (title, cover, author) for recommended books in blockData
+  for (const r of rows) {
+    let blockDataObj: Record<string, any> = {};
+    if (r.blockData) {
+      try {
+        blockDataObj = typeof r.blockData === 'string' ? JSON.parse(r.blockData) : r.blockData;
+      } catch (e) {
+        continue;
+      }
+    }
+    if (blockDataObj && blockDataObj.recommendedBooks && Array.isArray(blockDataObj.recommendedBooks) && blockDataObj.recommendedBooks.length > 0) {
+      const bookIds = blockDataObj.recommendedBooks.map((b: any) => b.id).filter(Boolean);
+      if (bookIds.length > 0) {
+        try {
+          const resolvedBooks = await sql`
+            SELECT b.id, b.title, b.cover, a.name as "authorName"
+            FROM "Book" b
+            LEFT JOIN "Author" a ON a.id = b."authorId"
+            WHERE b.id = ANY(${bookIds})
+          `;
+          blockDataObj.recommendedBooks = blockDataObj.recommendedBooks.map((b: any) => {
+            const matched = resolvedBooks.find((rb: any) => Number(rb.id) === Number(b.id));
+            return {
+              ...b,
+              title: matched?.title || b.title,
+              cover: matched?.cover || null,
+              author: matched?.authorName || b.author
+            };
+          });
+          r.blockData = blockDataObj;
+        } catch (err) {
+          console.error('[Quotes] Failed to resolve recommended books in fetchQuotes:', err);
+        }
+      }
+    }
+  }
+
   return rows;
 }
 
 async function performQuoteAnalysis(quoteId: number) {
   try {
     const rows = await sql`
-      SELECT q.id, q.text, a.name as "authorName", b.title as "bookTitle"
+      SELECT q.id, q.text, q."blockData", a.name as "authorName", b.title as "bookTitle"
       FROM "Quote" q
       LEFT JOIN "Author" a ON a.id = q."authorId"
       LEFT JOIN "Book" b ON b.id = q."bookId"
@@ -56,17 +94,144 @@ async function performQuoteAnalysis(quoteId: number) {
     if (!rows.length) return;
     const q = rows[0];
 
-    console.log(`[Quotes] Triggering Gemini analysis for quote ID ${quoteId}...`);
-    const result = await analyzeQuoteWithGemini(q.text, q.authorName || 'Inconnu', q.bookTitle || 'Inconnu');
+    console.log(`[Quotes] Triggering Groq analysis for quote ID ${quoteId}...`);
+    const result = await analyzeQuoteWithGroq(q.text, q.authorName || 'Inconnu', q.bookTitle || 'Inconnu');
+
+    let blockDataObj: Record<string, any> = {};
+    if (q.blockData) {
+      try {
+        blockDataObj = typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData;
+      } catch (e) {
+        console.error('[Quotes] Error parsing blockData in performQuoteAnalysis:', e);
+      }
+    }
+
+    const recommendedBooks = result.recommendedBooks || [];
+    const resolvedRecBooks = [];
+    const enrichmentTasks: Array<{ type: 'book' | 'author'; id: number }> = [];
+
+    for (const recBook of recommendedBooks) {
+      if (!recBook.title) continue;
+      const recTitle = recBook.title.trim();
+      const recAuthor = recBook.author ? recBook.author.trim() : 'Auteur inconnu';
+
+      try {
+        // Step 1: Find or create author record
+        let authorRecord = null;
+        if (recAuthor && recAuthor !== 'Auteur inconnu') {
+          let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${recAuthor} LIMIT 1`;
+          if (!authorRows.length) {
+            authorRows = await sql`
+              INSERT INTO "Author" (name, "isEnriching") VALUES (${recAuthor}, false) RETURNING *
+            `;
+          }
+          authorRecord = authorRows[0];
+
+          // Queue author enrichment in background if details are missing
+          if (authorRecord && (!authorRecord.description || !authorRecord.inventaireUri)) {
+            enrichmentTasks.push({ type: 'author', id: authorRecord.id });
+          }
+        }
+        const authorIdVal = authorRecord ? authorRecord.id : null;
+
+        // Step 2: Try to find a local book match using normalized title comparison
+        let bookRecord = null;
+        let localMatchFound = false;
+
+        if (authorIdVal) {
+          // Fetch all books for this author to perform local normalized matching
+          const localBooks = await sql`
+            SELECT * FROM "Book" WHERE "authorId" = ${authorIdVal}
+          `;
+          const normRecTitle = normalizeTitle(recTitle);
+          const matchedBook = localBooks.find((b: any) => normalizeTitle(b.title) === normRecTitle);
+          if (matchedBook) {
+            bookRecord = matchedBook;
+            localMatchFound = true;
+            console.log(`[Quotes] Local normalized title match found for "${recTitle}" → "${bookRecord.title}" (ID: ${bookRecord.id})`);
+          }
+        }
+
+        // Step 3: If not matched locally, lookup on Inventaire.io
+        if (!localMatchFound) {
+          console.log(`[Quotes] No local match for "${recTitle}". Querying Inventaire...`);
+          const uri = await findWorkUriByTitleAndAuthor(recTitle, recAuthor);
+          if (!uri) {
+            console.log(`[Quotes] Book "${recTitle}" by "${recAuthor}" not found on Inventaire. Skipping.`);
+            continue; // FILTER OUT: Do not add or display if not found on Inventaire
+          }
+
+          // We got the URI from Inventaire. Check if we already have it in DB by URI
+          const conflictRows = await sql`
+            SELECT * FROM "Book" WHERE "inventaireUri" = ${uri} LIMIT 1
+          `;
+          if (conflictRows.length > 0) {
+            bookRecord = conflictRows[0];
+            console.log(`[Quotes] Inventaire URI match found in DB for "${recTitle}" (URI: ${uri}) → "${bookRecord.title}" (ID: ${bookRecord.id})`);
+          } else {
+            // It's a new book, but verified via Inventaire!
+            const bookRows = await sql`
+              INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching")
+              VALUES (${recTitle}, ${authorIdVal}, ${uri}, false) RETURNING *
+            `;
+            bookRecord = bookRows[0];
+            console.log(`[Quotes] Created new verified book record for "${recTitle}" (URI: ${uri}) (ID: ${bookRecord.id})`);
+          }
+        }
+
+        // Step 4: Queue enrichment for this book if details are missing
+        if (bookRecord) {
+          if (!bookRecord.cover || !bookRecord.description || !bookRecord.inventaireUri) {
+            enrichmentTasks.push({ type: 'book', id: bookRecord.id });
+          }
+
+          resolvedRecBooks.push({
+            id: bookRecord.id,
+            title: bookRecord.title,
+            author: recAuthor,
+          });
+        }
+
+      } catch (err) {
+        console.error(`[Quotes] Failed to process recommended book "${recTitle}":`, err);
+      }
+    }
+
+    blockDataObj.recommendedBooks = resolvedRecBooks;
 
     await sql`
       UPDATE "Quote"
       SET 
         "aiInterpretation" = ${result.interpretation},
-        "theme" = COALESCE("theme", ${result.theme})
+        "theme" = COALESCE("theme", ${result.theme}),
+        "blockData" = ${JSON.stringify(blockDataObj)}
       WHERE id = ${quoteId}
     `;
     console.log(`[Quotes] Successfully analyzed quote ID ${quoteId}`);
+
+    // Trigger sequential background enrichment for all gathered books and authors
+    if (enrichmentTasks.length > 0 && typeof EdgeRuntime !== 'undefined') {
+      EdgeRuntime.waitUntil((async () => {
+        console.log(`[Quotes] Starting sequential background enrichment for ${enrichmentTasks.length} entities...`);
+        for (const task of enrichmentTasks) {
+          try {
+            // Wait 500ms between enrichments to prevent rate limiting / resource spikes
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (task.type === 'book') {
+              console.log(`[Quotes] Background enriching recommended book ID: ${task.id}`);
+              await discoverAndEnrichBook(task.id);
+            } else if (task.type === 'author') {
+              console.log(`[Quotes] Background enriching recommended author ID: ${task.id}`);
+              await enrichAuthorWithInventaire(task.id);
+            }
+          } catch (err) {
+            console.error(`[Quotes] Background enrichment failed for ${task.type} ID ${task.id}:`, err);
+          }
+        }
+        console.log('[Quotes] Sequential background enrichment finished.');
+      })());
+    }
+
   } catch (e) {
     console.error(`[Quotes] Background analysis failed for quote ID ${quoteId}:`, e);
   }
@@ -233,7 +398,7 @@ serve(async (req: Request) => {
       if (!rows.length) return error('Quote not found', 404);
       const q = rows[0];
 
-      const responseText = await chatAboutQuoteWithGemini(
+      const responseText = await chatAboutQuoteWithGroq(
         q.text,
         q.authorName || 'Inconnu',
         q.bookTitle || 'Inconnu',
@@ -304,7 +469,7 @@ serve(async (req: Request) => {
     if (req.method === 'PATCH' && idParam && !subAction) {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
-  
+
       const { text, author, book, theme, blockData } = await req.json();
       const existingRows = await sql`
         SELECT q.*, row_to_json(a) as author, row_to_json(b) as book,
@@ -316,10 +481,10 @@ serve(async (req: Request) => {
       `;
       if (!existingRows.length) return error('Quote not found', 404);
       const existing = existingRows[0];
-  
+
       let authorId = existing.authorId ?? existing.authorid;
       let bookId = existing.bookId ?? existing.bookid;
-  
+
       // 1. Resolve Author
       if (author !== undefined) {
         if (author === null || (typeof author === 'string' && (author.trim() === '' || author.trim() === 'Auteur inconnu'))) {
@@ -338,7 +503,7 @@ serve(async (req: Request) => {
           }
         }
       }
-  
+
       // 2. Resolve Book
       if (book !== undefined) {
         if (book === null || (typeof book === 'string' && (book.trim() === '' || book.trim() === 'Livre inconnu'))) {
@@ -406,7 +571,7 @@ serve(async (req: Request) => {
           "blockData" = ${blockData !== undefined ? (blockData ? JSON.stringify(blockData) : null) : (existing.blockData ?? null)}
         WHERE "id" = ${idParam}
       `;
-  
+
       const updatedRows = await fetchQuotes(authUser.id, idParam);
       return json(formatQuote(updatedRows[0], authUser.id));
     }
