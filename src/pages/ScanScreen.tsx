@@ -3,7 +3,6 @@ import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -82,7 +81,7 @@ const CameraContainer = React.memo(({
     <Camera
       style={StyleSheet.absoluteFill}
       device={device}
-      isActive={true}
+      isActive={isFocused}
       photo
       pixelFormat="yuv"
       outputOrientation="preview"
@@ -474,34 +473,7 @@ export default function ScanScreen() {
     setSwipeEnabled(!(photo && ocrElements));
   }, [photo, ocrElements, setSwipeEnabled]);
 
-  // useEffect(() => {
-  //   if (photo) {
-  //     scanAnimation.stopAnimation();
-  //     scanAnimation.setValue(0);
-  //     return;
-  //   }
-  //   const animation = Animated.loop(
-  //     Animated.sequence([
-  //       Animated.timing(scanAnimation, {
-  //         toValue: 1,
-  //         duration: 2000,
-  //         useNativeDriver: true,
-  //       }),
-  //       Animated.timing(scanAnimation, {
-  //         toValue: 0,
-  //         duration: 2000,
-  //         useNativeDriver: true,
-  //       }),
-  //     ]),
-  //   );
-  //   animation.start();
-  //   return () => animation.stop();
-  // }, [photo, scanAnimation]);
 
-  // const translateY = scanAnimation.interpolate({
-  //   inputRange: [0, 1],
-  //   outputRange: [-140, 140],
-  // });
 
   // processImage a été déplacé dans mlKitParser.ts sous le nom recognizeAndExtractElements
 
@@ -752,16 +724,7 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {photo && ocrElements ? (
-        <ScanWorkflow
-          photo={photo}
-          ocrElements={ocrElements}
-          ocrBlocks={ocrBlocks || []}
-          onReset={handleResetCapture}
-          isGallery={isFromGallery}
-          normalizedSize={ocrNormalizedSize}
-        />
-      ) : isFocused && !photo && !isPickerActive ? (
+      {!isPickerActive && (
         <CameraContainer
           device={device}
           cameraRef={cameraRef}
@@ -770,10 +733,21 @@ export default function ScanScreen() {
           isSearchingIsbn={isSearchingIsbn}
           isLoading={isLoading}
           photo={photo}
-          isFocused={isFocused}
+          isFocused={isFocused && !photo}
           onTextDetectedChange={handleTextDetectedChange}
         />
-      ) : null}
+      )}
+
+      {photo && ocrElements && (
+        <ScanWorkflow
+          photo={photo}
+          ocrElements={ocrElements}
+          ocrBlocks={ocrBlocks || []}
+          onReset={handleResetCapture}
+          isGallery={isFromGallery}
+          normalizedSize={ocrNormalizedSize}
+        />
+      )}
 
       {isLoading && (
         <View style={styles.loadingOverlay}>

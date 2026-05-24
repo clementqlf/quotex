@@ -18,6 +18,14 @@ class AuthorService {
         return headers;
     }
 
+    private mapBookFromServer(b: any): Book {
+        return {
+            ...b,
+            buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
+            similarBooks: b.similarBooks || [],
+        };
+    }
+
     async getAuthors(): Promise<Author[]> {
         try {
             const headers = await this.getHeaders();
@@ -87,12 +95,7 @@ class AuthorService {
             const response = await fetch(url, { headers });
             if (response.ok) {
                 const books = await response.json();
-                const mappedBooks = books.map((b: any) => ({
-                    ...b,
-                    buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
-                    similarBooks: b.similarBooks || []
-                }));
-                return mappedBooks;
+                return books.map((b: any) => this.mapBookFromServer(b));
             }
         } catch (error) {
             console.error('Error fetching author books from server:', error);
@@ -106,25 +109,21 @@ class AuthorService {
 
     async getBookByTitle(title: string): Promise<Book | undefined> {
         try {
-            console.log(`[AuthorService] Fetching book by title: ${title}`);
             const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books?t=${Date.now()}`, { headers }); // Add timestamp to prevent caching
+            const response = await fetch(`${this.API_URL}/books`, { headers });
             if (response.ok) {
                 const books = await response.json();
                 const book = books.find((b: any) => b.title === title);
                 if (book) {
-                    book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
-                    book.similarBooks = book.similarBooks || [];
+                    return this.mapBookFromServer(book);
                 }
-                console.log(`[AuthorService] Found book: ${title}, rating: ${book?.rating}`);
-                return book;
+                return undefined;
             }
         } catch (error) {
             console.error('Error fetching book by title:', error);
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        console.log('[AuthorService] Fallback to storage');
         return (storedBooks || []).find(b => b.title === title);
     }
 
@@ -134,9 +133,7 @@ class AuthorService {
             const response = await fetch(`${this.API_URL}/books/${id}`, { headers });
             if (response.ok) {
                 const book = await response.json();
-                book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
-                book.similarBooks = book.similarBooks || [];
-                return book;
+                return this.mapBookFromServer(book);
             }
         } catch (error) {
             console.error('Error fetching book by ID:', error);
@@ -187,9 +184,7 @@ class AuthorService {
             });
             if (response.ok) {
                 const book = await response.json();
-                book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
-                book.similarBooks = book.similarBooks || [];
-                return book;
+                return this.mapBookFromServer(book);
             }
         } catch (error) {
             console.error('Error updating book status:', error);
@@ -199,7 +194,6 @@ class AuthorService {
 
     async importBook(bookData: Partial<Book>): Promise<Book | undefined> {
         try {
-            console.log(`[AuthorService] Importing book: ${bookData.title}`);
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books/import`, {
                 method: 'POST',
@@ -219,9 +213,7 @@ class AuthorService {
             });
             if (response.ok) {
                 const book = await response.json();
-                book.buyLinks = book.buyLinks && typeof book.buyLinks === 'string' ? JSON.parse(book.buyLinks) : (book.buyLinks || []);
-                book.similarBooks = book.similarBooks || [];
-                return book;
+                return this.mapBookFromServer(book);
             }
         } catch (error) {
             console.error('Error importing book:', error);
@@ -235,11 +227,7 @@ class AuthorService {
             const response = await fetch(`${this.API_URL}/books`, { headers });
             if (response.ok) {
                 const books = await response.json();
-                const mappedBooks = books.map((b: any) => ({
-                    ...b,
-                    buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
-                    similarBooks: b.similarBooks || []
-                }));
+                const mappedBooks = books.map((b: any) => this.mapBookFromServer(b));
                 await StorageService.setItem(STORAGE_KEYS.BOOKS, mappedBooks);
                 return mappedBooks;
             }
@@ -254,16 +242,11 @@ class AuthorService {
 
     async getNotableWorks(authorId: number): Promise<Book[]> {
         try {
-            console.log(`[AuthorService] Fetching/Syncing notable works for author: ${authorId}`);
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/${authorId}/notable-works`, { headers });
             if (response.ok) {
                 const books = await response.json();
-                return books.map((b: any) => ({
-                    ...b,
-                    buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
-                    similarBooks: b.similarBooks || []
-                }));
+                return books.map((b: any) => this.mapBookFromServer(b));
             }
         } catch (error) {
             console.error('Error fetching notable works:', error);

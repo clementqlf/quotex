@@ -25,7 +25,7 @@ type DataContextType = {
     // Book data management
     getBookData: (bookTitle: string) => Promise<Record<string, any>>;
     updateBookData: (bookTitle: string, data: Record<string, any>) => Promise<void>;
-    addQuote: (text: string, book: string, author: string) => Promise<void>;
+    addQuote: (text: string, book?: string | null, author?: string | null) => Promise<void>;
     getUserByUsername: (username: string) => Promise<any>;
     getBookByTitle: (title: string) => Promise<Book | undefined>;
     getBookById: (id: number) => Promise<Book | undefined>;
@@ -168,13 +168,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         // Call service
         await quoteService.updateQuote(id, updates);
         
-        // REFRESH FROM SERVER
-        await Promise.all([
-            refreshQuotes('updateQuote complete'),
-            refreshAuthors('updateQuote complete'),
-            refreshBooks('updateQuote complete')
-        ]);
-    }, [refreshQuotes, refreshAuthors, refreshBooks]);
+        // Only refresh quotes from server
+        await refreshQuotes('updateQuote complete');
+    }, [refreshQuotes]);
 
     const getBookData = useCallback(async (bookTitle: string) => {
         return await BlockService.getBlockData(bookTitle, 'book');
@@ -184,13 +180,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         await BlockService.saveBlockData(bookTitle, 'book', data);
     }, []);
 
-    const addQuote = useCallback(async (text: string, book: string, author: string) => {
+    const addQuote = useCallback(async (text: string, book?: string | null, author?: string | null) => {
+        const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
+        const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+
         const tempId = Date.now();
         const newQuote: Quote = {
             id: tempId,
             text,
-            book,
-            author,
+            book: cleanBook,
+            author: cleanAuthor,
             likesCount: 0,
             isLiked: false,
             date: new Date().toISOString(),
@@ -201,14 +200,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setQuotes(prev => [newQuote, ...prev]);
 
 
-        await quoteService.addQuote(text, book, author);
+        await quoteService.addQuote(text, cleanBook, cleanAuthor);
         
-        await Promise.all([
-            refreshQuotes(),
-            refreshAuthors(),
-            refreshBooks()
-        ]);
-    }, [refreshQuotes, refreshAuthors, refreshBooks]);
+        await refreshQuotes();
+    }, [refreshQuotes]);
 
     const getUserByUsername = useCallback(async (username: string) => {
         return await quoteService.getUserByUsername(username);

@@ -108,65 +108,85 @@ serve(async (req: Request) => {
       if (authUser instanceof Response) return authUser;
 
       const { text, author, book, theme, blockData } = await req.json();
-      if (!text || !author || !book) return error('Missing required fields', 400);
+      if (!text) return error('Missing required field: text', 400);
 
-      // ... (author and book resolution logic omitted for brevity, keeping existing logic) ...
+      const hasAuthor = author && typeof author === 'string' && author.trim() !== '' && author.trim() !== 'Auteur inconnu';
+      const hasBook = book && typeof book === 'string' && book.trim() !== '' && book.trim() !== 'Livre inconnu';
+
       // Find or create author
-      let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${author} LIMIT 1`;
-      let authorRecord;
-      if (!authorRows.length) {
-        authorRows = await sql`
-          INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, false) RETURNING *
-        `;
-        authorRecord = authorRows[0];
-      } else {
-        authorRecord = authorRows[0];
-      }
+      let authorRecord = null;
+      if (hasAuthor) {
+        const authorName = author.trim();
+        let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${authorName} LIMIT 1`;
+        if (!authorRows.length) {
+          authorRows = await sql`
+            INSERT INTO "Author" (name, "isEnriching") VALUES (${authorName}, false) RETURNING *
+          `;
+          authorRecord = authorRows[0];
+        } else {
+          authorRecord = authorRows[0];
+        }
 
-      // Trigger enrichment if missing URI or description (or recently created)
-      if (!authorRecord.inventaireUri || !authorRecord.description) {
-        console.log(`[Quotes] Triggering enrichment for author: ${authorRecord.name} (ID: ${authorRecord.id})`);
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
+        // Trigger enrichment if missing URI or description (or recently created)
+        if (!authorRecord.inventaireUri || !authorRecord.description) {
+          console.log(`[Quotes] Triggering enrichment for author: ${authorRecord.name} (ID: ${authorRecord.id})`);
           // @ts-ignore deno
-          EdgeRuntime.waitUntil(enrichAuthorWithInventaire(authorRecord.id));
+          if (typeof EdgeRuntime !== 'undefined') {
+            // @ts-ignore deno
+            EdgeRuntime.waitUntil(enrichAuthorWithInventaire(authorRecord.id));
+          }
         }
       }
 
       // Find or create book
-      let bookRows = await sql`
-        SELECT * FROM "Book" WHERE title = ${book} AND "authorId" = ${authorRecord.id} LIMIT 1
-      `;
-      if (!bookRows.length) {
-        bookRows = await sql`
-          INSERT INTO "Book" (title, "authorId", "isEnriching")
-          VALUES (${book}, ${authorRecord.id}, false) RETURNING *
+      let bookRecord = null;
+      if (hasBook) {
+        const bookTitle = book.trim();
+        const authorIdVal = authorRecord ? authorRecord.id : null;
+        let bookRows;
+        if (authorIdVal) {
+          bookRows = await sql`
+            SELECT * FROM "Book" WHERE title = ${bookTitle} AND "authorId" = ${authorIdVal} LIMIT 1
+          `;
+        } else {
+          bookRows = await sql`
+            SELECT * FROM "Book" WHERE title = ${bookTitle} AND "authorId" IS NULL LIMIT 1
+          `;
+        }
+        if (!bookRows.length) {
+          bookRows = await sql`
+            INSERT INTO "Book" (title, "authorId", "isEnriching")
+            VALUES (${bookTitle}, ${authorIdVal}, false) RETURNING *
+          `;
+        }
+        bookRecord = bookRows[0];
+
+        // Background book discovery
+        if (!bookRecord.description || !bookRecord.inventaireUri) {
+          console.log(`[Quotes] Triggering discovery/enrichment for book: ${bookRecord.title} (ID: ${bookRecord.id})`);
+          // @ts-ignore deno
+          if (typeof EdgeRuntime !== 'undefined') {
+            // @ts-ignore deno
+            EdgeRuntime.waitUntil(discoverAndEnrichBook(bookRecord.id));
+          }
+        }
+
+        // Add to user library
+        await sql`
+          INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
+          VALUES (${authUser.id}, ${bookRecord.id}, 'READING', now())
+          ON CONFLICT ("userId", "bookId") 
+          DO UPDATE SET status = COALESCE("UserBook".status, EXCLUDED.status)
         `;
       }
-      const bookRecord = bookRows[0];
-
-      // Background book discovery
-      if (!bookRecord.description || !bookRecord.inventaireUri) {
-        console.log(`[Quotes] Triggering discovery/enrichment for book: ${bookRecord.title} (ID: ${bookRecord.id})`);
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(discoverAndEnrichBook(bookRecord.id));
-        }
-      }
-
-      // Add to user library
-      await sql`
-        INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
-        VALUES (${authUser.id}, ${bookRecord.id}, 'READING', now())
-        ON CONFLICT ("userId", "bookId") 
-        DO UPDATE SET status = COALESCE("UserBook".status, EXCLUDED.status)
-      `;
 
       // Create quote
+      const authorIdToInsert = authorRecord ? authorRecord.id : null;
+      const bookIdToInsert = bookRecord ? bookRecord.id : null;
+
       const quoteRows = await sql`
         INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData")
-        VALUES (${text}, now(), ${authorRecord.id}, ${bookRecord.id}, ${authUser.id}, ${theme ?? null}, 0, ${blockData ? JSON.stringify(blockData) : null})
+        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${theme ?? null}, 0, ${blockData ? JSON.stringify(blockData) : null})
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;
@@ -301,43 +321,89 @@ serve(async (req: Request) => {
       let bookId = existing.bookId ?? existing.bookid;
   
       // 1. Resolve Author
-      if (author && typeof author === 'string') {
-        const existingAuthorName = (existing.author as any)?.name;
-        if (author !== existingAuthorName) {
-          let aRows = await sql`SELECT id FROM "Author" WHERE name = ${author} LIMIT 1`;
-          if (!aRows.length) {
-            aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${author}, false) RETURNING id`;
-            // @ts-ignore deno
-            if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
+      if (author !== undefined) {
+        if (author === null || (typeof author === 'string' && (author.trim() === '' || author.trim() === 'Auteur inconnu'))) {
+          authorId = null;
+        } else if (typeof author === 'string') {
+          const trimmedAuthor = author.trim();
+          const existingAuthorName = (existing.author as any)?.name;
+          if (trimmedAuthor !== existingAuthorName) {
+            let aRows = await sql`SELECT id FROM "Author" WHERE name = ${trimmedAuthor} LIMIT 1`;
+            if (!aRows.length) {
+              aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${trimmedAuthor}, false) RETURNING id`;
+              // @ts-ignore deno
+              if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
+            }
+            authorId = aRows[0].id;
           }
-          authorId = aRows[0].id;
         }
       }
   
       // 2. Resolve Book
-      const currentBookTitle = (existing.book as any)?.title;
-      const newBookTitle = (typeof book === 'string') ? book : currentBookTitle;
-  
-      if (newBookTitle) {
-        if (book || authorId !== (existing.authorId ?? existing.authorid)) {
-          let bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
+      if (book !== undefined) {
+        if (book === null || (typeof book === 'string' && (book.trim() === '' || book.trim() === 'Livre inconnu'))) {
+          bookId = null;
+        } else if (typeof book === 'string') {
+          const newBookTitle = book.trim();
+          const authorIdVal = authorId;
+          let bRows;
+          if (authorIdVal) {
+            bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorIdVal} LIMIT 1`;
+          } else {
+            bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" IS NULL LIMIT 1`;
+          }
           if (!bRows.length) {
-            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorId}, false) RETURNING id`;
+            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, false) RETURNING id`;
             // @ts-ignore deno
-            if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+            if (typeof EdgeRuntime !== 'undefined') {
+              EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+            }
+          }
+          bookId = bRows[0].id;
+        }
+      } else {
+        // book is undefined, but authorId might have changed
+        const currentBookTitle = (existing.book as any)?.title;
+        if (currentBookTitle && authorId !== (existing.authorId ?? existing.authorid)) {
+          let bRows;
+          if (authorId) {
+            bRows = await sql`SELECT id FROM "Book" WHERE title = ${currentBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
+          } else {
+            bRows = await sql`SELECT id FROM "Book" WHERE title = ${currentBookTitle} AND "authorId" IS NULL LIMIT 1`;
+          }
+          if (!bRows.length) {
+            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, false) RETURNING id`;
+            // @ts-ignore deno
+            if (typeof EdgeRuntime !== 'undefined') {
+              EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+            }
           }
           bookId = bRows[0].id;
         }
       }
-  
       // 3. Update the Quote
+      console.log('[DEBUG PATCH]', {
+        text: text !== undefined ? text : existing.text,
+        theme: theme !== undefined ? theme : existing.theme,
+        authorId,
+        bookId,
+        blockData: blockData !== undefined ? blockData : existing.blockData,
+        existingBlockData: existing.blockData,
+        existingText: existing.text,
+        existingTheme: existing.theme,
+        existingAuthorId: existing.authorId,
+        existingAuthorid: existing.authorid,
+        existingBookId: existing.bookId,
+        existingBookid: existing.bookid
+      });
+
       await sql`
         UPDATE "Quote" SET
-          "text" = ${text ?? existing.text},
-          "theme" = ${theme ?? existing.theme},
-          "authorId" = ${authorId},
-          "bookId" = ${bookId},
-          "blockData" = ${blockData ? JSON.stringify(blockData) : existing.blockData}
+          "text" = ${text !== undefined ? text : (existing.text ?? null)},
+          "theme" = ${theme !== undefined ? theme : (existing.theme ?? null)},
+          "authorId" = ${authorId ?? null},
+          "bookId" = ${bookId ?? null},
+          "blockData" = ${blockData !== undefined ? (blockData ? JSON.stringify(blockData) : null) : (existing.blockData ?? null)}
         WHERE "id" = ${idParam}
       `;
   

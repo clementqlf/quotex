@@ -202,7 +202,7 @@ export const mockReviews: { [key: string]: Array<{ id: string; user: { name: str
   ]
 };
 
-export let localQuotesDB = [
+export const localQuotesDB = [
   {
     id: 1,
     text: "The only way to do great work is to love what you do.",
@@ -235,7 +235,7 @@ export let localQuotesDB = [
   },
 ];
 
-export let globalQuotesDB = [
+export const globalQuotesDB = [
   {
     id: 4, // Changed ID to avoid conflict
     user: {
@@ -303,36 +303,3 @@ export let globalQuotesDB = [
 ];
 
 // --- Simulation de la base de données ---
-
-/**
- * Simule l'ajout d'une citation à la base de données locale et globale.
- * Dans une vraie application, cette fonction ferait des appels API.
- * @param quoteData Les données de la citation à ajouter.
- */
-export const addQuote = (quoteData: { text: string; book: string; author: string }) => {
-  // Simule l'ajout à la base de données locale (ex: AsyncStorage)
-  const newLocalQuote = {
-    id: Date.now(), // Utilise un timestamp pour un ID unique
-    ...quoteData,
-    date: "À l'instant",
-    theme: "Général", // Ajout d'un thème par défaut
-    likes: 0,
-    isLiked: false,
-  };
-  localQuotesDB.unshift(newLocalQuote); // Ajoute au début du tableau
-
-  // Simule l'envoi à la base de données globale (ex: Firestore)
-  const newGlobalQuote = {
-    id: Date.now() + 1, // ID légèrement différent pour éviter les conflits de clés
-    user: { id: "1", name: "Clément QLF", username: "@clementqlf" }, // Utilisateur actuel (à dynamiser)
-    ...quoteData,
-    time: "À l'instant",
-    likes: 0,
-    comments: 0,
-    isLiked: false,
-    isSaved: false,
-  };
-  globalQuotesDB.unshift(newGlobalQuote);
-
-  console.log("Citation ajoutée aux DBs:", { newLocalQuote, newGlobalQuote });
-};

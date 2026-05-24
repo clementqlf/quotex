@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,20 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Image,
-  Share,
   RefreshControl,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withRepeat,
-  withSequence
 } from 'react-native-reanimated';
+import { FlashList } from '@shopify/flash-list';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { Search, Filter, Heart, Share2, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useTabIndex } from '@/src/app/providers/TabContext';
@@ -32,11 +28,17 @@ import { useTabIndex } from '@/src/app/providers/TabContext';
 import { useData } from '@/src/app/providers/DataProvider';
 import { Quote, Book } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
-import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 
-type FilterType = { type: 'author' | 'book' | 'year' | 'status'; value: string | number };
+// Extracted components
+import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
+import BookCardItem from '@/src/entities/book/ui/BookCardItem';
+import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
+import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
+import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
+import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
+import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
 
 export default function MyQuotesScreen() {
   const router = useRouter();
@@ -50,18 +52,15 @@ export default function MyQuotesScreen() {
   // Filter for "My Quotes" (current user matches their UUID)
   const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id === currentUser?.id), [allQuotes, currentUser]);
 
-  const [quotesToDisplay, setQuotesToDisplay] = useState(myQuotes);
-
   const { tabIndex, setTabIndex } = useTabIndex();
   const isFocused = tabIndex === 0;
-  const scrollViewRef = useRef<ScrollView>(null);
 
   // Edit State
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [actionMenuQuote, setActionMenuQuote] = useState<Quote | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await Promise.all([
@@ -105,22 +104,13 @@ export default function MyQuotesScreen() {
     let interval: ReturnType<typeof setInterval> | null = null;
 
     if (hasEnrichingItems && isFocused) {
-      const enrichingItems = myQuotes.reduce((acc, q) => {
-        if (q.book && typeof q.book === 'object' && (q.book as any).isEnriching) acc.add(`Livre: ${(q.book as any).title}`);
-        if (q.author && typeof q.author === 'object' && (q.author as any).isEnriching) acc.add(`Auteur: ${(q.author as any).name}`);
-        return acc;
-      }, new Set<string>());
-      
-      console.log(`[MyQuotesScreen] Polling active. Items enriching: ${Array.from(enrichingItems).join(', ')}`);
-      
       interval = setInterval(() => {
         refreshQuotes();
-      }, 5000);
+      }, 10000);
     }
 
     return () => {
       if (interval) {
-        console.log('[MyQuotesScreen] Stopping polling');
         clearInterval(interval);
       }
     };
@@ -145,13 +135,16 @@ export default function MyQuotesScreen() {
     opacity: fadeAnim.value,
   }));
 
-  const authors = [...new Set(myQuotes.map(q => getAuthorName(q.author)))];
-  const books = [...new Set(myQuotes.map(q => getBookTitle(q.book)))];
-  const years = [...new Set(
+  // Memoized derived data
+  const authors = useMemo(() => [...new Set(myQuotes.map(q => getAuthorName(q.author)))], [myQuotes]);
+  const books = useMemo(() => [...new Set(myQuotes.map(q => getBookTitle(q.book)))], [myQuotes]);
+  const years = useMemo(() => [...new Set(
     myQuotes
       .map(q => bookDescriptions[getBookTitle(q.book)]?.year)
       .filter((year): year is number => !!year)
-  )].sort((a, b) => b - a);
+  )].sort((a, b) => b - a), [myQuotes]);
+
+  const bookCount = useMemo(() => new Set(myQuotes.map(q => getBookTitle(q.book))).size, [myQuotes]);
 
   // Liste des thèmes (notion abordée)
   const themes = useMemo(() => {
@@ -171,8 +164,8 @@ export default function MyQuotesScreen() {
       .sort((a, b) => a.theme.localeCompare(b.theme));
   }, [myQuotes]);
 
-  // Update displayed quotes when source or filters change
-  useEffect(() => {
+  // Derived filtered quotes — useMemo instead of useState+useEffect
+  const quotesToDisplay = useMemo(() => {
     let filtered = [...myQuotes];
     if (activeFilters.length > 0) {
       const filtersByType = activeFilters.reduce((acc, filter) => {
@@ -197,18 +190,15 @@ export default function MyQuotesScreen() {
         return authorMatch && bookMatch && yearMatch && statusMatch;
       });
     }
-    setQuotesToDisplay(filtered);
+    return filtered;
+  }, [myQuotes, activeFilters, allBooks]);
 
-    // Sync temp filters
+  // Sync temp filters when active filters change
+  useEffect(() => {
     setTempFilters([...activeFilters]);
-  }, [myQuotes, activeFilters]);
+  }, [activeFilters]);
 
-  const handleDeleteQuote = (id: number) => {
-    deleteQuote(id);
-  };
-
-
-  const toggleTempFilter = (type: 'author' | 'book' | 'year' | 'status', value: string | number) => {
+  const toggleTempFilter = useCallback((type: 'author' | 'book' | 'year' | 'status', value: string | number) => {
     setTempFilters(currentFilters => {
       const existingFilterIndex = currentFilters.findIndex(f => f.type === type && f.value === value);
       if (existingFilterIndex > -1) {
@@ -217,306 +207,34 @@ export default function MyQuotesScreen() {
         return [...currentFilters, { type, value }];
       }
     });
-  };
+  }, []);
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     setActiveFilters([...tempFilters]);
     setFilterModalVisible(false);
     setExpandedSection(null);
-  };
+  }, [tempFilters]);
 
-  const removeFilter = (filterToRemove: FilterType) => {
+  const removeFilter = useCallback((filterToRemove: FilterType) => {
     setActiveFilters(currentFilters =>
       currentFilters.filter(
         f => !(f.type === filterToRemove.type && f.value === filterToRemove.value)
       )
     );
-  };
+  }, []);
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setActiveFilters([]);
     setTempFilters([]);
     if (filterModalVisible) {
-      // Si la modale est ouverte, on la ferme
       setFilterModalVisible(false);
       setExpandedSection(null);
     }
-  };
+  }, [filterModalVisible]);
 
-  const isEnriching = (item: any) => {
-    if (item && typeof item === 'object') return !!item.isEnriching;
-    return false;
-  };
-
-  const EnrichingSkeleton = ({ width = 120, height = 14 }: { width?: number, height?: number }) => {
-    const pulseAnim = useSharedValue(0.4);
-
-    useEffect(() => {
-      pulseAnim.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 1000 }),
-          withTiming(0.4, { duration: 1000 })
-        ),
-        -1,
-        true
-      );
-    }, []);
-
-    const pulseStyle = useAnimatedStyle(() => ({
-      opacity: pulseAnim.value,
-    }));
-
-    return (
-      <Animated.View
-        style={[
-          styles.skeleton,
-          { width, height },
-          pulseStyle
-        ]}
-      />
-    );
-  };
-
-  // Quote Card without Swipe
-  const QuoteCard = ({ quote }: { quote: Quote }) => {
-    const isBookEnriching = isEnriching(quote.book);
-    const isAuthorEnriching = isEnriching(quote.author);
-
-    return (
-      <View style={styles.cardWrapper}>
-        <View style={styles.quoteCard}>
-          {/* 3-Dots Menu Button - Top Left */}
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={(e) => {
-              e.stopPropagation();
-              setActionMenuQuote(quote);
-            }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MoreVertical size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
-
-          <Pressable
-            onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
-            style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-          >
-            {/* Quote Icon (custom SVG) */}
-            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none" style={styles.quoteIcon}>
-              <Path
-                d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
-                fill={colors.primary}
-                opacity={0.12}
-              />
-            </Svg>
-
-            {/* Quote Text */}
-            <Text style={styles.quoteText}>{quote.text}</Text>
-
-            {/* Book Info */}
-            <View style={styles.bookInfo}>
-              <View style={styles.bookInfoLeft}>
-                {isBookEnriching && !getBookTitle(quote.book) ? (
-                  <EnrichingSkeleton width={140} />
-                ) : (
-                  <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
-                )}
-
-                {isAuthorEnriching && !getAuthorName(quote.author) ? (
-                  <EnrichingSkeleton width={80} height={12} />
-                ) : (
-                  <Text style={styles.authorName}>
-                    {getAuthorName(quote.author)}
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>
-            </View>
-          </Pressable>
-
-          {/* Actions */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => toggleLikeQuote(quote.id)}
-            >
-              <Heart
-                size={20}
-                color={quote.isLiked ? colors.primary : colors.textTertiary}
-                fill={quote.isLiked ? colors.primary : 'none'}
-              />
-              <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
-                {quote.likesCount}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={() => {
-              const handleShare = async () => {
-                try {
-                  const authorName = getAuthorName(quote.author);
-                  const message = `"${quote.text}"\n- ${authorName}\n(via Quotex)`;
-                  await Share.share({
-                    message,
-                  });
-                } catch (error) {
-                  console.error('Error sharing:', error);
-                }
-              };
-              handleShare();
-            }}>
-              <Share2 size={20} color={colors.textTertiary} />
-              <Text style={styles.actionText}>Partager</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  // Book Card Item
-  const BookCardItem = ({ book }: { book: any }) => {
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.bookCard,
-          { opacity: pressed ? 0.85 : 1 }
-        ]}
-        onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
-      >
-        <View style={styles.bookCardContent}>
-          {book.cover ? (
-            <Image source={{ uri: book.cover }} style={styles.bookCardCover} />
-          ) : (
-            <View style={styles.bookCardCoverPlaceholder} />
-          )}
-          <View style={styles.bookCardInfo}>
-            <View style={styles.bookCardHeader}>
-              <Text style={styles.bookCardTitle}>{book.title}</Text>
-              {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8 }}>
-              <Text style={[styles.bookCardAuthor, { marginBottom: 0, flex: 1 }]} numberOfLines={1}>
-                {book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
-              </Text>
-              {book.readingStatus && (
-                <View style={[styles.statusBadge, {
-                  backgroundColor: getStatusColor(book.readingStatus) + '15',
-                  borderColor: getStatusColor(book.readingStatus) + '40',
-                  marginTop: 0
-                }]}>
-                  <Text style={[styles.statusText, { color: getStatusColor(book.readingStatus) }]}>
-                    {getStatusLabel(book.readingStatus)}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
-            <Text style={[styles.bookCardCount, { marginTop: 8 }]}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
-          </View>
-        </View>
-      </Pressable>
-    );
-  };
-
-  // Author Card Item
-  const AuthorCardItem = ({ author }: { author: any }) => {
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.bookCard,
-          { opacity: pressed ? 0.85 : 1 }
-        ]}
-        onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
-      >
-        <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
-          {author.image ? (
-            <Image source={{ uri: author.image }} style={styles.authorAvatar} />
-          ) : (
-            <View style={styles.authorAvatarPlaceholder}>
-              <Text style={styles.authorAvatarText}>{author.name.charAt(0)}</Text>
-            </View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.bookCardTitle, { marginBottom: 4 }]}>{author.name}</Text>
-            <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
-          </View>
-          <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
-        </View>
-      </Pressable>
-    );
-  };
-
-  // Theme Card Item
-  const ThemeCardItem = ({ theme }: { theme: any }) => {
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.bookCard,
-          { opacity: pressed ? 0.85 : 1 }
-        ]}
-        onPress={() => router.navigate({ pathname: '/theme-detail', params: { themeName: theme.theme } })}
-      >
-        <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
-          <View style={styles.themeIconContainer}>
-            <Text style={styles.themeIconText}>{theme.theme[0]}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.themeTitle}>{theme.theme}</Text>
-            <Text style={styles.themeSubText}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
-          </View>
-        </View>
-      </Pressable>
-    );
-  };
-
-  // Action Menu Modal
-  const QuoteActionModal = () => (
-    <Modal
-      visible={!!actionMenuQuote}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setActionMenuQuote(null)}
-    >
-      <Pressable style={styles.modalBackdrop} onPress={() => setActionMenuQuote(null)}>
-        <View style={styles.actionMenuContainer}>
-          <View style={styles.actionMenuHeader}>
-            <Text style={styles.actionMenuTitle}>Options</Text>
-            <TouchableOpacity onPress={() => setActionMenuQuote(null)}>
-              <X size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            style={styles.actionMenuItem}
-            onPress={() => {
-              if (actionMenuQuote) {
-                setEditingQuote(actionMenuQuote);
-                setShowManualQuoteModal(true);
-              }
-              setActionMenuQuote(null);
-            }}
-          >
-            <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Modifier</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
-            onPress={() => {
-              if (actionMenuQuote) {
-                handleDeleteQuote(actionMenuQuote.id);
-              }
-              setActionMenuQuote(null);
-            }}
-          >
-            <Trash2 size={20} color={colors.warning} style={{ marginRight: 12 }} />
-            <Text style={[styles.actionMenuText, { color: colors.warning }]}>Supprimer</Text>
-          </TouchableOpacity>
-        </View>
-      </Pressable>
-    </Modal>
-  );
-
-  const toggleSection = (section: 'author' | 'book' | 'year' | 'status' | null) => {
-    setExpandedSection(current => (current === section ? null : section));
-  };
+  const handleOpenMenu = useCallback((quote: Quote) => {
+    setActionMenuQuote(quote);
+  }, []);
 
   const booksData = useMemo(() => {
     const grouped = myQuotes.reduce<Record<string, { authors: Set<string>; quoteCount: number; bookObj?: Book }>>((acc, quote) => {
@@ -527,7 +245,7 @@ export default function MyQuotesScreen() {
       }
       acc[title].authors.add(author);
       acc[title].quoteCount += 1;
-      if (typeof quote.book !== 'string') {
+      if (quote.book && typeof quote.book !== 'string') {
         acc[title].bookObj = quote.book;
       }
       return acc;
@@ -536,7 +254,6 @@ export default function MyQuotesScreen() {
     // Ensure we include books who are explicitly saved by the user or have quotes
     allBooks.forEach(book => {
       if (grouped[book.title]) {
-        // Enforce the latest book info (e.g. status) from the database/allBooks list
         grouped[book.title].bookObj = book;
       } else if (book.isSaved) {
         const authorName = getAuthorName(book.author);
@@ -564,7 +281,7 @@ export default function MyQuotesScreen() {
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [myQuotes, allBooks, bookDescriptions]);
+  }, [myQuotes, allBooks]);
 
   const filteredBooksByStatus = useMemo(() => {
     if (selectedStatus === 'ALL') return booksData;
@@ -577,7 +294,6 @@ export default function MyQuotesScreen() {
       if (!acc[name]) {
         acc[name] = { author: quote.author, quoteCount: 0 };
       } else if (typeof acc[name].author === 'string' && typeof quote.author !== 'string') {
-        // Upgrade to object if we found one
         acc[name].author = quote.author;
       }
       acc[name].quoteCount += 1;
@@ -600,44 +316,104 @@ export default function MyQuotesScreen() {
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [myQuotes, allAuthors]);
-  // Add Menu Modal
-  const AddQuoteMenu = () => (
-    <Modal
-      visible={showAddMenu}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowAddMenu(false)}
-    >
-      <Pressable style={styles.modalBackdrop} onPress={() => setShowAddMenu(false)}>
-        <View style={[styles.actionMenuContainer, { position: 'absolute', top: 60, right: 16, width: 220 }]}>
-          {/* Scan Option */}
-          <TouchableOpacity
-            style={styles.actionMenuItem}
-            onPress={() => {
-              setShowAddMenu(false);
-              router.navigate('/scan');
-            }}
-          >
-            <Camera size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Scanner une citation</Text>
-          </TouchableOpacity>
 
-          {/* Manual Add Option */}
-          <TouchableOpacity
-            style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
-            onPress={() => {
-              setShowAddMenu(false);
-              setEditingQuote(null);
-              setShowManualQuoteModal(true);
-            }}
-          >
-            <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Ajouter une citation</Text>
-          </TouchableOpacity>
+  const toggleSection = useCallback((section: 'author' | 'book' | 'year' | 'status' | null) => {
+    setExpandedSection(current => (current === section ? null : section));
+  }, []);
+
+  // Render items for FlashList
+  const renderQuoteItem = useCallback(({ item }: { item: Quote }) => (
+    <QuoteCard
+      quote={item}
+      onToggleLike={toggleLikeQuote}
+      onOpenMenu={handleOpenMenu}
+    />
+  ), [toggleLikeQuote, handleOpenMenu]);
+
+  const renderBookItem = useCallback(({ item }: { item: any }) => (
+    <BookCardItem book={item} />
+  ), []);
+
+  const renderAuthorItem = useCallback(({ item }: { item: any }) => (
+    <AuthorCardItem author={item} />
+  ), []);
+
+  const renderThemeItem = useCallback(({ item }: { item: any }) => (
+    <ThemeCardItem theme={item} />
+  ), []);
+
+  const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
+  const bookKeyExtractor = useCallback((item: any) => item.title, []);
+  const authorKeyExtractor = useCallback((item: any) => item.name, []);
+  const themeKeyExtractor = useCallback((item: any) => item.theme, []);
+
+  // Header component for FlashList (filters + status pills)
+  const ListHeader = useMemo(() => {
+    const elements: React.ReactNode[] = [];
+    
+    if (activeFilters.length > 0) {
+      elements.push(
+        <View key="filters" style={styles.filterContainer}>
+          {activeFilters.map((filter, index) => (
+            <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
+              <Text style={styles.filterBadgeText}>
+                {filter.type === 'author' ? 'Auteur' :
+                  filter.type === 'book' ? 'Livre' :
+                    filter.type === 'year' ? 'Année' : 'Statut'}: {
+                  filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
+                }
+              </Text>
+              <X size={12} color={colors.primary} />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
         </View>
-      </Pressable>
-    </Modal>
-  );
+      );
+    }
+
+    if (viewMode === 'books') {
+      elements.push(
+        <View key="status-pills" style={{ marginBottom: 8 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.statusFilterContainer}
+            contentContainerStyle={styles.statusFilterContent}
+          >
+            <TouchableOpacity
+              onPress={() => setSelectedStatus('ALL')}
+              style={[
+                styles.statusFilterBadge,
+                selectedStatus === 'ALL' && styles.statusFilterBadgeActive
+              ]}
+            >
+              <Text style={[
+                styles.statusFilterText,
+                selectedStatus === 'ALL' && styles.statusFilterTextActive
+              ]}>Tout</Text>
+            </TouchableOpacity>
+            {STATUS_OPTIONS.map(opt => (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => setSelectedStatus(opt.value)}
+                style={[
+                  styles.statusFilterBadge,
+                  selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
+                ]}
+              >
+                <Text style={[
+                  styles.statusFilterText,
+                  selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+                ]}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      );
+    }
+
+    return elements.length > 0 ? <>{elements}</> : null;
+  }, [activeFilters, viewMode, selectedStatus, colors, styles, removeFilter, resetFilters]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -684,7 +460,7 @@ export default function MyQuotesScreen() {
           onPress={() => setViewMode('books')}
           activeOpacity={0.8}
         >
-          <Text style={styles.statValue}>{new Set(myQuotes.map(q => q.book)).size}</Text>
+          <Text style={styles.statValue}>{bookCount}</Text>
           <Text style={styles.statLabel}>Livres</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -705,189 +481,69 @@ export default function MyQuotesScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Quotes Feed */}
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        onScrollBeginDrag={() => {
-          // Fermer le menu si besoin (optionnel)
-        }}
-      >
-        {activeFilters.length > 0 && (
-          <View style={styles.filterContainer}>
-            {activeFilters.map((filter, index) => (
-              <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-                <Text style={styles.filterBadgeText}>
-                  {filter.type === 'author' ? 'Auteur' :
-                    filter.type === 'book' ? 'Livre' :
-                      filter.type === 'year' ? 'Année' : 'Statut'}: {
-                    filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
-                  }
-                </Text>
-                <X size={12} color={colors.primary} />
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
-          </View>
-        )}
-        {viewMode === 'books' && (
-          <View style={{ marginBottom: 8 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.statusFilterContainer}
-              contentContainerStyle={styles.statusFilterContent}
-            >
-              <TouchableOpacity
-                onPress={() => setSelectedStatus('ALL')}
-                style={[
-                  styles.statusFilterBadge,
-                  selectedStatus === 'ALL' && styles.statusFilterBadgeActive
-                ]}
-              >
-                <Text style={[
-                  styles.statusFilterText,
-                  selectedStatus === 'ALL' && styles.statusFilterTextActive
-                ]}>Tout</Text>
-              </TouchableOpacity>
-              {STATUS_OPTIONS.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  onPress={() => setSelectedStatus(opt.value)}
-                  style={[
-                    styles.statusFilterBadge,
-                    selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
-                  ]}
-                >
-                  <Text style={[
-                    styles.statusFilterText,
-                    selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
-                  ]}>{opt.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+      {/* Content — FlashList for virtualization */}
+      <View style={styles.scrollView}>
         {viewMode === 'books' ? (
-          filteredBooksByStatus.length > 0 ? (
-            filteredBooksByStatus.map(book => (
-              <BookCardItem key={book.title} book={book} />
-            ))
-          ) : (
-            <Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>
-          )
+          <FlashList
+            data={filteredBooksByStatus}
+            renderItem={renderBookItem}
+            keyExtractor={bookKeyExtractor}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={ListHeader}
+            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
         ) : viewMode === 'authors' ? (
-          authorsData.length > 0 ? (
-            authorsData.map(author => (
-              <AuthorCardItem key={author.name} author={author} />
-            ))
-          ) : (
-            <Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>
-          )
+          <FlashList
+            data={authorsData}
+            renderItem={renderAuthorItem}
+            keyExtractor={authorKeyExtractor}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={ListHeader}
+            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
         ) : viewMode === 'themes' ? (
-          themes.length > 0 ? (
-            themes.map(theme => (
-              <ThemeCardItem key={theme.theme} theme={theme} />
-            ))
-          ) : (
-            <Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>
-          )
+          <FlashList
+            data={themes}
+            renderItem={renderThemeItem}
+            keyExtractor={themeKeyExtractor}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={ListHeader}
+            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
         ) : (
-          quotesToDisplay.map((quote) => (
-            <QuoteCard key={quote.id} quote={quote} />
-          ))
+          <FlashList
+            data={quotesToDisplay}
+            renderItem={renderQuoteItem}
+            keyExtractor={quoteKeyExtractor}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={ListHeader}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
         )}
-      </ScrollView>
-      <Modal
-        animationType="slide"
-        transparent={true}
+      </View>
+
+      <FilterModal
         visible={filterModalVisible}
-        onRequestClose={() => { setFilterModalVisible(false); setExpandedSection(null); }}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => { setFilterModalVisible(false); setExpandedSection(null); }}>
-          <Pressable style={styles.modalView}>
-            <Text style={styles.modalTitle}>Filtrer par</Text>
-            <ScrollView style={{ maxHeight: '80%' }}>
-              {/* Section Auteur */}
-              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('author')}>
-                <Text style={styles.filterSectionTitle}>Auteur</Text>
-                <View style={{ transform: [{ rotate: expandedSection === 'author' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-              {expandedSection === 'author' && authors.map(author => (
-                <TouchableOpacity key={author} style={styles.filterOption} onPress={() => toggleTempFilter('author', author)}>
-                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'author' && f.value === author) && styles.filterOptionTextSelected]}>{author}</Text>
-                </TouchableOpacity>
-              ))}
-
-              {/* Section Livre */}
-              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('book')}>
-                <Text style={styles.filterSectionTitle}>Livre</Text>
-                <View style={{ transform: [{ rotate: expandedSection === 'book' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-              {expandedSection === 'book' && books.map(book => (
-                <TouchableOpacity key={book} style={styles.filterOption} onPress={() => toggleTempFilter('book', book)}>
-                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'book' && f.value === book) && styles.filterOptionTextSelected]}>{book}</Text>
-                </TouchableOpacity>
-              ))}
-
-              {/* Section Statut */}
-              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('status')}>
-                <Text style={styles.filterSectionTitle}>Statut</Text>
-                <View style={{ transform: [{ rotate: expandedSection === 'status' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-              {expandedSection === 'status' && STATUS_OPTIONS.map(opt => (
-                <TouchableOpacity key={opt.value} style={styles.filterOption} onPress={() => toggleTempFilter('status', opt.value)}>
-                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'status' && f.value === opt.value) && styles.filterOptionTextSelected]}>{opt.label}</Text>
-                </TouchableOpacity>
-              ))}
-
-              {/* Section Année */}
-              <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('year')}>
-                <Text style={styles.filterSectionTitle}>Année</Text>
-                <View style={{ transform: [{ rotate: expandedSection === 'year' ? '180deg' : '0deg' }] }}>
-                  <ChevronDown size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-              {expandedSection === 'year' && years.map(year => (
-                <TouchableOpacity key={year} style={styles.filterOption} onPress={() => toggleTempFilter('year', year)}>
-                  <Text style={[styles.filterOptionText, tempFilters.some(f => f.type === 'year' && f.value === year) && styles.filterOptionTextSelected]}>{year}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <View style={styles.modalActions}>
-              {tempFilters.length > 0 && (
-                <TouchableOpacity
-                  style={styles.resetButton}
-                  onPress={() => setTempFilters([])}
-                >
-                  <Text style={styles.resetButtonText}>Réinitialiser</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
-                <Text style={styles.applyButtonText}>Appliquer</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
+        onClose={() => setFilterModalVisible(false)}
+        authors={authors}
+        books={books}
+        years={years}
+        tempFilters={tempFilters}
+        onToggleTempFilter={toggleTempFilter}
+        onApplyFilters={applyFilters}
+        onResetTempFilters={() => setTempFilters([])}
+      />
 
       <ScanPreviewModal
         visible={showManualQuoteModal}
@@ -909,8 +565,32 @@ export default function MyQuotesScreen() {
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}
         initialAuthor={editingQuote ? getAuthorName(editingQuote.author) : ""}
       />
-      <QuoteActionModal />
-      <AddQuoteMenu />
+
+      <QuoteActionModal
+        visible={!!actionMenuQuote}
+        onClose={() => setActionMenuQuote(null)}
+        onEdit={() => {
+          if (actionMenuQuote) {
+            setEditingQuote(actionMenuQuote);
+            setShowManualQuoteModal(true);
+          }
+        }}
+        onDelete={() => {
+          if (actionMenuQuote) {
+            deleteQuote(actionMenuQuote.id);
+          }
+        }}
+      />
+
+      <AddQuoteMenu
+        visible={showAddMenu}
+        onClose={() => setShowAddMenu(false)}
+        onScanPress={() => router.navigate('/scan')}
+        onManualAddPress={() => {
+          setEditingQuote(null);
+          setShowManualQuoteModal(true);
+        }}
+      />
     </SafeAreaView >
   );
 }
@@ -934,7 +614,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-
   headerTitle: {
     fontSize: 20,
     color: colors.text,
@@ -988,16 +667,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  menuButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 10,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   actionMenuContainer: {
     width: '80%',
     backgroundColor: colors.surface,
@@ -1025,92 +694,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceHighlight, // approximating rgba(255,255,255,0.05)
+    borderBottomColor: colors.surfaceHighlight,
   },
   actionMenuText: {
     fontSize: 16,
     color: colors.text,
-  },
-  cardContainer: {
-    zIndex: 10,
-    elevation: 5,
-    overflow: 'hidden',
-  },
-  quoteCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    overflow: 'hidden' // Added from inline style
-  },
-
-  quoteIcon: {
-    // fontSize: 32, // Svg style doesn't use fontSize usually, but it was there
-    color: 'rgba(32, 184, 205, 0.2)', // Hardcoded opacity for icon
-    marginBottom: 8,
-  },
-  quoteText: {
-    fontSize: 18,
-    lineHeight: 28,
-    color: colors.text,
-    marginBottom: 16,
-    fontFamily: 'Times New Roman',
-    fontStyle: 'italic',
-    fontWeight: '100',
-  },
-  bookInfo: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceHighlight,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  bookInfoLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  bookTitle: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  authorName: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  dateText: {
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 24,
-    marginTop: 16,
-    paddingTop: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-
-  actionText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  actionTextActive: {
-    color: colors.primary,
-  },
-  iconFilled: {
-    // Pour simuler le fill, vous devrez utiliser une icône différente
   },
   modalBackdrop: {
     flex: 1,
@@ -1132,11 +720,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 3,
-  },
-  skeleton: {
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: 4,
-    marginVertical: 4,
   },
   modalTitle: {
     fontSize: 20,
@@ -1220,95 +803,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  deleteActionText: {
-    color: colors.warning,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  cardWrapper: {
-    width: '100%',
-  },
-  bookCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    overflow: 'hidden',
-  },
-  bookCardContent: {
-    flexDirection: 'row',
-    padding: 12,
-  },
-  bookCardCover: {
-    width: 60,
-    height: 90,
-    borderRadius: 4,
-    marginRight: 12,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  bookCardCoverPlaceholder: {
-    width: 60,
-    height: 90,
-    borderRadius: 4,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  bookCardInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  bookCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-    gap: 8,
-  },
-  bookCardTitle: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  bookCardYear: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    backgroundColor: colors.surfaceHighlight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  bookCardAuthor: {
-    fontSize: 14,
-    color: colors.primary,
-    marginBottom: 6,
-  },
-  bookCardDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  bookCardCount: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    fontStyle: 'italic',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
   statusFilterContainer: {
     marginTop: -4,
     marginBottom: 4,
@@ -1356,49 +850,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     textDecorationLine: 'underline',
-  },
-  authorAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  authorAvatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  authorAvatarText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  themeIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  themeIconText: {
-    color: colors.primary,
-    fontWeight: 'bold',
-    fontSize: 24,
-  },
-  themeTitle: {
-    color: colors.text,
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  themeSubText: {
-    color: colors.textSecondary,
-    fontSize: 13,
   },
 });

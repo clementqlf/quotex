@@ -13,8 +13,6 @@ class QuoteService {
     private async seedDataIfNeeded(): Promise<void> {
         const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
         if (!storedQuotes) {
-            console.log('Seeding quotes from static data...');
-            // Normalize static data to Quote type
             const initialQuotes = [...localQuotesDB, ...globalQuotesDB].map(q => ({
                 id: q.id,
                 text: q.text,
@@ -22,7 +20,7 @@ class QuoteService {
                 author: q.author,
                 theme: (q as any).theme || undefined,
                 likesCount: (q as any).likesCount || ((q as any).likes && typeof (q as any).likes === 'number' ? (q as any).likes : 0),
-                likes: [], // Static data doesn't have partial likes relation array usually
+                likes: [],
                 isLiked: q.isLiked,
                 user: (q as any).user || { id: "1", name: "Clément QLF", username: "@clementqlf" },
                 date: (q as any).date || (q as any).time,
@@ -49,14 +47,32 @@ class QuoteService {
         return headers;
     }
 
+    private mapQuoteFromServer(q: any): Quote {
+        return {
+            id: q.id,
+            text: q.text,
+            book: q.book,
+            author: q.author,
+            theme: q.theme,
+            likesCount: q.likesCount || 0,
+            isLiked: q.isLiked || false,
+            date: q.date || new Date().toISOString(),
+            time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
+            isSaved: q.isSaved || false,
+            comments: q.comments || 0,
+            blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
+            user: q.user,
+            aiInterpretation: q.aiInterpretation,
+        };
+    }
+
 
 
     async getQuotes(): Promise<Quote[]> {
         // Try fetching from server first
         try {
-            console.log('Fetching quotes from:', this.API_URL);
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
 
             const headers = await this.getHeaders();
             const response = await fetch(this.API_URL!, {
@@ -67,24 +83,7 @@ class QuoteService {
 
             if (response.ok) {
                 const serverQuotes = await response.json();
-                console.log('Server response:', serverQuotes.length, 'quotes');
-
-                const mappedQuotes: Quote[] = serverQuotes.map((q: any) => ({
-                    id: q.id,
-                    text: q.text,
-                    book: q.book,
-                    author: q.author,
-                    theme: q.theme,
-                    likesCount: q.likesCount || 0,
-                    isLiked: q.isLiked || false,
-                    date: q.date || new Date().toISOString(),
-                    time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
-                    isSaved: q.isSaved || false,
-                    comments: q.comments || 0,
-                    blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
-                    user: q.user,
-                    aiInterpretation: q.aiInterpretation,
-                }));
+                const mappedQuotes: Quote[] = serverQuotes.map((q: any) => this.mapQuoteFromServer(q));
 
                 // Update local cache
                 await StorageService.setItem(STORAGE_KEYS.QUOTES, mappedQuotes);
@@ -113,37 +112,16 @@ class QuoteService {
     }
 
     async getQuoteById(id: number): Promise<Quote | undefined> {
-        // Try fetching from server first
         try {
-            console.log(`Fetching quote ${id} from server...`);
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}`, { headers });
             if (response.ok) {
                 const q = await response.json();
-                console.log('Quote fetched successfully:', q.id);
+                const mappedQuote = this.mapQuoteFromServer(q);
 
-                const mappedQuote: Quote = {
-                    id: q.id,
-                    text: q.text,
-                    book: q.book,
-                    author: q.author,
-                    theme: q.theme,
-                    likesCount: q.likesCount || 0,
-                    isLiked: q.isLiked || false,
-                    date: q.date || new Date().toISOString(),
-                    time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
-                    isSaved: q.isSaved || false,
-                    comments: q.comments || 0,
-                    blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
-                    user: q.user,
-                    aiInterpretation: q.aiInterpretation,
-                };
-
-                // Update strictly this quote in local cache to ensure consistency
+                // Update this quote in local cache
                 const currentQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
                 const updatedQuotes = currentQuotes.map(cq => cq.id === id ? mappedQuote : cq);
-                // If it's a new quote not in list (unlikely via navigation but possible), add it? 
-                // For now, just update if exists.
                 await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
 
                 return mappedQuote;
@@ -238,8 +216,10 @@ class QuoteService {
         await StorageService.setItem(STORAGE_KEYS.QUOTES, newQuotes);
     }
 
-    async addQuote(text: string, book: string, author: string): Promise<void> {
-        const quotePayload = { text, book, author };
+    async addQuote(text: string, book?: string | null, author?: string | null): Promise<void> {
+        const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
+        const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+        const quotePayload = { text, book: cleanBook, author: cleanAuthor };
         try {
             console.log('Sending quote to server:', quotePayload);
             const headers = await this.getHeaders();
@@ -270,8 +250,8 @@ class QuoteService {
         const newQuote: Quote = {
             id: Date.now(), // Temp ID
             text,
-            book,
-            author,
+            book: cleanBook,
+            author: cleanAuthor,
             likesCount: 0,
             likes: [], // Initialize empty likes array for new quote
             isLiked: false,
@@ -285,7 +265,7 @@ class QuoteService {
         await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
     }
 
-    private async addToPendingQueue(payload: { text: string; book: string; author: string }) {
+    private async addToPendingQueue(payload: { text: string; book: string | null; author: string | null }) {
         const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
         pending.push(payload);
         await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, pending);
@@ -326,7 +306,6 @@ class QuoteService {
     }
 
     async analyzeQuote(id: number): Promise<Quote> {
-        console.log(`[QuoteService] Requesting AI analysis for quote ${id}...`);
         const headers = await this.getHeaders();
         const response = await fetch(`${this.API_URL}/${id}/analyze`, {
             method: 'POST',
@@ -336,23 +315,7 @@ class QuoteService {
             throw new Error(`Failed to analyze quote: ${await response.text()}`);
         }
         const q = await response.json();
-        
-        const mappedQuote: Quote = {
-            id: q.id,
-            text: q.text,
-            book: q.book,
-            author: q.author,
-            theme: q.theme,
-            likesCount: q.likesCount || 0,
-            isLiked: q.isLiked || false,
-            date: q.date || new Date().toISOString(),
-            time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
-            isSaved: q.isSaved || false,
-            comments: q.comments || 0,
-            blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
-            user: q.user,
-            aiInterpretation: q.aiInterpretation,
-        };
+        const mappedQuote = this.mapQuoteFromServer(q);
 
         // Update local cache
         const currentQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];

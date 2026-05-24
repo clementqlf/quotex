@@ -57,8 +57,8 @@ export type Book = {
 export type Quote = {
   id: number;
   text: string;
-  book: string | Book; // Can be object (from server) or string (legacy/static)
-  author: string | Author; // Can be object (from server) or string (legacy/static)
+  book?: string | Book | null; // Can be object (from server) or string (legacy/static) or null
+  author?: string | Author | null; // Can be object (from server) or string (legacy/static) or null
   theme?: string;
   date?: string;
   likesCount: number; // Replaced 'likes' number with likesCount

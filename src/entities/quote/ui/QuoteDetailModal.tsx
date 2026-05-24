@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Image,
   Alert,
   Modal,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus, CheckCircle2, Edit3, Trash2 } from 'lucide-react-native';
 import Svg, { Path, Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import type { SortableGridRenderItem } from 'react-native-sortables';
@@ -250,6 +250,11 @@ export default function QuoteDetailModal() {
 
   const [quote, setQuote] = React.useState<Quote | undefined>(initialQuote);
 
+  // Autosave notes/blockData
+  const lastSavedBlockData = React.useRef<string>(
+    initialQuote?.blockData ? JSON.stringify(initialQuote.blockData) : '{}'
+  );
+
   // State for rich data
   const [fetchedBook, setFetchedBook] = React.useState<Book | null>(null);
   const [fetchedAuthor, setFetchedAuthor] = React.useState<Author | null>(null);
@@ -406,6 +411,7 @@ export default function QuoteDetailModal() {
     if (quoteId) {
       const globalQuote = quotes.find(q => q.id === parseInt(quoteId));
       if (globalQuote) {
+        lastSavedBlockData.current = globalQuote.blockData ? JSON.stringify(globalQuote.blockData) : '{}';
         setQuote(globalQuote);
       }
     }
@@ -419,6 +425,7 @@ export default function QuoteDetailModal() {
           try {
             const freshQuote = await quoteService.getQuoteById(quote.id);
             if (freshQuote && freshQuote.user) {
+              lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
               setQuote(freshQuote);
               return; // Return to avoid double fetching book/author immediately, let the effect re-run
             }
@@ -443,6 +450,8 @@ export default function QuoteDetailModal() {
 
   const quoteAuthorName = quote ? getAuthorName(quote.author) : '';
   const quoteBookTitle = quote ? getBookTitle(quote.book) : '';
+  const isBookNull = !quote || !quote.book || getBookTitle(quote.book) === 'Livre inconnu';
+  const isAuthorNull = !quote || !quote.author || getAuthorName(quote.author) === 'Auteur inconnu';
 
   // Data helpers based on fetched state
   const aiInterpretation = quote?.aiInterpretation;
@@ -488,8 +497,7 @@ export default function QuoteDetailModal() {
     }
   }, [quote?.id]);
 
-  // Autosave notes/blockData
-  const lastSavedBlockData = React.useRef<string>('');
+  // Autosave notes/blockData effect
 
   React.useEffect(() => {
     if (!quote?.id || !quote.blockData) return;
@@ -712,12 +720,22 @@ export default function QuoteDetailModal() {
 
             <View style={styles.quoteMetaFooter}>
               <View style={{ flex: 1 }}>
-                <TouchableOpacity style={styles.metaRow} onPress={() => onBookPress(quoteBookTitle)}>
+                 <TouchableOpacity 
+                  style={styles.metaRow} 
+                  onPress={() => onBookPress(quoteBookTitle)}
+                  disabled={isBookNull}
+                >
                   <BookOpen size={16} color={colors.textTertiary} />
-                  <Text style={styles.metaTextBook}>{quoteBookTitle}</Text>
+                  <Text style={[styles.metaTextBook, isBookNull && { color: colors.textSecondary }]}>
+                    {quoteBookTitle}
+                  </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.metaRow} onPress={() => onAuthorPress(quoteAuthorName)}>
+                <TouchableOpacity 
+                  style={styles.metaRow} 
+                  onPress={() => onAuthorPress(quoteAuthorName)}
+                  disabled={isAuthorNull}
+                >
                   <UserIcon size={16} color={colors.textTertiary} />
                   <Text style={styles.metaTextAuthor}>{quoteAuthorName}</Text>
                 </TouchableOpacity>

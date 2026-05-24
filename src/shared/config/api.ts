@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// ─── Supabase Edge Functions URL ─────────────────────────────────────────────
-// Replace 'neurbzkkfxrjzjykthtn' with your actual Supabase project ref if it changes
-const SUPABASE_FUNCTIONS_URL = 'https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1';
+// Retrieve the base URL dynamically from expo configuration extra field
+const SUPABASE_FUNCTIONS_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1';
 
 // ─── Local dev fallback ───────────────────────────────────────────────────────
 // During development, you can switch to the local Express server by setting

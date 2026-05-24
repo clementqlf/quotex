@@ -28,6 +28,8 @@ import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPT
 import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { BOOK_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { API_BASE_URL } from '@/src/shared/config/api';
 
 const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
 const MYSHEET_BLOCKS = ['notes', 'dictionary', 'connection'];
@@ -120,12 +122,14 @@ export default function BookDetailScreen() {
     setAuthorInfo(null);
     setGridData([]);
     setBlockData({});
+    lastSavedBookBlockData.current = '{}';
     setIsLoadingLayout(true);
     setIsLoadingMetadata(!initialLocalBook || !isBookEnriched(initialLocalBook));
     setActiveTab('description');
   }, [bookId, bookTitleParam, initialLocalBook]);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
+  const lastSavedBookBlockData = React.useRef<string>('{}');
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
@@ -146,7 +150,7 @@ export default function BookDetailScreen() {
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
 
-  const loadMetadata = useCallback(async () => {
+  const loadMetadata = useCallback(async (signal?: AbortSignal) => {
     if (!bookId && !bookTitleParam) return;
 
     console.log('[BookDetail] loadMetadata triggered', { bookId, bookTitleParam });
@@ -191,8 +195,8 @@ export default function BookDetailScreen() {
         console.log('[BookDetail] Book not found locally, importing from search data...');
         try {
           const bookDataParam = JSON.parse(rawParams.bookData);
-          const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
-          const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
+          const token = await authService.getToken();
+          const BASE_URL = API_BASE_URL;
           
           console.log('[BookDetail] Sending POST to:', `${BASE_URL}/books/import`);
           
@@ -214,7 +218,8 @@ export default function BookDetailScreen() {
                   genre: bookDataParam.genre,
                   authors: bookDataParam.authors || [],
                   authorUris: bookDataParam.authorUris || [],
-              })
+              }),
+              signal
           });
           
           console.log('[BookDetail] Import response status:', response.status);
@@ -232,7 +237,11 @@ export default function BookDetailScreen() {
               const errorText = await response.text();
               console.error('[BookDetail] Import request failed with status:', response.status, 'body:', errorText);
           }
-        } catch (error) {
+        } catch (error: any) {
+          if (error.name === 'AbortError') {
+            console.log('[BookDetail] Import request aborted');
+            return;
+          }
           console.error('[BookDetail] Failed to import book from search:', error);
         }
       }
@@ -244,18 +253,22 @@ export default function BookDetailScreen() {
         if (!currentBook.description || currentBook.description.length < 50 || !currentBook.genre || currentBook.genre === 'Unknown' || currentBook.genre === '') {
           console.log('[BookDetail] Book is sparse or lacks genre, forcing synchronous enrichment...');
           try {
-            const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+            const token = await authService.getToken();
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
             
-            const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
-            const enrichRes = await fetch(`${BASE_URL}/books/${currentBook.id}/enrich`, { method: 'POST', headers });
+            const BASE_URL = API_BASE_URL;
+            const enrichRes = await fetch(`${BASE_URL}/books/${currentBook.id}/enrich`, { method: 'POST', headers, signal });
             if (enrichRes.ok) {
               const enrichedBook = await enrichRes.json();
               setBookInfo(enrichedBook);
               currentBook = enrichedBook;
             }
-          } catch (e) {
+          } catch (e: any) {
+            if (e.name === 'AbortError') {
+              console.log('[BookDetail] Enrichment request aborted');
+              return;
+            }
             console.error('[BookDetail] Synch enrichment failed:', e);
           }
         }
@@ -274,16 +287,24 @@ export default function BookDetailScreen() {
       } else {
         console.log('[BookDetail] Book not found');
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('[BookDetail] loadMetadata request aborted');
+        return;
+      }
       console.error('Error loading book/author metadata:', err);
     } finally {
       // Always ensure loading stops at the very end
       setIsLoadingMetadata(false);
     }
-  }, [bookId, bookTitleParam, allBooks, getBookById, getBookByTitle, getAuthorByName]);
+  }, [bookId, bookTitleParam, allBooks, getBookById, getBookByTitle, getAuthorByName, bookCoverParam, rawParams.bookData]);
 
   React.useEffect(() => {
-    loadMetadata();
+    const controller = new AbortController();
+    loadMetadata(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [loadMetadata]);
 
   // Fetch saved layout
@@ -296,14 +317,15 @@ export default function BookDetailScreen() {
         // Filter out legacy 'addBlock' from layout if present
         const filteredLayout = (layout || []).filter(x => x !== 'addBlock');
         setGridData(filteredLayout);
-        setBlockData(data || {});
+        const resolvedData = data || {};
+        lastSavedBookBlockData.current = JSON.stringify(resolvedData);
+        setBlockData(resolvedData);
         setIsLoadingLayout(false);
       });
     }
   }, [bookTitle, getBlockLayout, getBookData]);
 
-  // Autosave blockData
-  const lastSavedBookBlockData = React.useRef<string>('');
+  // Autosave blockData effect
 
   React.useEffect(() => {
     if (!bookTitle || !blockData) return;
@@ -607,7 +629,7 @@ export default function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => require('expo-router').router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
@@ -624,7 +646,7 @@ export default function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => require('expo-router').router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{bookTitle}</Text>
@@ -646,7 +668,7 @@ export default function BookDetailScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => require('expo-router').router.back()}
+            onPress={() => router.back()}
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -680,11 +702,14 @@ export default function BookDetailScreen() {
               <Image source={{ uri: bookInfo.cover }} style={styles.bookCoverImage} />
               <View style={styles.bookInfo}>
                 <Text style={styles.bookTitleText}>{bookTitle}</Text>
-                <TouchableOpacity onPress={() => {
-                  const authorName = getAuthorName(bookInfo.author);
-                  const inventaireUri = typeof bookInfo.author === 'object' && bookInfo.author !== null ? (bookInfo.author as Author).inventaireUri : undefined;
-                  navigateToAuthor(authorName, inventaireUri);
-                }}>
+                <TouchableOpacity 
+                  disabled={!bookInfo.author || getAuthorName(bookInfo.author) === 'Auteur inconnu'}
+                  onPress={() => {
+                    const authorName = getAuthorName(bookInfo.author);
+                    const inventaireUri = typeof bookInfo.author === 'object' && bookInfo.author !== null ? (bookInfo.author as Author).inventaireUri : undefined;
+                    navigateToAuthor(authorName, inventaireUri);
+                  }}
+                >
                   <Text style={styles.bookAuthorText}>{getAuthorName(bookInfo.author)}</Text>
                 </TouchableOpacity>
 

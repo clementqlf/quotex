@@ -6,10 +6,10 @@ import {
     TouchableOpacity,
     StyleSheet,
     SectionList,
-    Image,
     ActivityIndicator,
     Keyboard
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
@@ -487,7 +487,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     bookCover: {
         width: '100%',
         height: '100%',
-        resizeMode: 'cover',
     },
     authorImage: {
         width: 40,

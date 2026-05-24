@@ -14,7 +14,8 @@ export async function analyzeQuoteWithGemini(
   }
 
   const prompt = `
-Tu es un expert littéraire, historien et critique littéraire chevronné. Analyse la citation suivante de manière concise, captivante et informative.
+
+Tu es un expert littéraire, historien et critique intellectuel. Analyse la citation suivante de manière concise, captivante et informative, en te focalisant exclusivement sur la substance des arguments avancés dans le texte.
 
 Détails de la citation :
 - Citation : "${text}"
@@ -22,13 +23,12 @@ Détails de la citation :
 - Livre : ${book}
 
 Instructions pour ton analyse (à synthétiser en un seul paragraphe fluide de 3 à 5 phrases maximum en français) :
-1. **Mise en contexte** : Remets brièvement la citation dans son contexte (l'intrigue du livre, l'époque historique ou la vie de l'auteur).
-2. **Fact-checking (Vérification des faits)** : Si la citation contient des données chiffrées, des déclarations factuelles, historiques ou scientifiques, vérifie brièvement leur exactitude.
-3. **Conséquences & Impact** : Mentionne l'impact historique, social ou littéraire qu'a eu ce livre ou cette citation s'il y en a eu.
-4. **Liens & Parallèles** : Fais des parallèles pertinents avec d'autres œuvres, d'autres auteurs célèbres ou des mouvements littéraires/artistiques similaires.
+1. **Structure de départ OBLIGATOIRE** : Ne fais aucune introduction sur l'auteur ou le livre. Commence ton analyse immédiatement par une phrase analysant le sens intrinsèque de la citation (ex: "Cette citation...", "Ce propos dépeint...", "L'argument avancé ici...").
+2. **Fact-checking et Rigueur historique** : C'est le point prioritaire. Analyse la validité des faits, des dates et des décisions juridiques mentionnées. Cite brièvement les réalités juridiques ou historiques contradictoires si la citation comporte des simplifications ou des inexactitudes factuelles. 
+3. **Analyse de la portée** : Analyse la portée du propos sur le débat d'idées en soulignant comment cette rhétorique s'articule par rapport aux courants de pensée contemporains ou historiques, sans t'attarder sur le succès médiatique de l'œuvre.
 
 Instructions impératives pour le champ "theme" :
-Pour que le thème agisse comme une étiquette de classification générale permettant de filtrer et de grouper les citations entre elles, tu dois OBLIGATOIREMENT choisir l'un des thèmes généraux suivants (et strictement l'un d'eux, écrit exactement tel quel) :
+Choisis OBLIGATOIREMENT l'un des thèmes suivants :
 - Philosophie & Sagesse
 - Amour & Relations
 - Condition Humaine
@@ -41,12 +41,10 @@ Pour que le thème agisse comme une étiquette de classification générale perm
 - Savoir & Vérité
 - Destin & Choix
 
-Le ton doit être premium, hautement instructif, culturel et intellectuellement stimulant. Évite les banalités ou les généralités creuses.
-
-Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide sans aucun formatage Markdown (pas de blocs de code triples \`\`\`json ou \`\`\`), avec exactement cette structure :
+Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun formatage Markdown (pas de blocs de code triples), avec exactement cette structure :
 {
   "interpretation": "Ton paragraphe d'analyse fluide ici...",
-  "theme": "Le thème choisi parmi la liste ci-dessus"
+  "theme": "Le thème choisi"
 }
 `;
 

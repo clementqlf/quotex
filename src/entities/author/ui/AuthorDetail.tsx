@@ -23,6 +23,8 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import * as WebBrowser from 'expo-web-browser';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { API_BASE_URL } from '@/src/shared/config/api';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
 export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
@@ -114,7 +116,7 @@ export default function AuthorDetailScreen() {
   const [allWorks, setAllWorks] = React.useState<Book[]>([]);
   const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
 
-  const loadAuthorData = React.useCallback(async () => {
+  const loadAuthorData = React.useCallback(async (signal?: AbortSignal) => {
     if (!nameToUse) return;
 
     // 1. Try to find the author in our local cache first!
@@ -165,12 +167,12 @@ export default function AuthorDetailScreen() {
         if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
           console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
           try {
-            const { API_BASE_URL: BASE_URL } = require('@/src/shared/config/api');
-            const token = await require('@/src/entities/user/api/AuthService').authService.getToken();
+            const BASE_URL = API_BASE_URL;
+            const token = await authService.getToken();
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers });
+            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers, signal });
             if (enrichRes.ok) {
               const data = await enrichRes.json();
               if (data.author) {
@@ -213,7 +215,11 @@ export default function AuthorDetailScreen() {
   }, [nameToUse, paramInventaireUri, allAuthors, getBooksByAuthor, getAuthorByName, getNotableWorks, author]);
 
   React.useEffect(() => {
-    loadAuthorData();
+    const controller = new AbortController();
+    loadAuthorData(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [loadAuthorData]);
 
   const fetchAllWorks = async () => {

@@ -122,27 +122,23 @@ export default function ScanPreviewModal({
 
     const resolveBookTitle = () => {
         if (editedBook.trim()) return editedBook.trim();
-        // If we have initialBook, fallback to it? 
-        // Logic below falls back to finding via scannedText.
-        if (initialBook) return initialBook;
+        if (initialBook && initialBook !== 'Livre inconnu') return initialBook;
 
         return (
             Object.keys(bookDescriptions).find((title) =>
                 localQuotesDB.some((q) => q.text === scannedText && q.book === title)
-            ) || 'Livre inconnu'
+            ) || ''
         );
     };
 
     const resolveAuthorName = () => {
         if (editedAuthor.trim()) return editedAuthor.trim();
-        if (initialAuthor && !editedBook.trim()) return initialAuthor; // Use initial author if no manual edit and no book change triggers lookup?
-        // Actually, if we change the book, we might get a new author.
+        if (initialAuthor && initialAuthor !== 'Auteur inconnu' && !editedBook.trim()) return initialAuthor;
 
         const bookTitle = resolveBookTitle();
-        // If the book title matches the initial book, we can default to initial author
-        if (initialBook && bookTitle === initialBook && initialAuthor) return initialAuthor;
+        if (initialBook && initialBook !== 'Livre inconnu' && bookTitle === initialBook && initialAuthor && initialAuthor !== 'Auteur inconnu') return initialAuthor;
 
-        return bookDescriptions[bookTitle]?.author || 'Auteur inconnu';
+        return bookDescriptions[bookTitle]?.author || '';
     };
 
     const handleConfirm = async () => {
@@ -285,8 +281,8 @@ export default function ScanPreviewModal({
 
     const bookTitle = resolveBookTitle();
     const authorName = resolveAuthorName();
-    const isBookUnknown = bookTitle === 'Livre inconnu';
-    const isAuthorUnknown = authorName === 'Auteur inconnu';
+    const isBookUnknown = !bookTitle || bookTitle === 'Livre inconnu';
+    const isAuthorUnknown = !authorName || authorName === 'Auteur inconnu';
 
     return (
         <Modal
