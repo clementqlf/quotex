@@ -41,10 +41,19 @@ Choisis OBLIGATOIREMENT l'un des thèmes suivants :
 - Savoir & Vérité
 - Destin & Choix
 
+Instructions pour le champ "recommendedBooks" :
+Propose une liste de 5 à 7 livres recommandés (d'auteurs différents de préférence, ou d'autres œuvres majeures du même auteur si c'est particulièrement pertinent) qui traitent du même sujet ou approfondissent les thématiques ou courants d'idées abordés dans la citation. Pour chaque livre, indique uniquement le titre exact ("title") et le nom de l'auteur ("author").
+
 Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun formatage Markdown (pas de blocs de code triples), avec exactement cette structure :
 {
   "interpretation": "Ton paragraphe d'analyse fluide ici...",
-  "theme": "Le thème choisi"
+  "theme": "Le thème choisi",
+  "recommendedBooks": [
+    {
+      "title": "Titre du livre recommandé",
+      "author": "Nom de l'auteur"
+    }
+  ]
 }
 `;
 
