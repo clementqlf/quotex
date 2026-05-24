@@ -9,10 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -40,6 +40,62 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 
+import { useData } from '@/src/app/providers/DataProvider';
+import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
+import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+
+interface CameraContainerProps {
+  device: any;
+  cameraRef: React.RefObject<Camera | null>;
+  codeScanner: any;
+  showIsbnPopup: boolean;
+  isSearchingIsbn: boolean;
+  isLoading: boolean;
+  photo: PhotoFile | null;
+  isFocused: boolean;
+  onTextDetectedChange: (detected: boolean) => void;
+}
+
+const CameraContainer = React.memo(({
+  device,
+  cameraRef,
+  codeScanner,
+  showIsbnPopup,
+  isSearchingIsbn,
+  isLoading,
+  photo,
+  isFocused,
+  onTextDetectedChange,
+}: CameraContainerProps) => {
+  const { frameProcessor } = useLiveOCR({
+    cameraRef,
+    isFocused,
+    enabled: !photo && !isLoading && !showIsbnPopup && !isSearchingIsbn,
+    scanInterval: 300,
+    positiveThreshold: 1,   // 1 positive frame → affiche le cadre immédiatement
+    negativeThreshold: 10,  // 10 trames négatives consécutives (~3s) → masque le cadre
+    onTextDetectedChange,
+  });
+
+  return (
+    <Camera
+      style={StyleSheet.absoluteFill}
+      device={device}
+      isActive={true}
+      photo
+      pixelFormat="yuv"
+      outputOrientation="preview"
+      ref={cameraRef}
+      frameProcessor={frameProcessor}
+      codeScanner={(!showIsbnPopup && !isSearchingIsbn && !isLoading) ? codeScanner : undefined}
+      onError={(error) => {
+        console.log('Camera error:', error);
+      }}
+    />
+  );
+});
+
 export default function ScanScreen() {
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
@@ -48,6 +104,11 @@ export default function ScanScreen() {
   const { tabIndex, setTabIndex } = useTabIndex();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
+
+  const { quotes, addQuote } = useData();
+  const [randomQuote, setRandomQuote] = React.useState<any | null>(null);
+  const [showRandomQuoteModal, setShowRandomQuoteModal] = React.useState(false);
+
   const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
   const [ocrElements, setOcrElements] = React.useState<TextElement[] | null>(null);
   const [ocrBlocks, setOcrBlocks] = React.useState<TextBlock[] | null>(null);
@@ -242,13 +303,40 @@ export default function ScanScreen() {
     setIsSearchingIsbn(false);
   }, []);
 
+  const handleRandomQuotePress = useCallback(() => {
+    // 1. Try to get quotes added by other users from the database
+    let candidates: any[] = quotes.filter(q => q.user && q.user.id !== "1" && q.user.id !== currentUser?.id);
+
+    // 2. If none found, fallback to global static quotes added by other users
+    if (candidates.length === 0) {
+      candidates = globalQuotesDB.filter(q => q.user && q.user.id !== "1" && q.user.id !== currentUser?.id);
+    }
+
+    // 3. Absolute fallback to any quotes if still empty
+    if (candidates.length === 0) {
+      candidates = quotes.length > 0 ? quotes : [...localQuotesDB, ...globalQuotesDB];
+    }
+
+    if (candidates.length === 0) {
+      Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * candidates.length);
+    const selected = candidates[randomIndex];
+
+    // Play light feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    setRandomQuote(selected);
+    setShowRandomQuoteModal(true);
+  }, [quotes, currentUser]);
+
   // Hook Live OCR (permet d'animer le contour bleu en temps réel)
-  const { isTextDetectedLive, setIsTextDetectedLive, frameProcessor } = useLiveOCR({
-    cameraRef,
-    isFocused,
-    enabled: !photo && !isLoading && !showIsbnPopup && !isSearchingIsbn,
-    scanInterval: 500,
-  });
+  const [isTextDetectedLive, setIsTextDetectedLive] = React.useState(false);
+  const handleTextDetectedChange = useCallback((detected: boolean) => {
+    setIsTextDetectedLive(detected);
+  }, []);
 
   const regionOfInterest = useMemo(() => {
     if (!scanFrameLayout || containerSize.width === 0 || containerSize.height === 0) {
@@ -270,29 +358,29 @@ export default function ScanScreen() {
       }
       if (codes.length > 0 && codes[0].value) {
         const code = codes[0];
-        
+
         // Filter codes to only those inside the visual scan frame area (in DP)
         if (code.frame && scanFrameLayout && containerSize.width > 0 && scannerFrame.width > 0 && scannerFrame.height > 0) {
           const isFrameLandscape = scannerFrame.width > scannerFrame.height;
-          
+
           let x_screen = 0;
           let y_screen = 0;
-          
+
           if (isFrameLandscape) {
             // Camera sensor is landscape, screen is portrait (90 deg rotation)
             const scaleX = containerSize.width / scannerFrame.height;
             const scaleY = containerSize.height / scannerFrame.width;
             const scale = Math.max(scaleX, scaleY);
-            
+
             const scaledWidth = scannerFrame.height * scale;
             const scaledHeight = scannerFrame.width * scale;
-            
+
             const offsetX = (scaledWidth - containerSize.width) / 2;
             const offsetY = (scaledHeight - containerSize.height) / 2;
-            
+
             const codeCenterX = code.frame.x + code.frame.width / 2;
             const codeCenterY = code.frame.y + code.frame.height / 2;
-            
+
             x_screen = codeCenterY * scale - offsetX;
             y_screen = codeCenterX * scale - offsetY;
           } else {
@@ -300,41 +388,41 @@ export default function ScanScreen() {
             const scaleX = containerSize.width / scannerFrame.width;
             const scaleY = containerSize.height / scannerFrame.height;
             const scale = Math.max(scaleX, scaleY);
-            
+
             const scaledWidth = scannerFrame.width * scale;
             const scaledHeight = scannerFrame.height * scale;
-            
+
             const offsetX = (scaledWidth - containerSize.width) / 2;
             const offsetY = (scaledHeight - containerSize.height) / 2;
-            
+
             const codeCenterX = code.frame.x + code.frame.width / 2;
             const codeCenterY = code.frame.y + code.frame.height / 2;
-            
+
             x_screen = codeCenterX * scale - offsetX;
             y_screen = codeCenterY * scale - offsetY;
           }
-          
+
           const frameLeft = scanFrameLayout.x;
           const frameRight = scanFrameLayout.x + scanFrameLayout.width;
           const frameTop = scanAreaY + scanFrameLayout.y;
           const frameBottom = scanAreaY + scanFrameLayout.y + scanFrameLayout.height;
-          
+
           const isInside = x_screen >= frameLeft && x_screen <= frameRight &&
-                           y_screen >= frameTop && y_screen <= frameBottom;
-          
+            y_screen >= frameTop && y_screen <= frameBottom;
+
           if (!isInside) {
-            console.log('[ScanScreen] Ignored barcode outside visual frame:', code.value, { 
-              x_screen, 
-              y_screen, 
-              frameLeft, 
-              frameRight, 
-              frameTop, 
-              frameBottom 
+            console.log('[ScanScreen] Ignored barcode outside visual frame:', code.value, {
+              x_screen,
+              y_screen,
+              frameLeft,
+              frameRight,
+              frameTop,
+              frameBottom
             });
             return;
           }
         }
-        
+
         console.log('[ScanScreen] Barcode scanned:', code.value);
         checkAndHandleIsbn(code.value!);
       }
@@ -465,7 +553,7 @@ export default function ScanScreen() {
       }
 
       console.log('[ScanScreen] handleTakePhoto: regular quote text detected. Transitioning to scan workflow...');
-      
+
       // Use the portrait-normalized image file path
       const normalizedPath = ocrResult.normalizedUri.replace('file://', '');
       const pickedPhoto: PhotoFile = {
@@ -527,7 +615,7 @@ export default function ScanScreen() {
 
       // 1. Vérifier la permission sans lancer la boîte de dialogue directement
       let permission = await ExpoImagePicker.getMediaLibraryPermissionsAsync();
-      
+
       if (permission.status !== 'granted') {
         permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
         if (permission.status !== 'granted') {
@@ -607,7 +695,7 @@ export default function ScanScreen() {
 
   if (!hasPermission) {
     return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <Text style={styles.permissionText}>{"Quotex a besoin de l'accès à la caméra."}</Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
           <Text style={styles.permissionButtonText}>Autoriser</Text>
@@ -618,7 +706,7 @@ export default function ScanScreen() {
 
   if (!device) {
     return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <Text style={styles.permissionText}>Aucun appareil photo disponible.</Text>
       </SafeAreaView>
     );
@@ -635,8 +723,8 @@ export default function ScanScreen() {
     >
       {!photo && (
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.headerButtonLeft} 
+          <TouchableOpacity
+            style={styles.headerButtonLeft}
             onPress={() => router.push('/settings')}
           >
             <Settings size={24} color="#E5E7EB" />
@@ -646,13 +734,13 @@ export default function ScanScreen() {
             <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />
           </View>
 
-          <TouchableOpacity 
-            style={styles.headerButtonRight} 
+          <TouchableOpacity
+            style={styles.headerButtonRight}
             onPress={() => {
               if (currentUser?.username) {
-                router.push({ 
-                  pathname: '/user-profile', 
-                  params: { username: currentUser.username } 
+                router.push({
+                  pathname: '/user-profile',
+                  params: { username: currentUser.username }
                 });
               } else {
                 router.push('/user-profile');
@@ -674,19 +762,16 @@ export default function ScanScreen() {
           normalizedSize={ocrNormalizedSize}
         />
       ) : isFocused && !photo && !isPickerActive ? (
-        <Camera
-          style={StyleSheet.absoluteFill}
+        <CameraContainer
           device={device}
-          isActive={true}
-          photo
-          pixelFormat="yuv"
-          outputOrientation="preview"
-          ref={cameraRef}
-          frameProcessor={frameProcessor}
-          codeScanner={(!showIsbnPopup && !isSearchingIsbn && !isLoading) ? codeScanner : undefined}
-          onError={(error) => {
-            console.log('Camera error:', error);
-          }}
+          cameraRef={cameraRef}
+          codeScanner={codeScanner}
+          showIsbnPopup={showIsbnPopup}
+          isSearchingIsbn={isSearchingIsbn}
+          isLoading={isLoading}
+          photo={photo}
+          isFocused={isFocused}
+          onTextDetectedChange={handleTextDetectedChange}
         />
       ) : null}
 
@@ -732,7 +817,7 @@ export default function ScanScreen() {
                     <BookOpen size={48} color="#FFFFFF" />
                   </View>
                   <Text style={styles.instructionTextShadow}>
-                    {isLoading ? 'Analyse en cours...' : 'Placez une citation dans le cadre'}
+                    {isLoading ? 'Analyse en cours...' : 'Placez une citation ou un code-barre dans le cadre'}
                   </Text>
                 </Animated.View>
               </View>
@@ -797,6 +882,28 @@ export default function ScanScreen() {
             />
           )}
 
+          {/* Random Quote Preview Modal */}
+          {showRandomQuoteModal && randomQuote && (
+            <ScanPreviewModal
+              visible={showRandomQuoteModal}
+              showConfetti={true}
+              onClose={() => setShowRandomQuoteModal(false)}
+              onConfirm={async (text, book, author) => {
+                try {
+                  await addQuote(text, book, author);
+                  setShowRandomQuoteModal(false);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                } catch (e) {
+                  console.error('[ScanScreen] Failed to save random quote:', e);
+                  Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');
+                }
+              }}
+              scannedText={randomQuote.text}
+              initialBook={getBookTitle(randomQuote.book)}
+              initialAuthor={getAuthorName(randomQuote.author)}
+            />
+          )}
+
           <View style={styles.controls}>
             <View style={styles.controlsRow}>
               <TouchableOpacity style={styles.iconButton} onPress={handlePickImage}>
@@ -820,7 +927,7 @@ export default function ScanScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleRandomQuotePress}>
                 <Sparkles size={24} color="#E5E7EB" />
               </TouchableOpacity>
             </View>

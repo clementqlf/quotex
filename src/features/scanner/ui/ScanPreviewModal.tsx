@@ -12,6 +12,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Keyboard,
+    Dimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-react-native';
@@ -22,6 +23,7 @@ import { API_BASE_URL } from '@/src/shared/config/api';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { Confetti } from 'react-native-fast-confetti';
 
 type ScanPreviewModalProps = {
     visible: boolean;
@@ -30,6 +32,7 @@ type ScanPreviewModalProps = {
     scannedText: string;
     initialBook?: string;
     initialAuthor?: string;
+    showConfetti?: boolean;
 };
 
 export default function ScanPreviewModal({
@@ -39,6 +42,7 @@ export default function ScanPreviewModal({
     scannedText,
     initialBook = '',
     initialAuthor = '',
+    showConfetti = false,
 }: ScanPreviewModalProps) {
     const { quotes } = useData();
     const { colors } = useTheme();
@@ -598,6 +602,15 @@ export default function ScanPreviewModal({
                         </Pressable>
                     </Pressable>
                 </KeyboardAvoidingView>
+                {showConfetti && visible && (
+                    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                        <Confetti
+                            isInfinite={false}
+                            colors={['#20B8CD', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6']}
+                            containerStyle={StyleSheet.absoluteFillObject}
+                        />
+                    </View>
+                )}
             </View>
         </Modal >
     );

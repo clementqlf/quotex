@@ -61,5 +61,19 @@ target 'Quotex' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # Align all pod deployment targets with the main project to avoid low version warnings
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+      end
+
+      # Suppress Xcode warnings about script build phases lacking input/output files
+      target.build_phases.each do |phase|
+        if phase.respond_to?(:isa) && phase.isa == 'PBXShellScriptBuildPhase'
+          phase.always_out_of_date = '1'
+        end
+      end
+    end
   end
 end

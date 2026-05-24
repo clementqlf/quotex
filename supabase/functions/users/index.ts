@@ -19,7 +19,7 @@ serve(async (req: Request) => {
   const parts = path.split('/').filter(Boolean);
 
   const user = await getAuthUser(req);
-  const authUserId = user?.id; // This is a UUID string
+  const authUserId = user?.id ?? null; // This is a UUID string
 
   try {
     // PATCH /users/me
@@ -109,7 +109,7 @@ serve(async (req: Request) => {
             'year', b.year,
             'genre', b.genre,
             'description', b.description,
-            'isbn', b.isbn,
+            'isbn', (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1),
             'rating', b.rating,
             'inventaireUri', b."inventaireUri",
             'googleId', b."googleId",
