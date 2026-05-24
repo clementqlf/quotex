@@ -366,42 +366,124 @@ export const normalizeTitle = (t: string): string => {
         .trim();
 };
 
+const normalizeAuthorForComparison = (name: string): string => {
+    return name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove accents
+        .replace(/[^a-z0-9\s]/g, "") // Remove punctuation
+        .trim();
+};
+
+export const compareAuthorNames = (name1: string, name2: string): boolean => {
+    const n1 = normalizeAuthorForComparison(name1);
+    const n2 = normalizeAuthorForComparison(name2);
+
+    if (n1 === n2) return true;
+
+    const words1 = n1.split(/\s+/).filter(w => w.length > 0);
+    const words2 = n2.split(/\s+/).filter(w => w.length > 0);
+
+    if (words1.length === 0 || words2.length === 0) return false;
+
+    // Check if the main words (length > 1) are identical (handles middle initials)
+    const mainWords1 = words1.filter(w => w.length > 1);
+    const mainWords2 = words2.filter(w => w.length > 1);
+
+    if (mainWords1.length > 0 && mainWords2.length > 0) {
+        const joinedMain1 = mainWords1.join(' ');
+        const joinedMain2 = mainWords2.join(' ');
+        if (joinedMain1 === joinedMain2) {
+            return true;
+        }
+    }
+
+    // Check initials matching (e.g. "j.r.r. tolkien" vs "john ronald reuel tolkien")
+    const lastWord1 = words1[words1.length - 1];
+    const lastWord2 = words2[words2.length - 1];
+    if (lastWord1 !== lastWord2) return false;
+
+    const firstPart1 = words1.slice(0, -1);
+    const firstPart2 = words2.slice(0, -1);
+
+    if (firstPart1.length === 0 || firstPart2.length === 0) return false;
+
+    const matchInitials = (seq1: string[], seq2: string[]): boolean => {
+        if (seq1.length > seq2.length) return false;
+        for (let i = 0; i < seq1.length; i++) {
+            const w1 = seq1[i];
+            const w2 = seq2[i];
+            if (w1.length === 1) {
+                if (w2[0] !== w1) return false;
+            } else if (w2.length === 1) {
+                if (w1[0] !== w2) return false;
+            } else {
+                if (w1 !== w2) return false;
+            }
+        }
+        return true;
+    };
+
+    if (firstPart1.length <= firstPart2.length && matchInitials(firstPart1, firstPart2)) return true;
+    if (firstPart2.length <= firstPart1.length && matchInitials(firstPart2, firstPart1)) return true;
+
+    return false;
+};
+
 export const findWorkUriByTitleAndAuthor = async (title: string, authorName: string): Promise<string | null> => {
-    if (!title || !authorName) return null;
+    if (!title || !authorName) {
+        console.log(`[Inventaire Matching] Missing title or authorName. Title: "${title}", Author: "${authorName}"`);
+        return null;
+    }
     const cleanTitle = title.trim();
     const cleanAuthor = authorName.trim();
+    console.log(`[Inventaire Matching] Querying Inventaire.io search for work: "${cleanTitle}"...`);
     
     // Try first with title only to get broader results, then filter
     const results = await searchInventaireWorks(cleanTitle, 30);
+    console.log(`[Inventaire Matching] Found ${results.length} search results for "${cleanTitle}"`);
 
-    if (results.length === 0) return null;
+    if (results.length === 0) {
+        console.log(`[Inventaire Matching] No search results returned from Inventaire.io API for "${cleanTitle}"`);
+        return null;
+    }
 
     const normTitleQuery = normalizeTitle(cleanTitle);
 
     // 1. Precise match (Title + Author)
+    console.log(`[Inventaire Matching] Step 1: Searching for precise match (normalized title query: "${normTitleQuery}", author query: "${cleanAuthor.toLowerCase()}")`);
     for (const res of results) {
         const normResTitle = normalizeTitle(res.label);
         const titleMatch = normResTitle === normTitleQuery;
         const authorMatch = res.authors?.some(a => 
-            a.toLowerCase().includes(cleanAuthor.toLowerCase()) || 
-            cleanAuthor.toLowerCase().includes(a.toLowerCase())
+            compareAuthorNames(a, cleanAuthor)
         ) || false;
-        if (titleMatch && authorMatch) return res.uri;
+        
+        console.log(`[Inventaire Matching]   Checking result: "${res.label}" by [${res.authors?.join(', ') || 'unknown'}]. Title match: ${titleMatch}, Author match: ${authorMatch}`);
+        if (titleMatch && authorMatch) {
+            console.log(`[Inventaire Matching]   -> Precise match found! Selected URI: "${res.uri}"`);
+            return res.uri;
+        }
     }
 
     // 2. Author match only (if title was slightly different but author is sure)
+    console.log(`[Inventaire Matching] Step 2: Searching for fuzzy title match with exact author...`);
     for (const res of results) {
         const authorMatch = res.authors?.some(a => 
-            a.toLowerCase().includes(cleanAuthor.toLowerCase()) || 
-            cleanAuthor.toLowerCase().includes(a.toLowerCase())
+            compareAuthorNames(a, cleanAuthor)
         ) || false;
         const normResTitle = normalizeTitle(res.label);
         const titleIncluded = normResTitle.includes(normTitleQuery) || 
                               normTitleQuery.includes(normResTitle);
         
-        if (authorMatch && titleIncluded) return res.uri;
+        console.log(`[Inventaire Matching]   Checking result: "${res.label}" by [${res.authors?.join(', ') || 'unknown'}]. Title overlap: ${titleIncluded}, Author match: ${authorMatch}`);
+        if (authorMatch && titleIncluded) {
+            console.log(`[Inventaire Matching]   -> Fuzzy match found! Selected URI: "${res.uri}"`);
+            return res.uri;
+        }
     }
     
+    console.log(`[Inventaire Matching] No suitable match found for "${cleanTitle}" by "${cleanAuthor}" among the search results.`);
     return null;
 };
 

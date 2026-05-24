@@ -107,13 +107,18 @@ async function performQuoteAnalysis(quoteId: number) {
     }
 
     const recommendedBooks = result.recommendedBooks || [];
+    console.log(`[Quotes Analysis] AI recommended books raw output:`, JSON.stringify(recommendedBooks, null, 2));
     const resolvedRecBooks = [];
     const enrichmentTasks: Array<{ type: 'book' | 'author'; id: number }> = [];
 
     for (const recBook of recommendedBooks) {
-      if (!recBook.title) continue;
+      if (!recBook.title) {
+        console.log(`[Quotes Analysis] Skipping recommended book due to missing title:`, JSON.stringify(recBook));
+        continue;
+      }
       const recTitle = recBook.title.trim();
       const recAuthor = recBook.author ? recBook.author.trim() : 'Auteur inconnu';
+      console.log(`[Quotes Analysis] Processing recommended book: "${recTitle}" by "${recAuthor}"`);
 
       try {
         // Step 1: Find or create author record
@@ -148,18 +153,19 @@ async function performQuoteAnalysis(quoteId: number) {
           if (matchedBook) {
             bookRecord = matchedBook;
             localMatchFound = true;
-            console.log(`[Quotes] Local normalized title match found for "${recTitle}" → "${bookRecord.title}" (ID: ${bookRecord.id})`);
+            console.log(`[Quotes Analysis] Local normalized title match found for "${recTitle}" → "${bookRecord.title}" (ID: ${bookRecord.id})`);
           }
         }
 
         // Step 3: If not matched locally, lookup on Inventaire.io
         if (!localMatchFound) {
-          console.log(`[Quotes] No local match for "${recTitle}". Querying Inventaire...`);
+          console.log(`[Quotes Analysis] No local match found for "${recTitle}" in database. Querying Inventaire.io...`);
           const uri = await findWorkUriByTitleAndAuthor(recTitle, recAuthor);
           if (!uri) {
-            console.log(`[Quotes] Book "${recTitle}" by "${recAuthor}" not found on Inventaire. Skipping.`);
+            console.log(`[Quotes Analysis] Book "${recTitle}" by "${recAuthor}" was NOT found on Inventaire.io (search returned null). Skipping recommendation.`);
             continue; // FILTER OUT: Do not add or display if not found on Inventaire
           }
+          console.log(`[Quotes Analysis] Book "${recTitle}" by "${recAuthor}" successfully matched on Inventaire.io with URI: "${uri}"`);
 
           // We got the URI from Inventaire. Check if we already have it in DB by URI
           const conflictRows = await sql`
@@ -243,6 +249,10 @@ async function performQuoteAnalysis(quoteId: number) {
 serve(async (req: Request) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
+
+  // Drop NOT NULL constraint on authorId to allow books without authors
+  await sql`ALTER TABLE "Book" ALTER COLUMN "authorId" DROP NOT NULL`
+    .catch((e) => console.error('[Migration] Failed to drop NOT NULL constraint on authorId:', e));
 
   const url = new URL(req.url);
   const path = url.pathname.replace(/^(?:\/functions\/v1)?\/quotes/, '') || '/';

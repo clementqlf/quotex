@@ -88,6 +88,58 @@ const GlowCircle = ({ color1, x, y, scale, size = 200, opacity = 0.55, style }: 
   );
 };
 
+const RecBookSkeleton = ({ colors, styles }: { colors: ThemeColors; styles: any }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={styles.recBookCard}>
+      <Animated.View
+        style={[
+          styles.recBookCover,
+          { backgroundColor: colors.surfaceHighlight },
+          animatedStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            width: 85,
+            height: 12,
+            borderRadius: 4,
+            backgroundColor: colors.surfaceHighlight,
+            marginBottom: 6,
+          },
+          animatedStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            width: 60,
+            height: 9,
+            borderRadius: 4,
+            backgroundColor: colors.surfaceHighlight,
+          },
+          animatedStyle,
+        ]}
+      />
+    </View>
+  );
+};
+
 export default function QuoteDetailModal() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
@@ -229,7 +281,7 @@ export default function QuoteDetailModal() {
   }, []);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
-  const { quotes, books, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote } = useData();
+  const { quotes, books, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote, refreshBooks } = useData();
 
   // 1. Prioritize lookup by ID from global store
   // 2. Fallback to parsing the stringified quote param
@@ -392,7 +444,8 @@ export default function QuoteDetailModal() {
       if (updateQuote) {
         updateQuote(quote.id, {
           aiInterpretation: updatedQuote.aiInterpretation,
-          theme: updatedQuote.theme
+          theme: updatedQuote.theme,
+          blockData: updatedQuote.blockData
         });
       }
     } catch (error) {
@@ -477,6 +530,12 @@ export default function QuoteDetailModal() {
             ...b,
             title: dbBook.title || b.title,
             cover: dbBook.cover || b.cover,
+            isEnriching: dbBook.isEnriching ?? false,
+          };
+        } else {
+          return {
+            ...b,
+            isEnriching: true,
           };
         }
       }
@@ -539,6 +598,28 @@ export default function QuoteDetailModal() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [quote?.blockData, quote?.id, updateQuote]);
+
+  const enrichingKeysStr = useMemo(() => {
+    return JSON.stringify(recommendedBooks.map((b: any) => ({ id: b.id, isEnriching: b.isEnriching })));
+  }, [recommendedBooks]);
+
+  // Poll to refresh books list if any recommended book is still enriching in background
+  React.useEffect(() => {
+    const hasEnrichingBooks = recommendedBooks.some((b: any) => b.isEnriching);
+    if (!hasEnrichingBooks) return;
+
+    if (refreshBooks) {
+      refreshBooks();
+    }
+
+    const interval = setInterval(() => {
+      if (refreshBooks) {
+        refreshBooks();
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [enrichingKeysStr, refreshBooks]);
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setQuote((current: Quote | undefined) => {
@@ -895,6 +976,9 @@ export default function QuoteDetailModal() {
                         keyboardShouldPersistTaps="handled"
                       >
                         {recommendedBooks.map((bookItem: any, idx: number) => {
+                          if (bookItem.isEnriching) {
+                            return <RecBookSkeleton key={idx} colors={colors} styles={styles} />;
+                          }
                           const hasCover = !!bookItem.cover;
                           return (
                             <TouchableOpacity
