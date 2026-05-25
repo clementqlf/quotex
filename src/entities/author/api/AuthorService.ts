@@ -140,7 +140,7 @@ class AuthorService {
         }
         return undefined;
     }
-    async toggleSaveAuthor(id: number): Promise<boolean> {
+    async toggleSaveAuthor(id: number): Promise<{ isSaved: boolean; followersCount: number } | null> {
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/${id}/toggle-save`, {
@@ -148,13 +148,12 @@ class AuthorService {
                 headers
             });
             if (response.ok) {
-                const result = await response.json();
-                return result.isSaved;
+                return await response.json();
             }
         } catch (error) {
             console.error('Error toggling author save status:', error);
         }
-        return false;
+        return null;
     }
 
     async toggleSaveBook(id: number): Promise<boolean> {

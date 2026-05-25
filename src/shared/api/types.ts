@@ -26,6 +26,7 @@ export type Author = {
   isSaved?: boolean;
   isEnriching?: boolean;
   quotesCount?: number;
+  followersCount?: number;
   laureates?: Laureate[];
 };
 

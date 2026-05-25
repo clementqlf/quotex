@@ -954,13 +954,8 @@ export default function QuoteDetailModal() {
               </View>
             )}
 
-            <TouchableOpacity
+            <View
               style={styles.aiSection}
-              activeOpacity={isAnalyzing ? 1 : 0.85}
-              onPress={() => {
-                if (isAnalyzing) return;
-                setAIChatVisible(true);
-              }}
             >
               {isAnalyzing ? (
                 <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
@@ -1043,10 +1038,7 @@ export default function QuoteDetailModal() {
                     </View>
                   )}
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 }}>
-                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>Discuter avec l'assistant IA</Text>
-                    <Sparkles size={12} color={colors.primary} />
-                  </View>
+
                 </>
               ) : (
                 <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
@@ -1080,7 +1072,7 @@ export default function QuoteDetailModal() {
                   </TouchableOpacity>
                 </View>
               )}
-            </TouchableOpacity>
+            </View>
           </View>
 
 

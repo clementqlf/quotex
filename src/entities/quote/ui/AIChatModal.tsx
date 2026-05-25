@@ -12,9 +12,9 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Sparkles, Send, BookOpen, User as UserIcon } from 'lucide-react-native';
 import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
 import Animated, { 

@@ -30,7 +30,7 @@ type DataContextType = {
     getBookByTitle: (title: string) => Promise<Book | undefined>;
     getBookById: (id: number) => Promise<Book | undefined>;
     importBook: (bookData: Partial<Book>) => Promise<Book | undefined>;
-    toggleSaveAuthor: (id: number) => Promise<void>;
+    toggleSaveAuthor: (id: number) => Promise<{ isSaved: boolean; followersCount: number } | null>;
     toggleSaveBook: (id: number) => Promise<void>;
     updateBookStatus: (id: number, status: string) => Promise<void>;
     getNotableWorks: (authorId: number) => Promise<Book[]>;
@@ -266,8 +266,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const toggleSaveAuthor = useCallback(async (id: number) => {
-        await authorService.toggleSaveAuthor(id);
+        const res = await authorService.toggleSaveAuthor(id);
         await refreshAuthors();
+        return res;
     }, [refreshAuthors]);
 
     const toggleSaveBook = useCallback(async (id: number) => {
