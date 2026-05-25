@@ -10,6 +10,7 @@ export * from './inventaire.api.ts';
 
 // ─── Deduplication ───────────────────────────────────────────────────────────
 export const activeAuthorEnrichments = new Map<number, Promise<any>>();
+export const activeUriEnrichments = new Map<string, Promise<any>>();
 
 // ─── DB helpers ──────────────────────────────────────────────────────────────
 
@@ -41,6 +42,18 @@ export async function mergeBooks(sourceId: number, targetId: number) {
   console.log(`[Inventaire] Merging book ${sourceId} → ${targetId}`);
   try {
     await sql.begin(async (tx) => {
+      // Lock both books in ID order to prevent deadlock
+      const [lowId, highId] = sourceId < targetId ? [sourceId, targetId] : [targetId, sourceId];
+      const locked = await tx`
+        SELECT id FROM "Book" 
+        WHERE id IN (${lowId}, ${highId}) 
+        FOR UPDATE
+      `;
+      if (locked.length < 2) {
+        console.log(`[Inventaire] One of the books to merge (${sourceId} or ${targetId}) was already deleted/merged. Skipping.`);
+        return;
+      }
+
       // 0. Get target book details
       const targetRows = await tx`SELECT title FROM "Book" WHERE id = ${targetId} LIMIT 1`;
       const targetBookTitle = targetRows[0]?.title || null;
@@ -49,10 +62,11 @@ export async function mergeBooks(sourceId: number, targetId: number) {
       const userBooks = await tx`SELECT * FROM "UserBook" WHERE "bookId" = ${sourceId}`;
       for (const ub of userBooks) {
         await tx`
-          INSERT INTO "UserBook" ("userId", "bookId", "status", "addedAt")
-          VALUES (${ub.userId}, ${targetId}, ${ub.status}, ${ub.addedAt})
+          INSERT INTO "UserBook" ("userId", "bookId", "status", "addedViaQuote", "addedAt")
+          VALUES (${ub.userId}, ${targetId}, ${ub.status}, ${ub.addedViaQuote ?? false}, ${ub.addedAt})
           ON CONFLICT ("userId", "bookId") DO UPDATE SET
-            "status" = COALESCE("UserBook".status, EXCLUDED.status)
+            "status" = COALESCE("UserBook".status, EXCLUDED.status),
+            "addedViaQuote" = COALESCE("UserBook"."addedViaQuote", EXCLUDED."addedViaQuote")
         `;
       }
 
@@ -114,6 +128,18 @@ export async function mergeAuthors(sourceId: number, targetId: number) {
   console.log(`[Inventaire] Merging author ${sourceId} → ${targetId}`);
   try {
     await sql.begin(async (tx) => {
+      // Lock both authors in ID order to prevent deadlock
+      const [lowId, highId] = sourceId < targetId ? [sourceId, targetId] : [targetId, sourceId];
+      const locked = await tx`
+        SELECT id FROM "Author" 
+        WHERE id IN (${lowId}, ${highId}) 
+        FOR UPDATE
+      `;
+      if (locked.length < 2) {
+        console.log(`[Inventaire] One of the authors to merge (${sourceId} or ${targetId}) was already deleted/merged. Skipping.`);
+        return;
+      }
+
       // Move books
       const sourceBooks = await tx`SELECT * FROM "Book" WHERE "authorId" = ${sourceId}`;
       for (const book of sourceBooks) {
@@ -259,6 +285,8 @@ export const syncAuthorProfile = async (
     return activeAuthorEnrichments.get(authorId);
   }
 
+  let resolvedUri: string | undefined = authorUri;
+
   const enrichmentPromise = (async () => {
     try {
       await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${authorId}`.catch(() => {});
@@ -307,12 +335,37 @@ export const syncAuthorProfile = async (
         return null;
       }
 
+      resolvedUri = uri;
+
+      // URI deduplication: if another enrichment is processing this URI, await it
+      const activeUriPromise = activeUriEnrichments.get(uri);
+      if (activeUriPromise && activeUriPromise !== enrichmentPromise) {
+        console.log(`[Inventaire] Awaiting active concurrent enrichment for URI ${uri}...`);
+        await activeUriPromise;
+        // After awaiting, this author might have been merged/deleted
+        const freshAuthor = await getAuthor(authorId);
+        if (!freshAuthor) {
+          console.log(`[Inventaire] Author ${authorId} was merged/deleted during concurrent URI enrichment.`);
+          const survivor = await sql`SELECT * FROM "Author" WHERE "inventaireUri" = ${uri} LIMIT 1`;
+          return survivor[0] ?? null;
+        }
+        // Check conflict again
+        const existingWithUri = await sql`SELECT * FROM "Author" WHERE "inventaireUri" = ${uri} LIMIT 1`;
+        if (existingWithUri.length > 0 && existingWithUri[0].id !== authorId) {
+          console.log(`[Inventaire] Conflict after awaiting concurrent URI enrichment: Author ${existingWithUri[0].id} already has URI ${uri}. Merging...`);
+          await mergeAuthors(authorId, existingWithUri[0].id);
+          return await syncAuthorProfile(existingWithUri[0].id, authorName, uri);
+        }
+      } else {
+        activeUriEnrichments.set(uri, enrichmentPromise);
+      }
+
       // Check conflict
       const existingWithUri = await sql`SELECT * FROM "Author" WHERE "inventaireUri" = ${uri} LIMIT 1`;
       if (existingWithUri.length > 0 && existingWithUri[0].id !== authorId) {
         console.log(`[Inventaire] Conflict: Author ${existingWithUri[0].id} already has URI ${uri}. Merging...`);
         await mergeAuthors(authorId, existingWithUri[0].id);
-        return syncAuthorProfile(existingWithUri[0].id, authorName, uri);
+        return await syncAuthorProfile(existingWithUri[0].id, authorName, uri);
       }
 
       const details = await api.getInventaireAuthorDetails(uri);
@@ -385,7 +438,7 @@ export const syncAuthorProfile = async (
           const survivor = await sql`SELECT * FROM "Author" WHERE "inventaireUri" = ${uri} LIMIT 1`;
           if (survivor.length) {
             await mergeAuthors(authorId, survivor[0].id);
-            return syncAuthorProfile(survivor[0].id, authorName, uri);
+            return await syncAuthorProfile(survivor[0].id, authorName, uri);
           }
         }
         throw err;
@@ -397,6 +450,9 @@ export const syncAuthorProfile = async (
       console.error(`[Inventaire] Author enrichment error:`, e);
       return null;
     } finally {
+      if (resolvedUri) {
+        activeUriEnrichments.delete(resolvedUri);
+      }
       console.log(`[Inventaire] Final flag reset for author ${authorId}`);
       const exists = await sql`SELECT id FROM "Author" WHERE id = ${authorId} LIMIT 1`;
       if (exists.length) {

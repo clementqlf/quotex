@@ -254,6 +254,10 @@ serve(async (req: Request) => {
   await sql`ALTER TABLE "Book" ALTER COLUMN "authorId" DROP NOT NULL`
     .catch((e) => console.error('[Migration] Failed to drop NOT NULL constraint on authorId:', e));
 
+  // Ensure addedViaQuote column exists in UserBook
+  await sql`ALTER TABLE "UserBook" ADD COLUMN IF NOT EXISTS "addedViaQuote" boolean DEFAULT false`
+    .catch((e) => console.error('[Migration] Failed to add addedViaQuote column:', e));
+
   const url = new URL(req.url);
   const path = url.pathname.replace(/^(?:\/functions\/v1)?\/quotes/, '') || '/';
   const parts = path.split('/').filter(Boolean);
@@ -348,8 +352,8 @@ serve(async (req: Request) => {
 
         // Add to user library
         await sql`
-          INSERT INTO "UserBook" ("userId", "bookId", status, "addedAt")
-          VALUES (${authUser.id}, ${bookRecord.id}, 'READING', now())
+          INSERT INTO "UserBook" ("userId", "bookId", status, "addedViaQuote", "addedAt")
+          VALUES (${authUser.id}, ${bookRecord.id}, 'READING', true, now())
           ON CONFLICT ("userId", "bookId") 
           DO UPDATE SET status = COALESCE("UserBook".status, EXCLUDED.status)
         `;
@@ -556,7 +560,37 @@ serve(async (req: Request) => {
           bookId = bRows[0].id;
         }
       }
+      // Handle UserBook cleanup for old book and insertion/upsert for new book
+      const oldBookId = existing.bookId ?? existing.bookid;
+      if (oldBookId && String(oldBookId) !== (bookId ? String(bookId) : '')) {
+        const otherQuotes = await sql`
+          SELECT 1 FROM "Quote"
+          WHERE "userId" = ${authUser.id}
+            AND "bookId" = ${oldBookId}
+            AND "id" != ${idParam}
+          LIMIT 1
+        `;
+        if (otherQuotes.length === 0) {
+          await sql`
+            DELETE FROM "UserBook"
+            WHERE "userId" = ${authUser.id}
+              AND "bookId" = ${oldBookId}
+              AND "addedViaQuote" = true
+          `;
+        }
+      }
+
+      if (bookId) {
+        await sql`
+          INSERT INTO "UserBook" ("userId", "bookId", status, "addedViaQuote", "addedAt")
+          VALUES (${authUser.id}, ${bookId}, 'READING', true, now())
+          ON CONFLICT ("userId", "bookId") 
+          DO UPDATE SET status = COALESCE("UserBook".status, EXCLUDED.status)
+        `;
+      }
+
       // 3. Update the Quote
+
       console.log('[DEBUG PATCH]', {
         text: text !== undefined ? text : existing.text,
         theme: theme !== undefined ? theme : existing.theme,
@@ -591,7 +625,37 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      await sql`DELETE FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id}`;
+      // Get the quote details before deleting to check if we need to clean up the book
+      const quoteRows = await sql`
+        SELECT "bookId" FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id} LIMIT 1
+      `;
+      if (quoteRows.length > 0) {
+        const quoteBookId = quoteRows[0].bookId;
+
+        await sql`DELETE FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id}`;
+
+        if (quoteBookId) {
+          // Check if there are other quotes referencing this book
+          const otherQuotes = await sql`
+            SELECT 1 FROM "Quote"
+            WHERE "userId" = ${authUser.id}
+              AND "bookId" = ${quoteBookId}
+            LIMIT 1
+          `;
+          if (otherQuotes.length === 0) {
+            // Delete from UserBook if added via quote
+            await sql`
+              DELETE FROM "UserBook"
+              WHERE "userId" = ${authUser.id}
+                AND "bookId" = ${quoteBookId}
+                AND "addedViaQuote" = true
+            `;
+          }
+        }
+      } else {
+        await sql`DELETE FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id}`;
+      }
+
       return json({ success: true });
     }
 

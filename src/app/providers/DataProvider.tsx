@@ -139,7 +139,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         // Optimistic
         setQuotes(prev => prev.filter(q => q.id !== id));
         await quoteService.deleteQuote(id);
-    }, []);
+        
+        await Promise.all([
+            refreshQuotes('deleteQuote complete'),
+            refreshBooks('deleteQuote complete')
+        ]);
+    }, [refreshQuotes, refreshBooks]);
 
     const getAuthorByName = useCallback(async (name: string) => {
         return authorService.getAuthorByName(name);
@@ -168,9 +173,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         // Call service
         await quoteService.updateQuote(id, updates);
         
-        // Only refresh quotes from server
-        await refreshQuotes('updateQuote complete');
-    }, [refreshQuotes]);
+        // Refresh both quotes and books
+        await Promise.all([
+            refreshQuotes('updateQuote complete'),
+            refreshBooks('updateQuote complete')
+        ]);
+    }, [refreshQuotes, refreshBooks]);
 
     const getBookData = useCallback(async (bookTitle: string) => {
         return await BlockService.getBlockData(bookTitle, 'book');
@@ -202,8 +210,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
         await quoteService.addQuote(text, cleanBook, cleanAuthor);
         
-        await refreshQuotes();
-    }, [refreshQuotes]);
+        await Promise.all([
+            refreshQuotes('addQuote complete'),
+            refreshBooks('addQuote complete')
+        ]);
+    }, [refreshQuotes, refreshBooks]);
 
     const getUserByUsername = useCallback(async (username: string) => {
         return await quoteService.getUserByUsername(username);

@@ -67,6 +67,10 @@ serve(async (req: Request) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
+  // Ensure addedViaQuote column exists in UserBook
+  await sql`ALTER TABLE "UserBook" ADD COLUMN IF NOT EXISTS "addedViaQuote" boolean DEFAULT false`
+    .catch((e) => console.error('[Migration] Failed to add addedViaQuote column:', e));
+
   const url = new URL(req.url);
   const path = url.pathname.replace(/^(?:\/functions\/v1)?\/books/, '') || '/';
   const parts = path.split('/').filter(Boolean);
@@ -328,9 +332,11 @@ serve(async (req: Request) => {
       if (!readingStatus) return error('Missing readingStatus', 400);
 
       await sql`
-        INSERT INTO "UserBook" ("userId", "bookId", "status", "addedAt")
-        VALUES (${authUser.id}, ${idParam}, ${readingStatus}, now())
-        ON CONFLICT ("userId", "bookId") DO UPDATE SET "status" = EXCLUDED.status
+        INSERT INTO "UserBook" ("userId", "bookId", "status", "addedViaQuote", "addedAt")
+        VALUES (${authUser.id}, ${idParam}, ${readingStatus}, false, now())
+        ON CONFLICT ("userId", "bookId") DO UPDATE SET 
+          "status" = EXCLUDED.status,
+          "addedViaQuote" = false
       `;
 
       const book = await fetchBook(idParam, authUser.id);
