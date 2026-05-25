@@ -448,6 +448,9 @@ export default function QuoteDetailModal() {
           blockData: updatedQuote.blockData
         });
       }
+      if (refreshBooks) {
+        refreshBooks();
+      }
     } catch (error) {
       console.error('[AI Analysis]', error);
       Alert.alert(
@@ -522,9 +525,10 @@ export default function QuoteDetailModal() {
   const aiInterpretation = quote?.aiInterpretation;
   const recommendedBooks = React.useMemo(() => {
     const recs = quote?.blockData?.recommendedBooks || [];
-    return recs.map((b: any) => {
+    const booksMap = new Map(books.map((db: any) => [Number(db.id), db]));
+    const mapped = recs.map((b: any) => {
       if (b.id) {
-        const dbBook = books.find((db: any) => Number(db.id) === Number(b.id));
+        const dbBook = booksMap.get(Number(b.id));
         if (dbBook) {
           return {
             ...b,
@@ -541,6 +545,8 @@ export default function QuoteDetailModal() {
       }
       return b;
     });
+    console.log('[QuoteDetailModal] Mapped recommended books:', JSON.stringify(mapped, null, 2));
+    return mapped;
   }, [quote?.blockData?.recommendedBooks, books]);
   const quoteTheme = quote?.theme;
   const additionalThemes = quote?.blockData?.additionalThemes || [];
@@ -606,19 +612,34 @@ export default function QuoteDetailModal() {
   // Poll to refresh books list if any recommended book is still enriching in background
   React.useEffect(() => {
     const hasEnrichingBooks = recommendedBooks.some((b: any) => b.isEnriching);
+    console.log('[QuoteDetailModal] Polling effect checked. hasEnrichingBooks:', hasEnrichingBooks);
     if (!hasEnrichingBooks) return;
 
+    console.log('[QuoteDetailModal] Starting polling interval to refresh books...');
     if (refreshBooks) {
       refreshBooks();
     }
 
+    let attempts = 0;
+    const maxAttempts = 15; // Limit to 1 minute of polling (15 * 4s) to prevent infinite loops
+
     const interval = setInterval(() => {
+      attempts++;
+      console.log(`[QuoteDetailModal] Polling books. Attempt ${attempts}/${maxAttempts}`);
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        console.warn('[QuoteDetailModal] Polling stopped: reached maximum attempts for recommended books enrichment.');
+        return;
+      }
       if (refreshBooks) {
         refreshBooks();
       }
     }, 4000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('[QuoteDetailModal] Clearing polling interval.');
+      clearInterval(interval);
+    };
   }, [enrichingKeysStr, refreshBooks]);
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
@@ -976,7 +997,7 @@ export default function QuoteDetailModal() {
                         keyboardShouldPersistTaps="handled"
                       >
                         {recommendedBooks.map((bookItem: any, idx: number) => {
-                          if (bookItem.isEnriching) {
+                          if (bookItem.isEnriching && !bookItem.cover) {
                             return <RecBookSkeleton key={idx} colors={colors} styles={styles} />;
                           }
                           const hasCover = !!bookItem.cover;

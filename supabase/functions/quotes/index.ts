@@ -127,7 +127,7 @@ async function performQuoteAnalysis(quoteId: number) {
           let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${recAuthor} LIMIT 1`;
           if (!authorRows.length) {
             authorRows = await sql`
-              INSERT INTO "Author" (name, "isEnriching") VALUES (${recAuthor}, false) RETURNING *
+              INSERT INTO "Author" (name, "isEnriching") VALUES (${recAuthor}, true) RETURNING *
             `;
           }
           authorRecord = authorRows[0];
@@ -178,7 +178,7 @@ async function performQuoteAnalysis(quoteId: number) {
             // It's a new book, but verified via Inventaire!
             const bookRows = await sql`
               INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching")
-              VALUES (${recTitle}, ${authorIdVal}, ${uri}, false) RETURNING *
+              VALUES (${recTitle}, ${authorIdVal}, ${uri}, true) RETURNING *
             `;
             bookRecord = bookRows[0];
             console.log(`[Quotes] Created new verified book record for "${recTitle}" (URI: ${uri}) (ID: ${bookRecord.id})`);
@@ -295,7 +295,7 @@ serve(async (req: Request) => {
         let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${authorName} LIMIT 1`;
         if (!authorRows.length) {
           authorRows = await sql`
-            INSERT INTO "Author" (name, "isEnriching") VALUES (${authorName}, false) RETURNING *
+            INSERT INTO "Author" (name, "isEnriching") VALUES (${authorName}, true) RETURNING *
           `;
           authorRecord = authorRows[0];
         } else {
@@ -331,7 +331,7 @@ serve(async (req: Request) => {
         if (!bookRows.length) {
           bookRows = await sql`
             INSERT INTO "Book" (title, "authorId", "isEnriching")
-            VALUES (${bookTitle}, ${authorIdVal}, false) RETURNING *
+            VALUES (${bookTitle}, ${authorIdVal}, true) RETURNING *
           `;
         }
         bookRecord = bookRows[0];
@@ -505,7 +505,7 @@ serve(async (req: Request) => {
           if (trimmedAuthor !== existingAuthorName) {
             let aRows = await sql`SELECT id FROM "Author" WHERE name = ${trimmedAuthor} LIMIT 1`;
             if (!aRows.length) {
-              aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${trimmedAuthor}, false) RETURNING id`;
+              aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${trimmedAuthor}, true) RETURNING id`;
               // @ts-ignore deno
               if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
             }
@@ -528,7 +528,7 @@ serve(async (req: Request) => {
             bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" IS NULL LIMIT 1`;
           }
           if (!bRows.length) {
-            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, false) RETURNING id`;
+            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, true) RETURNING id`;
             // @ts-ignore deno
             if (typeof EdgeRuntime !== 'undefined') {
               EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
@@ -547,7 +547,7 @@ serve(async (req: Request) => {
             bRows = await sql`SELECT id FROM "Book" WHERE title = ${currentBookTitle} AND "authorId" IS NULL LIMIT 1`;
           }
           if (!bRows.length) {
-            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, false) RETURNING id`;
+            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, true) RETURNING id`;
             // @ts-ignore deno
             if (typeof EdgeRuntime !== 'undefined') {
               EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
