@@ -2692,8 +2692,8 @@ DEPENDENCIES:
   - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - "ExpoLogBox (from `../node_modules/@expo/log-box`)"
-  - ExpoModulesCore (from `../node_modules/expo/node_modules/expo-modules-core`)
-  - ExpoModulesJSI (from `../node_modules/expo/node_modules/expo-modules-core`)
+  - ExpoModulesCore (from `../node_modules/expo-modules-core`)
+  - ExpoModulesJSI (from `../node_modules/expo-modules-core`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
@@ -2868,9 +2868,9 @@ EXTERNAL SOURCES:
   ExpoLogBox:
     :path: "../node_modules/@expo/log-box"
   ExpoModulesCore:
-    :path: "../node_modules/expo/node_modules/expo-modules-core"
+    :path: "../node_modules/expo-modules-core"
   ExpoModulesJSI:
-    :path: "../node_modules/expo/node_modules/expo-modules-core"
+    :path: "../node_modules/expo-modules-core"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
   ExpoSplashScreen:
@@ -3190,7 +3190,7 @@ SPEC CHECKSUMS:
   React-utils: f1ec2d55598341eae23adcc8d946e9de5d6bd789
   React-webperformancenativemodule: a9bba1ed256de5fb6607a038f37e2466e0f01fbf
   ReactAppDependencyProvider: 3ec8fc5d32ad422f5b805523a5a5ea5556d8b3a2
-  ReactCodegen: 169fa6c4ad3c3065f98fa2364bf95e9a21c3afec
+  ReactCodegen: 40a20d94debd491cbac2d327505dcc1f2cabdcd1
   ReactCommon: ba28cd4e7d9e24014d2772a80e32da020c732b00
   ReactNativeDependencies: 11dbab54475c809ca71e28630ac3e535d0dde7c8
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
@@ -3211,6 +3211,6 @@ SPEC CHECKSUMS:
   VisionCamera: 0044a94f7489f19e19d5938e97dfc36f4784af3c
   Yoga: e41d64347f52d634dd8c2f6bac33f95081959fd3
 
-PODFILE CHECKSUM: b93415421950b14133bb351f1632642f6bffb304
+PODFILE CHECKSUM: 8c1a4c00dce6be929f44b6eb7cf55698374f1afe
 
 COCOAPODS: 1.16.2
