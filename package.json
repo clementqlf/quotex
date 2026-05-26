@@ -77,10 +77,5 @@
     "ts-jest": "^29.4.11",
     "typescript": "~5.9.2"
   },
-  "codegenConfig": {
-    "name": "AppModules",
-    "type": "all",
-    "jsSrcsDir": "."
-  },
   "private": true
 }
