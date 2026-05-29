@@ -9,8 +9,8 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatQuote } from '../_shared/formatters.ts';
-import { enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor, normalizeTitle } from '../_shared/inventaire.ts';
-import { discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
+import { enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor, normalizeTitle, normalizeAuthorForComparison, compareAuthorNames, searchInventaireAuthors } from '../_shared/inventaire.ts';
+import { discoverAndEnrichBook, enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
 import { analyzeQuoteWithGroq, chatAboutQuoteWithGroq } from '../_shared/groq.ts';
 
 
@@ -109,7 +109,7 @@ async function performQuoteAnalysis(quoteId: number) {
     const recommendedBooks = result.recommendedBooks || [];
     console.log(`[Quotes Analysis] AI recommended books raw output:`, JSON.stringify(recommendedBooks, null, 2));
     const resolvedRecBooks = [];
-    const enrichmentTasks: Array<{ type: 'book' | 'author'; id: number }> = [];
+    const enrichmentTasks: Array<{ type: 'book' | 'author'; id: number; skipDiscovery?: boolean }> = [];
 
     for (const recBook of recommendedBooks) {
       if (!recBook.title) {
@@ -132,9 +132,10 @@ async function performQuoteAnalysis(quoteId: number) {
           }
           authorRecord = authorRows[0];
 
-          // Queue author enrichment in background if details are missing
+          // Queue author enrichment in background but WITHOUT works discovery
+          // to prevent automatic enrichment of author's works for AI-recommended authors
           if (authorRecord && (!authorRecord.description || !authorRecord.inventaireUri)) {
-            enrichmentTasks.push({ type: 'author', id: authorRecord.id });
+            enrichmentTasks.push({ type: 'author', id: authorRecord.id, skipDiscovery: true });
           }
         }
         const authorIdVal = authorRecord ? authorRecord.id : null;
@@ -228,7 +229,7 @@ async function performQuoteAnalysis(quoteId: number) {
               await discoverAndEnrichBook(task.id);
             } else if (task.type === 'author') {
               console.log(`[Quotes] Background enriching recommended author ID: ${task.id}`);
-              await enrichAuthorWithInventaire(task.id);
+              await enrichAuthorWithInventaire(task.id, undefined, undefined, task.skipDiscovery);
             }
           } catch (err) {
             console.error(`[Quotes] Background enrichment failed for ${task.type} ID ${task.id}:`, err);
@@ -288,23 +289,62 @@ serve(async (req: Request) => {
       let authorRecord = null;
       if (hasAuthor) {
         const authorName = author.trim();
+        
+        // Step 1: Try exact match first
         let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${authorName} LIMIT 1`;
+        
+        // Step 2: If no exact match, try fuzzy matching with all authors
         if (!authorRows.length) {
-          authorRows = await sql`
-            INSERT INTO "Author" (name, "isEnriching") VALUES (${authorName}, true) RETURNING *
-          `;
-          authorRecord = authorRows[0];
-        } else {
-          authorRecord = authorRows[0];
+          const allAuthors = await sql`SELECT * FROM "Author"`;
+          const matchedAuthor = allAuthors.find((a: any) => compareAuthorNames(a.name, authorName));
+          if (matchedAuthor) {
+            authorRows = [matchedAuthor];
+          }
         }
+        
+        // Step 3: If still no match, search on Inventaire for the best matching author
+        if (!authorRows.length) {
+          console.log(`[Quotes] No local author match found for "${authorName}", searching Inventaire...`);
+          const inventaireAuthors = await searchInventaireAuthors(authorName, 5);
+          console.log(`[Quotes] Inventaire found ${inventaireAuthors.length} author matches`);
+          
+          if (inventaireAuthors.length > 0) {
+            // Try to find an existing author with one of these URIs
+            const bestMatch = inventaireAuthors[0];
+            const existingWithUri = await sql`
+              SELECT * FROM "Author" WHERE "inventaireUri" = ${bestMatch.uri} LIMIT 1
+            `;
+            
+            if (existingWithUri.length > 0) {
+              console.log(`[Quotes] Found existing author with URI ${bestMatch.uri}: ${existingWithUri[0].name}`);
+              authorRows = existingWithUri;
+            } else {
+              // Create new author with the correct name from Inventaire
+              const correctName = bestMatch.labels?.['fr'] || bestMatch.labels?.['en'] || bestMatch.label || authorName;
+              console.log(`[Quotes] Creating new author with Inventaire name: "${correctName}" (URI: ${bestMatch.uri})`);
+              authorRows = await sql`
+                INSERT INTO "Author" (name, "inventaireUri", "isEnriching") 
+                VALUES (${correctName}, ${bestMatch.uri}, true) RETURNING *
+              `;
+            }
+          } else {
+            // Step 4: Fallback - create with input name
+            console.log(`[Quotes] No Inventaire match, creating author with input name: "${authorName}"`);
+            authorRows = await sql`
+              INSERT INTO "Author" (name, "isEnriching") VALUES (${authorName}, true) RETURNING *
+            `;
+          }
+        }
+        
+        authorRecord = authorRows[0];
 
-        // Trigger enrichment if missing URI or description (or recently created)
+        // Trigger enrichment if missing URI or description (or recently created) - skip works discovery
         if (!authorRecord.inventaireUri || !authorRecord.description) {
           console.log(`[Quotes] Triggering enrichment for author: ${authorRecord.name} (ID: ${authorRecord.id})`);
           // @ts-ignore deno
           if (typeof EdgeRuntime !== 'undefined') {
             // @ts-ignore deno
-            EdgeRuntime.waitUntil(enrichAuthorWithInventaire(authorRecord.id));
+            EdgeRuntime.waitUntil(enrichAuthorWithInventaire(authorRecord.id, undefined, undefined, true));
           }
         }
       }
@@ -319,26 +359,99 @@ serve(async (req: Request) => {
           bookRows = await sql`
             SELECT * FROM "Book" WHERE title = ${bookTitle} AND "authorId" = ${authorIdVal} LIMIT 1
           `;
+          
+          // If no exact match, try fuzzy matching with normalized titles
+          if (!bookRows.length) {
+            const authorBooks = await sql`SELECT * FROM "Book" WHERE "authorId" = ${authorIdVal}`;
+            const normInputTitle = normalizeTitle(bookTitle);
+            const matchedBook = authorBooks.find((b: any) => normalizeTitle(b.title) === normInputTitle);
+            if (matchedBook) {
+              bookRows = [matchedBook];
+            }
+          }
         } else {
           bookRows = await sql`
             SELECT * FROM "Book" WHERE title = ${bookTitle} AND "authorId" IS NULL LIMIT 1
           `;
         }
         if (!bookRows.length) {
-          bookRows = await sql`
-            INSERT INTO "Book" (title, "authorId", "isEnriching")
-            VALUES (${bookTitle}, ${authorIdVal}, true) RETURNING *
-          `;
+          // Step 4: If still no match and we have an author, search on Inventaire
+          if (authorRecord?.inventaireUri) {
+            console.log(`[Quotes] No local book match found for "${bookTitle}" by author ${authorRecord.name}, searching Inventaire...`);
+            const uri = await findWorkUriByTitleAndAuthor(bookTitle, authorRecord.name);
+            
+            if (uri) {
+              console.log(`[Quotes] Found Inventaire URI for book: ${uri}`);
+              // Check if a book with this URI already exists
+              const existingWithUri = await sql`
+                SELECT * FROM "Book" WHERE "inventaireUri" = ${uri} LIMIT 1
+              `;
+              
+              if (existingWithUri.length > 0) {
+                console.log(`[Quotes] Found existing book with URI ${uri}: ${existingWithUri[0].title}`);
+                bookRows = existingWithUri;
+              } else {
+                // Create new book with the URI from Inventaire
+                console.log(`[Quotes] Creating new book with Inventaire URI: ${uri}`);
+                bookRows = await sql`
+                  INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching")
+                  VALUES (${bookTitle}, ${authorIdVal}, ${uri}, true) RETURNING *
+                `;
+                // Wait for enrichment to complete so we return the corrected title
+                // This ensures "Le petit prince" becomes "Le Petit Prince" in the response
+                if (typeof EdgeRuntime !== 'undefined') {
+                  await enrichBookWithInventaire(bookRows[0].id);
+                } else {
+                  EdgeRuntime.waitUntil(enrichBookWithInventaire(bookRows[0].id));
+                }
+              }
+            } else {
+              // Step 5: Fallback - create with input title
+              console.log(`[Quotes] No Inventaire match, creating book with input title: "${bookTitle}"`);
+              bookRows = await sql`
+                INSERT INTO "Book" (title, "authorId", "isEnriching")
+                VALUES (${bookTitle}, ${authorIdVal}, true) RETURNING *
+              `;
+              // Trigger discovery for this new book without URI
+              if (typeof EdgeRuntime !== 'undefined') {
+                EdgeRuntime.waitUntil(discoverAndEnrichBook(bookRows[0].id));
+              }
+            }
+          } else {
+            // No author URI, just create with input title
+            bookRows = await sql`
+              INSERT INTO "Book" (title, "authorId", "isEnriching")
+              VALUES (${bookTitle}, ${authorIdVal}, true) RETURNING *
+            `;
+            // Trigger discovery for this new book without URI
+            if (typeof EdgeRuntime !== 'undefined') {
+              EdgeRuntime.waitUntil(discoverAndEnrichBook(bookRows[0].id));
+            }
+          }
         }
         bookRecord = bookRows[0];
 
-        // Background book discovery
-        if (!bookRecord.description || !bookRecord.inventaireUri) {
-          console.log(`[Quotes] Triggering discovery/enrichment for book: ${bookRecord.title} (ID: ${bookRecord.id})`);
-          // @ts-ignore deno
-          if (typeof EdgeRuntime !== 'undefined') {
+        // For existing books (not newly created in this flow), trigger enrichment if needed
+        // Note: Newly created books already have their enrichment triggered immediately above
+        // We only need to handle the case where we found an existing book
+        const isNewlyCreated = bookRows.length === 1 && bookRows[0].isEnriching === true;
+        
+        if (!isNewlyCreated) {
+          // This is an existing book, trigger enrichment if needed
+          if (!bookRecord.inventaireUri) {
+            console.log(`[Quotes] Triggering discovery/enrichment for existing book: ${bookRecord.title} (ID: ${bookRecord.id})`);
             // @ts-ignore deno
-            EdgeRuntime.waitUntil(discoverAndEnrichBook(bookRecord.id));
+            if (typeof EdgeRuntime !== 'undefined') {
+              // @ts-ignore deno
+              EdgeRuntime.waitUntil(discoverAndEnrichBook(bookRecord.id));
+            }
+          } else if (!bookRecord.description) {
+            console.log(`[Quotes] Triggering enrichment for existing book with URI: ${bookRecord.title} (ID: ${bookRecord.id})`);
+            // @ts-ignore deno
+            if (typeof EdgeRuntime !== 'undefined') {
+              // @ts-ignore deno
+              EdgeRuntime.waitUntil(enrichBookWithInventaire(bookRecord.id));
+            }
           }
         }
 
@@ -499,11 +612,52 @@ serve(async (req: Request) => {
           const trimmedAuthor = author.trim();
           const existingAuthorName = (existing.author as any)?.name;
           if (trimmedAuthor !== existingAuthorName) {
-            let aRows = await sql`SELECT id FROM "Author" WHERE name = ${trimmedAuthor} LIMIT 1`;
+            let aRows = await sql`SELECT id, name FROM "Author" WHERE name = ${trimmedAuthor} LIMIT 1`;
+            
+            // If no exact match, try fuzzy matching
             if (!aRows.length) {
-              aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${trimmedAuthor}, true) RETURNING id`;
+              const allAuthors = await sql`SELECT id, name FROM "Author"`;
+              const matchedAuthor = allAuthors.find((a: any) => compareAuthorNames(a.name, trimmedAuthor));
+              if (matchedAuthor) {
+                aRows = [matchedAuthor];
+              }
+            }
+            
+            // If still no match, search on Inventaire
+            if (!aRows.length) {
+              console.log(`[Quotes PATCH] No local author match found for "${trimmedAuthor}", searching Inventaire...`);
+              const inventaireAuthors = await searchInventaireAuthors(trimmedAuthor, 5);
+              console.log(`[Quotes PATCH] Inventaire found ${inventaireAuthors.length} author matches`);
+              
+              if (inventaireAuthors.length > 0) {
+                const bestMatch = inventaireAuthors[0];
+                const existingWithUri = await sql`
+                  SELECT id, name FROM "Author" WHERE "inventaireUri" = ${bestMatch.uri} LIMIT 1
+                `;
+                
+                if (existingWithUri.length > 0) {
+                  console.log(`[Quotes PATCH] Found existing author with URI ${bestMatch.uri}: ${existingWithUri[0].name}`);
+                  aRows = existingWithUri;
+                } else {
+                  const correctName = bestMatch.labels?.['fr'] || bestMatch.labels?.['en'] || bestMatch.label || trimmedAuthor;
+                  console.log(`[Quotes PATCH] Creating new author with Inventaire name: "${correctName}" (URI: ${bestMatch.uri})`);
+                  aRows = await sql`
+                    INSERT INTO "Author" (name, "inventaireUri", "isEnriching") 
+                    VALUES (${correctName}, ${bestMatch.uri}, true) RETURNING id
+                  `;
+                  // @ts-ignore deno
+                  if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id, undefined, undefined, true));
+                }
+              } else {
+                // Fallback - create with input name
+                console.log(`[Quotes PATCH] No Inventaire match, creating author with input name: "${trimmedAuthor}"`);
+                aRows = await sql`INSERT INTO "Author" (name, "isEnriching") VALUES (${trimmedAuthor}, true) RETURNING id`;
+                // @ts-ignore deno
+                if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id, undefined, undefined, true));
+              }
+            } else {
               // @ts-ignore deno
-              if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id));
+              if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(enrichAuthorWithInventaire(aRows[0].id, undefined, undefined, true));
             }
             authorId = aRows[0].id;
           }
@@ -519,15 +673,47 @@ serve(async (req: Request) => {
           const authorIdVal = authorId;
           let bRows;
           if (authorIdVal) {
-            bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorIdVal} LIMIT 1`;
+            bRows = await sql`SELECT id, title FROM "Book" WHERE title = ${newBookTitle} AND "authorId" = ${authorIdVal} LIMIT 1`;
+            
+            // If no exact match, try fuzzy matching with normalized titles
+            if (!bRows.length) {
+              const authorBooks = await sql`SELECT id, title FROM "Book" WHERE "authorId" = ${authorIdVal}`;
+              const normInputTitle = normalizeTitle(newBookTitle);
+              const matchedBook = authorBooks.find((b: any) => normalizeTitle(b.title) === normInputTitle);
+              if (matchedBook) {
+                bRows = [matchedBook];
+              }
+            }
+            
+            // If still no match, search on Inventaire
+            if (!bRows.length) {
+              console.log(`[Quotes PATCH] No local book match for "${newBookTitle}", searching Inventaire...`);
+              // We need the author name for Inventaire search
+              const authorNameForSearch = (existing.author as any)?.name || (authorIdVal ? (await sql`SELECT name FROM "Author" WHERE id = ${authorIdVal} LIMIT 1`)[0]?.name : null);
+              if (authorNameForSearch) {
+                const uri = await findWorkUriByTitleAndAuthor(newBookTitle, authorNameForSearch);
+                if (uri) {
+                  const existingWithUri = await sql`SELECT id, title FROM "Book" WHERE "inventaireUri" = ${uri} LIMIT 1`;
+                  if (existingWithUri.length > 0) {
+                    bRows = existingWithUri;
+                  } else {
+                    bRows = await sql`INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, ${uri}, true) RETURNING id`;
+                  }
+                }
+              }
+            }
+            
+            if (!bRows.length) {
+              bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, true) RETURNING id`;
+            }
           } else {
             bRows = await sql`SELECT id FROM "Book" WHERE title = ${newBookTitle} AND "authorId" IS NULL LIMIT 1`;
-          }
-          if (!bRows.length) {
-            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, true) RETURNING id`;
-            // @ts-ignore deno
-            if (typeof EdgeRuntime !== 'undefined') {
-              EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+            if (!bRows.length) {
+              bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${newBookTitle}, ${authorIdVal}, true) RETURNING id`;
+              // @ts-ignore deno
+              if (typeof EdgeRuntime !== 'undefined') {
+                EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+              }
             }
           }
           bookId = bRows[0].id;
@@ -538,15 +724,49 @@ serve(async (req: Request) => {
         if (currentBookTitle && authorId !== (existing.authorId ?? existing.authorid)) {
           let bRows;
           if (authorId) {
-            bRows = await sql`SELECT id FROM "Book" WHERE title = ${currentBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
+            bRows = await sql`SELECT id, title FROM "Book" WHERE title = ${currentBookTitle} AND "authorId" = ${authorId} LIMIT 1`;
+            
+            // If no exact match, try fuzzy matching
+            if (!bRows.length) {
+              const authorBooks = await sql`SELECT id, title FROM "Book" WHERE "authorId" = ${authorId}`;
+              const normInputTitle = normalizeTitle(currentBookTitle);
+              const matchedBook = authorBooks.find((b: any) => normalizeTitle(b.title) === normInputTitle);
+              if (matchedBook) {
+                bRows = [matchedBook];
+              }
+            }
+            
+            // If still no match, search on Inventaire
+            if (!bRows.length) {
+              const authorNameForSearch = (await sql`SELECT name FROM "Author" WHERE id = ${authorId} LIMIT 1`)[0]?.name;
+              if (authorNameForSearch) {
+                const uri = await findWorkUriByTitleAndAuthor(currentBookTitle, authorNameForSearch);
+                if (uri) {
+                  const existingWithUri = await sql`SELECT id, title FROM "Book" WHERE "inventaireUri" = ${uri} LIMIT 1`;
+                  if (existingWithUri.length > 0) {
+                    bRows = existingWithUri;
+                  } else {
+                    bRows = await sql`INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, ${uri}, true) RETURNING id`;
+                  }
+                }
+              }
+            }
+            
+            if (!bRows.length) {
+              bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, true) RETURNING id`;
+              // @ts-ignore deno
+              if (typeof EdgeRuntime !== 'undefined') {
+                EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+              }
+            }
           } else {
             bRows = await sql`SELECT id FROM "Book" WHERE title = ${currentBookTitle} AND "authorId" IS NULL LIMIT 1`;
-          }
-          if (!bRows.length) {
-            bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, true) RETURNING id`;
-            // @ts-ignore deno
-            if (typeof EdgeRuntime !== 'undefined') {
-              EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+            if (!bRows.length) {
+              bRows = await sql`INSERT INTO "Book" (title, "authorId", "isEnriching") VALUES (${currentBookTitle}, ${authorId}, true) RETURNING id`;
+              // @ts-ignore deno
+              if (typeof EdgeRuntime !== 'undefined') {
+                EdgeRuntime.waitUntil(discoverAndEnrichBook(bRows[0].id));
+              }
             }
           }
           bookId = bRows[0].id;
