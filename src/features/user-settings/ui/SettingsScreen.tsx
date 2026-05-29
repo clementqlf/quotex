@@ -26,10 +26,11 @@ import { ThemeColors } from '@/src/shared/theme';
 import { useData } from '@/src/app/providers/DataProvider';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { logout, user, updateProfile } = useAuth();
+  const { logout, deleteAccount, user, updateProfile } = useAuth();
   const { isDark, colors } = useTheme();
   const { refreshQuotes, refreshAuthors, refreshBooks } = useData();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -105,6 +106,32 @@ export default function SettingsScreen() {
               router.replace('/login');
             } catch (error) {
               console.error("Logout error", error);
+            }
+          } 
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Supprimer mon compte",
+      "Êtes-vous sûr de vouloir supprimer définitivement votre compte et toutes vos citations ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              setIsUpdating(true);
+              await deleteAccount();
+              router.replace('/login');
+            } catch (error: any) {
+              console.error("Delete account error", error);
+              Alert.alert("Erreur", error.message || "Impossible de supprimer le compte.");
+            } finally {
+              setIsUpdating(false);
             }
           } 
         }
@@ -225,7 +252,12 @@ export default function SettingsScreen() {
               <SettingItem 
                 icon={Shield} 
                 title="Confidentialité" 
-                onPress={() => {}} 
+                onPress={() => WebBrowser.openBrowserAsync('https://quotex.app/privacy')} 
+              />
+              <SettingItem 
+                icon={Trash2} 
+                title="Supprimer mon compte" 
+                onPress={handleDeleteAccount} 
               />
             </View>
           </View>

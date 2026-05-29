@@ -1,0 +1,259 @@
+Work Entity: {
+  "uri": "wd:Q181593",
+  "wdId": "Q181593",
+  "labels": {
+    "fr": "algorithme de tri"
+  },
+  "aliases": {
+    "fr": [
+      "méthode de tri"
+    ]
+  },
+  "descriptions": {
+    "fr": "algorithme qui permet d'organiser une collection d'objets selon une relation d'ordre déterminée"
+  },
+  "sitelinks": {
+    "arwiki": {
+      "title": "خوارزمية فرز",
+      "badges": []
+    },
+    "azwiki": {
+      "title": "Nizamlama alqoritmi",
+      "badges": []
+    },
+    "bgwiki": {
+      "title": "Алгоритъм за сортиране",
+      "badges": []
+    },
+    "bnwiki": {
+      "title": "সর্টিং অ্যালগোরিদম",
+      "badges": []
+    },
+    "cawiki": {
+      "title": "Algorisme d'ordenació",
+      "badges": []
+    },
+    "cswiki": {
+      "title": "Řadicí algoritmus",
+      "badges": []
+    },
+    "dawiki": {
+      "title": "Sorteringsalgoritme",
+      "badges": []
+    },
+    "dewiki": {
+      "title": "Sortierverfahren",
+      "badges": []
+    },
+    "diqwiki": {
+      "title": "Algoritmay rêzkerdışi",
+      "badges": []
+    },
+    "elwiki": {
+      "title": "Αλγόριθμος ταξινόμησης",
+      "badges": []
+    },
+    "enwiki": {
+      "title": "Sorting algorithm",
+      "badges": []
+    },
+    "enwikibooks": {
+      "title": "Algorithm Implementation/Sorting",
+      "badges": []
+    },
+    "eowiki": {
+      "title": "Ordiga algoritmo",
+      "badges": []
+    },
+    "eswiki": {
+      "title": "Algoritmo de ordenamiento",
+      "badges": []
+    },
+    "etwiki": {
+      "title": "Sortimisalgoritm",
+      "badges": []
+    },
+    "euwiki": {
+      "title": "Ordenatze algoritmo",
+      "badges": []
+    },
+    "fawiki": {
+      "title": "الگوریتم مرتب‌سازی",
+      "badges": []
+    },
+    "fiwiki": {
+      "title": "Lajittelualgoritmi",
+      "badges": []
+    },
+    "frwiki": {
+      "title": "Algorithme de tri",
+      "badges": []
+    },
+    "hewiki": {
+      "title": "אלגוריתם מיון",
+      "badges": []
+    },
+    "hiwiki": {
+      "title": "शाटन की कलनविधि",
+      "badges": []
+    },
+    "huwiki": {
+      "title": "Rendezés (programozás)",
+      "badges": []
+    },
+    "hywiki": {
+      "title": "Տեսակավորման ալգորիթմ",
+      "badges": []
+    },
+    "idwiki": {
+      "title": "Algoritma penyortiran",
+      "badges": []
+    },
+    "iswiki": {
+      "title": "Röðunarreiknirit",
+      "badges": []
+    },
+    "itwiki": {
+      "title": "Algoritmo di ordinamento",
+      "badges": []
+    },
+    "itwikiversity": {
+      "title": "Ordinamento (programmazione in C)",
+      "badges": []
+    },
+    "jawiki": {
+      "title": "ソート",
+      "badges": []
+    },
+    "jawikibooks": {
+      "title": "高等学校情報/情報I/ソート",
+      "badges": []
+    },
+    "kkwiki": {
+      "title": "Мәліметтерді сұрыптау",
+      "badges": []
+    },
+    "kowiki": {
+      "title": "정렬 알고리즘",
+      "badges": []
+    },
+    "kuwiki": {
+      "title": "Wîkîpediya:Zazakî/Algorîtmayê rêzkerdişî",
+      "badges": []
+    },
+    "lbwiki": {
+      "title": "Zortéieralgorithmus",
+      "badges": []
+    },
+    "lmowiki": {
+      "title": "Algoritm de ordenament",
+      "badges": []
+    },
+    "ltwiki": {
+      "title": "Rikiavimo algoritmas",
+      "badges": []
+    },
+    "lvwiki": {
+      "title": "Datu šķirošanas algoritms",
+      "badges": []
+    },
+    "mhrwiki": {
+      "title": "Ойыркалымаш",
+      "badges": []
+    },
+    "nlwiki": {
+      "title": "Sorteeralgoritme",
+      "badges": []
+    },
+    "nowiki": {
+      "title": "Sorteringsalgoritme",
+      "badges": []
+    },
+    "plwiki": {
+      "title": "Sortowanie",
+      "badges": []
+    },
+    "ptwiki": {
+      "title": "Algoritmo de ordenação",
+      "badges": []
+    },
+    "ruwiki": {
+      "title": "Алгоритм сортировки",
+      "badges": []
+    },
+    "ruwikibooks": {
+      "title": "Алгоритмы сортировки",
+      "badges": []
+    },
+    "simplewiki": {
+      "title": "Sorting algorithm",
+      "badges": []
+    },
+    "skwiki": {
+      "title": "Triediaci algoritmus",
+      "badges": []
+    },
+    "slwiki": {
+      "title": "Algoritmi za urejanje podatkov",
+      "badges": []
+    },
+    "sqwiki": {
+      "title": "Algoritmat e renditjes",
+      "badges": []
+    },
+    "srwiki": {
+      "title": "Алгоритми сортирања",
+      "badges": []
+    },
+    "svwiki": {
+      "title": "Sorteringsalgoritm",
+      "badges": []
+    },
+    "swwiki": {
+      "title": "Algorithimu uchanguaji",
+      "badges": []
+    },
+    "tawiki": {
+      "title": "வரிசையாக்கப் படிமுறை",
+      "badges": []
+    },
+    "thwiki": {
+      "title": "ขั้นตอนวิธีการเรียงลำดับ",
+      "badges": []
+    },
+    "trwiki": {
+      "title": "Sıralama algoritması",
+      "badges": []
+    },
+    "ukwiki": {
+      "title": "Алгоритм сортування",
+      "badges": []
+    },
+    "uzwiki": {
+      "title": "Saralash algoritmi",
+      "badges": []
+    },
+    "viwiki": {
+      "title": "Thuật toán sắp xếp",
+      "badges": []
+    },
+    "zh_min_nanwiki": {
+      "title": "Chéng-lia̍t ián-sǹg-hoat",
+      "badges": []
+    },
+    "zh_yuewiki": {
+      "title": "排序演算法",
+      "badges": []
+    },
+    "zhwiki": {
+      "title": "排序算法",
+      "badges": []
+    },
+    "zhwikibooks": {
+      "title": "算法实现/排序",
+      "badges": []
+    }
+  },
+  "claims": {},
+  "lastrevid": 2481910726
+}

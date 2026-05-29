@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticDa
 import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 
+// Blocks available in the Description tab
 const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
 const MYSHEET_BLOCKS = ['notes', 'dictionary', 'connection'];
 type TabType = 'description' | 'my_sheet';
@@ -97,220 +98,155 @@ export default function BookDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { quotes, books: allBooks, getBlockLayout, updateBlockLayout, getBookData, updateBookData, getBookByTitle, getAuthorByName, getBookById, toggleSaveBook, updateBookStatus } = useData();
+  const { quotes, books: allBooks, getBlockLayout, updateBlockLayout, getBookData, updateBookData, toggleSaveBook, updateBookStatus, importBook } = useData();
 
-  const allBooksRef = React.useRef(allBooks);
-  React.useEffect(() => {
-    allBooksRef.current = allBooks;
-  }, [allBooks]);
-
-  // Check if book is already in local cached list to initialize state immediately
-  const initialLocalBook = useMemo(() => {
-    if (!bookId && !bookTitleParam) return null;
-    if (bookId) {
-      return allBooks.find(b => b.id === bookId) || null;
-    }
-    if (bookTitleParam) {
-      return allBooks.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase()) || null;
-    }
-    return null;
-  }, [bookId, bookTitleParam, allBooks]);
-
-  const [bookInfo, setBookInfo] = useState<Book | null>(initialLocalBook);
+  // ─── State ────────────────────────────────────────────────────────────────
+  const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(!initialLocalBook || !isBookEnriched(initialLocalBook));
-  const bookTitle = bookInfo?.title || bookTitleParam;
-
-  // Reset state when bookId changes
-  React.useEffect(() => {
-    setBookInfo(initialLocalBook);
-    setAuthorInfo(null);
-    setGridData([]);
-    setBlockData({});
-    lastSavedBookBlockData.current = '{}';
-    setIsLoadingLayout(true);
-    setIsLoadingMetadata(!initialLocalBook || !isBookEnriched(initialLocalBook));
-    setActiveTab('description');
-  }, [bookId, bookTitleParam]);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
-  const lastSavedBookBlockData = React.useRef<string>('{}');
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = useState(false);
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = useState<string | null>(null);
-
   const [activeTab, setActiveTab] = useState<TabType>('description');
+  const lastSavedBookBlockData = React.useRef<string>('{}');
 
+  const bookTitle = bookInfo?.title || bookTitleParam;
 
+  // Stable ref for reload (used by onReviewAdded in blockContext)
+  const reloadRef = React.useRef<() => void>(() => {});
 
+  // ─── Data loading ──────────────────────────────────────────────────────────
+  // Single effect with mounted flag — the ONLY way to guarantee setIsLoading(false)
+  // always fires regardless of what happens inside the async function.
+  React.useEffect(() => {
+    let mounted = true;
 
+    // ✅ Capture current values to prevent re-triggers from allBooks updates
+    const currentAllBooks = allBooks;
+    const currentBookData = rawParams.bookData;
+    const currentBookCover = rawParams.cover;
+
+    // Reset all per-book state when navigating to a different book
+    setBookInfo(null);
+    setAuthorInfo(null);
+    setGridData([]);
+    setBlockData({});
+    lastSavedBookBlockData.current = '{}';
+    setIsLoadingLayout(true);
+    setIsLoadingMetadata(true);
+    setActiveTab('description');
+
+    if (!bookId && !bookTitleParam) {
+      if (mounted) setIsLoadingMetadata(false);
+      return;
+    }
+
+    async function load() {
+      try {
+        // 1. Quick path — book already in local cache and enriched
+        const cached = currentAllBooks.find(b =>
+          bookId ? b.id === bookId : b.title?.toLowerCase() === bookTitleParam?.toLowerCase()
+        );
+        if (cached && isBookEnriched(cached)) {
+          if (!mounted) return;
+          setBookInfo(cached);
+          setIsLoadingMetadata(false);
+          // Load author quietly in the background
+          try {
+            const author = await importBook({ title: cached.title }); // no-op trick
+            void author; // unused, just to satisfy TS
+          } catch { /* ignore */ }
+          return;
+        }
+
+        // 2. Fetch from server by ID or title
+        let book: Book | undefined;
+        const token = await authService.getToken();
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        if (bookId) {
+          const res = await fetch(`${API_BASE_URL}/books/${bookId}`, { headers });
+          if (res.ok) book = await res.json();
+        } else if (bookTitleParam) {
+          const res = await fetch(`${API_BASE_URL}/books?title=${encodeURIComponent(bookTitleParam)}`, { headers });
+          if (res.ok) {
+            const list = await res.json();
+            book = Array.isArray(list)
+              ? list.find((b: Book) => b.title?.toLowerCase() === bookTitleParam.toLowerCase())
+              : list;
+          }
+        }
+
+        // 3. Import if not found or missing inventaireUri
+        if ((!book || !book.inventaireUri) && currentBookData) {
+          const parsed = JSON.parse(currentBookData);
+          const res = await fetch(`${API_BASE_URL}/books/import`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              title: parsed.label || parsed.title,
+              description: parsed.description || '',
+              cover: parsed.image || parsed.cover || '',
+              inventaireUri: parsed.uri || parsed.inventaireUri,
+              googleId: parsed.googleId,
+              isbn: parsed.isbn,
+              year: parsed.year,
+              pages: parsed.pages,
+              genre: parsed.genre,
+              authors: parsed.authors || [],
+              authorUris: parsed.authorUris || [],
+            }),
+          });
+          if (res.ok) book = await res.json();
+        }
+
+        if (!mounted) return;
+
+        if (book) {
+          // Prefer cover passed via nav param (e.g. from scanner)
+          if (currentBookCover && book.cover !== currentBookCover) {
+            book = { ...book, cover: currentBookCover };
+          }
+          setBookInfo(book);
+
+          // Load author
+          const authorName = getAuthorName(book.author);
+          if (authorName) {
+            const aRes = await fetch(`${API_BASE_URL}/authors/by-name/${encodeURIComponent(authorName)}`, { headers });
+            if (mounted && aRes.ok) {
+              const author = await aRes.json();
+              setAuthorInfo(author);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[BookDetail] load error:', err);
+      } finally {
+        if (mounted) setIsLoadingMetadata(false);
+      }
+    }
+
+    reloadRef.current = () => { if (mounted) load(); };
+    load();
+
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, bookTitleParam, rawParams.bookData, rawParams.cover]);
 
   const currentTabBlocks = useMemo(() => (gridData || []).filter(key => isBlockInTab(key, activeTab)), [gridData, activeTab]);
 
   const filteredBlockOptions = useMemo(() => activeTab === 'description'
     ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key))
-    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key)), [activeTab, blockOptions]);
+    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key)), [activeTab]);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
-
-  const loadMetadata = useCallback(async (signal?: AbortSignal) => {
-    if (!bookId && !bookTitleParam) return;
-
-    console.log('[BookDetail] loadMetadata triggered', { bookId, bookTitleParam });
-
-    // 1. Try to find the book in our local cached list first!
-    let localBook: Book | undefined;
-    if (bookId) {
-      localBook = allBooksRef.current.find(b => b.id === bookId);
-    } else if (bookTitleParam) {
-      localBook = allBooksRef.current.find(b => b.title.toLowerCase() === bookTitleParam.toLowerCase());
-    }
-
-    // 2. If we found a local book, set it immediately and bypass the loading screen if it's already enriched!
-    if (localBook) {
-      console.log('[BookDetail] Found book in local cache');
-      setBookInfo(localBook);
-      if (isBookEnriched(localBook)) {
-        setIsLoadingMetadata(false);
-      }
-      
-      // Also load author locally if possible to be fast
-      const authorName = getAuthorName(localBook.author);
-      const fetchedAuthor = await getAuthorByName(authorName);
-      if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
-    } else {
-      // If it's a new book not in library, we show the loading spinner initially
-      setIsLoadingMetadata(true);
-    }
-
-    try {
-      let currentBook: Book | undefined;
-
-      if (bookId) {
-        // Canonical path: fetch by ID
-        currentBook = await getBookById(bookId);
-      } else if (bookTitleParam) {
-        // Fallback: fetch by title (legacy + citations)
-        currentBook = await getBookByTitle(bookTitleParam);
-      }
-
-      if (!currentBook && rawParams.bookData) {
-        console.log('[BookDetail] Book not found locally, importing from search data...');
-        try {
-          const bookDataParam = JSON.parse(rawParams.bookData);
-          const token = await authService.getToken();
-          const BASE_URL = API_BASE_URL;
-          
-          console.log('[BookDetail] Sending POST to:', `${BASE_URL}/books/import`);
-          
-          const response = await fetch(`${BASE_URL}/books/import`, {
-              method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json',
-                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                  title: bookDataParam.label || bookDataParam.title,
-                  description: bookDataParam.description || '',
-                  cover: bookDataParam.image || bookDataParam.cover || '',
-                  inventaireUri: bookDataParam.uri || bookDataParam.inventaireUri,
-                  googleId: bookDataParam.googleId,
-                  isbn: bookDataParam.isbn,
-                  year: bookDataParam.year,
-                  pages: bookDataParam.pages,
-                  genre: bookDataParam.genre,
-                  authors: bookDataParam.authors || [],
-                  authorUris: bookDataParam.authorUris || [],
-              }),
-              signal
-          });
-          
-          console.log('[BookDetail] Import response status:', response.status);
-          if (response.ok) {
-              const imported = await response.json();
-              if (imported) {
-                  const importedBook = imported as Book;
-                  currentBook = importedBook;
-                  setBookInfo(importedBook);
-                  const authorName = getAuthorName(importedBook.author);
-                  const fetchedAuthor = await getAuthorByName(authorName);
-                  if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
-              }
-          } else {
-              const errorText = await response.text();
-              console.error('[BookDetail] Import request failed with status:', response.status, 'body:', errorText);
-          }
-        } catch (error: any) {
-          if (error.name === 'AbortError') {
-            console.log('[BookDetail] Import request aborted');
-            return;
-          }
-          console.error('[BookDetail] Failed to import book from search:', error);
-        }
-      }
-
-      if (currentBook) {
-        setBookInfo(currentBook);
-        
-        // If the book is sparse (no description or no genre), force a synchronous enrichment
-        if (!currentBook.description || currentBook.description.length < 50 || !currentBook.genre || currentBook.genre === 'Unknown' || currentBook.genre === '') {
-          console.log('[BookDetail] Book is sparse or lacks genre, forcing synchronous enrichment...');
-          try {
-            const token = await authService.getToken();
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            
-            const BASE_URL = API_BASE_URL;
-            const enrichRes = await fetch(`${BASE_URL}/books/${currentBook.id}/enrich`, { method: 'POST', headers, signal });
-            if (enrichRes.ok) {
-              const enrichedBook = await enrichRes.json();
-              setBookInfo(enrichedBook);
-              currentBook = enrichedBook;
-            }
-          } catch (e: any) {
-            if (e.name === 'AbortError') {
-              console.log('[BookDetail] Enrichment request aborted');
-              return;
-            }
-            console.error('[BookDetail] Synch enrichment failed:', e);
-          }
-        }
-
-        if (currentBook) {
-          const authorName = getAuthorName(currentBook.author);
-          const fetchedAuthor = await getAuthorByName(authorName);
-          if (fetchedAuthor) setAuthorInfo(fetchedAuthor);
-
-          // Ensure cover matches the ISBN popup
-          if (bookCoverParam && currentBook.cover !== bookCoverParam) {
-            currentBook = { ...currentBook, cover: bookCoverParam };
-            setBookInfo(currentBook);
-          }
-        }
-      } else {
-        console.log('[BookDetail] Book not found');
-      }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.log('[BookDetail] loadMetadata request aborted');
-        return;
-      }
-      console.error('Error loading book/author metadata:', err);
-    } finally {
-      // Always ensure loading stops at the very end
-      setIsLoadingMetadata(false);
-    }
-  }, [bookId, bookTitleParam, getBookById, getBookByTitle, getAuthorByName, bookCoverParam, rawParams.bookData]);
-
-  React.useEffect(() => {
-    const controller = new AbortController();
-    loadMetadata(controller.signal);
-    return () => {
-      controller.abort();
-    };
-  }, [loadMetadata]);
 
   // Fetch saved layout
   React.useEffect(() => {
@@ -354,9 +290,7 @@ export default function BookDetailScreen() {
   const isSaved = bookInfo?.isSaved || userQuotesCountForThisBook > 0;
   const canToggleSave = userQuotesCountForThisBook === 0;
 
-  const handleOpenStatusMenu = () => {
-    if (!bookInfo?.id) return;
-
+  const handleOpenStatusMenuWithId = (id: number) => {
     const options = [...STATUS_OPTIONS];
     const canUnsave = userQuotesCountForThisBook === 0;
 
@@ -377,11 +311,11 @@ export default function BookDetailScreen() {
           if (buttonIndex > 0) {
             if (isSaved && canUnsave && buttonIndex === iosOptions.length - 1) {
               // Remove from library
-              await toggleSaveBook(bookInfo.id!);
+              await toggleSaveBook(id);
               setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
             } else {
               const selected = options[buttonIndex - 1];
-              await updateBookStatus(bookInfo.id!, selected.value);
+              await updateBookStatus(id, selected.value);
               setBookInfo(prev => prev ? { ...prev, readingStatus: selected.value as any, isSaved: true } : null);
             }
           }
@@ -393,7 +327,7 @@ export default function BookDetailScreen() {
         ...STATUS_OPTIONS.map(o => ({
           text: o.label,
           onPress: async () => {
-            await updateBookStatus(bookInfo.id!, o.value);
+            await updateBookStatus(id, o.value);
             setBookInfo(prev => prev ? { ...prev, readingStatus: o.value as any, isSaved: true } : null);
           }
         }))
@@ -404,7 +338,7 @@ export default function BookDetailScreen() {
           text: 'Retirer de ma bibliothèque',
           style: 'destructive',
           onPress: async () => {
-            await toggleSaveBook(bookInfo.id!);
+            await toggleSaveBook(id);
             setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
           }
         });
@@ -412,6 +346,48 @@ export default function BookDetailScreen() {
 
       Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
     }
+  };
+
+  const handleHeaderSavePress = async () => {
+    let currentBookInfo = bookInfo;
+    if (!currentBookInfo) return;
+
+    // 1. If book doesn't have an ID (e.g. search result from similar books), import it first
+    if (!currentBookInfo.id) {
+      try {
+        setIsLoadingMetadata(true);
+        const authorVal = typeof currentBookInfo.author === 'object' ? currentBookInfo.author.name : currentBookInfo.author;
+        const imported = await importBook({
+          title: currentBookInfo.title,
+          description: currentBookInfo.description || '',
+          cover: currentBookInfo.cover || '',
+          inventaireUri: currentBookInfo.inventaireUri,
+          googleId: currentBookInfo.googleId,
+          isbn: currentBookInfo.isbn,
+          year: currentBookInfo.year,
+          pages: currentBookInfo.pages,
+          genre: currentBookInfo.genre,
+          author: authorVal,
+        });
+
+        if (imported && imported.id) {
+          currentBookInfo = imported;
+          setBookInfo(imported);
+        } else {
+          Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
+          return;
+        }
+      } catch (err) {
+        console.error('[BookDetail] Failed to import book before saving:', err);
+        Alert.alert('Erreur', 'Une erreur est survenue lors de la création du livre.');
+        return;
+      } finally {
+        setIsLoadingMetadata(false);
+      }
+    }
+
+    const id = currentBookInfo.id!;
+    handleOpenStatusMenuWithId(id);
   };
 
   const handleShare = async () => {
@@ -556,7 +532,7 @@ export default function BookDetailScreen() {
       savedQuotes,
       blockData,
       onUpdateBlockData: handleUpdateBlockData,
-      onReviewAdded: loadMetadata,
+      onReviewAdded: () => reloadRef.current(),
       onManageDictionary: () => setDictionaryModalVisible(true),
       onBookPress: (idOrTitle, uri) => navigateToBook(idOrTitle, uri),
       onAuthorPress: (name, uri) => navigateToAuthor(name, uri),
@@ -568,7 +544,7 @@ export default function BookDetailScreen() {
       // Extra properties for dictionary block
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
-  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, loadMetadata, router]);
+  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router]);
 
   // Extract dictionary props for the Modal which sits outside Dispatcher
   const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (blockContext as any);
@@ -640,7 +616,7 @@ export default function BookDetailScreen() {
             <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
             <View style={styles.saveButton} />
           </View>
-          <DetailSkeleton colors={colors} />
+          {/* Skeleton removed: no loading skeleton while fetching book details */}
         </View>
       </SafeAreaView>
     );
@@ -684,7 +660,7 @@ export default function BookDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.headerButton]}
-              onPress={handleOpenStatusMenu}
+              onPress={handleHeaderSavePress}
             >
               {isSaved ? (
                 <Check size={24} color={colors.primary} />
@@ -938,6 +914,7 @@ export default function BookDetailScreen() {
   );
 }
 
+// Force Metro re-compile and invalidate cache
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, backgroundColor: colors.background },

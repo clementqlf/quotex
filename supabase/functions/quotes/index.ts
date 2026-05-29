@@ -250,14 +250,6 @@ serve(async (req: Request) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
-  // Drop NOT NULL constraint on authorId to allow books without authors
-  await sql`ALTER TABLE "Book" ALTER COLUMN "authorId" DROP NOT NULL`
-    .catch((e) => console.error('[Migration] Failed to drop NOT NULL constraint on authorId:', e));
-
-  // Ensure addedViaQuote column exists in UserBook
-  await sql`ALTER TABLE "UserBook" ADD COLUMN IF NOT EXISTS "addedViaQuote" boolean DEFAULT false`
-    .catch((e) => console.error('[Migration] Failed to add addedViaQuote column:', e));
-
   const url = new URL(req.url);
   const path = url.pathname.replace(/^(?:\/functions\/v1)?\/quotes/, '') || '/';
   const parts = path.split('/').filter(Boolean);

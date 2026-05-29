@@ -38,9 +38,9 @@ serve(async (req: Request) => {
     if (isIsbn) {
       console.log(`[search] ISBN detected: "${cleanQ}". Checking local database first.`);
       try {
-        // 1. Search in Edition table first (ISBN belongs to an edition, not a work)
+        // 1. Search in Edition table (ISBN belongs to an edition, not a work)
         const editionMatch = await sql`
-          SELECT b.*, row_to_json(a) as author,
+          SELECT b.*, e.isbn as isbn, row_to_json(a) as author,
             COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
             COALESCE((
               SELECT json_agg(json_build_object(
@@ -67,41 +67,6 @@ serve(async (req: Request) => {
             quotes: [],
             authors: [],
             books: editionMatch.map((b: any) => formatBook(b, authUserId)),
-            prizes: [],
-            themes: [],
-            inventaireWorks: [],
-            inventaireAuthors: [],
-            inventairePrizes: [],
-          });
-        }
-
-        // 2. Fallback: search directly on Book.isbn (legacy / scan-imported books)
-        const localBooks = await sql`
-          SELECT b.*, row_to_json(a) as author,
-            COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
-            COALESCE((
-              SELECT json_agg(json_build_object(
-                'id', l.id,
-                'year', l.year,
-                'prizeId', l."prizeId",
-                'authorId', l."authorId",
-                'bookId', l."bookId",
-                'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
-              ))
-              FROM "Laureate" l
-              WHERE l."bookId" = b.id
-            ), '[]'::json) as laureates
-          FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
-          WHERE replace(b.isbn, '-', '') = ${cleanQ}
-          LIMIT 1
-        `;
-
-        if (localBooks.length > 0) {
-          console.log(`[search] ISBN "${cleanQ}" found in local DB.`);
-          return json({
-            quotes: [],
-            authors: [],
-            books: localBooks.map((b: any) => formatBook(b, 0)),
             prizes: [],
             themes: [],
             inventaireWorks: [],
@@ -168,7 +133,9 @@ serve(async (req: Request) => {
         LIMIT 10
       `,
       sql`
-        SELECT b.*, row_to_json(a) as author,
+        SELECT b.*, 
+          (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
+          row_to_json(a) as author,
           COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
           COALESCE((
             SELECT json_agg(json_build_object(

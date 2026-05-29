@@ -224,8 +224,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const book = await authorService.getBookByTitle(title);
         if (book) {
             setBooks(prev => {
+                const existing = prev.find(b => b.id === book.id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
                 const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
-                if (!prev.some(b => b.id === book.id)) {
+                if (!existing) {
                     updated.push(book);
                 }
                 StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
@@ -239,8 +243,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const book = await authorService.getBookById(id);
         if (book) {
             setBooks(prev => {
+                const existing = prev.find(b => b.id === id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
                 const updated = prev.map(b => b.id === id ? { ...b, ...book } : b);
-                if (!prev.some(b => b.id === id)) {
+                if (!existing) {
                     updated.push(book);
                 }
                 StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
@@ -254,8 +262,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const book = await authorService.importBook(bookData);
         if (book) {
             setBooks(prev => {
+                const existing = prev.find(b => b.id === book.id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
                 const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
-                if (!prev.some(b => b.id === book.id)) {
+                if (!existing) {
                     updated.push(book);
                 }
                 StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));

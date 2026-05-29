@@ -13,6 +13,9 @@ export const sql = postgres(connectionString, {
   idle_timeout: 10,
   connect_timeout: 10,
   ssl: 'require',
+  parameters: {
+    client_min_messages: 'warning',
+  },
 });
 
 // ─── Generic query helpers ────────────────────────────────────────────────────

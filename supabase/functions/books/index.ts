@@ -15,6 +15,7 @@ import { enrichBookWithInventaire, discoverAndEnrichBook } from '../_shared/book
 async function fetchBook(bookId: number, userId: string | number | null) {
   const rows = await sql`
     SELECT b.*,
+      (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
       row_to_json(a) as author,
       COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users,
       COALESCE((
@@ -32,6 +33,7 @@ async function fetchBook(bookId: number, userId: string | number | null) {
       COALESCE((
         SELECT json_agg(sb) FROM (
           SELECT S.id, S.title, S.cover, S.genre, S.year, S.pages, S.rating, S."inventaireUri",
+                 (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = S.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
                  row_to_json(sa) as author,
                  (
                    (CASE WHEN S."authorId" = b."authorId" THEN 12 ELSE 0 END) +
@@ -67,10 +69,6 @@ serve(async (req: Request) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
-  // Ensure addedViaQuote column exists in UserBook
-  await sql`ALTER TABLE "UserBook" ADD COLUMN IF NOT EXISTS "addedViaQuote" boolean DEFAULT false`
-    .catch((e) => console.error('[Migration] Failed to add addedViaQuote column:', e));
-
   const url = new URL(req.url);
   const path = url.pathname.replace(/^(?:\/functions\/v1)?\/books/, '') || '/';
   const parts = path.split('/').filter(Boolean);
@@ -86,7 +84,9 @@ serve(async (req: Request) => {
       const authorName = url.searchParams.get('authorName');
       const rows = authorName
         ? await sql`
-            SELECT b.*, row_to_json(a) as author,
+            SELECT b.*, 
+              (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
+              row_to_json(a) as author,
               COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
               COALESCE((
                 SELECT json_agg(json_build_object(
@@ -104,7 +104,9 @@ serve(async (req: Request) => {
             WHERE a.name = ${authorName}
           `
         : await sql`
-            SELECT b.*, row_to_json(a) as author,
+            SELECT b.*, 
+              (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
+              row_to_json(a) as author,
               COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
               COALESCE((
                 SELECT json_agg(json_build_object(
@@ -133,19 +135,19 @@ serve(async (req: Request) => {
       // Check existing by priority
       let existing = null;
       if (bookData.inventaireUri) {
-        const r = await sql`SELECT b.*, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b."inventaireUri" = ${bookData.inventaireUri} LIMIT 1`;
+        const r = await sql`SELECT b.*, (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b."inventaireUri" = ${bookData.inventaireUri} LIMIT 1`;
         if (r.length) existing = r[0];
       }
       if (!existing && bookData.openLibraryId) {
-        const r = await sql`SELECT b.*, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b."openLibraryId" = ${bookData.openLibraryId} LIMIT 1`;
+        const r = await sql`SELECT b.*, (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b."openLibraryId" = ${bookData.openLibraryId} LIMIT 1`;
         if (r.length) existing = r[0];
       }
       if (!existing && bookData.googleId) {
-        const r = await sql`SELECT b.*, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b."googleId" = ${bookData.googleId} LIMIT 1`;
+        const r = await sql`SELECT b.*, (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b."googleId" = ${bookData.googleId} LIMIT 1`;
         if (r.length) existing = r[0];
       }
       if (!existing && bookData.title) {
-        const r = await sql`SELECT b.*, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b.title = ${bookData.title} LIMIT 1`;
+        const r = await sql`SELECT b.*, (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn, row_to_json(a) as author FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId" WHERE b.title = ${bookData.title} LIMIT 1`;
         if (r.length) existing = r[0];
       }
 
@@ -159,7 +161,6 @@ serve(async (req: Request) => {
             "googleId" = COALESCE(${bookData.googleId ?? null}, "googleId"),
             "openLibraryId" = COALESCE(${bookData.openLibraryId ?? null}, "openLibraryId"),
             "inventaireUri" = COALESCE(${bookData.inventaireUri ?? null}, "inventaireUri"),
-            isbn = COALESCE(${bookData.isbn ?? null}, isbn),
             description = COALESCE(description, ${bookData.description ?? null}),
             cover = COALESCE(cover, ${bookData.cover ?? null}),
             pages = COALESCE(pages, ${bookData.pages ?? null}),
@@ -169,12 +170,33 @@ serve(async (req: Request) => {
           WHERE id = ${existing.id}
         `;
 
+        if (bookData.isbn) {
+          const invUri = bookData.inventaireUri || `isbn:${bookData.isbn}`;
+          await sql`
+            INSERT INTO "Edition" ("inventaireUri", isbn, title, "publishDate", "publisherUri", "languageUri", cover, "bookId")
+            VALUES (${invUri}, ${bookData.isbn}, ${bookData.title}, ${bookData.year ? `${bookData.year}-01-01` : null}, null, null, ${bookData.cover || ''}, ${existing.id})
+            ON CONFLICT ("inventaireUri") DO NOTHING
+          `;
+        }
+
         if (existing.author?.id) {
           const authorUri = bookData.authorUris?.[0];
           // @ts-ignore deno
           if (typeof EdgeRuntime !== 'undefined') {
             // @ts-ignore deno
             EdgeRuntime.waitUntil(enrichAuthorWithInventaire(existing.author.id, undefined, authorUri));
+          }
+        }
+
+        // Trigger detailed book enrichment if we have an inventaireUri
+        const uriToEnrich = bookData.inventaireUri || existing.inventaireUri;
+        if (uriToEnrich) {
+          // @ts-ignore deno
+          if (typeof EdgeRuntime !== 'undefined') {
+            // @ts-ignore deno
+            EdgeRuntime.waitUntil(enrichBookWithInventaire(existing.id));
+          } else {
+            await enrichBookWithInventaire(existing.id);
           }
         }
 
@@ -195,10 +217,10 @@ serve(async (req: Request) => {
       );
 
       const newBookRows = await sql`
-        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", isbn, description, year, pages, cover, genre, "authorId", rating, "buyLinks")
+        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks")
         VALUES (
           ${bookData.title}, ${bookData.googleId ?? null}, ${bookData.openLibraryId ?? null},
-          ${bookData.inventaireUri ?? null}, ${bookData.isbn ?? null},
+          ${bookData.inventaireUri ?? null},
           ${bookData.description || ''}, ${bookData.year || 0}, ${bookData.pages || 0},
           ${bookData.cover || ''}, ${bookData.genre || 'Unknown'}, ${author.id},
           ${bookData.rating || 0}, ${buyLinksJson}
@@ -206,6 +228,15 @@ serve(async (req: Request) => {
         RETURNING *
       `;
       const newBook = newBookRows[0];
+
+      if (bookData.isbn) {
+        const invUri = bookData.inventaireUri || `isbn:${bookData.isbn}`;
+        await sql`
+          INSERT INTO "Edition" ("inventaireUri", isbn, title, "publishDate", "publisherUri", "languageUri", cover, "bookId")
+          VALUES (${invUri}, ${bookData.isbn}, ${bookData.title}, ${bookData.year ? `${bookData.year}-01-01` : null}, null, null, ${bookData.cover || ''}, ${newBook.id})
+          ON CONFLICT ("inventaireUri") DO NOTHING
+        `;
+      }
 
       // Enrich
       if (newBook.inventaireUri) {

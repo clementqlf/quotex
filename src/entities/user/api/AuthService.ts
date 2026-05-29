@@ -111,6 +111,25 @@ class AuthService {
         await StorageService.removeItem(STORAGE_KEYS.USER_DATA);
     }
 
+    async deleteAccount(): Promise<void> {
+        const session = (await supabase.auth.getSession()).data.session;
+        if (!session) throw new Error('Not authenticated');
+
+        const response = await fetch(`${API_BASE_URL}/users/me`, {
+            method: 'DELETE',
+            headers: { 
+                'Authorization': `Bearer ${session.access_token}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to delete account' }));
+            throw new Error(errorData.error || 'Failed to delete account');
+        }
+
+        await this.logout();
+    }
+
     async updateUser(data: { username?: string; name?: string; bio?: string; website?: string; image?: string }): Promise<User> {
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) throw new Error('Not authenticated');
