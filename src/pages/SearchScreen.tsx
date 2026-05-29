@@ -82,7 +82,8 @@ export default function SearchScreen() {
             params: {
                 bookTitle: item.label,
                 inventaireUri: item.uri,
-                bookData: JSON.stringify(item)
+                bookData: JSON.stringify(item),
+                skipCache: 'true'
             }
         });
     };
