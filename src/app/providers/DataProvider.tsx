@@ -5,11 +5,13 @@ import { authorService } from '../../entities/author/api/AuthorService';
 import { BookImportPayload } from '../../entities/book/lib/bookImport';
 import { BlockService } from '../../shared/api/BlockService';
 import { StorageService, STORAGE_KEYS } from '../../shared/api/StorageService';
+import { useNetworkSync, SyncStatus } from '../../shared/lib/hooks/useNetworkSync';
 
 type DataContextType = {
     quotes: Quote[];
     authors: Author[];
     isLoading: boolean;
+    syncStatus: SyncStatus & { syncNow: () => void; isOnline: boolean; isOffline: boolean };
     refreshQuotes: () => Promise<void>;
     toggleLikeQuote: (id: number) => Promise<void>;
     toggleSaveQuote: (id: number) => Promise<void>;
@@ -49,6 +51,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [authors, setAuthors] = useState<Author[]>([]);
     const [books, setBooks] = useState<Book[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Network sync status
+    const syncStatus = useNetworkSync();
 
     const loadCachedData = async () => {
         try {
@@ -194,8 +199,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const addQuote = useCallback(async (text: string, book?: string | null, author?: string | null) => {
+        console.log('[DataProvider] addQuote called');
+        console.log('[DataProvider] text:', text);
+        console.log('[DataProvider] book:', book);
+        console.log('[DataProvider] author:', author);
+        
         const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
         const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+        console.log('[DataProvider] cleanBook:', cleanBook);
+        console.log('[DataProvider] cleanAuthor:', cleanAuthor);
 
         const tempId = Date.now();
         const newQuote: Quote = {
@@ -210,15 +222,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             comments: 0,
             blockData: {},
         };
+        console.log('[DataProvider] Adding quote to local state, tempId:', tempId);
         setQuotes(prev => [newQuote, ...prev]);
 
-
+        console.log('[DataProvider] Calling quoteService.addQuote...');
         await quoteService.addQuote(text, cleanBook, cleanAuthor);
+        console.log('[DataProvider] quoteService.addQuote completed');
         
+        console.log('[DataProvider] Refreshing quotes and books...');
         await Promise.all([
             refreshQuotes('addQuote complete'),
             refreshBooks('addQuote complete')
         ]);
+        console.log('[DataProvider] addQuote completed successfully');
     }, [refreshQuotes, refreshBooks]);
 
     const getUserByUsername = useCallback(async (username: string) => {
@@ -338,6 +354,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         authors,
         books,
         isLoading,
+        syncStatus,
         refreshQuotes,
         refreshAuthors,
         refreshBooks,
@@ -366,7 +383,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         updateBookStatus,
         getNotableWorks,
     }), [
-        quotes, authors, books, isLoading, refreshQuotes, refreshAuthors, refreshBooks,
+        quotes, authors, books, isLoading, syncStatus, refreshQuotes, refreshAuthors, refreshBooks,
         toggleLikeQuote, toggleSaveQuote, deleteQuote, addQuote, getAuthorByName, getAuthorById,
         getBooksByAuthor, getBlockLayout, updateBlockLayout, updateQuote, getBookData,
         updateBookData, getUserByUsername, getBookByTitle, getBookById, getBookByInventaireUri, importBook,
@@ -387,4 +404,10 @@ export const useData = () => {
         throw new Error('useData must be used within a DataProvider');
     }
     return context;
+};
+
+// Convenience hook for just sync status
+export const useSyncStatus = () => {
+    const { syncStatus } = useData();
+    return syncStatus;
 };

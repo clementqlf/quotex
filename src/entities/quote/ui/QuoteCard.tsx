@@ -24,6 +24,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { supabase } from '@/src/shared/api/supabase';
+import { TypingText } from '@/src/shared/ui/TypingText';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -209,17 +210,39 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
               {isBookEnriching && !getBookTitle(book) ? (
                 <EnrichingSkeleton width={140} />
               ) : (
-                <Animated.Text style={[styles.bookTitle, bookTitleAnimatedStyle, { color: colors.text }]}>
-                  {getBookTitle(book)}
-                </Animated.Text>
+                <Animated.View style={bookTitleAnimatedStyle}>
+                  {quote.syncCorrections?.book ? (
+                    <TypingText
+                      text={getBookTitle(book) || ''}
+                      originalText={quote.syncCorrections.book.original}
+                      isCorrected={true}
+                      style={[styles.bookTitle, { color: colors.text }]}
+                    />
+                  ) : (
+                    <Text style={[styles.bookTitle, { color: colors.text }]}>
+                      {getBookTitle(book)}
+                    </Text>
+                  )}
+                </Animated.View>
               )}
 
               {isAuthorEnriching && !getAuthorName(author) ? (
                 <EnrichingSkeleton width={80} height={12} />
               ) : (
-                <Animated.Text style={[styles.authorName, authorAnimatedStyle, { color: colors.primary }]}>
-                  {getAuthorName(author)}
-                </Animated.Text>
+                <Animated.View style={authorAnimatedStyle}>
+                  {quote.syncCorrections?.author ? (
+                    <TypingText
+                      text={getAuthorName(author) || ''}
+                      originalText={quote.syncCorrections.author.original}
+                      isCorrected={true}
+                      style={[styles.authorName, { color: colors.primary }]}
+                    />
+                  ) : (
+                    <Text style={[styles.authorName, { color: colors.primary }]}>
+                      {getAuthorName(author)}
+                    </Text>
+                  )}
+                </Animated.View>
               )}
             </View>
             <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>

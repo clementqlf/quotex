@@ -552,14 +552,28 @@ export default function MyQuotesScreen() {
           setEditingQuote(null);
         }}
         onConfirm={async (text, book, author) => {
-          if (editingQuote) {
-            await updateQuote(editingQuote.id, { text, book: book || editingQuote.book, author: author || editingQuote.author });
-          } else {
-            await addQuote(text, book, author);
+          console.log('[MyQuotesScreen] onConfirm called');
+          console.log('[MyQuotesScreen] text:', text);
+          console.log('[MyQuotesScreen] book:', book);
+          console.log('[MyQuotesScreen] author:', author);
+          console.log('[MyQuotesScreen] editingQuote:', editingQuote ? editingQuote.id : 'null');
+          
+          try {
+            if (editingQuote) {
+              console.log('[MyQuotesScreen] Updating existing quote');
+              await updateQuote(editingQuote.id, { text, book: book || editingQuote.book, author: author || editingQuote.author });
+            } else {
+              console.log('[MyQuotesScreen] Adding new quote');
+              await addQuote(text, book, author);
+            }
+            console.log('[MyQuotesScreen] Quote saved/updated successfully');
+          } catch (error) {
+            console.error('[MyQuotesScreen] Error saving quote:', error);
+          } finally {
+            setShowManualQuoteModal(false);
+            setEditingQuote(null);
+            refreshQuotes();
           }
-          setShowManualQuoteModal(false);
-          setEditingQuote(null);
-          refreshQuotes();
         }}
         scannedText={editingQuote ? editingQuote.text : ""}
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}

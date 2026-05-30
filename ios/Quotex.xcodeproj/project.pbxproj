@@ -10,13 +10,13 @@
 		11CD99F4FACAF24720F362DC /* libPods-Quotex.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 205EF1C62E9FAFB1571B7DF4 /* libPods-Quotex.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		34088FDDD4E245BAB96B47EE /* icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 55AC3FA84EB3405A964C1796 /* icon.icon */; };
+		37E1551FF1474CBB91D82DDC /* SecureWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514A55B574E44429AAAB896F /* SecureWebViewController.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		59B1A1D9156190826BB6EFB5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A3376A3F3E85C9EDA371F2C4 /* PrivacyInfo.xcprivacy */; };
 		AE4DEC8DA2B63101203097A5 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C451B611B554A109899C454A /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		EC2002A628D742AD93BC7D02 /* SecureWKWebViewConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D271DF147012449CAB4F6246 /* SecureWKWebViewConfiguration.swift */; };
-		37E1551FF1474CBB91D82DDC /* SecureWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 514A55B574E44429AAAB896F /* SecureWebViewController.swift */; };
+		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +24,7 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Quotex/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Quotex/Info.plist; sourceTree = "<group>"; };
 		205EF1C62E9FAFB1571B7DF4 /* libPods-Quotex.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Quotex.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		514A55B574E44429AAAB896F /* SecureWebViewController.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SecureWebViewController.swift; path = Quotex/SecureWebViewController.swift; sourceTree = "<group>"; };
 		55AC3FA84EB3405A964C1796 /* icon.icon */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = icon.icon; path = Quotex/icon.icon; sourceTree = "<group>"; };
 		5EB24F524859F83B141988E0 /* Pods-Quotex.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Quotex.debug.xcconfig"; path = "Target Support Files/Pods-Quotex/Pods-Quotex.debug.xcconfig"; sourceTree = "<group>"; };
 		A1A722EDD3EE324341ECC392 /* Pods-Quotex.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Quotex.release.xcconfig"; path = "Target Support Files/Pods-Quotex/Pods-Quotex.release.xcconfig"; sourceTree = "<group>"; };
@@ -31,11 +32,10 @@
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Quotex/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		C451B611B554A109899C454A /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Quotex/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		D271DF147012449CAB4F6246 /* SecureWKWebViewConfiguration.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SecureWKWebViewConfiguration.swift; path = Quotex/SecureWKWebViewConfiguration.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Quotex/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Quotex-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Quotex-Bridging-Header.h"; path = "Quotex/Quotex-Bridging-Header.h"; sourceTree = "<group>"; };
-		D271DF147012449CAB4F6246 /* SecureWKWebViewConfiguration.swift */ = {isa = PBXFileReference; name = "SecureWKWebViewConfiguration.swift"; path = "Quotex/SecureWKWebViewConfiguration.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
-		514A55B574E44429AAAB896F /* SecureWebViewController.swift */ = {isa = PBXFileReference; name = "SecureWebViewController.swift"; path = "Quotex/SecureWebViewController.swift"; sourceTree = "<group>"; fileEncoding = 4; lastKnownFileType = sourcecode.swift; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -372,6 +372,7 @@
 		};
 		F96F6BD9BB9C45A6BE60D162 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -429,7 +430,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.quotex.app;
-				PRODUCT_NAME = "Quotex";
+				PRODUCT_NAME = Quotex;
 				SWIFT_OBJC_BRIDGING_HEADER = "Quotex/Quotex-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -461,7 +462,7 @@
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.quotex.app;
-				PRODUCT_NAME = "Quotex";
+				PRODUCT_NAME = Quotex;
 				SWIFT_OBJC_BRIDGING_HEADER = "Quotex/Quotex-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

@@ -9,6 +9,17 @@ import { authService } from '@/src/entities/user/api/AuthService';
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
 
+// Type for pending quotes in the queue
+interface PendingQuote {
+    id: number; // Temporary ID used locally
+    text: string;
+    book: string | null;
+    author: string | null;
+    theme?: string;
+    createdAt: string;
+    retryCount?: number;
+}
+
 class QuoteService {
     private async seedDataIfNeeded(): Promise<void> {
         const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
@@ -88,8 +99,16 @@ class QuoteService {
                 // Update local cache
                 await StorageService.setItem(STORAGE_KEYS.QUOTES, mappedQuotes);
 
-                // Trigger sync of pending quotes in background
-                this.syncPendingQuotes();
+                // Trigger sync of pending quotes in background (fire and forget)
+                this.syncPendingQuotes().then(result => {
+                    if (result.syncedCount > 0) {
+                        console.log(`[QuoteService] Synced ${result.syncedCount} quotes in background`);
+                        // Refresh quotes to get the updated list with server IDs
+                        this.getQuotes().catch(err => console.log('Background refresh failed:', err));
+                    }
+                }).catch(err => {
+                    console.log('[QuoteService] Background sync failed, will retry later:', err.message);
+                });
 
                 return mappedQuotes;
             }
@@ -216,93 +235,412 @@ class QuoteService {
         await StorageService.setItem(STORAGE_KEYS.QUOTES, newQuotes);
     }
 
-    async addQuote(text: string, book?: string | null, author?: string | null): Promise<void> {
+    async addQuote(text: string, book?: string | null, author?: string | null): Promise<number> {
+        console.log('[QuoteService] addQuote called');
+        console.log('[QuoteService] text:', text);
+        console.log('[QuoteService] book:', book);
+        console.log('[QuoteService] author:', author);
+        
         const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
         const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
-        const quotePayload = { text, book: cleanBook, author: cleanAuthor };
-        try {
-            console.log('Sending quote to server:', quotePayload);
-            const headers = await this.getHeaders();
-            const response = await fetch(this.API_URL!, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(quotePayload),
-            });
+        const tempId = Date.now();
+        const createdAt = new Date().toISOString();
+        
+        console.log('[QuoteService] cleanBook:', cleanBook);
+        console.log('[QuoteService] cleanAuthor:', cleanAuthor);
+        console.log('[QuoteService] tempId:', tempId);
+        
+        const user = await authService.getUser();
+        console.log('[QuoteService] user:', user ? user.id : 'null');
+        
+        // Check if we have connection
+        const isOnline = await this.checkConnection();
+        console.log('[QuoteService] isOnline:', isOnline);
+        
+        // Always try to sync with matching first if we have author or book
+        if ((cleanBook || cleanAuthor) && user && isOnline) {
+            console.log('[QuoteService] Attempting direct sync path (has book/author, user, and online)');
+            try {
+                console.log('[QuoteService] Attempting direct sync with matching...');
+                const headers = await this.getHeaders();
+                const SYNC_URL = `${API_BASE_URL}/sync-quotes`;
+                
+                // Use sync-quotes endpoint for matching
+                const response = await fetch(SYNC_URL, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        offlineQuotes: [{
+                            id: String(tempId),
+                            text,
+                            author: cleanAuthor,
+                            book: cleanBook,
+                            theme: undefined,
+                            createdAt,
+                            userId: user.id
+                        }]
+                    }),
+                });
 
-            if (response.ok) {
-                console.log('Quote saved to server');
-                return;
-            } else {
-                console.error('Server error saving quote:', await response.text());
-                // Decide if we should queue on server error (500) or just network error. 
-                // For now, let's queue on any failure to be safe, or maybe just network. 
-                // Simple approach: if not OK, queue it.
-                await this.addToPendingQueue(quotePayload);
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log(`[QuoteService] Direct sync response:`, JSON.stringify(result));
+                    console.log(`[QuoteService] Direct sync successful: ${result.syncedCount} synced`);
+                    
+                    // If no quotes were synced, treat as failure
+                    if (result.syncedCount === 0) {
+                        console.error('[QuoteService] Direct sync returned syncedCount: 0, falling back to pending queue');
+                        throw new Error('Server returned syncedCount: 0');
+                    }
+                    
+                    // Handle corrections from server
+                    const corrections = result.corrections || [];
+                    
+                    // Get corrected values
+                    const correction = corrections[0]; // First (and only) quote in the array
+                    
+                    // Update local cache with corrected values
+                    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+                    const newQuote: Quote = {
+                        id: tempId,
+                        text,
+                        book: correction?.matchedBook || cleanBook,
+                        author: correction?.matchedAuthor || cleanAuthor,
+                        theme: undefined,
+                        likesCount: 0,
+                        likes: [],
+                        isLiked: false,
+                        date: createdAt,
+                        isSaved: false,
+                        comments: 0,
+                        blockData: {},
+                        user: user,
+                        wasSynced: true,
+                        syncedAt: createdAt,
+                        syncCorrections: {
+                            author: correction?.originalAuthor && correction?.matchedAuthor && 
+                                correction.originalAuthor !== correction.matchedAuthor ?
+                                { original: correction.originalAuthor, matched: correction.matchedAuthor } : undefined,
+                            book: correction?.originalBook && correction?.matchedBook && 
+                                correction.originalBook !== correction.matchedBook ?
+                                { original: correction.originalBook, matched: correction.matchedBook } : undefined,
+                        }
+                    };
+                    
+                    const updatedQuotes = [newQuote, ...quotes];
+                    await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
+                    
+                    console.log('[QuoteService] Applied corrections:', correction);
+                    return tempId;
+                } else {
+                    console.error('[QuoteService] Direct sync failed, falling back to pending queue');
+                }
+            } catch (error) {
+                console.error('[QuoteService] Direct sync network error, falling back to pending queue:', error);
             }
-        } catch (error) {
-            console.error('Network error saving quote, queueing for sync:', error);
-            await this.addToPendingQueue(quotePayload);
+        } else {
+            console.log('[QuoteService] Skipping direct sync, adding to pending queue. Reason:', 
+                !cleanBook && !cleanAuthor ? 'no book/author' : 
+                !user ? 'no user' : 
+                !isOnline ? 'offline' : 'unknown');
         }
+        
+        // Fallback: Add to pending queue (for offline or errors)
+        console.log('[QuoteService] Adding to pending queue...');
+        await this.addToPendingQueue(tempId, text, cleanBook, cleanAuthor, createdAt);
+        console.log('[QuoteService] Added to pending queue successfully');
 
         // Update local cache optimistically
         await delay(100);
         const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
         const newQuote: Quote = {
-            id: Date.now(), // Temp ID
+            id: tempId, // Temp ID
             text,
             book: cleanBook,
             author: cleanAuthor,
+            theme: undefined,
             likesCount: 0,
             likes: [], // Initialize empty likes array for new quote
             isLiked: false,
-            date: new Date().toISOString(),
+            date: createdAt,
             isSaved: false,
             comments: 0,
             blockData: {},
-            user: await authService.getUser() || { id: "1", name: "Clément QLF", username: "@clementqlf" }
+            user: user || await authService.getUser() || { id: "1", name: "Clément QLF", username: "@clementqlf" }
         };
         const updatedQuotes = [newQuote, ...quotes];
         await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
+        
+        console.log('[QuoteService] addQuote completed, returned tempId:', tempId);
+        return tempId;
     }
 
-    private async addToPendingQueue(payload: { text: string; book: string | null; author: string | null }) {
-        const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
-        pending.push(payload);
+    /**
+     * Check if we have internet connection
+     */
+    private async checkConnection(): Promise<boolean> {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const response = await fetch('https://www.google.com', {
+                method: 'HEAD',
+                signal: controller.signal,
+                cache: 'no-store'
+            });
+            
+            clearTimeout(timeoutId);
+            return response.ok;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    private async addToPendingQueue(tempId: number, text: string, book: string | null, author: string | null, createdAt: string) {
+        const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+        
+        // Check if this tempId already exists (to avoid duplicates)
+        const existingIndex = pending.findIndex(q => q.id === tempId);
+        if (existingIndex > -1) {
+            // Update existing
+            pending[existingIndex] = {
+                id: tempId,
+                text,
+                book,
+                author,
+                createdAt,
+                retryCount: (pending[existingIndex].retryCount || 0) + 1
+            };
+        } else {
+            // Add new
+            pending.push({
+                id: tempId,
+                text,
+                book,
+                author,
+                createdAt,
+                retryCount: 0
+            });
+        }
+        
         await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, pending);
-        console.log('Quote added to pending queue');
+        console.log(`Quote ${tempId} added to pending queue. Total pending: ${pending.length}`);
     }
 
-    private async syncPendingQuotes() {
-        const pending = await StorageService.getItem<any[]>(STORAGE_KEYS.PENDING_QUOTES);
-        if (!pending || pending.length === 0) return;
+    private async removeFromPendingQueue(tempId: number) {
+        const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+        const filtered = pending.filter(q => q.id !== tempId);
+        if (filtered.length !== pending.length) {
+            await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, filtered);
+            console.log(`Quote ${tempId} removed from pending queue. Remaining: ${filtered.length}`);
+        }
+    }
 
-        console.log(`Syncing ${pending.length} pending quotes...`);
-        const remaining: any[] = [];
+    /**
+     * Sync pending quotes with the server using the dedicated /sync-quotes endpoint
+     * This method is called automatically when:
+     * - The app regains internet connectivity
+     * - The user logs in
+     * - The quotes are fetched from the server
+     */
+    async syncPendingQuotes(): Promise<{ 
+        syncedCount: number; 
+        total: number; 
+        errors: Array<{ quote: PendingQuote; error: string }>;
+        corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
+    }> {
+        const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES);
+        if (!pending || pending.length === 0) {
+            console.log('No pending quotes to sync');
+            return { syncedCount: 0, total: 0, errors: [], corrections: [] };
+        }
 
-        for (const quote of pending) {
-            try {
-                const headers = await this.getHeaders();
-                const response = await fetch(this.API_URL!, {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(quote),
-                });
-                if (!response.ok) {
-                    remaining.push(quote);
-                    console.log('Failed to sync quote, keeping in queue');
-                } else {
-                    console.log('Synced quote successfully');
+        console.log(`[QuoteService] Syncing ${pending.length} pending quotes...`);
+        
+        const user = await authService.getUser();
+        if (!user) {
+            console.log('[QuoteService] Cannot sync: No user logged in');
+            return { syncedCount: 0, total: pending.length, errors: [], corrections: [] };
+        }
+
+        // Map pending quotes to the format expected by the /sync-quotes endpoint
+        const offlineQuotes = pending.map(p => ({
+            id: String(p.id),
+            text: p.text,
+            author: p.author,
+            book: p.book,
+            theme: p.theme,
+            createdAt: p.createdAt,
+            userId: user.id
+        }));
+
+        try {
+            const headers = await this.getHeaders();
+            const SYNC_URL = `${API_BASE_URL}/sync-quotes`;
+            
+            console.log(`[QuoteService] Calling sync endpoint: ${SYNC_URL}`);
+            const response = await fetch(SYNC_URL, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ offlineQuotes }),
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`[QuoteService] Sync completed: ${result.syncedCount || 0} synced, ${result.errors?.length || 0} errors`);
+                
+                // Handle corrections from server
+                const corrections: Array<{ 
+                    quoteId: string; 
+                    originalAuthor?: string; 
+                    matchedAuthor?: string; 
+                    originalBook?: string; 
+                    matchedBook?: string 
+                }> = result.corrections || [];
+                
+                // Remove successfully synced quotes from pending queue
+                const remaining: PendingQuote[] = [];
+                const errors: Array<{ quote: PendingQuote; error: string }> = result.errors || [];
+                
+                // Build a map of successfully synced quote IDs (from the request)
+                // The server returns errors, so any quote NOT in errors was synced
+                const errorQuoteIds = new Set(errors.map(e => e.quote.id));
+                
+                // Update local quotes with corrections
+                const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+                const syncedAt = new Date().toISOString();
+                
+                for (const pendingQuote of pending) {
+                    const quoteIdString = String(pendingQuote.id);
+                    const hasError = errorQuoteIds.has(quoteIdString);
+                    
+                    if (hasError) {
+                        // Keep in queue with incremented retry count
+                        remaining.push({
+                            ...pendingQuote,
+                            retryCount: (pendingQuote.retryCount || 0) + 1
+                        });
+                    } else {
+                        // Successfully synced - update local quote with corrections
+                        console.log(`[QuoteService] Quote ${pendingQuote.id} synced successfully`);
+                        
+                        // Find the correction for this quote
+                        const correction = corrections.find(c => c.quoteId === quoteIdString);
+                        
+                        if (correction) {
+                            // Find and update the local quote
+                            const quoteIndex = quotes.findIndex(q => q.id === pendingQuote.id);
+                            if (quoteIndex > -1) {
+                                // Apply corrections
+                                const correctedQuote = { ...quotes[quoteIndex] };
+                                
+                                if (correction.originalAuthor && correction.matchedAuthor) {
+                                    // Update author with matched value
+                                    correctedQuote.author = correction.matchedAuthor;
+                                }
+                                if (correction.originalBook && correction.matchedBook) {
+                                    // Update book with matched value
+                                    correctedQuote.book = correction.matchedBook;
+                                }
+                                
+                                // Mark as synced with correction info
+                                correctedQuote.wasSynced = true;
+                                correctedQuote.syncedAt = syncedAt;
+                                correctedQuote.syncCorrections = {
+                                    author: correction.originalAuthor && correction.matchedAuthor ? 
+                                        { original: correction.originalAuthor, matched: correction.matchedAuthor } : undefined,
+                                    book: correction.originalBook && correction.matchedBook ? 
+                                        { original: correction.originalBook, matched: correction.matchedBook } : undefined,
+                                };
+                                
+                                quotes[quoteIndex] = correctedQuote;
+                            }
+                        }
+                    }
                 }
-            } catch (e) {
-                remaining.push(quote);
-                console.log('Network error syncing quote, keeping in queue');
+                
+                // Save updated quotes
+                await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+                
+                // Save remaining pending quotes
+                if (remaining.length > 0) {
+                    await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, remaining);
+                } else {
+                    await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+                }
+                
+                return {
+                    syncedCount: result.syncedCount || (pending.length - remaining.length),
+                    total: pending.length,
+                    errors: errors.map(e => ({
+                        quote: pending.find(p => String(p.id) === e.quote.id) || e.quote,
+                        error: e.error
+                    })),
+                    corrections: corrections
+                };
+            } else {
+                const errorText = await response.text();
+                console.error(`[QuoteService] Sync failed with status ${response.status}: ${errorText}`);
+                
+                // Increment retry count for all pending quotes
+                const updatedPending = pending.map(p => ({
+                    ...p,
+                    retryCount: (p.retryCount || 0) + 1
+                }));
+                await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+                
+                return {
+                    syncedCount: 0,
+                    total: pending.length,
+                    errors: pending.map(p => ({
+                        quote: p,
+                        error: `Server error: ${response.status} - ${errorText}`
+                    })),
+                    corrections: []
+                };
             }
+        } catch (error: any) {
+            console.error('[QuoteService] Network error during sync:', error.message);
+            
+            // Increment retry count for all pending quotes on network error
+            const updatedPending = pending.map(p => ({
+                ...p,
+                retryCount: (p.retryCount || 0) + 1
+            }));
+            await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+            
+            return {
+                syncedCount: 0,
+                total: pending.length,
+                errors: pending.map(p => ({
+                    quote: p,
+                    error: `Network error: ${error.message}`
+                })),
+                corrections: []
+            };
         }
+    }
 
-        if (remaining.length !== pending.length) {
-            await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, remaining);
-            console.log('Sync complete. Remaining items:', remaining.length);
-        }
+    /**
+     * Get the count of pending quotes
+     */
+    async getPendingQuotesCount(): Promise<number> {
+        const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES);
+        return pending ? pending.length : 0;
+    }
+
+    /**
+     * Get all pending quotes (for debugging/testing)
+     */
+    async getAllPendingQuotes(): Promise<PendingQuote[]> {
+        return await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+    }
+
+    /**
+     * Clear all pending quotes (for testing/cleanup)
+     */
+    async clearPendingQuotes(): Promise<void> {
+        await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
     }
 
     async analyzeQuote(id: number): Promise<Quote> {

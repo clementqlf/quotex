@@ -863,8 +863,15 @@ export default function ScanScreen() {
               showConfetti={true}
               onClose={() => setShowRandomQuoteModal(false)}
               onConfirm={async (text, book, author) => {
+                console.log('[ScanScreen] onConfirm called for random quote');
+                console.log('[ScanScreen] text:', text);
+                console.log('[ScanScreen] book:', book);
+                console.log('[ScanScreen] author:', author);
+                
                 try {
+                  console.log('[ScanScreen] Calling addQuote...');
                   await addQuote(text, book, author);
+                  console.log('[ScanScreen] addQuote completed');
                   setShowRandomQuoteModal(false);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 } catch (e) {

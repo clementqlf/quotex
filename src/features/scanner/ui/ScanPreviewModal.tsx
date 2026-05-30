@@ -142,18 +142,39 @@ export default function ScanPreviewModal({
     };
 
     const handleConfirm = async () => {
-        if (isSubmitting) return;
+        console.log('[ScanPreviewModal] handleConfirm called');
+        console.log('[ScanPreviewModal] isSubmitting:', isSubmitting);
+        console.log('[ScanPreviewModal] editedQuote:', editedQuote);
+        console.log('[ScanPreviewModal] scannedText:', scannedText);
+        
+        if (isSubmitting) {
+            console.log('[ScanPreviewModal] Already submitting, returning');
+            return;
+        }
 
         const finalText = editedQuote.trim() || scannedText;
-        if (!finalText) return;
+        console.log('[ScanPreviewModal] finalText:', finalText);
+        
+        if (!finalText) {
+            console.log('[ScanPreviewModal] No text to save, returning');
+            return;
+        }
+        
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
+        console.log('[ScanPreviewModal] finalBook:', finalBook);
+        console.log('[ScanPreviewModal] finalAuthor:', finalAuthor);
 
         setIsSubmitting(true);
         try {
+            console.log('[ScanPreviewModal] Calling onConfirm...');
             await onConfirm(finalText, finalBook, finalAuthor);
+            console.log('[ScanPreviewModal] onConfirm completed successfully');
         } catch (error) {
-            console.error("Error confirming quote:", error);
+            console.error("[ScanPreviewModal] Error confirming quote:", error);
+            setIsSubmitting(false);
+        } finally {
+            console.log('[ScanPreviewModal] Setting isSubmitting to false');
             setIsSubmitting(false);
         }
     };

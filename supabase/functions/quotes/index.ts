@@ -12,6 +12,7 @@ import { formatQuote } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, findWorkUriByTitleAndAuthor, normalizeTitle, normalizeAuthorForComparison, compareAuthorNames, searchInventaireAuthors } from '../_shared/inventaire.ts';
 import { discoverAndEnrichBook, enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
 import { analyzeQuoteWithGroq, chatAboutQuoteWithGroq } from '../_shared/groq.ts';
+import { matchAuthor, matchBook, AuthorMatchResult, BookMatchResult } from '../_shared/entityMatcher.ts';
 
 
 // ─── DB query helpers ─────────────────────────────────────────────────────────

@@ -1178,12 +1178,24 @@ export default function QuoteDetailModal() {
           visible={showEditModal}
           onClose={() => setShowEditModal(false)}
           onConfirm={async (text, book, author) => {
-            if (quote) {
-              await updateQuote(quote.id, { text, book: book || quote.book, author: author || quote.author });
-              // Mettre à jour l'état local pour refléter les modifications immédiatement
-              setQuote({ ...quote, text, book: book || quote.book, author: author || quote.author });
+            console.log('[QuoteDetailModal] Edit modal onConfirm called');
+            console.log('[QuoteDetailModal] text:', text);
+            console.log('[QuoteDetailModal] book:', book);
+            console.log('[QuoteDetailModal] author:', author);
+            
+            try {
+              if (quote) {
+                console.log('[QuoteDetailModal] Updating quote:', quote.id);
+                await updateQuote(quote.id, { text, book: book || quote.book, author: author || quote.author });
+                // Mettre à jour l'état local pour refléter les modifications immédiatement
+                setQuote({ ...quote, text, book: book || quote.book, author: author || quote.author });
+                console.log('[QuoteDetailModal] Quote updated successfully');
+              }
+            } catch (error) {
+              console.error('[QuoteDetailModal] Error updating quote:', error);
+            } finally {
+              setShowEditModal(false);
             }
-            setShowEditModal(false);
           }}
           scannedText={quote?.text || ""}
           initialBook={quoteBookTitle}

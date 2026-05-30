@@ -411,13 +411,21 @@ export const useScanWorkflow = ({
   const handleSaveQuote = () => setShowPreviewModal(true);
   
   const handleConfirmSave = async (text: string, book: string, author: string) => {
+    console.log('[useScanWorkflow] handleConfirmSave called');
+    console.log('[useScanWorkflow] text:', text);
+    console.log('[useScanWorkflow] book:', book);
+    console.log('[useScanWorkflow] author:', author);
+    
     try {
+      console.log('[useScanWorkflow] Calling addQuote...');
       await addQuote(text, book, author);
+      console.log('[useScanWorkflow] addQuote completed successfully');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTabIndex(0);
     } catch (error) {
-      console.error("Error saving scanned quote:", error);
+      console.error("[useScanWorkflow] Error saving scanned quote:", error);
     } finally {
+      console.log('[useScanWorkflow] Closing modal and resetting');
       setShowPreviewModal(false);
       onReset();
     }

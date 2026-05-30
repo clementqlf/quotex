@@ -72,6 +72,13 @@ export type Quote = {
   notes?: string;
   blockData?: Record<string, any>;
   aiInterpretation?: string;
+  // Sync-related fields
+  wasSynced?: boolean;
+  syncedAt?: string;
+  syncCorrections?: {
+    author?: { original: string; matched: string };
+    book?: { original: string; matched: string };
+  };
 };
 
 export type Review = {
