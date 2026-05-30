@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock, 
-  CheckCircle2, XCircle, Database, Trash2 
+  CheckCircle2, XCircle, Database, Trash2, FileText 
 } from 'lucide-react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -252,11 +252,6 @@ export default function SettingsScreen() {
                 onPress={() => {}} 
               />
               <SettingItem 
-                icon={Shield} 
-                title="Confidentialité" 
-                onPress={() => WebBrowser.openBrowserAsync('https://quotex.app/privacy')} 
-              />
-              <SettingItem 
                 icon={Trash2} 
                 title="Supprimer mon compte" 
                 onPress={handleDeleteAccount} 
@@ -296,6 +291,23 @@ export default function SettingsScreen() {
             <Text style={styles.sectionFooter}>
               Libérez de l'espace en supprimant les images, données locales et fichiers temporaires.
             </Text>
+          </View>
+
+          {/* Legal Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Légal</Text>
+            <View style={styles.sectionCard}>
+              <SettingItem 
+                icon={FileText} 
+                title="Conditions Générales d'Utilisation" 
+                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/docs/CGU.html')} 
+              />
+              <SettingItem 
+                icon={Shield} 
+                title="Politique de Confidentialité" 
+                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/docs/confidentialite.html')} 
+              />
+            </View>
           </View>
 
           {/* Spacer */}
