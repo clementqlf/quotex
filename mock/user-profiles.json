@@ -1,0 +1,41 @@
+[
+  {
+    "id": "1",
+    "bio": "Passionné par la littérature classique et la philosophie. Je partage ici les citations qui façonnent ma pensée.",
+    "website": "clement-lectures.com",
+    "stats": {
+      "citations": 42,
+      "followers": 512,
+      "following": 89
+    },
+    "quotes": [
+      {
+        "id": "q1",
+        "text": "Connais-toi toi-même.",
+        "author": "Socrate"
+      },
+      {
+        "id": "q2",
+        "text": "L'imagination est plus importante que le savoir.",
+        "author": "Albert Einstein"
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "bio": "Exploratrice de la science-fiction et des mondes imaginaires. Chaque citation est une porte vers un autre univers.",
+    "website": "sophies-books.com",
+    "stats": {
+      "citations": 15,
+      "followers": 234,
+      "following": 102
+    },
+    "quotes": [
+      {
+        "id": "q3",
+        "text": "The only impossible journey is the one you never begin.",
+        "author": "Paulo Coelho"
+      }
+    ]
+  }
+]
