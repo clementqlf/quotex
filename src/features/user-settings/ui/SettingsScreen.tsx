@@ -23,7 +23,8 @@ import { Image as ExpoImage } from 'expo-image';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
@@ -32,7 +33,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
   const { isDark, colors } = useTheme();
-  const { refreshQuotes, refreshAuthors, refreshBooks } = useData();
+  const { refreshQuotes } = useQuote();
+  const { refreshAuthors, refreshBooks } = useAuthor();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isUpdating, setIsUpdating] = React.useState(false);

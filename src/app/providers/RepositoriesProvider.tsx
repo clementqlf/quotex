@@ -7,26 +7,39 @@ import { SupabaseAuthorRepository } from '@/src/entities/author/api/SupabaseAuth
 /**
  * Type pour le contexte des repositories
  */
-type RepositoriesContextType = {
+export type RepositoriesContextType = {
   quoteRepository: IQuoteRepository;
   authorRepository: IAuthorRepository;
 };
 
+export type RepositoriesProviderProps = {
+  children: ReactNode;
+  repositories?: Partial<RepositoriesContextType>;
+};
+
 const RepositoriesContext = createContext<RepositoriesContextType | undefined>(undefined);
+
+const createDefaultRepositories = (): RepositoriesContextType => ({
+  quoteRepository: SupabaseQuoteRepository.getInstance(),
+  authorRepository: SupabaseAuthorRepository.getInstance(),
+});
 
 /**
  * Provider pour l'injection de dépendances des repositories
  * Permet de centraliser la création des repositories et de les injecter
  */
-export const RepositoriesProvider = ({ children }: { children: ReactNode }) => {
-  // Créer les instances des repositories (Singleton)
-  const repositories = useMemo(() => ({
-    quoteRepository: SupabaseQuoteRepository.getInstance(),
-    authorRepository: SupabaseAuthorRepository.getInstance(),
-  }), []);
+export const RepositoriesProvider = ({ children, repositories }: RepositoriesProviderProps) => {
+  const defaultRepositories = useMemo(() => createDefaultRepositories(), []);
+  const value = useMemo(
+    () => ({
+      ...defaultRepositories,
+      ...repositories,
+    }),
+    [defaultRepositories, repositories]
+  );
 
   return (
-    <RepositoriesContext.Provider value={repositories}>
+    <RepositoriesContext.Provider value={value}>
       {children}
     </RepositoriesContext.Provider>
   );

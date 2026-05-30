@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useSyncStatus } from '@/src/app/providers/DataProvider';
-import { colors } from '../theme/colors';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 
 /**
  * Component to display offline/online sync status
  * Shows a small indicator at the top or bottom of the screen
  */
 export const SyncStatusIndicator = () => {
-    const syncStatus = useSyncStatus();
+    const { syncStatus } = useQuote();
+    const { colors } = useTheme();
 
     if (syncStatus.isConnected === null) {
         return null; // Still loading
@@ -72,7 +73,7 @@ export const SyncStatusIndicator = () => {
                 {statusInfo.icon} {statusInfo.text}
             </Text>
             {syncStatus.lastSyncError && (
-                <Text style={[styles.errorText, { color: colors.error }]}>
+                <Text style={[styles.errorText, { color: colors.warning }]}>
                     Erreur: {syncStatus.lastSyncError}
                 </Text>
             )}

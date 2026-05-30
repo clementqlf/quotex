@@ -1,13 +1,13 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
-import { PanResponder, Share, Clipboard } from 'react-native';
+import { PanResponder } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import * as Haptics from 'expo-haptics';
-import { calculateTextRotation } from '../../../shared/lib/scanGeometry';
+import { calculateTextRotation } from '@/src/shared/lib/scanGeometry';
 import { reconstructTextFromWords } from './textReconstructor';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { useQuoteActions } from '@/src/entities/quote/lib';
+import { PlatformServices } from '@/src/shared/platform';
 
 type Size = { width: number; height: number };
 
@@ -38,7 +38,7 @@ export const useScanWorkflow = ({
   onReset,
   normalizedSize,
 }: ScanWorkflowProps) => {
-  const { refreshQuotes, refreshBooks } = useData();
+  const { refreshBooks } = useAuthor();
   const { setTabIndex } = useTabIndex();
   const { handleConfirmSave } = useQuoteActions();
   const [isDevMode, setIsDevMode] = useState(false);
@@ -284,7 +284,7 @@ export const useScanWorkflow = ({
 
         const nearestIndex = findWordAtPosition(x, y);
         if (nearestIndex !== null) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          PlatformServices.haptics.impactAsync('light');
           
           if (isEraserModeRef.current) {
             const currentSelection = selectionRef.current;
@@ -319,7 +319,7 @@ export const useScanWorkflow = ({
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt, gestureState) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        PlatformServices.haptics.impactAsync("light");
         if (!selectionRef.current || wordsRef.current.length === 0) return;
         const startWord = wordsRef.current[selectionRef.current.start];
         if (startWord) {
@@ -354,7 +354,7 @@ export const useScanWorkflow = ({
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt, gestureState) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        PlatformServices.haptics.impactAsync("light");
         if (!selectionRef.current || wordsRef.current.length === 0) return;
         const endWord = wordsRef.current[selectionRef.current.end];
         if (endWord) {
@@ -397,16 +397,16 @@ export const useScanWorkflow = ({
 
   const handleCopy = async () => {
     if (scannedText) {
-      Clipboard.setString(scannedText);
+      PlatformServices.clipboard.setString(scannedText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      PlatformServices.haptics.notificationAsync("success");
     }
   };
 
   const handleShare = async () => {
     if (scannedText) {
-      await Share.share({ message: scannedText });
+      await PlatformServices.share.share({ message: scannedText });
     }
   };
 

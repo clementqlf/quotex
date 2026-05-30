@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
-import * as Haptics from 'expo-haptics';
+import { PlatformServices } from '@/src/shared/platform';
 import { Quote } from '@/src/shared/api/types';
 
 export interface HandleConfirmSaveOptions {
@@ -13,7 +14,8 @@ export interface HandleConfirmSaveOptions {
 }
 
 export const useQuoteActions = () => {
-  const { addQuote, updateQuote, refreshQuotes, refreshBooks } = useData();
+  const { addQuote, updateQuote, refreshQuotes } = useQuote();
+  const { refreshBooks } = useAuthor();
   const { setTabIndex } = useTabIndex();
 
   /**
@@ -48,7 +50,7 @@ export const useQuoteActions = () => {
         console.log('[useQuoteActions] Quote saved/updated successfully');
 
         // Feedback haptique
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await PlatformServices.haptics.notificationAsync('success');
 
         // Actions post-sauvegarde
         if (options.isFromScanner) {

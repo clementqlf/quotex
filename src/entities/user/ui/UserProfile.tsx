@@ -19,7 +19,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Author, Book, User } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
@@ -167,7 +167,7 @@ const decodeBase64 = (base64: string) => {
 export default function UserProfileScreen() {
   const router = useRouter();
   const { username } = useLocalSearchParams<{ username?: string }>();
-  const { getUserByUsername } = useData();
+  const { getUserByUsername } = useQuote();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
 

@@ -17,7 +17,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-react-native';
 import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { searchService } from '@/src/features/search/api/SearchService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -47,7 +47,7 @@ export default function ScanPreviewModal({
     initialAuthor = '',
     showConfetti = false,
 }: ScanPreviewModalProps) {
-    const { quotes } = useData();
+    const { quotes } = useQuote();
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [isSubmitting, setIsSubmitting] = useState(false);
