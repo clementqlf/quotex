@@ -66,7 +66,7 @@ export const useBookDetailController = () => {
   const lastSavedBookBlockData = React.useRef<string>('{}');
   const reloadRef = React.useRef<() => void>(() => {});
 
-  const bookTitle = bookInfo?.title || bookTitleParam;
+  const bookTitle = bookInfo?.title || bookTitleParam || (bookId ? allBooks.find(b => b.id === bookId)?.title : undefined);
 
   useEffect(() => {
     let mounted = true;
@@ -408,8 +408,10 @@ export const useBookDetailController = () => {
   return {
     router,
     navigateToBook,
-              getBookById,
-              getBookByTitle,
+    bookId,
+    bookTitleParam,
+    getBookById,
+    getBookByTitle,
     colors: useMemo(() => ({}) as any, []),
     styles: undefined,
     currentUser,

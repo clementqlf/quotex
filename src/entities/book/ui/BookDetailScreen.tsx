@@ -28,16 +28,6 @@ export default function BookDetailScreen() {
     />
   ), [controller.blockContext, controller.handleRemoveBlock]);
 
-  if (!controller.bookTitle) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <Text style={styles.errorText}>Aucun livre spécifié.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   if (controller.isLoadingMetadata) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -46,10 +36,20 @@ export default function BookDetailScreen() {
             <TouchableOpacity style={styles.backButton} onPress={() => controller.router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>{controller.bookTitle}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{controller.bookTitle || "Chargement..."}</Text>
             <View style={styles.saveButton} />
           </View>
           <BookDetailSkeleton colors={colors} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!controller.bookTitle) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.errorText}>Aucun livre spécifié.</Text>
         </View>
       </SafeAreaView>
     );
