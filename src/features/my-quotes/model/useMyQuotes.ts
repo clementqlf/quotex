@@ -1,23 +1,27 @@
 import { useCallback, useMemo } from 'react';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 
 /**
  * Hook feature pour la gestion des citations de l'utilisateur
- * Découple la page MyQuotesScreen du DataProvider
+ * Découple la page MyQuotesScreen des providers
  */
 export const useMyQuotes = () => {
   const { 
     quotes: allQuotes, 
+    toggleLikeQuote, 
+    deleteQuote: deleteQuoteFromProvider, 
+    refreshQuotes 
+  } = useQuote();
+  
+  const { 
     authors: allAuthors, 
     books: allBooks,
-    toggleLikeQuote, 
-    deleteQuote, 
-    refreshQuotes, 
     refreshAuthors, 
     refreshBooks 
-  } = useData();
+  } = useAuthor();
   
   const { user: currentUser } = useAuth();
 
@@ -42,8 +46,8 @@ export const useMyQuotes = () => {
 
   // Suppression d'une citation
   const removeQuote = useCallback(async (quoteId: number) => {
-    await deleteQuote(quoteId);
-  }, [deleteQuote]);
+    await deleteQuoteFromProvider(quoteId);
+  }, [deleteQuoteFromProvider]);
 
   // Obtenir le nombre de livres uniques
   const getBookCount = useCallback(() => {

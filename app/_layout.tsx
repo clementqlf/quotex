@@ -7,6 +7,9 @@ import { View, ActivityIndicator } from 'react-native';
 import { DataProvider } from '@/src/app/providers/DataProvider';
 import { AuthProvider, useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
+import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
+import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
+import { AuthorProvider } from '@/src/entities/author/providers/AuthorProvider';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
 
@@ -24,9 +27,15 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <DataProvider>
-              <RootLayoutNav />
-            </DataProvider>
+            <RepositoriesProvider>
+              <QuoteProvider>
+                <AuthorProvider>
+                  <DataProvider>
+                    <RootLayoutNav />
+                  </DataProvider>
+                </AuthorProvider>
+              </QuoteProvider>
+            </RepositoriesProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
