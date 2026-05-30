@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Share,
   StyleSheet,
 } from 'react-native';
-import { Heart, Share2, MoreVertical } from 'lucide-react-native';
+import { Heart, Share2, MoreVertical, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Quote } from '@/src/shared/api/types';
@@ -16,6 +16,14 @@ import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import EnrichingSkeleton from './EnrichingSkeleton';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { supabase } from '@/src/shared/api/supabase';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -28,13 +36,131 @@ const isEnriching = (item: any): boolean => {
   return false;
 };
 
+// Hook pour poller les mises à jour d'un livre
+const useBookPolling = (bookId: number | null | undefined, initialBook: any) => {
+  const [book, setBook] = useState(initialBook);
+  
+  useEffect(() => {
+    if (!bookId || !initialBook?.isEnriching) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('Book')
+          .select('*')
+          .eq('id', bookId)
+          .single();
+        
+        if (data) {
+          setBook(data);
+          if (!data.isEnriching) {
+            clearInterval(interval);
+          }
+        }
+      } catch (err) {
+        console.error('Book polling error:', err);
+      }
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [bookId, initialBook?.isEnriching]);
+  
+  return book;
+};
+
+// Hook pour poller les mises à jour d'un auteur
+const useAuthorPolling = (authorId: number | null | undefined, initialAuthor: any) => {
+  const [author, setAuthor] = useState(initialAuthor);
+  
+  useEffect(() => {
+    if (!authorId || !initialAuthor?.isEnriching) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('Author')
+          .select('*')
+          .eq('id', authorId)
+          .single();
+        
+        if (data) {
+          setAuthor(data);
+          if (!data.isEnriching) {
+            clearInterval(interval);
+          }
+        }
+      } catch (err) {
+        console.error('Author polling error:', err);
+      }
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [authorId, initialAuthor?.isEnriching]);
+  
+  return author;
+};
+
 const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProps) => {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const isBookEnriching = isEnriching(quote.book);
-  const isAuthorEnriching = isEnriching(quote.author);
+  // Utiliser le polling pour obtenir les versions à jour
+  const book = useBookPolling(quote.book?.id, quote.book);
+  const author = useAuthorPolling(quote.author?.id, quote.author);
+
+  const isBookEnriching = isEnriching(book);
+  const isAuthorEnriching = isEnriching(author);
+
+  // Animation pour le titre du livre
+  const bookTitleScale = useSharedValue(1);
+  const bookTitleOpacity = useSharedValue(1);
+  const bookTitleAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bookTitleScale.value }],
+    opacity: bookTitleOpacity.value,
+  }));
+
+  // Animation pour le nom de l'auteur
+  const authorScale = useSharedValue(1);
+  const authorAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: authorScale.value }],
+  }));
+
+  // Détecter les changements de titre/nom et déclencher les animations
+  const prevBookTitle = useRef(getBookTitle(quote.book));
+  const prevAuthorName = useRef(getAuthorName(quote.author));
+
+  useEffect(() => {
+    const currentTitle = getBookTitle(book);
+    const prevTitle = prevBookTitle.current;
+    
+    if (currentTitle && currentTitle !== prevTitle && prevTitle) {
+      // Animation: petit zoom + fade
+      bookTitleScale.value = withSequence(
+        withTiming(1.1, { duration: 150 }),
+        withSpring(1, { damping: 10, stiffness: 400 })
+      );
+      bookTitleOpacity.value = withSequence(
+        withTiming(0.7, { duration: 100 }),
+        withTiming(1, { duration: 200 })
+      );
+      prevBookTitle.current = currentTitle;
+    }
+  }, [book, bookTitleScale, bookTitleOpacity]);
+
+  useEffect(() => {
+    const currentName = getAuthorName(author);
+    const prevName = prevAuthorName.current;
+    
+    if (currentName && currentName !== prevName && prevName) {
+      // Animation: petit zoom
+      authorScale.value = withSequence(
+        withTiming(1.05, { duration: 150 }),
+        withSpring(1, { damping: 10, stiffness: 400 })
+      );
+      prevAuthorName.current = currentName;
+    }
+  }, [author, authorScale]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -80,18 +206,20 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
           {/* Book Info */}
           <View style={styles.bookInfo}>
             <View style={styles.bookInfoLeft}>
-              {isBookEnriching && !getBookTitle(quote.book) ? (
+              {isBookEnriching && !getBookTitle(book) ? (
                 <EnrichingSkeleton width={140} />
               ) : (
-                <Text style={styles.bookTitle}>{getBookTitle(quote.book)}</Text>
+                <Animated.Text style={[styles.bookTitle, bookTitleAnimatedStyle, { color: colors.text }]}>
+                  {getBookTitle(book)}
+                </Animated.Text>
               )}
 
-              {isAuthorEnriching && !getAuthorName(quote.author) ? (
+              {isAuthorEnriching && !getAuthorName(author) ? (
                 <EnrichingSkeleton width={80} height={12} />
               ) : (
-                <Text style={styles.authorName}>
-                  {getAuthorName(quote.author)}
-                </Text>
+                <Animated.Text style={[styles.authorName, authorAnimatedStyle, { color: colors.primary }]}>
+                  {getAuthorName(author)}
+                </Animated.Text>
               )}
             </View>
             <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>

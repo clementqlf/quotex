@@ -397,11 +397,8 @@ serve(async (req: Request) => {
                   INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching")
                   VALUES (${bookTitle}, ${authorIdVal}, ${uri}, true) RETURNING *
                 `;
-                // Wait for enrichment to complete so we return the corrected title
-                // This ensures "Le petit prince" becomes "Le Petit Prince" in the response
+                // Trigger enrichment in background - modal closes immediately
                 if (typeof EdgeRuntime !== 'undefined') {
-                  await enrichBookWithInventaire(bookRows[0].id);
-                } else {
                   EdgeRuntime.waitUntil(enrichBookWithInventaire(bookRows[0].id));
                 }
               }
