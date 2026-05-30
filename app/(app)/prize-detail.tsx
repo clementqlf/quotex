@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import PrizeDetailScreen from '../../src/pages/PrizeDetailScreen';
+import PrizeDetailScreen from '@/src/features/prizes/ui/PrizeDetailScreen';
 
 export default function PrizeDetail() {
     const { prizeId, prizeData } = useLocalSearchParams<{ prizeId?: string; prizeData?: string }>();

@@ -8,9 +8,9 @@ import Animated, {
   useEvent 
 } from 'react-native-reanimated';
 
-import MyQuotesScreen from '@/src/pages/MyQuotesScreen';
-import ScanScreen from '@/src/pages/ScanScreen';
-import SocialFeedScreen from '@/src/pages/SocialFeedScreen';
+import MyQuotesScreen from '@/src/features/my-quotes/ui/MyQuotesScreen';
+import ScanScreen from '@/src/features/scanner/ui/ScanScreen';
+import SocialFeedScreen from '@/src/features/social/ui/SocialFeedScreen';
 import { PageIndicator } from '@/src/shared/ui/PageIndicator';
 
 import { TabIndexContext, SwipeEnabledContext } from '@/src/app/providers/TabContext';

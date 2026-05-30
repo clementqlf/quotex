@@ -1,2 +1,2 @@
-import SearchScreen from '@/src/pages/SearchScreen';
+import SearchScreen from '@/src/features/search/ui/SearchScreen';
 export default SearchScreen;

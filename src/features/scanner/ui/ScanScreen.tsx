@@ -19,7 +19,7 @@ import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { recognizeText } from '../features/scanner/model/mlKitParser';
+import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import * as ExpoImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';

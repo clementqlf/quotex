@@ -25,14 +25,13 @@ import { bookDescriptions } from '@/src/shared/api/staticData';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 
-import { useData } from '@/src/app/providers/DataProvider';
 import { Quote, Book } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { useQuoteActions } from '@/src/entities/quote/lib';
 
-// Extracted components
+// Entity components - OK to import from entities per FSD
 import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
@@ -41,22 +40,37 @@ import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
 
+// Feature hook
+import { useMyQuotes } from '../model/useMyQuotes';
+
 export default function MyQuotesScreen() {
   const router = useRouter();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks } = useData();
+  
+  // Feature hook - découplé de DataProvider
+  const { 
+    myQuotes, 
+    allAuthors, 
+    allBooks,
+    refreshMyQuotes,
+    toggleLike: toggleLikeQuote,
+    removeQuote: deleteQuote,
+    getBookCount,
+    getAuthors,
+    getBooksData,
+    getAuthorsData,
+    getThemes
+  } = useMyQuotes();
+  
   const { handleConfirmSave } = useQuoteActions();
   const { tabIndex, setTabIndex } = useTabIndex();
 
-  // Ref pour scroller vers le haut après un ajout via le scanner
-  const quotesListRef = useRef<any>(null);
-
   const { user: currentUser } = useAuth();
   
-  // Filter for "My Quotes" (current user matches their UUID)
-  const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id === currentUser?.id), [allQuotes, currentUser]);
+  // Ref pour scroller vers le haut après un ajout via le scanner
+  const quotesListRef = useRef<any>(null);
 
   const isFocused = tabIndex === 0;
 
@@ -75,54 +89,22 @@ export default function MyQuotesScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        refreshQuotes(),
-        refreshAuthors(),
-        refreshBooks()
-      ]);
+      await refreshMyQuotes();
     } catch (error) {
       console.error("Refresh failed", error);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshQuotes, refreshAuthors, refreshBooks]);
+  }, [refreshMyQuotes]);
 
   const isScreenFocused = useIsFocused();
 
   useEffect(() => {
     if (isScreenFocused && isFocused) {
       setTabIndex(0);
-      refreshQuotes();
-      refreshAuthors();
-      refreshBooks();
+      refreshMyQuotes();
     }
-  }, [isScreenFocused, isFocused]);
-
-  // Avec Realtime implémenté dans QuoteCard, le polling global n'est plus nécessaire
-  // Chaque QuoteCard gère ses propres mises à jour en temps réel
-  // Ce code est gardé en commentaire au cas où on voudrait le réactiver
-  /*
-  const hasEnrichingItems = useMemo(() => myQuotes.some(q => {
-    const isBookEnriching = q.book && typeof q.book === 'object' && (q.book as any).isEnriching;
-    const isAuthorEnriching = q.author && typeof q.author === 'object' && (q.author as any).isEnriching;
-    if (!isBookEnriching && !isAuthorEnriching) return false;
-    const quoteAge = q.date ? Date.now() - new Date(q.date).getTime() : 0;
-    if (quoteAge > 30000) return false;
-    return true;
-  }), [myQuotes]);
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (hasEnrichingItems && isFocused) {
-      interval = setInterval(() => {
-        refreshQuotes();
-      }, 10000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [hasEnrichingItems, isFocused, refreshQuotes]);
-  */
+  }, [isScreenFocused, isFocused, refreshMyQuotes, setTabIndex]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -143,36 +125,23 @@ export default function MyQuotesScreen() {
     opacity: fadeAnim.value,
   }));
 
-  // Memoized derived data
-  const authors = useMemo(() => [...new Set(myQuotes.map(q => getAuthorName(q.author)))], [myQuotes]);
-  const books = useMemo(() => [...new Set(myQuotes.map(q => getBookTitle(q.book)))], [myQuotes]);
-  const years = useMemo(() => [...new Set(
-    myQuotes
-      .map(q => bookDescriptions[getBookTitle(q.book)]?.year)
-      .filter((year): year is number => !!year)
-  )].sort((a, b) => b - a), [myQuotes]);
-
-  const bookCount = useMemo(() => new Set(myQuotes.map(q => getBookTitle(q.book))).size, [myQuotes]);
-
-  // Liste des thèmes (notion abordée)
-  const themes = useMemo(() => {
-    const grouped: Record<string, { books: Set<string>; quoteCount: number }> = {};
-    for (const q of myQuotes) {
-      const theme = q.theme || 'Thème non renseigné';
-      if (!grouped[theme]) grouped[theme] = { books: new Set(), quoteCount: 0 };
-      grouped[theme].books.add(getBookTitle(q.book));
-      grouped[theme].quoteCount += 1;
-    }
-    return Object.entries(grouped)
-      .map(([theme, data]) => ({
-        theme,
-        books: Array.from(data.books),
-        quoteCount: data.quoteCount,
-      }))
-      .sort((a, b) => a.theme.localeCompare(b.theme));
+  // Memoized derived data - utilisant les getters du hook feature
+  const authors = useMemo(() => getAuthors(), [getAuthors]);
+  const books = useMemo(() => getBooksData(), [getBooksData]);
+  const bookCount = useMemo(() => getBookCount(), [getBookCount]);
+  
+  const years = useMemo(() => {
+    return [...new Set(
+      myQuotes
+        .map(q => bookDescriptions[getBookTitle(q.book)]?.year)
+        .filter((year): year is number => !!year)
+    )].sort((a, b) => b - a);
   }, [myQuotes]);
 
-  // Derived filtered quotes — useMemo instead of useState+useEffect
+  // Liste des thèmes
+  const themes = useMemo(() => getThemes(), [getThemes]);
+
+  // Derived filtered quotes
   const quotesToDisplay = useMemo(() => {
     let filtered = [...myQuotes];
     if (activeFilters.length > 0) {
@@ -200,6 +169,14 @@ export default function MyQuotesScreen() {
     }
     return filtered;
   }, [myQuotes, activeFilters, allBooks]);
+
+  // Authors data
+  const authorsData = useMemo(() => getAuthorsData(), [getAuthorsData]);
+
+  const filteredBooksByStatus = useMemo(() => {
+    if (selectedStatus === 'ALL') return books;
+    return books.filter(b => b.readingStatus === selectedStatus);
+  }, [books, selectedStatus]);
 
   // Sync temp filters when active filters change
   useEffect(() => {
@@ -243,87 +220,6 @@ export default function MyQuotesScreen() {
   const handleOpenMenu = useCallback((quote: Quote) => {
     setActionMenuQuote(quote);
   }, []);
-
-  const booksData = useMemo(() => {
-    const grouped = myQuotes.reduce<Record<string, { authors: Set<string>; quoteCount: number; bookObj?: Book }>>((acc, quote) => {
-      const title = getBookTitle(quote.book);
-      const author = getAuthorName(quote.author);
-      if (!acc[title]) {
-        acc[title] = { authors: new Set(), quoteCount: 0 };
-      }
-      acc[title].authors.add(author);
-      acc[title].quoteCount += 1;
-      if (quote.book && typeof quote.book !== 'string') {
-        acc[title].bookObj = quote.book;
-      }
-      return acc;
-    }, {});
-
-    // Ensure we include books who are explicitly saved by the user or have quotes
-    allBooks.forEach(book => {
-      if (grouped[book.title]) {
-        grouped[book.title].bookObj = book;
-      } else if (book.isSaved) {
-        const authorName = getAuthorName(book.author);
-        grouped[book.title] = {
-          authors: new Set([authorName]),
-          quoteCount: 0,
-          bookObj: book
-        };
-      }
-    });
-
-    return Object.entries(grouped)
-      .map(([bookTitle, data]) => {
-        const meta = bookDescriptions[bookTitle] || data.bookObj;
-        return {
-          title: bookTitle,
-          id: data.bookObj?.id,
-          authors: Array.from(data.authors),
-          quoteCount: data.quoteCount,
-          year: meta?.year,
-          description: meta?.description,
-          cover: meta?.cover,
-          readingStatus: data.bookObj?.readingStatus,
-          inventaireUri: data.bookObj?.inventaireUri,
-        };
-      })
-      .sort((a, b) => a.title.localeCompare(b.title));
-  }, [myQuotes, allBooks]);
-
-  const filteredBooksByStatus = useMemo(() => {
-    if (selectedStatus === 'ALL') return booksData;
-    return booksData.filter(b => b.readingStatus === selectedStatus);
-  }, [booksData, selectedStatus]);
-
-  const authorsData = useMemo(() => {
-    const grouped = myQuotes.reduce<Record<string, { author: any; quoteCount: number }>>((acc, quote) => {
-      const name = getAuthorName(quote.author);
-      if (!acc[name]) {
-        acc[name] = { author: quote.author, quoteCount: 0 };
-      } else if (typeof acc[name].author === 'string' && typeof quote.author !== 'string') {
-        acc[name].author = quote.author;
-      }
-      acc[name].quoteCount += 1;
-      return acc;
-    }, {});
-
-    // Ensure we include authors who are explicitly saved by the user
-    allAuthors.forEach(author => {
-      if (author.isSaved && !grouped[author.name]) {
-        grouped[author.name] = { author: author, quoteCount: 0 };
-      }
-    });
-
-    return Object.values(grouped)
-      .map((data: any) => ({
-        name: getAuthorName(data.author),
-        image: typeof data.author !== 'string' ? data.author?.image : null,
-        quoteCount: data.quoteCount,
-        inventaireUri: typeof data.author !== 'string' ? data.author?.inventaireUri : undefined,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [myQuotes, allAuthors]);
 
   const toggleSection = useCallback((section: 'author' | 'book' | 'year' | 'status' | null) => {
     setExpandedSection(current => (current === section ? null : section));
@@ -546,7 +442,7 @@ export default function MyQuotesScreen() {
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
         authors={authors}
-        books={books}
+        books={books.map(b => b.title)}
         years={years}
         tempFilters={tempFilters}
         onToggleTempFilter={toggleTempFilter}
@@ -673,120 +569,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
-  },
-  actionMenuContainer: {
-    width: '80%',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionMenuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  actionMenuTitle: {
-    fontSize: 18,
-    color: colors.text,
-    fontWeight: 'bold',
-  },
-  actionMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceHighlight,
-  },
-  actionMenuText: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: colors.backdrop,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalView: {
-    width: '90%',
-    maxHeight: '80%',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-    color: colors.text,
-  },
-  filterSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceHighlight,
-  },
-  filterSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  filterOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-  },
-  filterOptionText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  filterOptionTextSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-    gap: 12,
-  },
-  resetButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  resetButtonText: {
-    color: colors.text,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  applyButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-  },
-  applyButtonText: {
-    color: colors.buttonText,
-    textAlign: 'center',
-    fontWeight: '600',
   },
   filterContainer: {
     flexDirection: 'row',
