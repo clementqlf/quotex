@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
     PENDING_QUOTES: 'pending_quotes',
     AUTH_TOKEN: 'auth_token',
     USER_DATA: 'user_data',
+    LAST_SYNC_TIME: 'last_sync_time',
 };
 
 export const StorageService = {

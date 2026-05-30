@@ -2,9 +2,22 @@ import { Author, Book } from '@/src/shared/api/types';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { BookImportPayload } from '@/src/entities/book/lib/bookImport';
+
+// Debug flag - set to false to disable debug logs in production
+const DEBUG_AUTHOR_SERVICE = false;
+
+const debugLog = (...args: any[]) => {
+  if (DEBUG_AUTHOR_SERVICE) console.warn('[AuthorService]', ...args);
+};
 
 class AuthorService {
     private readonly API_URL = API_BASE_URL;
+
+    private normalizeInventaireUri(uri?: string | null): string {
+        if (!uri) return '';
+        return uri.trim().toLowerCase().replace(/^wd:/, '');
+    }
 
     private async getHeaders(extraHeaders: Record<string, string> = {}) {
         const token = await authService.getToken();
@@ -127,6 +140,34 @@ class AuthorService {
         return (storedBooks || []).find(b => b.title === title);
     }
 
+    async getBookByInventaireUri(inventaireUri: string): Promise<Book | undefined> {
+        const target = this.normalizeInventaireUri(inventaireUri);
+
+        if (!target) {
+            debugLog('getBookByInventaireUri: empty target', { inventaireUri });
+            return undefined;
+        }
+
+        try {
+            const headers = await this.getHeaders();
+            const directUrl = `${this.API_URL}/books/by-inventaire/${encodeURIComponent(inventaireUri)}`;
+            const directResponse = await fetch(directUrl, { headers });
+
+            debugLog('getBookByInventaireUri: direct lookup', {
+                status: directResponse.status,
+                ok: directResponse.ok,
+            });
+
+            if (directResponse.ok) {
+                const book = await directResponse.json();
+                return this.mapBookFromServer(book);
+            }
+        } catch (error) {
+            console.error('[AuthorService] Error fetching book by inventaireUri:', error);
+        }
+        return undefined;
+    }
+
     async getBookById(id: number): Promise<Book | undefined> {
         try {
             const headers = await this.getHeaders();
@@ -140,7 +181,7 @@ class AuthorService {
         }
         return undefined;
     }
-    async toggleSaveAuthor(id: number): Promise<boolean> {
+    async toggleSaveAuthor(id: number): Promise<{ isSaved: boolean; followersCount: number } | null> {
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/${id}/toggle-save`, {
@@ -148,13 +189,12 @@ class AuthorService {
                 headers
             });
             if (response.ok) {
-                const result = await response.json();
-                return result.isSaved;
+                return await response.json();
             }
         } catch (error) {
             console.error('Error toggling author save status:', error);
         }
-        return false;
+        return null;
     }
 
     async toggleSaveBook(id: number): Promise<boolean> {
@@ -192,20 +232,28 @@ class AuthorService {
         return undefined;
     }
 
-    async importBook(bookData: Partial<Book>): Promise<Book | undefined> {
+    async importBook(bookData: BookImportPayload): Promise<Book | undefined> {
         try {
+            debugLog('importBook: request', {
+                title: bookData.title,
+                inventaireUri: bookData.inventaireUri,
+                year: bookData.year,
+                pages: bookData.pages,
+            });
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books/import`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
                     title: bookData.title,
-                    authors: typeof bookData.author === 'string' ? [bookData.author] : (bookData.author?.name ? [bookData.author.name] : []),
+                    authors: bookData.authors ?? (typeof bookData.author === 'string' ? [bookData.author] : (bookData.author?.name ? [bookData.author.name] : [])),
+                    authorUris: bookData.authorUris,
                     description: bookData.description,
                     cover: bookData.cover,
                     inventaireUri: bookData.inventaireUri,
                     openLibraryId: bookData.openLibraryId,
                     googleId: bookData.googleId,
+                    isbn: bookData.isbn,
                     year: bookData.year,
                     pages: bookData.pages,
                     genre: bookData.genre
@@ -213,10 +261,19 @@ class AuthorService {
             });
             if (response.ok) {
                 const book = await response.json();
+                debugLog('importBook: success', {
+                    id: book?.id,
+                    title: book?.title,
+                    pages: book?.pages,
+                });
                 return this.mapBookFromServer(book);
             }
+            debugLog('importBook: non-ok response', {
+                status: response.status,
+                statusText: response.statusText,
+            });
         } catch (error) {
-            console.error('Error importing book:', error);
+            console.error('[AuthorService] Error importing book:', error);
         }
         return undefined;
     }

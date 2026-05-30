@@ -11,6 +11,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>;
     register: (username: string, email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
+    deleteAccount: () => Promise<void>;
     updateProfile: (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => Promise<void>;
 }
 
@@ -79,6 +80,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(null);
     };
 
+    const deleteAccount = async () => {
+        await authService.deleteAccount();
+        setUser(null);
+        setToken(null);
+    };
+
     const updateProfile = async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => {
         const updatedUser = await authService.updateUser(data);
         setUser(updatedUser);
@@ -93,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             login, 
             register, 
             logout,
+            deleteAccount,
             updateProfile
         }}>
             {children}

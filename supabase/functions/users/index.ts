@@ -60,6 +60,31 @@ serve(async (req: Request) => {
       return json(rows[0]);
     }
 
+    // DELETE /users/me
+    if (req.method === 'DELETE' && parts[0] === 'me') {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      // Import Supabase Client to delete the user from auth.users using Service Role
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.39.3');
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') || '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+      );
+
+      // 1. Manually delete user data if necessary, or rely on ON DELETE CASCADE in Postgres.
+      // Usually, auth.users has ON DELETE CASCADE to public.Profile.
+      // If we want to be safe, we can manually delete Profile and UserQuote/UserBook, but let's just delete the user.
+      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      
+      if (deleteError) {
+        console.error('Failed to delete user:', deleteError);
+        return error('Failed to delete user account', 500);
+      }
+
+      return json({ success: true, message: 'User account deleted successfully' });
+    }
+
     // GET /users/me OR /users/:username
     if (req.method === 'GET' && parts[0]) {
       let profileUser;

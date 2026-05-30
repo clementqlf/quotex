@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
     Modal,
     Pressable,
@@ -17,13 +17,16 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-react-native';
 import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { searchService } from '@/src/features/search/api/SearchService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { Confetti } from 'react-native-fast-confetti';
+import {
+  CannonConfetti,
+  type CannonConfettiMethods
+} from 'react-native-fast-confetti';
 
 type ScanPreviewModalProps = {
     visible: boolean;
@@ -44,10 +47,11 @@ export default function ScanPreviewModal({
     initialAuthor = '',
     showConfetti = false,
 }: ScanPreviewModalProps) {
-    const { quotes } = useData();
+    const { quotes } = useQuote();
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const cannonConfettiRef = useRef<CannonConfettiMethods>(null);
 
     // State for editing
     const [isEditingBook, setIsEditingBook] = useState(false);
@@ -117,8 +121,13 @@ export default function ScanPreviewModal({
             setIsEditingQuote(!scannedText);
             setShowSuggestions(false);
             setShowAuthorSuggestions(false);
+            
+            // Redémarre les confettis avec les cannons quand le modal s'ouvre
+            if (showConfetti) {
+                cannonConfettiRef.current?.restart();
+            }
         }
-    }, [visible, scannedText, initialBook, initialAuthor]);
+    }, [visible, scannedText, initialBook, initialAuthor, showConfetti]);
 
     const resolveBookTitle = () => {
         if (editedBook.trim()) return editedBook.trim();
@@ -142,18 +151,39 @@ export default function ScanPreviewModal({
     };
 
     const handleConfirm = async () => {
-        if (isSubmitting) return;
+        console.log('[ScanPreviewModal] handleConfirm called');
+        console.log('[ScanPreviewModal] isSubmitting:', isSubmitting);
+        console.log('[ScanPreviewModal] editedQuote:', editedQuote);
+        console.log('[ScanPreviewModal] scannedText:', scannedText);
+        
+        if (isSubmitting) {
+            console.log('[ScanPreviewModal] Already submitting, returning');
+            return;
+        }
 
         const finalText = editedQuote.trim() || scannedText;
-        if (!finalText) return;
+        console.log('[ScanPreviewModal] finalText:', finalText);
+        
+        if (!finalText) {
+            console.log('[ScanPreviewModal] No text to save, returning');
+            return;
+        }
+        
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
+        console.log('[ScanPreviewModal] finalBook:', finalBook);
+        console.log('[ScanPreviewModal] finalAuthor:', finalAuthor);
 
         setIsSubmitting(true);
         try {
+            console.log('[ScanPreviewModal] Calling onConfirm...');
             await onConfirm(finalText, finalBook, finalAuthor);
+            console.log('[ScanPreviewModal] onConfirm completed successfully');
         } catch (error) {
-            console.error("Error confirming quote:", error);
+            console.error("[ScanPreviewModal] Error confirming quote:", error);
+            setIsSubmitting(false);
+        } finally {
+            console.log('[ScanPreviewModal] Setting isSubmitting to false');
             setIsSubmitting(false);
         }
     };
@@ -600,11 +630,42 @@ export default function ScanPreviewModal({
                 </KeyboardAvoidingView>
                 {showConfetti && visible && (
                     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-                        <Confetti
-                            isInfinite={false}
+                        <CannonConfetti
+                            ref={cannonConfettiRef}
+                            autoplay={false}
+                            gravity={3}
+                            infinite={false}
                             colors={['#20B8CD', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6']}
+                            onAnimationEnd={() => cannonConfettiRef.current?.reset()}
                             containerStyle={StyleSheet.absoluteFillObject}
-                        />
+                        >
+                            <CannonConfetti.Origin
+                                position="bottom-left"
+                                count={100}
+                                initialSpeed={3}
+                                spread={Math.PI / 4}
+                            >
+                                <CannonConfetti.Flake size={12} radius={6} />
+                            </CannonConfetti.Origin>
+
+                            <CannonConfetti.Origin
+                                position="bottom-center"
+                                count={100}
+                                initialSpeed={4}
+                                spread={Math.PI / 3}
+                            >
+                                <CannonConfetti.Flake size={10} />
+                            </CannonConfetti.Origin>
+
+                            <CannonConfetti.Origin
+                                position="bottom-right"
+                                count={100}
+                                initialSpeed={3}
+                                spread={Math.PI / 4}
+                            >
+                                <CannonConfetti.Flake size={14} radius={4} />
+                            </CannonConfetti.Origin>
+                        </CannonConfetti>
                     </View>
                 )}
             </View>

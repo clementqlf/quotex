@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Quote as QuoteIcon, Heart, ChevronLeft } from 'lucide-react-native';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -22,7 +22,7 @@ export default function ThemeDetailScreen() {
   const router = useRouter();
   const { themeName } = useLocalSearchParams<{ themeName: string }>();
 
-  const { quotes: allQuotes, toggleLikeQuote } = useData();
+  const { quotes: allQuotes, toggleLikeQuote } = useQuote();
 
   if (!themeName) {
     return (

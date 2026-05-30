@@ -1,79 +1,37 @@
-import { NavigatorScreenParams } from '@react-navigation/native';
+// Re-exports des types depuis les entités pour compatibilité descendante
+// Les types ont été déplacés vers leurs entités respectives (F-010)
 
-// Define shared types here to avoid circular imports
-export type User = {
-  id: string; // UUID from Supabase Auth
-  name?: string;
-  username: string;
-  email?: string;
-  image?: string;
-  bio?: string;
-  website?: string;
-  followers?: number;
-  following?: number;
-};
+// User
+export type {
+  User,
+  CreateUserDto,
+  UpdateUserDto,
+} from '@/src/entities/user/model/User';
 
-export type Author = {
-  id?: number; // ensured number
-  name: string;
-  description: string;
-  image: string;
-  birthDate: string;
-  nationality: string;
-  similarAuthors?: Author[];
-  openLibraryId?: string;
-  inventaireUri?: string;
-  isSaved?: boolean;
-  isEnriching?: boolean;
-  quotesCount?: number;
-  laureates?: Laureate[];
-};
+// Author
+export type {
+  Author,
+  ReadingStatus,
+  Laureate,
+  CreateAuthorDto,
+} from '@/src/entities/author/model/Author';
 
-export type ReadingStatus = 'READ' | 'TO_READ' | 'READING' | 'DROPPED';
+// Book
+export type {
+  Book,
+  CreateBookDto,
+  BookImportPayload,
+} from '@/src/entities/book/model/Book';
 
-export type Book = {
-  id?: number; // ensured number
-  title: string;
-  description: string;
-  year: number;
-  pages: number;
-  author: string | Author; // Author can also be an object now
-  rating: number;
-  genre: string;
-  cover: string;
-  buyLinks?: Array<{ store: string; url: string; price: string }>;
-  similarBooks?: Book[];
-  isSaved?: boolean;
-  isEnriching?: boolean;
-  readingStatus?: ReadingStatus | null;
-  inventaireUri?: string;
-  openLibraryId?: string;
-  googleId?: string;
-  isbn?: string;
-  laureates?: Laureate[];
-  lastEnrichedAt?: string;
-};
+// Quote
+export type {
+  Quote,
+  CreateQuoteDto,
+  UpdateQuoteDto,
+} from '@/src/entities/quote/model/Quote';
 
-export type Quote = {
-  id: number;
-  text: string;
-  book?: string | Book | null; // Can be object (from server) or string (legacy/static) or null
-  author?: string | Author | null; // Can be object (from server) or string (legacy/static) or null
-  theme?: string;
-  date?: string;
-  likesCount: number; // Replaced 'likes' number with likesCount
-  likes?: any[]; // The relation array
-  isLiked: boolean;
-  user?: User;
-  comments?: number;
-  isSaved?: boolean;
-  time?: string; // keeping for compatibility with globalQuotesDB if needed, or unify to date
-  notes?: string;
-  blockData?: Record<string, any>;
-  aiInterpretation?: string;
-};
-
-export type Review = {
+// Autres types (Review, LiteraryPrize, etc.)
+export interface Review {
   id: number;
   rating: number;
   comment?: string | null;
@@ -81,52 +39,16 @@ export type Review = {
   user: User;
   userId: string;
   bookId: number;
-};
+}
 
-export type LiteraryPrize = {
+export interface LiteraryPrize {
   id: number;
   name: string;
   description?: string;
   image?: string;
   inventaireUri?: string;
   wikipediaTitle?: string;
-  laureates?: Laureate[];
-  inceptionYear?: string;
-  founder?: string;
-};
-
-export type Laureate = {
-  id: number;
-  prizeId: number;
-  year: number;
-  authorId: number;
-  bookId?: number;
-  prize?: LiteraryPrize;
-  author: Author;
-  book?: Book;
-};
-
-// Define TabParamList here to avoid circular dependency
-export type TabParamList = {
-  MyQuotes: undefined;
-  Scan: undefined;
-  Social: undefined;
-  Search: undefined; // Added Search route
-};
-
-export type RootStackParamList = {
-  Main: NavigatorScreenParams<TabParamList>;
-  AuthorDetail: { author?: Author; authorName?: string };
-  BookDetail: { book?: Book; bookTitle?: string };
-  QuoteDetail: { quoteId?: number; quote?: Quote };
-  UserProfile: { user: User };
-  ThemeDetail: { themeName: string };
-  Search: undefined;
-};
-
-export type BlockType = 'definition' | 'notes' | 'bookInfo' | 'author' | 'similarBooks' | 'similarAuthors' | 'savedQuotes' | 'reviews' | 'buy';
-
-export interface BlockConfig {
-  id: string;
-  type: BlockType;
 }
+
+// Export des DTOs pour compatibilité
+export type { CreateQuoteDto, UpdateQuoteDto, BookImportPayload };

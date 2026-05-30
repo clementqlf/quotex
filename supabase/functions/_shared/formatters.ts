@@ -30,6 +30,7 @@ export const formatAuthor = (author: any, userId: string | number | null = 0) =>
     ...author,
     isSaved: !!userLink,
     quotesCount: author._count?.quotes ?? author.quotesCount ?? 0,
+    followersCount: author._count?.followers ?? author.followersCount ?? 0,
   };
 };
 

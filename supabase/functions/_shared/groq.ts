@@ -47,7 +47,15 @@ Choisis OBLIGATOIREMENT l'un des thèmes suivants :
 - Destin & Choix
 
 Instructions pour le champ "recommendedBooks" :
-Propose une liste de 5 à 7 livres recommandés (d'auteurs différents de préférence, ou d'autres œuvres majeures du même auteur si c'est particulièrement pertinent) qui traitent du même sujet ou approfondissent les thématiques ou courants d'idées abordés dans la citation. Pour chaque livre, indique uniquement le titre exact ("title") et le nom de l'auteur ("author").
+Propose une liste de 5 à 7 livres qui parlent des thèmes évoqués dans la citation (d'auteurs différents de préférence, ou d'autres œuvres majeures du même auteur si c'est particulièrement pertinent) qui traitent du même sujet ou approfondissent les thématiques ou courants d'idées abordés dans la citation.
+
+CONSTRAINTS IMPÉRATIVES pour éviter les hallucinations :
+1. Tu dois OBLIGATOIREMENT proposer des livres RÉELS, LARGEMENT PUBLIÉS dans le monde (qui possèdent leur propre article Wikipédia ou sont mondialement référencés).
+2. N'invente JAMAIS d'œuvres.
+3. Évite absolument les ouvrages confidentiels, de niche, auto-publiés ou obscurs qui ne seraient pas répertoriés sur des bases mondiales comme Wikidata/Wikipedia/Inventaire.io.
+4. Écris toujours le titre officiel et complet du livre en français (ou dans sa version traduite de référence) ainsi que le nom de l'auteur de manière exacte.
+
+Pour chaque livre, indique uniquement le titre exact ("title") et le nom de l'auteur ("author").
 
 Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun formatage Markdown (pas de blocs de code triples), avec exactement cette structure :
 {
@@ -75,7 +83,7 @@ Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun fo
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.7,
+      temperature: 0,
     }),
   });
 

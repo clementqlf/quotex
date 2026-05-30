@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon } from 'lucide-react-native';
+import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon, UserPlus, UserCheck } from 'lucide-react-native';
 import { useData } from '@/src/app/providers/DataProvider';
 import { getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Author, Book } from '@/src/shared/api/types';
@@ -266,9 +266,18 @@ export default function AuthorDetailScreen() {
 
   const handleToggleSave = async () => {
     if (!canToggleSave || !authorInfo?.id) return;
-    await toggleSaveAuthor(authorInfo.id);
-    // Refresh local state
-    setAuthorInfo(prev => prev ? { ...prev, isSaved: !prev.isSaved } : null);
+    const res = await toggleSaveAuthor(authorInfo.id);
+    if (res) {
+      setAuthorInfo(prev => prev ? { ...prev, isSaved: res.isSaved, followersCount: res.followersCount } : null);
+    }
+  };
+
+  const handleToggleFollow = async () => {
+    if (!authorInfo?.id) return;
+    const res = await toggleSaveAuthor(authorInfo.id);
+    if (res) {
+      setAuthorInfo(prev => prev ? { ...prev, isSaved: res.isSaved, followersCount: res.followersCount } : null);
+    }
   };
 
   const handleShare = async () => {
@@ -352,6 +361,41 @@ export default function AuthorDetailScreen() {
           <View style={styles.profileHeader}>
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
+            
+            {authorInfo && authorInfo.id !== 0 && (
+              <>
+                <Text style={styles.followersText}>
+                  {(() => {
+                    const count = authorInfo.followersCount ?? 0;
+                    if (count === 0) return "Aucun abonné";
+                    return `Suivi par ${count} personne${count > 1 ? 's' : ''}`;
+                  })()}
+                </Text>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.followButton,
+                    authorInfo.isSaved ? styles.followButtonActive : styles.followButtonInactive
+                  ]}
+                  onPress={handleToggleFollow}
+                  activeOpacity={0.8}
+                >
+                  {authorInfo.isSaved ? (
+                    <UserCheck size={16} color={colors.textSecondary} />
+                  ) : (
+                    <UserPlus size={16} color={colors.buttonText} />
+                  )}
+                  <Text
+                    style={[
+                      styles.followButtonText,
+                      authorInfo.isSaved ? styles.followButtonTextActive : styles.followButtonTextInactive
+                    ]}
+                  >
+                    {authorInfo.isSaved ? 'Suivi' : 'Suivre'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
             
             <TouchableOpacity 
               style={styles.wikipediaButton} 
@@ -610,7 +654,47 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 24,
+    marginBottom: 8,
+  },
+  followersText: {
+    fontSize: 13,
+    color: colors.textTertiary,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  followButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  followButtonInactive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  followButtonActive: {
+    backgroundColor: colors.surface,
+    borderColor: colors.surfaceHighlight,
+  },
+  followButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  followButtonTextInactive: {
+    color: colors.buttonText,
+  },
+  followButtonTextActive: {
+    color: colors.textSecondary,
   },
   wikipediaButton: {
     flexDirection: 'row',

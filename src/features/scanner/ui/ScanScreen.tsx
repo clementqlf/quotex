@@ -19,17 +19,16 @@ import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { recognizeText } from '../features/scanner/model/mlKitParser';
+import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import * as ExpoImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
-import * as Haptics from 'expo-haptics';
 import { searchService } from '@/src/features/search/api/SearchService';
+import { PlatformServices } from '@/src/shared/platform';
 import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/AnimatedISBNPopup';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
@@ -39,7 +38,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
@@ -104,7 +103,7 @@ export default function ScanScreen() {
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
 
-  const { quotes, addQuote } = useData();
+  const { quotes, addQuote } = useQuote();
   const [randomQuote, setRandomQuote] = React.useState<any | null>(null);
   const [showRandomQuoteModal, setShowRandomQuoteModal] = React.useState(false);
 
@@ -188,7 +187,7 @@ export default function ScanScreen() {
 
           if (importRes.ok) {
             const imported = await importRes.json();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            PlatformServices.haptics.notificationAsync("success");
             console.log('[ScanScreen] Book imported successfully from inventaireWorks. Showing popup.');
             setIsbnBookData({
               title: imported.title || item.title || item.label || 'Livre inconnu',
@@ -206,7 +205,7 @@ export default function ScanScreen() {
         }
 
         // Fallback: use search result cover
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        PlatformServices.haptics.notificationAsync("success");
         console.log('[ScanScreen] Fallback: showing popup using search result cover.');
         setIsbnBookData({
           title: item.title || item.label || 'Livre inconnu',
@@ -223,7 +222,7 @@ export default function ScanScreen() {
         const authorName = typeof book.author === 'string'
           ? book.author
           : (book.author as any)?.name || 'Auteur inconnu';
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        PlatformServices.haptics.notificationAsync("success");
         console.log('[ScanScreen] Book found in books array. Showing popup.');
         setIsbnBookData({
           title: book.title,
@@ -325,7 +324,7 @@ export default function ScanScreen() {
     const selected = candidates[randomIndex];
 
     // Play light feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    PlatformServices.haptics.impactAsync("light");
 
     setRandomQuote(selected);
     setShowRandomQuoteModal(true);
@@ -863,10 +862,17 @@ export default function ScanScreen() {
               showConfetti={true}
               onClose={() => setShowRandomQuoteModal(false)}
               onConfirm={async (text, book, author) => {
+                console.log('[ScanScreen] onConfirm called for random quote');
+                console.log('[ScanScreen] text:', text);
+                console.log('[ScanScreen] book:', book);
+                console.log('[ScanScreen] author:', author);
+                
                 try {
+                  console.log('[ScanScreen] Calling addQuote...');
                   await addQuote(text, book, author);
+                  console.log('[ScanScreen] addQuote completed');
                   setShowRandomQuoteModal(false);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  PlatformServices.haptics.notificationAsync("success");
                 } catch (e) {
                   console.error('[ScanScreen] Failed to save random quote:', e);
                   Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');

@@ -17,17 +17,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock, 
-  CheckCircle2, XCircle, Database, Trash2 
+  CheckCircle2, XCircle, Database, Trash2, FileText 
 } from 'lucide-react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { logout, user, updateProfile } = useAuth();
+  const { logout, deleteAccount, user, updateProfile } = useAuth();
   const { isDark, colors } = useTheme();
+  const { refreshQuotes } = useQuote();
+  const { refreshAuthors, refreshBooks } = useAuthor();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isUpdating, setIsUpdating] = React.useState(false);
@@ -108,10 +115,36 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Supprimer mon compte",
+      "Êtes-vous sûr de vouloir supprimer définitivement votre compte et toutes vos citations ? Cette action est irréversible.",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              setIsUpdating(true);
+              await deleteAccount();
+              router.replace('/login');
+            } catch (error: any) {
+              console.error("Delete account error", error);
+              Alert.alert("Erreur", error.message || "Impossible de supprimer le compte.");
+            } finally {
+              setIsUpdating(false);
+            }
+          } 
+        }
+      ]
+    );
+  };
+
   const handleClearCache = () => {
     Alert.alert(
       "Vider le cache",
-      "Cela va libérer de l'espace sur votre téléphone en supprimant les images mises en cache. Elles seront re-téléchargées lors de votre prochaine visite.",
+      "Cela va vider tout le cache de l'application (images, données locales et fichiers temporaires). Les données seront re-téléchargées lors de votre prochaine visite.",
       [
         { text: "Annuler", style: "cancel" },
         { 
@@ -119,9 +152,35 @@ export default function SettingsScreen() {
           style: "destructive", 
           onPress: async () => {
             try {
+              // 1. Clear ExpoImage caches
               await ExpoImage.clearDiskCache();
               await ExpoImage.clearMemoryCache();
-              Alert.alert("Succès", "Le cache a été vidé.");
+
+              // 2. Clear FileSystem cacheDirectory
+              const cacheDir = FileSystem.cacheDirectory;
+              if (cacheDir) {
+                const files = await FileSystem.readDirectoryAsync(cacheDir);
+                for (const file of files) {
+                  await FileSystem.deleteAsync(cacheDir + file, { idempotent: true }).catch(() => {});
+                }
+              }
+
+              // 3. Clear AsyncStorage cached data keys
+              await StorageService.removeItem(STORAGE_KEYS.QUOTES);
+              await StorageService.removeItem(STORAGE_KEYS.AUTHORS);
+              await StorageService.removeItem(STORAGE_KEYS.BOOKS);
+              await StorageService.removeItem(STORAGE_KEYS.BLOCK_LAYOUTS);
+              await StorageService.removeItem(STORAGE_KEYS.BLOCK_DATA);
+              await StorageService.removeItem(STORAGE_KEYS.USER_DATA);
+
+              // 4. Force data refresh in the provider to synchronize memory state
+              await Promise.all([
+                refreshQuotes(),
+                refreshAuthors(),
+                refreshBooks()
+              ]);
+
+              Alert.alert("Succès", "Le cache de l'application a été vidé.");
             } catch (error) {
               console.error("Clear cache error", error);
               Alert.alert("Erreur", "Impossible de vider le cache.");
@@ -193,9 +252,9 @@ export default function SettingsScreen() {
                 onPress={() => {}} 
               />
               <SettingItem 
-                icon={Shield} 
-                title="Confidentialité" 
-                onPress={() => {}} 
+                icon={Trash2} 
+                title="Supprimer mon compte" 
+                onPress={handleDeleteAccount} 
               />
             </View>
           </View>
@@ -225,13 +284,30 @@ export default function SettingsScreen() {
             <View style={styles.sectionCard}>
               <SettingItem 
                 icon={Trash2} 
-                title="Vider le cache d'images" 
+                title="Vider le cache" 
                 onPress={handleClearCache} 
               />
             </View>
             <Text style={styles.sectionFooter}>
-              Libérez de l'espace en supprimant les images et fichiers temporaires.
+              Libérez de l'espace en supprimant les images, données locales et fichiers temporaires.
             </Text>
+          </View>
+
+          {/* Legal Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Légal</Text>
+            <View style={styles.sectionCard}>
+              <SettingItem 
+                icon={FileText} 
+                title="Conditions Générales d'Utilisation" 
+                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/docs/CGU.html')} 
+              />
+              <SettingItem 
+                icon={Shield} 
+                title="Politique de Confidentialité" 
+                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/docs/confidentialite.html')} 
+              />
+            </View>
           </View>
 
           {/* Spacer */}

@@ -32,7 +32,10 @@ serve(async (req: Request) => {
       const authors = await sql`
         SELECT a.*,
           COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
-          json_build_object('quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int) as "_count"
+          json_build_object(
+            'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+            'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+          ) as "_count"
         FROM "Author" a
         ORDER BY a.name
       `;
@@ -44,7 +47,11 @@ serve(async (req: Request) => {
       const name = decodeURIComponent(parts[1]);
       let authorRows = await sql`
         SELECT a.*,
-          json_build_object('quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int) as "_count"
+          COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+          json_build_object(
+            'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+            'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+          ) as "_count"
         FROM "Author" a WHERE a.name = ${name} LIMIT 1
       `;
 
@@ -56,14 +63,18 @@ serve(async (req: Request) => {
         await enrichAuthorWithInventaire(newAuthorId);
         authorRows = await sql`
           SELECT a.*,
-            json_build_object('quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int) as "_count"
+            COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+            json_build_object(
+              'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+              'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+            ) as "_count"
           FROM "Author" a WHERE a.id = ${newAuthorId} LIMIT 1
         `;
       }
 
       if (!authorRows.length) return error('Author not found', 404);
       const a = authorRows[0];
-      return json({ ...a, quotesCount: (a._count as any).quotes });
+      return json(formatAuthor(a, userId));
     }
 
     const idParam = parts[0] && !isNaN(Number(parts[0])) ? parseInt(parts[0]) : null;
@@ -159,11 +170,28 @@ serve(async (req: Request) => {
       if (!authorRows.length) return error('Author not found', 404);
       
       const updatedAuthor = await enrichAuthorWithInventaire(authorRows[0].id);
+      
+      let finalAuthor = null;
+      if (updatedAuthor) {
+        const enrichedRows = await sql`
+          SELECT a.*,
+            COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+            json_build_object(
+              'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+              'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+            ) as "_count"
+          FROM "Author" a WHERE a.id = ${idParam} LIMIT 1
+        `;
+        if (enrichedRows.length) {
+          finalAuthor = enrichedRows[0];
+        }
+      }
+      
       const books = await sql`SELECT * FROM "Book" WHERE "authorId" = ${idParam} ORDER BY year DESC`;
       
       return json({ 
         success: true, 
-        author: updatedAuthor ? formatAuthor(updatedAuthor, userId) : null,
+        author: finalAuthor ? formatAuthor(finalAuthor, userId) : null,
         books: books.map((b: any) => formatBook(b)) 
       });
     }
@@ -176,13 +204,21 @@ serve(async (req: Request) => {
       const existing = await sql`
         SELECT 1 FROM "UserAuthor" WHERE "userId" = ${authUser.id} AND "authorId" = ${idParam} LIMIT 1
       `;
+      let isSaved = false;
       if (existing.length) {
         await sql`DELETE FROM "UserAuthor" WHERE "userId" = ${authUser.id} AND "authorId" = ${idParam}`;
-        return json({ isSaved: false });
+        isSaved = false;
       } else {
         await sql`INSERT INTO "UserAuthor" ("userId", "authorId", "addedAt") VALUES (${authUser.id}, ${idParam}, now())`;
-        return json({ isSaved: true });
+        isSaved = true;
       }
+
+      const countRows = await sql`
+        SELECT COUNT(*)::int as count FROM "UserAuthor" WHERE "authorId" = ${idParam}
+      `;
+      const followersCount = countRows[0]?.count ?? 0;
+
+      return json({ isSaved, followersCount });
     }
 
     // GET /authors/:id
@@ -190,7 +226,10 @@ serve(async (req: Request) => {
       const authorRows = await sql`
         SELECT a.*,
           COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
-          json_build_object('quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int) as "_count"
+          json_build_object(
+            'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+            'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+          ) as "_count"
         FROM "Author" a WHERE a.id = ${idParam} LIMIT 1
       `;
       if (!authorRows.length) return error('Author not found', 404);

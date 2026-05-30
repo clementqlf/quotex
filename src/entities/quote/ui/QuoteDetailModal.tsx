@@ -35,6 +35,7 @@ import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useData } from '@/src/app/providers/DataProvider';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
 import { authorService } from '@/src/entities/author/api/AuthorService';
@@ -85,6 +86,58 @@ const GlowCircle = ({ color1, x, y, scale, size = 200, opacity = 0.55, style }: 
         <Circle cx={radius} cy={radius} r={radius} fill={`url(#grad-${color1})`} />
       </Svg>
     </Animated.View>
+  );
+};
+
+const RecBookSkeleton = ({ colors, styles }: { colors: ThemeColors; styles: any }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 1000 }),
+        withTiming(0.3, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={styles.recBookCard}>
+      <Animated.View
+        style={[
+          styles.recBookCover,
+          { backgroundColor: colors.surfaceHighlight },
+          animatedStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            width: 85,
+            height: 12,
+            borderRadius: 4,
+            backgroundColor: colors.surfaceHighlight,
+            marginBottom: 6,
+          },
+          animatedStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          {
+            width: 60,
+            height: 9,
+            borderRadius: 4,
+            backgroundColor: colors.surfaceHighlight,
+          },
+          animatedStyle,
+        ]}
+      />
+    </View>
   );
 };
 
@@ -229,7 +282,7 @@ export default function QuoteDetailModal() {
   }, []);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
-  const { quotes, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote } = useData();
+  const { quotes, books, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote, refreshBooks } = useData();
 
   // 1. Prioritize lookup by ID from global store
   // 2. Fallback to parsing the stringified quote param
@@ -329,10 +382,10 @@ export default function QuoteDetailModal() {
 
   const replaceTheme = async (oldTheme: string, newTheme: string) => {
     if (!quote) return;
-    
+
     let newPrimaryTheme = quote.theme;
     let newAdditionalThemes = [...(quote.blockData?.additionalThemes || [])];
-    
+
     if (newPrimaryTheme === oldTheme) {
       newPrimaryTheme = newTheme;
     } else {
@@ -343,14 +396,14 @@ export default function QuoteDetailModal() {
         newAdditionalThemes.push(newTheme);
       }
     }
-    
+
     const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean)));
     newPrimaryTheme = allUnique[0] || undefined;
     newAdditionalThemes = allUnique.slice(1);
-    
+
     const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditionalThemes };
     const updatedQuote = { ...quote, theme: newPrimaryTheme, blockData: newBlockData };
-    
+
     setQuote(updatedQuote);
     if (quote.id) {
       await quoteService.updateQuote(quote.id, { theme: newPrimaryTheme, blockData: newBlockData });
@@ -392,14 +445,18 @@ export default function QuoteDetailModal() {
       if (updateQuote) {
         updateQuote(quote.id, {
           aiInterpretation: updatedQuote.aiInterpretation,
-          theme: updatedQuote.theme
+          theme: updatedQuote.theme,
+          blockData: updatedQuote.blockData
         });
+      }
+      if (refreshBooks) {
+        refreshBooks();
       }
     } catch (error) {
       console.error('[AI Analysis]', error);
       Alert.alert(
         "Erreur",
-        "Impossible de lancer l'analyse littéraire. Assurez-vous d'avoir configuré votre GEMINI_API_KEY dans Supabase."
+        "Impossible de lancer l'analyse littéraire. Assurez-vous d'avoir configuré votre Groq_API_KEY dans Supabase."
       );
     } finally {
       setIsAnalyzing(false);
@@ -416,6 +473,18 @@ export default function QuoteDetailModal() {
       }
     }
   }, [quoteId, quotes]);
+
+  React.useEffect(() => {
+    if (quoteId) {
+      const qId = parseInt(quoteId);
+      quoteService.getQuoteById(qId).then((freshQuote) => {
+        if (freshQuote) {
+          lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
+          setQuote(freshQuote);
+        }
+      }).catch(err => console.log('Failed to refresh quote details on mount:', err));
+    }
+  }, [quoteId]);
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -455,6 +524,31 @@ export default function QuoteDetailModal() {
 
   // Data helpers based on fetched state
   const aiInterpretation = quote?.aiInterpretation;
+  const recommendedBooks = React.useMemo(() => {
+    const recs = quote?.blockData?.recommendedBooks || [];
+    const booksMap = new Map(books.map((db: any) => [Number(db.id), db]));
+    const mapped = recs.map((b: any) => {
+      if (b.id) {
+        const dbBook = booksMap.get(Number(b.id));
+        if (dbBook) {
+          return {
+            ...b,
+            title: dbBook.title || b.title,
+            cover: dbBook.cover || b.cover,
+            isEnriching: dbBook.isEnriching ?? false,
+          };
+        } else {
+          return {
+            ...b,
+            isEnriching: true,
+          };
+        }
+      }
+      return b;
+    });
+    console.log('[QuoteDetailModal] Mapped recommended books:', JSON.stringify(mapped, null, 2));
+    return mapped;
+  }, [quote?.blockData?.recommendedBooks, books]);
   const quoteTheme = quote?.theme;
   const additionalThemes = quote?.blockData?.additionalThemes || [];
   const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean)));
@@ -511,6 +605,9 @@ export default function QuoteDetailModal() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [quote?.blockData, quote?.id, updateQuote]);
+
+  // Utiliser Realtime pour les livres recommandés au lieu du polling
+  useRealtimeBooks(recommendedBooks, refreshBooks);
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setQuote((current: Quote | undefined) => {
@@ -626,9 +723,9 @@ export default function QuoteDetailModal() {
       "Êtes-vous sûr de vouloir supprimer cette citation ?",
       [
         { text: "Annuler", style: "cancel" },
-        { 
-          text: "Supprimer", 
-          style: "destructive", 
+        {
+          text: "Supprimer",
+          style: "destructive",
           onPress: async () => {
             await deleteQuote(quote.id);
             onClose();
@@ -695,7 +792,7 @@ export default function QuoteDetailModal() {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Détails de la citation</Text>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
                 <Trash2 size={20} color={colors.warning} />
               </TouchableOpacity>
@@ -720,8 +817,8 @@ export default function QuoteDetailModal() {
 
             <View style={styles.quoteMetaFooter}>
               <View style={{ flex: 1 }}>
-                 <TouchableOpacity 
-                  style={styles.metaRow} 
+                <TouchableOpacity
+                  style={styles.metaRow}
                   onPress={() => onBookPress(quoteBookTitle)}
                   disabled={isBookNull}
                 >
@@ -731,8 +828,8 @@ export default function QuoteDetailModal() {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={styles.metaRow} 
+                <TouchableOpacity
+                  style={styles.metaRow}
                   onPress={() => onAuthorPress(quoteAuthorName)}
                   disabled={isAuthorNull}
                 >
@@ -824,13 +921,8 @@ export default function QuoteDetailModal() {
               </View>
             )}
 
-            <TouchableOpacity
+            <View
               style={styles.aiSection}
-              activeOpacity={isAnalyzing ? 1 : 0.85}
-              onPress={() => {
-                if (isAnalyzing) return;
-                setAIChatVisible(true);
-              }}
             >
               {isAnalyzing ? (
                 <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
@@ -855,10 +947,65 @@ export default function QuoteDetailModal() {
                     </TouchableOpacity>
                   </View>
                   <Text style={styles.aiText}>{aiInterpretation}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 }}>
-                    <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>Discuter avec l'assistant IA</Text>
-                    <Sparkles size={12} color={colors.primary} />
-                  </View>
+
+                  {recommendedBooks && recommendedBooks.length > 0 && (
+                    <View style={styles.recContainer} onStartShouldSetResponder={() => true}>
+                      <Text style={styles.recHeaderTitle}>Lectures recommandées par l'IA</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.recScrollContent}
+                        style={styles.recScrollView}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {recommendedBooks.map((bookItem: any, idx: number) => {
+                          if (bookItem.isEnriching && !bookItem.cover) {
+                            return <RecBookSkeleton key={idx} colors={colors} styles={styles} />;
+                          }
+                          const hasCover = !!bookItem.cover;
+                          return (
+                            <TouchableOpacity
+                              key={idx}
+                              style={styles.recBookCard}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                if (bookItem.id) {
+                                  router.push({
+                                    pathname: '/book-detail',
+                                    params: { bookId: bookItem.id.toString(), bookTitle: bookItem.title }
+                                  });
+                                } else {
+                                  router.push({
+                                    pathname: '/search',
+                                    params: { q: `${bookItem.title} ${bookItem.author}` }
+                                  });
+                                }
+                              }}
+                            >
+                              {hasCover ? (
+                                <Image source={{ uri: bookItem.cover }} style={styles.recBookCover} />
+                              ) : (
+                                <View style={styles.recBookCoverFallback}>
+                                  <BookOpen size={24} color={colors.primary} />
+                                  <Text numberOfLines={3} style={styles.fallbackCoverTitle}>
+                                    {bookItem.title}
+                                  </Text>
+                                </View>
+                              )}
+                              <Text numberOfLines={2} style={styles.recBookTitle}>
+                                {bookItem.title}
+                              </Text>
+                              <Text numberOfLines={1} style={styles.recBookAuthor}>
+                                {bookItem.author}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
+
+
                 </>
               ) : (
                 <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
@@ -892,7 +1039,7 @@ export default function QuoteDetailModal() {
                   </TouchableOpacity>
                 </View>
               )}
-            </TouchableOpacity>
+            </View>
           </View>
 
 
@@ -998,12 +1145,24 @@ export default function QuoteDetailModal() {
           visible={showEditModal}
           onClose={() => setShowEditModal(false)}
           onConfirm={async (text, book, author) => {
-            if (quote) {
-              await updateQuote(quote.id, { text, book: book || quote.book, author: author || quote.author });
-              // Mettre à jour l'état local pour refléter les modifications immédiatement
-              setQuote({ ...quote, text, book: book || quote.book, author: author || quote.author });
+            console.log('[QuoteDetailModal] Edit modal onConfirm called');
+            console.log('[QuoteDetailModal] text:', text);
+            console.log('[QuoteDetailModal] book:', book);
+            console.log('[QuoteDetailModal] author:', author);
+            
+            try {
+              if (quote) {
+                console.log('[QuoteDetailModal] Updating quote:', quote.id);
+                await updateQuote(quote.id, { text, book: book || quote.book, author: author || quote.author });
+                // Mettre à jour l'état local pour refléter les modifications immédiatement
+                setQuote({ ...quote, text, book: book || quote.book, author: author || quote.author });
+                console.log('[QuoteDetailModal] Quote updated successfully');
+              }
+            } catch (error) {
+              console.error('[QuoteDetailModal] Error updating quote:', error);
+            } finally {
+              setShowEditModal(false);
             }
-            setShowEditModal(false);
           }}
           scannedText={quote?.text || ""}
           initialBook={quoteBookTitle}
@@ -1029,7 +1188,7 @@ export default function QuoteDetailModal() {
                   <X size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
-              
+
               <View style={styles.customThemeContainer}>
                 <TextInput
                   style={styles.customThemeInput}
@@ -1361,6 +1520,77 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     fontSize: 13,
     lineHeight: 20,
     color: colors.text,
+  },
+  recContainer: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(99, 102, 241, 0.12)',
+    paddingTop: 12,
+  },
+  recHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  recScrollView: {
+    marginHorizontal: -16,
+  },
+  recScrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  recBookCard: {
+    width: 120,
+    alignItems: 'center',
+    marginRight: 2,
+  },
+  recBookCover: {
+    width: 110,
+    height: 165,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceHighlight,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.3 : 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  recBookCoverFallback: {
+    width: 110,
+    height: 165,
+    borderRadius: 12,
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(99, 102, 241, 0.05)',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(99, 102, 241, 0.10)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+    marginBottom: 8,
+    gap: 6,
+  },
+  fallbackCoverTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  recBookTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 15,
+  },
+  recBookAuthor: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',

@@ -2,13 +2,19 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { Quote, Author, Book } from '../../shared/api/types';
 import { quoteService } from '../../entities/quote/api/QuoteService';
 import { authorService } from '../../entities/author/api/AuthorService';
+import { BookImportPayload } from '../../entities/book/lib/bookImport';
 import { BlockService } from '../../shared/api/BlockService';
 import { StorageService, STORAGE_KEYS } from '../../shared/api/StorageService';
+import { useNetworkSync, SyncStatus } from '../../shared/lib/hooks/useNetworkSync';
+
+// Simulate API delay
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
 
 type DataContextType = {
     quotes: Quote[];
     authors: Author[];
     isLoading: boolean;
+    syncStatus: SyncStatus & { syncNow: () => void; isOnline: boolean; isOffline: boolean };
     refreshQuotes: () => Promise<void>;
     toggleLikeQuote: (id: number) => Promise<void>;
     toggleSaveQuote: (id: number) => Promise<void>;
@@ -29,8 +35,12 @@ type DataContextType = {
     getUserByUsername: (username: string) => Promise<any>;
     getBookByTitle: (title: string) => Promise<Book | undefined>;
     getBookById: (id: number) => Promise<Book | undefined>;
-    importBook: (bookData: Partial<Book>) => Promise<Book | undefined>;
-    toggleSaveAuthor: (id: number) => Promise<void>;
+    getBookByInventaireUri: (inventaireUri: string) => Promise<Book | undefined>;
+    peekBookByTitle: (title: string) => Promise<Book | undefined>;
+    peekBookById: (id: number) => Promise<Book | undefined>;
+    peekBookByInventaireUri: (inventaireUri: string) => Promise<Book | undefined>;
+    importBook: (bookData: BookImportPayload) => Promise<Book | undefined>;
+    toggleSaveAuthor: (id: number) => Promise<{ isSaved: boolean; followersCount: number } | null>;
     toggleSaveBook: (id: number) => Promise<void>;
     updateBookStatus: (id: number, status: string) => Promise<void>;
     getNotableWorks: (authorId: number) => Promise<Book[]>;
@@ -44,6 +54,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const [authors, setAuthors] = useState<Author[]>([]);
     const [books, setBooks] = useState<Book[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Network sync status
+    const syncStatus = useNetworkSync();
 
     const loadCachedData = async () => {
         try {
@@ -139,7 +152,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         // Optimistic
         setQuotes(prev => prev.filter(q => q.id !== id));
         await quoteService.deleteQuote(id);
-    }, []);
+        
+        await Promise.all([
+            refreshQuotes('deleteQuote complete'),
+            refreshBooks('deleteQuote complete')
+        ]);
+    }, [refreshQuotes, refreshBooks]);
 
     const getAuthorByName = useCallback(async (name: string) => {
         return authorService.getAuthorByName(name);
@@ -168,9 +186,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         // Call service
         await quoteService.updateQuote(id, updates);
         
-        // Only refresh quotes from server
-        await refreshQuotes('updateQuote complete');
-    }, [refreshQuotes]);
+        // Refresh both quotes and books
+        await Promise.all([
+            refreshQuotes('updateQuote complete'),
+            refreshBooks('updateQuote complete')
+        ]);
+    }, [refreshQuotes, refreshBooks]);
 
     const getBookData = useCallback(async (bookTitle: string) => {
         return await BlockService.getBlockData(bookTitle, 'book');
@@ -181,8 +202,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const addQuote = useCallback(async (text: string, book?: string | null, author?: string | null) => {
+        console.log('[DataProvider] addQuote called');
+        console.log('[DataProvider] text:', text);
+        console.log('[DataProvider] book:', book);
+        console.log('[DataProvider] author:', author);
+        
         const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
         const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+        console.log('[DataProvider] cleanBook:', cleanBook);
+        console.log('[DataProvider] cleanAuthor:', cleanAuthor);
 
         const tempId = Date.now();
         const newQuote: Quote = {
@@ -197,33 +225,120 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             comments: 0,
             blockData: {},
         };
+        console.log('[DataProvider] Adding quote to local state, tempId:', tempId);
         setQuotes(prev => [newQuote, ...prev]);
 
-
+        console.log('[DataProvider] Calling quoteService.addQuote...');
         await quoteService.addQuote(text, cleanBook, cleanAuthor);
+        console.log('[DataProvider] quoteService.addQuote completed');
         
-        await refreshQuotes();
-    }, [refreshQuotes]);
+        // Wait a short delay to ensure the server transaction is committed
+        await delay(300);
+        
+        console.log('[DataProvider] Refreshing quotes and books...');
+        await Promise.all([
+            refreshQuotes('addQuote complete'),
+            refreshBooks('addQuote complete')
+        ]);
+        console.log('[DataProvider] addQuote completed successfully');
+    }, [refreshQuotes, refreshBooks]);
 
     const getUserByUsername = useCallback(async (username: string) => {
         return await quoteService.getUserByUsername(username);
     }, []);
 
     const getBookByTitle = useCallback(async (title: string) => {
-        return await authorService.getBookByTitle(title);
+        const book = await authorService.getBookByTitle(title);
+        if (book) {
+            setBooks(prev => {
+                const existing = prev.find(b => b.id === book.id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
+                const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
+                if (!existing) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
     }, []);
 
     const getBookById = useCallback(async (id: number) => {
+        const book = await authorService.getBookById(id);
+        if (book) {
+            setBooks(prev => {
+                const existing = prev.find(b => b.id === id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
+                const updated = prev.map(b => b.id === id ? { ...b, ...book } : b);
+                if (!existing) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
+    }, []);
+
+    const getBookByInventaireUri = useCallback(async (inventaireUri: string) => {
+        const book = await authorService.getBookByInventaireUri(inventaireUri);
+        if (book) {
+            setBooks(prev => {
+                const existing = prev.find(b => b.id === book.id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
+                const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
+                if (!existing) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
+    }, []);
+
+    const peekBookByTitle = useCallback(async (title: string) => {
+        return await authorService.getBookByTitle(title);
+    }, []);
+
+    const peekBookById = useCallback(async (id: number) => {
         return await authorService.getBookById(id);
     }, []);
 
-    const importBook = useCallback(async (bookData: Partial<Book>) => {
-        return await authorService.importBook(bookData);
+    const peekBookByInventaireUri = useCallback(async (inventaireUri: string) => {
+        return await authorService.getBookByInventaireUri(inventaireUri);
+    }, []);
+
+    const importBook = useCallback(async (bookData: BookImportPayload) => {
+        const book = await authorService.importBook(bookData);
+        if (book) {
+            setBooks(prev => {
+                const existing = prev.find(b => b.id === book.id);
+                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                    return prev;
+                }
+                const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
+                if (!existing) {
+                    updated.push(book);
+                }
+                StorageService.setItem(STORAGE_KEYS.BOOKS, updated).catch(err => console.log('Failed to save books to cache:', err));
+                return updated;
+            });
+        }
+        return book;
     }, []);
 
     const toggleSaveAuthor = useCallback(async (id: number) => {
-        await authorService.toggleSaveAuthor(id);
+        const res = await authorService.toggleSaveAuthor(id);
         await refreshAuthors();
+        return res;
     }, [refreshAuthors]);
 
     const toggleSaveBook = useCallback(async (id: number) => {
@@ -245,6 +360,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         authors,
         books,
         isLoading,
+        syncStatus,
         refreshQuotes,
         refreshAuthors,
         refreshBooks,
@@ -263,16 +379,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         getUserByUsername,
         getBookByTitle,
         getBookById,
+        getBookByInventaireUri,
+        peekBookByTitle,
+        peekBookById,
+        peekBookByInventaireUri,
         importBook,
         toggleSaveAuthor,
         toggleSaveBook,
         updateBookStatus,
         getNotableWorks,
     }), [
-        quotes, authors, books, isLoading, refreshQuotes, refreshAuthors, refreshBooks,
+        quotes, authors, books, isLoading, syncStatus, refreshQuotes, refreshAuthors, refreshBooks,
         toggleLikeQuote, toggleSaveQuote, deleteQuote, addQuote, getAuthorByName, getAuthorById,
         getBooksByAuthor, getBlockLayout, updateBlockLayout, updateQuote, getBookData,
-        updateBookData, getUserByUsername, getBookByTitle, getBookById, importBook,
+        updateBookData, getUserByUsername, getBookByTitle, getBookById, getBookByInventaireUri, importBook,
+        peekBookByTitle, peekBookById, peekBookByInventaireUri,
         toggleSaveAuthor, toggleSaveBook, updateBookStatus, getNotableWorks
     ]);
 
@@ -289,4 +410,10 @@ export const useData = () => {
         throw new Error('useData must be used within a DataProvider');
     }
     return context;
+};
+
+// Convenience hook for just sync status
+export const useSyncStatus = () => {
+    const { syncStatus } = useData();
+    return syncStatus;
 };

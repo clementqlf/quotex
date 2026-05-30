@@ -13,7 +13,7 @@ import { TrendingUp, Zap, Heart, MessageCircle, Share2, Bookmark } from 'lucide-
 import Svg, { Path } from 'react-native-svg';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
@@ -22,7 +22,7 @@ export default function SocialFeedScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useData();
+  const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useQuote();
   const feedQuotes = quotes.filter(q => q.user && q.user.id !== "1"); // Global quotes except mine
 
   const { tabIndex } = useTabIndex();
