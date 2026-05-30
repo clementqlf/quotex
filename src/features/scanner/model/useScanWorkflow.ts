@@ -7,6 +7,7 @@ import { calculateTextRotation } from '../../../shared/lib/scanGeometry';
 import { reconstructTextFromWords } from './textReconstructor';
 import { useData } from '@/src/app/providers/DataProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
+import { useQuoteActions } from '@/src/entities/quote/lib';
 
 type Size = { width: number; height: number };
 
@@ -37,8 +38,9 @@ export const useScanWorkflow = ({
   onReset,
   normalizedSize,
 }: ScanWorkflowProps) => {
-  const { addQuote } = useData();
+  const { refreshQuotes, refreshBooks } = useData();
   const { setTabIndex } = useTabIndex();
+  const { handleConfirmSave } = useQuoteActions();
   const [isDevMode, setIsDevMode] = useState(false);
   const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
   const [viewportSize, setViewportSize] = useState<Size>({ width: 0, height: 0 });
@@ -410,26 +412,16 @@ export const useScanWorkflow = ({
 
   const handleSaveQuote = () => setShowPreviewModal(true);
   
-  const handleConfirmSave = async (text: string, book: string, author: string) => {
-    console.log('[useScanWorkflow] handleConfirmSave called');
-    console.log('[useScanWorkflow] text:', text);
-    console.log('[useScanWorkflow] book:', book);
-    console.log('[useScanWorkflow] author:', author);
-    
-    try {
-      console.log('[useScanWorkflow] Calling addQuote...');
-      await addQuote(text, book, author);
-      console.log('[useScanWorkflow] addQuote completed successfully');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTabIndex(0);
-    } catch (error) {
-      console.error("[useScanWorkflow] Error saving scanned quote:", error);
-    } finally {
-      console.log('[useScanWorkflow] Closing modal and resetting');
-      setShowPreviewModal(false);
-      onReset();
-    }
-  };
+  const handleConfirmSaveFromScanner = useCallback(
+    async (text: string, book: string, author: string) => {
+      await handleConfirmSave(text, book, author, {
+        onReset,
+        setShowModal: setShowPreviewModal,
+        isFromScanner: true,
+      });
+    },
+    [handleConfirmSave, onReset]
+  );
 
   const handleSelectAll = () => {
     if (words.length > 0) {
@@ -482,7 +474,7 @@ export const useScanWorkflow = ({
     handleCopy,
     handleShare,
     handleSaveQuote,
-    handleConfirmSave,
+    handleConfirmSave: handleConfirmSaveFromScanner,
     handleSelectAll,
     onReset,
     isEraserMode,

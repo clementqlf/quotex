@@ -30,6 +30,7 @@ import { Quote, Book } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { useQuoteActions } from '@/src/entities/quote/lib';
 
 // Extracted components
 import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
@@ -45,15 +46,26 @@ export default function MyQuotesScreen() {
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks, addQuote, updateQuote } = useData();
+  const { quotes: allQuotes, authors: allAuthors, books: allBooks, toggleLikeQuote, deleteQuote, refreshQuotes, refreshAuthors, refreshBooks } = useData();
+  const { handleConfirmSave } = useQuoteActions();
+  const { tabIndex, setTabIndex } = useTabIndex();
+
+  // Ref pour scroller vers le haut après un ajout via le scanner
+  const quotesListRef = useRef<any>(null);
 
   const { user: currentUser } = useAuth();
   
   // Filter for "My Quotes" (current user matches their UUID)
   const myQuotes = useMemo(() => allQuotes.filter(q => q.user?.id === currentUser?.id), [allQuotes, currentUser]);
 
-  const { tabIndex, setTabIndex } = useTabIndex();
   const isFocused = tabIndex === 0;
+
+  // Scroll vers le haut quand on revient à l'onglet "Mes Citations" (tabIndex = 0)
+  useEffect(() => {
+    if (tabIndex === 0 && quotesListRef.current) {
+      quotesListRef.current.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [tabIndex]);
 
   // Edit State
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
@@ -86,35 +98,31 @@ export default function MyQuotesScreen() {
     }
   }, [isScreenFocused, isFocused]);
 
-  // Memoize the check to avoid effect re-runs on every quote update
+  // Avec Realtime implémenté dans QuoteCard, le polling global n'est plus nécessaire
+  // Chaque QuoteCard gère ses propres mises à jour en temps réel
+  // Ce code est gardé en commentaire au cas où on voudrait le réactiver
+  /*
   const hasEnrichingItems = useMemo(() => myQuotes.some(q => {
     const isBookEnriching = q.book && typeof q.book === 'object' && (q.book as any).isEnriching;
     const isAuthorEnriching = q.author && typeof q.author === 'object' && (q.author as any).isEnriching;
     if (!isBookEnriching && !isAuthorEnriching) return false;
-
-    // Safety: if the quote is more than 30 seconds old, do not poll or show skeleton
     const quoteAge = q.date ? Date.now() - new Date(q.date).getTime() : 0;
     if (quoteAge > 30000) return false;
-
     return true;
   }), [myQuotes]);
 
-  // Polling logic to automatically clear skeletons when enrichment is done
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
-
     if (hasEnrichingItems && isFocused) {
       interval = setInterval(() => {
         refreshQuotes();
       }, 10000);
     }
-
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      if (interval) clearInterval(interval);
     };
   }, [hasEnrichingItems, isFocused, refreshQuotes]);
+  */
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -521,6 +529,7 @@ export default function MyQuotesScreen() {
           />
         ) : (
           <FlashList
+            ref={quotesListRef}
             data={quotesToDisplay}
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
@@ -552,28 +561,12 @@ export default function MyQuotesScreen() {
           setEditingQuote(null);
         }}
         onConfirm={async (text, book, author) => {
-          console.log('[MyQuotesScreen] onConfirm called');
-          console.log('[MyQuotesScreen] text:', text);
-          console.log('[MyQuotesScreen] book:', book);
-          console.log('[MyQuotesScreen] author:', author);
-          console.log('[MyQuotesScreen] editingQuote:', editingQuote ? editingQuote.id : 'null');
-          
-          try {
-            if (editingQuote) {
-              console.log('[MyQuotesScreen] Updating existing quote');
-              await updateQuote(editingQuote.id, { text, book: book || editingQuote.book, author: author || editingQuote.author });
-            } else {
-              console.log('[MyQuotesScreen] Adding new quote');
-              await addQuote(text, book, author);
-            }
-            console.log('[MyQuotesScreen] Quote saved/updated successfully');
-          } catch (error) {
-            console.error('[MyQuotesScreen] Error saving quote:', error);
-          } finally {
-            setShowManualQuoteModal(false);
-            setEditingQuote(null);
-            refreshQuotes();
-          }
+          await handleConfirmSave(text, book, author, {
+            setShowModal: setShowManualQuoteModal,
+            editingQuote,
+            setEditingQuote,
+            isFromScanner: false,
+          });
         }}
         scannedText={editingQuote ? editingQuote.text : ""}
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}

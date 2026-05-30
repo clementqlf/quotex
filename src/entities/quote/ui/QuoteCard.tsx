@@ -16,6 +16,7 @@ import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import EnrichingSkeleton from './EnrichingSkeleton';
+import { useBookRealtime, useAuthorRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -37,78 +38,14 @@ const isEnriching = (item: any): boolean => {
   return false;
 };
 
-// Hook pour poller les mises à jour d'un livre
-const useBookPolling = (bookId: number | null | undefined, initialBook: any) => {
-  const [book, setBook] = useState(initialBook);
-  
-  useEffect(() => {
-    if (!bookId || !initialBook?.isEnriching) return;
-    
-    const interval = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from('Book')
-          .select('*')
-          .eq('id', bookId)
-          .single();
-        
-        if (data) {
-          setBook(data);
-          if (!data.isEnriching) {
-            clearInterval(interval);
-          }
-        }
-      } catch (err) {
-        console.error('Book polling error:', err);
-      }
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, [bookId, initialBook?.isEnriching]);
-  
-  return book;
-};
-
-// Hook pour poller les mises à jour d'un auteur
-const useAuthorPolling = (authorId: number | null | undefined, initialAuthor: any) => {
-  const [author, setAuthor] = useState(initialAuthor);
-  
-  useEffect(() => {
-    if (!authorId || !initialAuthor?.isEnriching) return;
-    
-    const interval = setInterval(async () => {
-      try {
-        const { data } = await supabase
-          .from('Author')
-          .select('*')
-          .eq('id', authorId)
-          .single();
-        
-        if (data) {
-          setAuthor(data);
-          if (!data.isEnriching) {
-            clearInterval(interval);
-          }
-        }
-      } catch (err) {
-        console.error('Author polling error:', err);
-      }
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, [authorId, initialAuthor?.isEnriching]);
-  
-  return author;
-};
-
 const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProps) => {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  // Utiliser le polling pour obtenir les versions à jour
-  const book = useBookPolling(quote.book?.id, quote.book);
-  const author = useAuthorPolling(quote.author?.id, quote.author);
+  // Utiliser Realtime pour obtenir les versions à jour (avec fallback polling)
+  const book = useBookRealtime(quote.book?.id, quote.book);
+  const author = useAuthorRealtime(quote.author?.id, quote.author);
 
   const isBookEnriching = isEnriching(book);
   const isAuthorEnriching = isEnriching(author);

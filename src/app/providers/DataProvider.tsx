@@ -7,6 +7,9 @@ import { BlockService } from '../../shared/api/BlockService';
 import { StorageService, STORAGE_KEYS } from '../../shared/api/StorageService';
 import { useNetworkSync, SyncStatus } from '../../shared/lib/hooks/useNetworkSync';
 
+// Simulate API delay
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
+
 type DataContextType = {
     quotes: Quote[];
     authors: Author[];
@@ -228,6 +231,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         console.log('[DataProvider] Calling quoteService.addQuote...');
         await quoteService.addQuote(text, cleanBook, cleanAuthor);
         console.log('[DataProvider] quoteService.addQuote completed');
+        
+        // Wait a short delay to ensure the server transaction is committed
+        await delay(300);
         
         console.log('[DataProvider] Refreshing quotes and books...');
         await Promise.all([

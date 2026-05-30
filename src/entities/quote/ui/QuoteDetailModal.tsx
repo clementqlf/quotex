@@ -35,6 +35,7 @@ import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useData } from '@/src/app/providers/DataProvider';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
 import { authorService } from '@/src/entities/author/api/AuthorService';
@@ -605,42 +606,8 @@ export default function QuoteDetailModal() {
     return () => clearTimeout(timer);
   }, [quote?.blockData, quote?.id, updateQuote]);
 
-  const enrichingKeysStr = useMemo(() => {
-    return JSON.stringify(recommendedBooks.map((b: any) => ({ id: b.id, isEnriching: b.isEnriching })));
-  }, [recommendedBooks]);
-
-  // Poll to refresh books list if any recommended book is still enriching in background
-  React.useEffect(() => {
-    const hasEnrichingBooks = recommendedBooks.some((b: any) => b.isEnriching);
-    console.log('[QuoteDetailModal] Polling effect checked. hasEnrichingBooks:', hasEnrichingBooks);
-    if (!hasEnrichingBooks) return;
-
-    console.log('[QuoteDetailModal] Starting polling interval to refresh books...');
-    if (refreshBooks) {
-      refreshBooks();
-    }
-
-    let attempts = 0;
-    const maxAttempts = 15; // Limit to 1 minute of polling (15 * 4s) to prevent infinite loops
-
-    const interval = setInterval(() => {
-      attempts++;
-      console.log(`[QuoteDetailModal] Polling books. Attempt ${attempts}/${maxAttempts}`);
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        console.warn('[QuoteDetailModal] Polling stopped: reached maximum attempts for recommended books enrichment.');
-        return;
-      }
-      if (refreshBooks) {
-        refreshBooks();
-      }
-    }, 4000);
-
-    return () => {
-      console.log('[QuoteDetailModal] Clearing polling interval.');
-      clearInterval(interval);
-    };
-  }, [enrichingKeysStr, refreshBooks]);
+  // Utiliser Realtime pour les livres recommandés au lieu du polling
+  useRealtimeBooks(recommendedBooks, refreshBooks);
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setQuote((current: Quote | undefined) => {

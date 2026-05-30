@@ -1,0 +1,79 @@
+import { useCallback } from 'react';
+import { useData } from '@/src/app/providers/DataProvider';
+import { useTabIndex } from '@/src/app/providers/TabContext';
+import * as Haptics from 'expo-haptics';
+import { Quote } from '@/src/shared/api/types';
+
+export interface HandleConfirmSaveOptions {
+  onReset?: () => void;
+  setShowModal?: (value: boolean) => void;
+  editingQuote?: Quote | null;
+  setEditingQuote?: (value: Quote | null) => void;
+  isFromScanner?: boolean;
+}
+
+export const useQuoteActions = () => {
+  const { addQuote, updateQuote, refreshQuotes, refreshBooks } = useData();
+  const { setTabIndex } = useTabIndex();
+
+  /**
+   * Gère la confirmation d'ajout/modification d'une citation
+   * Utilisé à la fois par le scanner (ScanWorkflow) et l'ajout manuel (MyQuotesScreen)
+   */
+  const handleConfirmSave = useCallback(
+    async (
+      text: string,
+      book: string,
+      author: string,
+      options: HandleConfirmSaveOptions = {}
+    ) => {
+      console.log('[useQuoteActions] handleConfirmSave called');
+      console.log('[useQuoteActions] text:', text);
+      console.log('[useQuoteActions] book:', book);
+      console.log('[useQuoteActions] author:', author);
+
+      try {
+        if (options.editingQuote) {
+          console.log('[useQuoteActions] Updating existing quote');
+          await updateQuote(options.editingQuote.id, {
+            text,
+            book: book || options.editingQuote.book,
+            author: author || options.editingQuote.author
+          });
+        } else {
+          console.log('[useQuoteActions] Adding new quote');
+          await addQuote(text, book, author);
+        }
+
+        console.log('[useQuoteActions] Quote saved/updated successfully');
+
+        // Feedback haptique
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        // Actions post-sauvegarde
+        if (options.isFromScanner) {
+          setTabIndex(0);
+          options.onReset?.();
+        }
+
+        // Toujours rafraîchir les quotes
+        await refreshQuotes();
+
+        // Si c'est une édition, rafraîchir aussi les livres (au cas où le titre a changé)
+        if (options.editingQuote) {
+          await refreshBooks();
+        }
+
+      } catch (error) {
+        console.error('[useQuoteActions] Error saving quote:', error);
+        throw error; // Permet au composant parent de gérer l'erreur si besoin
+      } finally {
+        options.setShowModal?.(false);
+        options.setEditingQuote?.(null);
+      }
+    },
+    [addQuote, updateQuote, refreshQuotes, refreshBooks, setTabIndex]
+  );
+
+  return { handleConfirmSave };
+};

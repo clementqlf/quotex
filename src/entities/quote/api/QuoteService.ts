@@ -2,6 +2,7 @@ import { Quote } from '@/src/shared/api/types';
 import { Platform } from 'react-native';
 import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { supabase } from '@/src/shared/api/supabase';
 
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
@@ -295,17 +296,58 @@ class QuoteService {
                     
                     // Handle corrections from server
                     const corrections = result.corrections || [];
+                    const syncDetails = result.syncDetails || [];
                     
-                    // Get corrected values
+                    // Get corrected values and IDs
                     const correction = corrections[0]; // First (and only) quote in the array
+                    const detail = syncDetails[0]; // First (and only) sync detail
                     
-                    // Update local cache with corrected values
+                    // Wait a short delay to ensure the transaction is committed on the server
+                    await delay(500);
+                    
+                    // Try to fetch the full book and author objects if we have IDs
+                    let fullBook: any = correction?.matchedBook || cleanBook;
+                    let fullAuthor: any = correction?.matchedAuthor || cleanAuthor;
+                    
+                    if (detail?.bookId) {
+                        try {
+                            const { data: bookData } = await supabase
+                                .from('Book')
+                                .select('*')
+                                .eq('id', detail.bookId)
+                                .single();
+                            if (bookData) {
+                                fullBook = bookData;
+                                console.log(`[QuoteService] Loaded full book data for ID ${detail.bookId}:`, bookData);
+                            }
+                        } catch (err) {
+                            console.error(`[QuoteService] Failed to load book ${detail.bookId}:`, err);
+                        }
+                    }
+                    
+                    if (detail?.authorId) {
+                        try {
+                            const { data: authorData } = await supabase
+                                .from('Author')
+                                .select('*')
+                                .eq('id', detail.authorId)
+                                .single();
+                            if (authorData) {
+                                fullAuthor = authorData;
+                                console.log(`[QuoteService] Loaded full author data for ID ${detail.authorId}:`, authorData);
+                            }
+                        } catch (err) {
+                            console.error(`[QuoteService] Failed to load author ${detail.authorId}:`, err);
+                        }
+                    }
+                    
+                    // Update local cache with corrected values and full objects
                     const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
                     const newQuote: Quote = {
                         id: tempId,
                         text,
-                        book: correction?.matchedBook || cleanBook,
-                        author: correction?.matchedAuthor || cleanAuthor,
+                        book: fullBook,
+                        author: fullAuthor,
                         theme: undefined,
                         likesCount: 0,
                         likes: [],
@@ -330,7 +372,7 @@ class QuoteService {
                     const updatedQuotes = [newQuote, ...quotes];
                     await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
                     
-                    console.log('[QuoteService] Applied corrections:', correction);
+                    console.log('[QuoteService] Applied corrections and full data:', { correction, bookId: detail?.bookId, authorId: detail?.authorId });
                     return tempId;
                 } else {
                     console.error('[QuoteService] Direct sync failed, falling back to pending queue');

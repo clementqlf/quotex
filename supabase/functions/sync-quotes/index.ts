@@ -278,6 +278,8 @@ serve(async (req: Request) => {
           bookCreated: bookLookup?.wasCreated,
           inventaireMatch: hasInventaireMatch || !!inventaireMatch.authorUri,
           inventaireUri: inventaireMatch.workUri || inventaireMatch.authorUri,
+          authorId: authorId,
+          bookId: bookId,
         });
 
         syncedCount++;
@@ -297,6 +299,13 @@ serve(async (req: Request) => {
         (r.matchedBook && r.originalBook && r.originalBook !== r.matchedBook)
       ),
       created: syncResults.filter(r => r.authorCreated || r.bookCreated),
+      syncDetails: syncResults.map(r => ({
+        quoteId: r.quoteId,
+        authorId: r.authorId,
+        bookId: r.bookId,
+        authorCreated: r.authorCreated,
+        bookCreated: r.bookCreated,
+      })),
     });
 
   } catch (e: any) {
