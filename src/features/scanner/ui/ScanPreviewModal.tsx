@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import {
     Modal,
     Pressable,
@@ -23,7 +23,10 @@ import { API_BASE_URL } from '@/src/shared/config/api';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { Confetti } from 'react-native-fast-confetti';
+import {
+  CannonConfetti,
+  type CannonConfettiMethods
+} from 'react-native-fast-confetti';
 
 type ScanPreviewModalProps = {
     visible: boolean;
@@ -48,6 +51,7 @@ export default function ScanPreviewModal({
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const cannonConfettiRef = useRef<CannonConfettiMethods>(null);
 
     // State for editing
     const [isEditingBook, setIsEditingBook] = useState(false);
@@ -117,8 +121,13 @@ export default function ScanPreviewModal({
             setIsEditingQuote(!scannedText);
             setShowSuggestions(false);
             setShowAuthorSuggestions(false);
+            
+            // Redémarre les confettis avec les cannons quand le modal s'ouvre
+            if (showConfetti) {
+                cannonConfettiRef.current?.restart();
+            }
         }
-    }, [visible, scannedText, initialBook, initialAuthor]);
+    }, [visible, scannedText, initialBook, initialAuthor, showConfetti]);
 
     const resolveBookTitle = () => {
         if (editedBook.trim()) return editedBook.trim();
@@ -621,11 +630,42 @@ export default function ScanPreviewModal({
                 </KeyboardAvoidingView>
                 {showConfetti && visible && (
                     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-                        <Confetti
-                            isInfinite={false}
+                        <CannonConfetti
+                            ref={cannonConfettiRef}
+                            autoplay={false}
+                            gravity={3}
+                            infinite={false}
                             colors={['#20B8CD', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6']}
+                            onAnimationEnd={() => cannonConfettiRef.current?.reset()}
                             containerStyle={StyleSheet.absoluteFillObject}
-                        />
+                        >
+                            <CannonConfetti.Origin
+                                position="bottom-left"
+                                count={100}
+                                initialSpeed={3}
+                                spread={Math.PI / 4}
+                            >
+                                <CannonConfetti.Flake size={12} radius={6} />
+                            </CannonConfetti.Origin>
+
+                            <CannonConfetti.Origin
+                                position="bottom-center"
+                                count={100}
+                                initialSpeed={4}
+                                spread={Math.PI / 3}
+                            >
+                                <CannonConfetti.Flake size={10} />
+                            </CannonConfetti.Origin>
+
+                            <CannonConfetti.Origin
+                                position="bottom-right"
+                                count={100}
+                                initialSpeed={3}
+                                spread={Math.PI / 4}
+                            >
+                                <CannonConfetti.Flake size={14} radius={4} />
+                            </CannonConfetti.Origin>
+                        </CannonConfetti>
                     </View>
                 )}
             </View>
