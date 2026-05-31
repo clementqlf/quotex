@@ -7,6 +7,7 @@
 // @ts-ignore deno
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
+import { requireAuth } from '../_shared/auth.ts';
 import { sql } from '../_shared/db.ts';
 import { matchAuthor, matchBook, AuthorMatchResult, BookMatchResult } from '../_shared/entityMatcher.ts';
 import { findWorkUriByTitleAndAuthor, searchInventaireAuthors, getInventaireWorkDetails, getInventaireAuthorDetails, enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
@@ -47,8 +48,17 @@ serve(async (req: Request) => {
 
   if (req.method !== 'POST') return error('Method not allowed', 405);
 
+  // Verify authentication — reject unauthenticated requests
+  const authUser = await requireAuth(req);
+  if (authUser instanceof Response) return authUser;
+
   try {
     const { offlineQuotes } = await req.json();
+
+    // Force userId from JWT token — never trust the body
+    for (const quote of offlineQuotes) {
+      quote.userId = authUser.id;
+    }
     
     if (!offlineQuotes || !Array.isArray(offlineQuotes)) {
       return error('Missing or invalid offlineQuotes array', 400);
