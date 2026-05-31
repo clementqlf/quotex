@@ -1,4 +1,4 @@
-# Conditions Générales d'Utilisation (CGU) – Quotex
+# Conditions Générales d'Utilisation (CGU) – <img src="../assets/images/frame.svg" alt="Quotex" height="30" style="vertical-align: middle;">
 
 ## 1. Identification
 * **Éditeur :** Quotex.
