@@ -25,7 +25,7 @@ jest.mock('../src/entities/user/api/AuthService', () => ({
 
 // Composant de test pour utiliser le hook
 const TestComponent = () => {
-  const { quotes, toggleLikeQuote, addQuote } = useQuote();
+  const { quotes, toggleLikeQuote, addQuote, deleteQuote, updateQuote } = useQuote();
 
   return (
     <View>
@@ -35,6 +35,8 @@ const TestComponent = () => {
           <Text testID={`quote-text-${q.id}`}>{q.text}</Text>
           <Text testID={`quote-liked-${q.id}`}>{q.isLiked ? 'liked' : 'unliked'}</Text>
           <Button testID={`like-btn-${q.id}`} title="Like" onPress={() => toggleLikeQuote(q.id).catch(() => {})} />
+          <Button testID={`delete-btn-${q.id}`} title="Delete" onPress={() => deleteQuote(q.id).catch(() => {})} />
+          <Button testID={`update-btn-${q.id}`} title="Update" onPress={() => updateQuote(q.id, { text: 'Updated text' }).catch(() => {})} />
         </View>
       ))}
       <Button testID="add-btn" title="Add" onPress={() => addQuote('Nouvelle citation de test', 'Livre Test')} />
@@ -166,6 +168,86 @@ describe('QuoteProvider Optimistic Updates', () => {
     // L'UI doit rollback à "unliked" car la requête a échoué
     await waitFor(() => {
       expect(getByTestId('quote-liked-1')).toHaveTextContent('unliked');
+    });
+  });
+
+  it('devrait supprimer de manière optimiste', async () => {
+    const initialQuotes = [{
+      id: 1,
+      text: 'Citation existante',
+      isLiked: false,
+      likesCount: 0
+    }];
+
+    let resolveDeleteQuote: any;
+    const deleteQuotePromise = new Promise((resolve) => {
+      resolveDeleteQuote = resolve;
+    });
+
+    const mockRepo = SupabaseQuoteRepository.getInstance as jest.Mock;
+    mockRepo.mockReturnValue({
+      getQuotes: jest.fn().mockResolvedValue(initialQuotes),
+      deleteQuote: jest.fn().mockReturnValue(deleteQuotePromise),
+    });
+
+    const { getByTestId, findByTestId } = render(
+      <Wrapper>
+        <TestComponent />
+      </Wrapper>
+    );
+
+    // Attendre que la citation soit chargée
+    expect(await findByTestId('quote-text-1')).toHaveTextContent('Citation existante');
+    expect(getByTestId('quote-count')).toHaveTextContent('1');
+
+    fireEvent.press(getByTestId('delete-btn-1'));
+
+    // Immédiatement mis à jour
+    await waitFor(() => {
+      expect(getByTestId('quote-count')).toHaveTextContent('0');
+    });
+
+    await waitFor(async () => {
+      resolveDeleteQuote();
+    });
+  });
+
+  it('devrait mettre à jour de manière optimiste', async () => {
+    const initialQuotes = [{
+      id: 1,
+      text: 'Citation existante',
+      isLiked: false,
+      likesCount: 0
+    }];
+
+    let resolveUpdateQuote: any;
+    const updateQuotePromise = new Promise((resolve) => {
+      resolveUpdateQuote = resolve;
+    });
+
+    const mockRepo = SupabaseQuoteRepository.getInstance as jest.Mock;
+    mockRepo.mockReturnValue({
+      getQuotes: jest.fn().mockResolvedValue(initialQuotes),
+      updateQuote: jest.fn().mockReturnValue(updateQuotePromise),
+    });
+
+    const { getByTestId, findByTestId } = render(
+      <Wrapper>
+        <TestComponent />
+      </Wrapper>
+    );
+
+    expect(await findByTestId('quote-text-1')).toHaveTextContent('Citation existante');
+
+    fireEvent.press(getByTestId('update-btn-1'));
+
+    // Immédiatement mis à jour
+    await waitFor(() => {
+      expect(getByTestId('quote-text-1')).toHaveTextContent('Updated text');
+    });
+
+    await waitFor(async () => {
+      resolveUpdateQuote({ ...initialQuotes[0], text: 'Updated text' });
     });
   });
 });
