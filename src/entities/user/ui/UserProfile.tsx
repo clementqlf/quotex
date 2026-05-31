@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
-  Animated
+  Animated,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucide-react-native';
+import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera, MoreHorizontal } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -24,6 +25,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { supabase } from '@/src/shared/api/supabase';
+import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 
 interface UserRouteParam {
   id: number | string;
@@ -267,6 +269,27 @@ export default function UserProfileScreen() {
     setIsEditing(true);
   };
 
+  const handleProfileOptions = () => {
+    Alert.alert(
+      "Options",
+      "Que souhaitez-vous faire avec ce profil ?",
+      [
+        { 
+          text: "Bloquer cet utilisateur", 
+          style: "destructive",
+          onPress: async () => {
+            if (profileData?.id) {
+              await UGCModerationService.blockUser(profileData.id);
+              Alert.alert("Succès", "L'utilisateur a été bloqué.");
+              router.back();
+            }
+          }
+        },
+        { text: "Annuler", style: "cancel" }
+      ]
+    );
+  };
+
   const pickImage = async () => {
     // Request permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -471,7 +494,13 @@ export default function UserProfileScreen() {
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || username}</Text>
-          <View style={styles.placeholder} />
+          {!isMe && profileData ? (
+            <TouchableOpacity onPress={handleProfileOptions} style={styles.headerAction}>
+              <MoreHorizontal size={24} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -737,7 +766,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   placeholder: {
-    width: 28,
+    width: 32,
+  },
+  headerAction: {
+    padding: 4,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loaderContainer: {
     flex: 1,

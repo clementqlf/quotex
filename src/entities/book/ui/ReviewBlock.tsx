@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Image, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
-import { Star, User, Send, X } from 'lucide-react-native';
+import { Star, User, Send, X, MoreHorizontal } from 'lucide-react-native';
 import { Review, User as UserType } from '@/src/shared/api/types';
 import { ReviewService } from '@/src/shared/api/ReviewService';
+import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 
 interface ReviewBlockProps {
     bookId: number;
@@ -21,6 +24,9 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const [comment, setComment] = useState('');
     const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
+    const { user } = useAuth();
+    const { navigateToUserProfile } = useSmartNavigation();
 
     useEffect(() => {
         loadReviews();
@@ -32,12 +38,128 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         try {
             const fetchedReviews = await ReviewService.getReviewsByBookId(bookId);
             console.log(`[ReviewBlock] Fetched ${fetchedReviews.length} reviews`);
-            setReviews(fetchedReviews);
+            
+            const blockedUsers = await UGCModerationService.getBlockedUsers();
+            const reportedReviews = await UGCModerationService.getReportedReviews();
+            
+            const filteredReviews = fetchedReviews.filter(review => {
+                const userId = review.user?.id ? String(review.user.id) : null;
+                const reviewId = String(review.id);
+                if (userId && blockedUsers.includes(userId)) return false;
+                if (reportedReviews.includes(reviewId)) return false;
+                return true;
+            });
+            
+            setReviews(filteredReviews);
         } catch (error) {
             console.error("[ReviewBlock] Error loading reviews:", error);
             Alert.alert("Erreur", "Impossible de charger les avis. Veuillez vérifier votre connexion.");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleReportReview = (reviewId: string | number) => {
+        Alert.alert(
+            "Signaler cet avis",
+            "Êtes-vous sûr de vouloir signaler ce contenu comme offensant ou inapproprié ?",
+            [
+                { text: "Annuler", style: "cancel" },
+                { 
+                    text: "Signaler", 
+                    style: "destructive",
+                    onPress: async () => {
+                        await UGCModerationService.reportReview(reviewId);
+                        Alert.alert("Succès", "Cet avis a été signalé et masqué.");
+                        loadReviews(); // Reload to apply filters
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleBlockUser = (userId: string | number | undefined) => {
+        if (!userId) return;
+        Alert.alert(
+            "Bloquer l'utilisateur",
+            "Voulez-vous vraiment bloquer cet utilisateur ? Vous ne verrez plus aucun de ses avis.",
+            [
+                { text: "Annuler", style: "cancel" },
+                { 
+                    text: "Bloquer", 
+                    style: "destructive",
+                    onPress: async () => {
+                        await UGCModerationService.blockUser(userId);
+                        Alert.alert("Succès", "Utilisateur bloqué. Ses avis seront masqués.");
+                        loadReviews(); // Reload to apply filters
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleUserPress = (reviewUser: UserType) => {
+        if (reviewUser && reviewUser.username) {
+            setAllReviewsVisible(false); // Close modal if open
+            navigateToUserProfile(reviewUser.username);
+        }
+    };
+
+    const handleEditReview = (review: Review) => {
+        setEditingReviewId(review.id);
+        setRating(review.rating);
+        setComment(review.comment || '');
+        setAllReviewsVisible(false); // Close modal if open
+    };
+
+    const handleDeleteReview = (reviewId: number) => {
+        Alert.alert(
+            "Supprimer l'avis",
+            "Êtes-vous sûr de vouloir supprimer cet avis ?",
+            [
+                { text: "Annuler", style: "cancel" },
+                { 
+                    text: "Supprimer", 
+                    style: "destructive",
+                    onPress: async () => {
+                        const success = await ReviewService.deleteReview(reviewId);
+                        if (success) {
+                            Alert.alert("Succès", "L'avis a été supprimé.");
+                            loadReviews();
+                        } else {
+                            Alert.alert("Erreur", "Impossible de supprimer l'avis.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleReviewOptions = (review: Review) => {
+        const isMyReview = user && review.user && String(user.id) === String(review.user.id);
+        
+        if (isMyReview) {
+            Alert.alert(
+                "Options",
+                "Que souhaitez-vous faire avec votre avis ?",
+                [
+                    { text: "Modifier", onPress: () => handleEditReview(review) },
+                    { text: "Supprimer", style: "destructive", onPress: () => handleDeleteReview(review.id) },
+                    { text: "Annuler", style: "cancel" }
+                ],
+                { cancelable: true }
+            );
+        } else {
+            Alert.alert(
+                "Options",
+                "Que souhaitez-vous faire avec cet avis ?",
+                [
+                    { text: "Signaler ce contenu", onPress: () => handleReportReview(review.id) },
+                    { text: "Bloquer cet utilisateur", onPress: () => handleBlockUser(review.user?.id) },
+                    { text: "Annuler", style: "cancel" }
+                ],
+                { cancelable: true }
+            );
         }
     };
 
@@ -47,23 +169,51 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             return;
         }
 
-        const newReview = await ReviewService.createReview({
-            rating,
-            comment,
-            bookId,
-        });
+        if (UGCModerationService.containsOffensiveContent(comment)) {
+            Alert.alert("Erreur", "Votre commentaire contient un langage inapproprié et ne peut pas être publié.");
+            return;
+        }
 
-        if (newReview) {
-            setReviews([newReview, ...reviews]);
-            setRating(0);
-            setComment('');
-            Alert.alert("Succès", "Votre avis a été publié !");
-            if (onReviewAdded) {
-                onReviewAdded();
+        if (editingReviewId) {
+            const updatedReview = await ReviewService.updateReview(editingReviewId, {
+                rating,
+                comment,
+            });
+
+            if (updatedReview) {
+                Alert.alert("Succès", "Votre avis a été mis à jour !");
+                setEditingReviewId(null);
+                setRating(0);
+                setComment('');
+                loadReviews();
+            } else {
+                Alert.alert("Erreur", "Impossible de mettre à jour l'avis.");
             }
         } else {
-            Alert.alert("Erreur", "Impossible de publier l'avis.");
+            const newReview = await ReviewService.createReview({
+                rating,
+                comment,
+                bookId,
+            });
+
+            if (newReview) {
+                setReviews([newReview, ...reviews]);
+                setRating(0);
+                setComment('');
+                Alert.alert("Succès", "Votre avis a été publié !");
+                if (onReviewAdded) {
+                    onReviewAdded();
+                }
+            } else {
+                Alert.alert("Erreur", "Impossible de publier l'avis.");
+            }
         }
+    };
+
+    const cancelEdit = () => {
+        setEditingReviewId(null);
+        setRating(0);
+        setComment('');
     };
 
     return (
@@ -100,10 +250,17 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                         value={comment}
                         onChangeText={setComment}
                     />
-                    <TouchableOpacity style={styles.publishButton} onPress={handlePublishReview}>
-                        <Send size={14} color="#FFF" />
-                        <Text style={styles.publishButtonText}>Publier</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity style={[styles.publishButton, { flex: 1 }]} onPress={handlePublishReview}>
+                            <Send size={14} color="#FFF" />
+                            <Text style={styles.publishButtonText}>{editingReviewId ? "Mettre à jour" : "Publier"}</Text>
+                        </TouchableOpacity>
+                        {editingReviewId && (
+                            <TouchableOpacity style={[styles.publishButton, { backgroundColor: colors.surfaceHighlight, paddingHorizontal: 16 }]} onPress={cancelEdit}>
+                                <X size={14} color={colors.text} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
                 {/* Other reviews list */}
@@ -113,7 +270,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                         {reviews.slice(0, 2).map((review) => (
                             <View key={review.id} style={styles.reviewItem}>
                                 <View style={styles.reviewHeader}>
-                                    <View style={styles.reviewerInfo}>
+                                    <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
                                         ) : (
@@ -121,9 +278,14 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                                 <User size={12} color={colors.textTertiary} />
                                             </View>
                                         )}
-                                        <Text style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</Text>
-                                    </View>
-                                    <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                                        <View>
+                                            <Text style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</Text>
+                                            <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={{ padding: 4 }} onPress={() => handleReviewOptions(review)}>
+                                        <MoreHorizontal size={16} color={colors.textTertiary} />
+                                    </TouchableOpacity>
                                 </View>
                                 <View style={styles.reviewRating}>
                                     {[1, 2, 3, 4, 5].map(s => (
@@ -165,7 +327,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                         {reviews.map((review) => (
                             <View key={review.id} style={styles.modalReviewItem}>
                                 <View style={styles.reviewHeader}>
-                                    <View style={styles.reviewerInfo}>
+                                    <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatarLarge} />
                                         ) : (
@@ -177,11 +339,16 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                             <Text style={styles.reviewerNameLarge}>{review.user?.name || 'Utilisateur'}</Text>
                                             <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
                                         </View>
-                                    </View>
-                                    <View style={styles.reviewRating}>
-                                        {[1, 2, 3, 4, 5].map(s => (
-                                            <Star key={s} size={12} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
-                                        ))}
+                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <View style={styles.reviewRating}>
+                                            {[1, 2, 3, 4, 5].map(s => (
+                                                <Star key={s} size={12} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
+                                            ))}
+                                        </View>
+                                        <TouchableOpacity style={{ padding: 4 }} onPress={() => handleReviewOptions(review)}>
+                                            <MoreHorizontal size={20} color={colors.textTertiary} />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
                                 {review.comment && <Text style={styles.reviewCommentLarge}>{review.comment}</Text>}

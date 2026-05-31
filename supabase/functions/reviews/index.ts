@@ -13,10 +13,13 @@ serve(async (req: Request) => {
   if (corsResp) return corsResp;
 
   const url = new URL(req.url);
+  const path = url.pathname.replace(/^(?:\/functions\/v1)?\/reviews/, '') || '/';
+  const parts = path.split('/').filter(Boolean);
+  const idParam = parts[0] && !isNaN(Number(parts[0])) ? parseInt(parts[0]) : null;
 
   try {
     // GET /reviews?bookId=...
-    if (req.method === 'GET') {
+    if (req.method === 'GET' && !idParam) {
       const bookIdParam = url.searchParams.get('bookId');
       if (!bookIdParam) return error('Missing bookId query parameter', 400);
       const bookId = parseInt(bookIdParam);
@@ -34,7 +37,7 @@ serve(async (req: Request) => {
     }
 
     // POST /reviews
-    if (req.method === 'POST') {
+    if (req.method === 'POST' && !idParam) {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
@@ -59,6 +62,52 @@ serve(async (req: Request) => {
       await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
 
       return json(newReview[0]);
+    }
+
+    // PUT /reviews/:id
+    if (req.method === 'PUT' && idParam) {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      const { rating, comment } = await req.json();
+
+      const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
+      if (!review.length) return error('Review not found', 404);
+      if (review[0].userId !== authUser.id) return error('Unauthorized', 403);
+
+      const updated = await sql`
+        UPDATE "Review"
+        SET rating = ${rating ?? review[0].rating},
+            comment = ${comment !== undefined ? comment : review[0].comment}
+        WHERE id = ${idParam}
+        RETURNING *
+      `;
+
+      const bookId = review[0].bookId;
+      const aggRows = await sql`SELECT AVG(rating)::float as avg FROM "Review" WHERE "bookId" = ${bookId}`;
+      const newAvg = aggRows[0]?.avg ?? 0;
+      await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
+
+      return json(updated[0]);
+    }
+
+    // DELETE /reviews/:id
+    if (req.method === 'DELETE' && idParam) {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
+      if (!review.length) return error('Review not found', 404);
+      if (review[0].userId !== authUser.id) return error('Unauthorized', 403);
+
+      await sql`DELETE FROM "Review" WHERE id = ${idParam}`;
+
+      const bookId = review[0].bookId;
+      const aggRows = await sql`SELECT AVG(rating)::float as avg FROM "Review" WHERE "bookId" = ${bookId}`;
+      const newAvg = aggRows[0]?.avg ?? 0;
+      await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
+
+      return json({ success: true });
     }
 
     return error('Method not allowed', 405);
