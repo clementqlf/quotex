@@ -42,9 +42,15 @@ serve(async (req: Request) => {
       if (!rating || !bookId) return error('Missing required fields', 400);
 
       const newReview = await sql`
-        INSERT INTO "Review" ("rating", "comment", "bookId", "userId", "createdAt")
-        VALUES (${rating}, ${comment ?? null}, ${bookId}, ${authUser.id}, now())
-        RETURNING *
+        WITH inserted AS (
+          INSERT INTO "Review" ("rating", "comment", "bookId", "userId", "createdAt")
+          VALUES (${rating}, ${comment ?? null}, ${bookId}, ${authUser.id}, now())
+          RETURNING *
+        )
+        SELECT i.*, row_to_json(u) as user, row_to_json(b) as book
+        FROM inserted i
+        LEFT JOIN "Profile" u ON u.id = i."userId"
+        LEFT JOIN "Book" b ON b.id = i."bookId"
       `;
 
       // Recalculate average rating

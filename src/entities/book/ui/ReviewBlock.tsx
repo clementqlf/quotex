@@ -121,7 +121,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                                 <User size={12} color={colors.textTertiary} />
                                             </View>
                                         )}
-                                        <Text style={styles.reviewerName}>{review.user.name || 'Utilisateur'}</Text>
+                                        <Text style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</Text>
                                     </View>
                                     <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
                                 </View>
@@ -174,7 +174,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                             </View>
                                         )}
                                         <View>
-                                            <Text style={styles.reviewerNameLarge}>{review.user.name || 'Utilisateur'}</Text>
+                                            <Text style={styles.reviewerNameLarge}>{review.user?.name || 'Utilisateur'}</Text>
                                             <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
                                         </View>
                                     </View>

@@ -45,22 +45,22 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
-       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
-          <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-          <Animated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       </View>
-       
-       <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       
-       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-          <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-          <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-       </View>
-       
-       <Animated.View style={[{ width: '40%', height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+      <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
+        <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+        <Animated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+      </View>
+
+      <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+      <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+        <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+        <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+      </View>
+
+      <Animated.View style={[{ width: '40%', height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+      <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+      <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
     </View>
   );
 };
@@ -141,7 +141,7 @@ export default function AuthorDetailScreen() {
 
     // 1. Try to find the author in our local cache first!
     let localAuthor = author || allAuthors.find(a => a.name.toLowerCase() === nameToUse.toLowerCase());
-    
+
     // 2. If we have the author locally, set it and disable full-screen loading immediately!
     if (localAuthor) {
       console.log('[AuthorDetail] Found author in local cache, loading instantly');
@@ -169,7 +169,7 @@ export default function AuthorDetailScreen() {
       if (fetchedAuthor) {
         setAuthorInfo(fetchedAuthor);
         activeAuthor = fetchedAuthor;
-        
+
         // If we didn't have an ID initially, we couldn't fetch notable works. Fetch them now!
         if (!initialAuthorId && fetchedAuthor.id) {
           console.log(`[AuthorDetail] Author fetched with ID ${fetchedAuthor.id}, now fetching notable works...`);
@@ -182,7 +182,7 @@ export default function AuthorDetailScreen() {
             console.error('[AuthorDetail] Failed to fetch notable works after author retrieval:', e);
           }
         }
-        
+
         // Force enrichment if description is missing
         if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
           console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
@@ -381,7 +381,7 @@ export default function AuthorDetailScreen() {
           <View style={styles.profileHeader}>
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
-            
+
             {authorInfo && authorInfo.id !== 0 && (
               <>
                 <Text style={styles.followersText}>
@@ -391,7 +391,7 @@ export default function AuthorDetailScreen() {
                     return `Suivi par ${count} personne${count > 1 ? 's' : ''}`;
                   })()}
                 </Text>
-                
+
                 <TouchableOpacity
                   style={[
                     styles.followButton,
@@ -416,16 +416,16 @@ export default function AuthorDetailScreen() {
                 </TouchableOpacity>
               </>
             )}
-            
-            <TouchableOpacity 
-              style={styles.wikipediaButton} 
+
+            <TouchableOpacity
+              style={styles.wikipediaButton}
               onPress={handleOpenWikipedia}
               activeOpacity={0.7}
             >
               <View style={styles.wikipediaLogoContainer}>
-                <Image 
-                  source={{ uri: 'https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2.png' }} 
-                  style={styles.wikipediaLogo} 
+                <Image
+                  source={{ uri: 'https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2.png' }}
+                  style={styles.wikipediaLogo}
                 />
               </View>
               <Text style={styles.wikipediaText}>Wikipédia</Text>
@@ -580,7 +580,6 @@ export default function AuthorDetailScreen() {
                 <FlashList
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
-                  estimatedItemSize={100}
                   getItemType={() => 'work'}
                   contentContainerStyle={{ padding: 16 }}
                   renderItem={({ item }) => (
