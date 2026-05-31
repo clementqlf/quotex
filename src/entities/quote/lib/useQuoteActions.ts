@@ -5,6 +5,8 @@ import { useTabIndex } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
 import { Quote } from '@/src/shared/api/types';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { authService } from '@/src/entities/user/api/AuthService';
 
 export interface HandleConfirmSaveOptions {
   onReset?: () => void;
@@ -36,6 +38,8 @@ export const useQuoteActions = () => {
       console.log('[useQuoteActions] author:', author);
 
       try {
+        let newQuote: Quote | null = null;
+        
         if (options.editingQuote) {
           console.log('[useQuoteActions] Updating existing quote');
           await updateQuote(options.editingQuote.id, {
@@ -45,7 +49,7 @@ export const useQuoteActions = () => {
           });
         } else {
           console.log('[useQuoteActions] Adding new quote');
-          await addQuote(text, book, author);
+          newQuote = await addQuote(text, book, author);
         }
 
         console.log('[useQuoteActions] Quote saved/updated successfully');
@@ -82,6 +86,21 @@ export const useQuoteActions = () => {
           }).catch(err => {
             console.error('[useQuoteActions] Background book enrichment failed:', err);
           });
+        }
+
+        // Enrich the author in the background if it lacks metadata
+        if (newQuote?.author && typeof newQuote.author === 'object' && newQuote.author.id) {
+          const authorObj = newQuote.author as any;
+          if (authorObj.inventaireUri && (!authorObj.description || authorObj.description.length < 50)) {
+            console.log('[useQuoteActions] Background enriching author:', authorObj.id);
+            const token = await authService.getToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            fetch(`${API_BASE_URL}/authors/${authorObj.id}/enrich`, { method: 'POST', headers })
+              .then(() => refreshAuthors())
+              .catch(err => console.error('[useQuoteActions] Background author enrichment failed:', err));
+          }
         }
 
       } catch (error) {

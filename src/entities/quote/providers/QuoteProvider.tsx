@@ -187,7 +187,7 @@ export const useQuote = () => {
     toggleLikeQuote: async (id: number) => { await toggleLikeMutation.mutateAsync(id); },
     toggleSaveQuote: async (id: number) => { await toggleSaveMutation.mutateAsync(id); },
     deleteQuote: async (id: number) => { await deleteQuoteMutation.mutateAsync(id); },
-    addQuote: async (text: string, book?: string | null, author?: string | null) => { await addQuoteMutation.mutateAsync({ text, book, author }); },
+    addQuote: async (text: string, book?: string | null, author?: string | null) => { return await addQuoteMutation.mutateAsync({ text, book, author }); },
     updateQuote: async (id: number, updates: Partial<Quote>) => { await updateQuoteMutation.mutateAsync({ id, updates }); },
     getUserByUsername,
   };
