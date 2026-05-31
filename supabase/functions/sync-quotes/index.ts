@@ -80,156 +80,109 @@ serve(async (req: Request) => {
           continue;
         }
 
-        // Check Inventaire for author and work match
-        const inventaireMatch: InventaireMatch = {};
-        let hasInventaireMatch = false;
-        
-        console.log(`[sync-quotes] Checking Inventaire for: author="${offlineQuote.author}", book="${offlineQuote.book}"`);
-        
-        // Try to find the work in Inventaire
-        const workUri = await findWorkUriByTitleAndAuthor(
-          offlineQuote.book,
-          offlineQuote.author
-        );
-        
-        if (workUri) {
-          inventaireMatch.workUri = workUri;
-          hasInventaireMatch = true;
-          console.log(`[sync-quotes] Inventaire work match found: ${workUri}`);
-          
-          // Get work details to get canonical title and author URIs
-          const workDetails = await getInventaireWorkDetails(workUri);
-          if (workDetails) {
-            inventaireMatch.workTitle = workDetails.title;
-            console.log(`[sync-quotes] Inventaire work canonical title: "${workDetails.title}"`);
-            
-            // Get author details for each author URI
-            if (workDetails.authorUris && workDetails.authorUris.length > 0) {
-              const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
-              if (authorDetails) {
-                inventaireMatch.authorUri = workDetails.authorUris[0];
-                inventaireMatch.authorName = authorDetails.name;
-                console.log(`[sync-quotes] Inventaire author canonical name: "${authorDetails.name}"`);
-              }
-            }
-          }
-        } else {
-          // Also try searching for just the author
-          const authorResults = await searchInventaireAuthors(offlineQuote.author, 5);
-          if (authorResults.length > 0) {
-            inventaireMatch.authorUri = authorResults[0].uri;
-            inventaireMatch.authorName = authorResults[0].label;
-            console.log(`[sync-quotes] Inventaire author match found: ${authorResults[0].label} (${authorResults[0].uri})`);
-          }
-        }
-        
-        // Only proceed if we have an Inventaire match
-        if (!hasInventaireMatch && !inventaireMatch.authorUri) {
-          console.log(`[sync-quotes] No Inventaire match found for quote ${offlineQuote.id} - skipping insertion`);
-          errors.push({ 
-            quote: offlineQuote, 
-            error: 'No match in Inventaire - quote not inserted' 
-          });
-          continue;
-        }
-
-        // Use Inventaire canonical names and URIs for matching
+        // 1. Check DB first (without creating)
         let authorId: number | null = null;
         let authorLookup: AuthorMatchResult | null = null;
         let bookId: number | null = null;
         let bookLookup: BookMatchResult | null = null;
-        
-        // Use canonical names from Inventaire if available
+
+        if (offlineQuote.author) {
+          authorLookup = await matchAuthor(offlineQuote.author, false);
+          authorId = authorLookup?.id || null;
+        }
+
+        if (offlineQuote.book) {
+          bookLookup = await matchBook(offlineQuote.book, authorId, false);
+          bookId = bookLookup?.id || null;
+        }
+
+        // 2. If missing in DB, check Inventaire
+        const inventaireMatch: InventaireMatch = {};
+        let hasInventaireMatch = false;
+
+        if ((offlineQuote.author && !authorId) || (offlineQuote.book && !bookId)) {
+          console.log(`[sync-quotes] Entity missing in DB. Checking Inventaire for: author="${offlineQuote.author}", book="${offlineQuote.book}"`);
+          
+          if (offlineQuote.book && offlineQuote.author) {
+            const workUri = await findWorkUriByTitleAndAuthor(offlineQuote.book, offlineQuote.author);
+            if (workUri) {
+              inventaireMatch.workUri = workUri;
+              hasInventaireMatch = true;
+              console.log(`[sync-quotes] Inventaire work match found: ${workUri}`);
+              
+              const workDetails = await getInventaireWorkDetails(workUri);
+              if (workDetails) {
+                inventaireMatch.workTitle = workDetails.title;
+                if (workDetails.authorUris && workDetails.authorUris.length > 0) {
+                  const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
+                  if (authorDetails) {
+                    inventaireMatch.authorUri = workDetails.authorUris[0];
+                    inventaireMatch.authorName = authorDetails.name;
+                  }
+                }
+              }
+            } else {
+              const authorResults = await searchInventaireAuthors(offlineQuote.author, 5);
+              if (authorResults.length > 0) {
+                inventaireMatch.authorUri = authorResults[0].uri;
+                inventaireMatch.authorName = authorResults[0].label;
+              }
+            }
+          } else if (offlineQuote.author && !offlineQuote.book) {
+            const authorResults = await searchInventaireAuthors(offlineQuote.author, 5);
+            if (authorResults.length > 0) {
+              inventaireMatch.authorUri = authorResults[0].uri;
+              inventaireMatch.authorName = authorResults[0].label;
+            }
+          }
+        }
+
+        // Use Inventaire canonical names and URIs for matching
         const finalAuthorName = inventaireMatch.authorName || offlineQuote.author;
         const finalBookTitle = inventaireMatch.workTitle || offlineQuote.book;
-        
+
         // Log corrections if using Inventaire names
-        if (offlineQuote.author) {
-          if (inventaireMatch.authorName && inventaireMatch.authorName !== offlineQuote.author) {
-            console.log(`[sync-quotes] Using Inventaire author correction: "${offlineQuote.author}" -> "${finalAuthorName}"`);
-          }
-          if (inventaireMatch.workTitle && inventaireMatch.workTitle !== offlineQuote.book) {
-            console.log(`[sync-quotes] Using Inventaire book correction: "${offlineQuote.book}" -> "${finalBookTitle}"`);
-          }
+        if (offlineQuote.author && inventaireMatch.authorName && inventaireMatch.authorName !== offlineQuote.author) {
+          console.log(`[sync-quotes] Using Inventaire author correction: "${offlineQuote.author}" -> "${finalAuthorName}"`);
+        }
+        if (offlineQuote.book && inventaireMatch.workTitle && inventaireMatch.workTitle !== offlineQuote.book) {
+          console.log(`[sync-quotes] Using Inventaire book correction: "${offlineQuote.book}" -> "${finalBookTitle}"`);
         }
 
-        // For author: try to find by Inventaire URI first, then by name
-        if (offlineQuote.author) {
+        // 3. Create missing entities (using Inventaire data if available)
+        if (offlineQuote.author && !authorId) {
           if (inventaireMatch.authorUri) {
-            // Check if author with this URI already exists
-            const existingAuthor = await sql`
-              SELECT id, name FROM "Author" WHERE "inventaireUri" = ${inventaireMatch.authorUri} LIMIT 1
-            `;
+            const existingAuthor = await sql`SELECT id, name FROM "Author" WHERE "inventaireUri" = ${inventaireMatch.authorUri} LIMIT 1`;
             if (existingAuthor.length > 0) {
               authorId = existingAuthor[0].id;
-              console.log(`[sync-quotes] Author found by Inventaire URI: ${finalAuthorName} (ID: ${authorId})`);
-              authorLookup = {
-                id: authorId,
-                name: existingAuthor[0].name,
-                wasCreated: false,
-                originalName: finalAuthorName
-              };
-            } else {
-              // Create new author with Inventaire URI
-              const newAuthor = await sql`
-                INSERT INTO "Author" (name, "inventaireUri", "isEnriching")
-                VALUES (${finalAuthorName}, ${inventaireMatch.authorUri}, true)
-                RETURNING id, name
-              `;
-              authorId = newAuthor[0].id;
-              console.log(`[sync-quotes] Author created with Inventaire URI: ${finalAuthorName} (ID: ${authorId})`);
-              authorLookup = {
-                id: authorId,
-                name: newAuthor[0].name,
-                wasCreated: true,
-                originalName: finalAuthorName
-              };
+              authorLookup = { id: authorId, name: existingAuthor[0].name, wasCreated: false, originalName: finalAuthorName! };
             }
-          } else {
-            // Fallback to fuzzy matching without URI
-            authorLookup = await matchAuthor(finalAuthorName);
+          }
+          
+          if (!authorId) {
+            authorLookup = await matchAuthor(finalAuthorName, true);
             authorId = authorLookup?.id || null;
-            console.log(`[sync-quotes] Author: ${authorLookup?.wasCreated ? 'CREATED' : 'MATCHED'} "${finalAuthorName}"`);
+            if (authorId && inventaireMatch.authorUri) {
+              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true WHERE id = ${authorId}`;
+            }
           }
         }
 
-        // For book: try to find by Inventaire URI first, then by title+author
-        if (offlineQuote.book) {
+        if (offlineQuote.book && !bookId) {
           if (inventaireMatch.workUri) {
-            // Check if book with this URI already exists
-            const existingBook = await sql`
-              SELECT id, title FROM "Book" WHERE "inventaireUri" = ${inventaireMatch.workUri} LIMIT 1
-            `;
+            const existingBook = await sql`SELECT id, title FROM "Book" WHERE "inventaireUri" = ${inventaireMatch.workUri} LIMIT 1`;
             if (existingBook.length > 0) {
               bookId = existingBook[0].id;
-              console.log(`[sync-quotes] Book found by Inventaire URI: ${finalBookTitle} (ID: ${bookId})`);
-              bookLookup = {
-                id: bookId,
-                title: existingBook[0].title,
-                wasCreated: false,
-                originalTitle: finalBookTitle
-              };
-            } else {
-              // Create new book with Inventaire URI
-              const newBook = await sql`
-                INSERT INTO "Book" (title, "authorId", "inventaireUri", "isEnriching")
-                VALUES (${finalBookTitle}, ${authorId}, ${inventaireMatch.workUri}, true)
-                RETURNING id, title
-              `;
-              bookId = newBook[0].id;
-              console.log(`[sync-quotes] Book created with Inventaire URI: ${finalBookTitle} (ID: ${bookId})`);
-              bookLookup = {
-                id: bookId,
-                title: newBook[0].title,
-                wasCreated: true,
-                originalTitle: finalBookTitle
-              };
+              bookLookup = { id: bookId, title: existingBook[0].title, wasCreated: false, originalTitle: finalBookTitle! };
             }
-          } else {
-            // Fallback to fuzzy matching without URI
-            bookLookup = await matchBook(finalBookTitle, authorId);
+          }
+          
+          if (!bookId) {
+            bookLookup = await matchBook(finalBookTitle, authorId, true);
             bookId = bookLookup?.id || null;
-            console.log(`[sync-quotes] Book: ${bookLookup?.wasCreated ? 'CREATED' : 'MATCHED'} "${finalBookTitle}"`);
+            if (bookId && inventaireMatch.workUri) {
+              await sql`UPDATE "Book" SET "inventaireUri" = ${inventaireMatch.workUri}, "isEnriching" = true WHERE id = ${bookId}`;
+            }
           }
         }
 

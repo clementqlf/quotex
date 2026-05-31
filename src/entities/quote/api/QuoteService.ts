@@ -26,6 +26,7 @@ const MAX_RETRIES = 10;
 
 class QuoteService {
     private queue = OperationQueue.getInstance();
+    private isSyncing = false;
 
     private async seedDataIfNeeded(): Promise<void> {
         const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
@@ -102,8 +103,21 @@ class QuoteService {
                 const serverQuotes = await response.json();
                 const mappedQuotes: Quote[] = serverQuotes.map((q: any) => this.mapQuoteFromServer(q));
 
+                // Add pending quotes that haven't been synced yet
+                const pendingQuotes = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+                const pendingIds = new Set(pendingQuotes.map(p => p.id));
+                
+                // Find full pending quotes from current local cache to preserve book/author objects
+                const currentLocalQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+                const pendingFullQuotes = currentLocalQuotes.filter(q => pendingIds.has(q.id as number));
+                
+                // If a pending quote wasn't in local cache for some reason, we can't easily rebuild it here, 
+                // but the current local cache should always have it since addQuote adds to both.
+                
+                const finalQuotes = [...pendingFullQuotes, ...mappedQuotes];
+
                 // Update local cache
-                await StorageService.setItem(STORAGE_KEYS.QUOTES, mappedQuotes);
+                await StorageService.setItem(STORAGE_KEYS.QUOTES, finalQuotes);
 
                 // Trigger sync of pending quotes in background (fire and forget)
                 this.syncPendingQuotes().then(result => {
@@ -452,7 +466,7 @@ class QuoteService {
             const timeoutId = setTimeout(() => controller.abort(), 3000);
             
             const response = await fetch(`${this.API_URL}`, {
-                method: 'HEAD',
+                method: 'OPTIONS',
                 signal: controller.signal,
             });
             
@@ -516,12 +530,20 @@ class QuoteService {
         errors: Array<{ quote: PendingQuote; error: string }>;
         corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
     }> {
+        if (this.isSyncing) {
+            console.log('[QuoteService] Sync already in progress, skipping');
+            return { syncedCount: 0, total: 0, errors: [], corrections: [] };
+        }
+        
+        // Block concurrent calls immediately
+        this.isSyncing = true;
+
         const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES);
         if (!pending || pending.length === 0) {
             console.log('No pending quotes to sync');
+            this.isSyncing = false;
             return { syncedCount: 0, total: 0, errors: [], corrections: [] };
         }
-
         console.log(`[QuoteService] Syncing ${pending.length} pending quotes...`);
         
         const user = await authService.getUser();
@@ -571,7 +593,7 @@ class QuoteService {
                 
                 // Build a map of successfully synced quote IDs (from the request)
                 // The server returns errors, so any quote NOT in errors was synced
-                const errorQuoteIds = new Set(errors.map(e => e.quote.id));
+                const errorQuoteIds = new Set(errors.map(e => String(e.quote.id)));
                 
                 // Update local quotes with corrections
                 const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
@@ -645,11 +667,12 @@ class QuoteService {
                     await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
                 }
                 
+                this.isSyncing = false;
                 return {
                     syncedCount: result.syncedCount || (pending.length - remaining.length),
                     total: pending.length,
                     errors: errors.map(e => ({
-                        quote: pending.find(p => String(p.id) === e.quote.id) || e.quote,
+                        quote: pending.find(p => String(p.id) === String(e.quote.id)) || e.quote,
                         error: e.error
                     })),
                     corrections: corrections
@@ -674,6 +697,7 @@ class QuoteService {
                     await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
                 }
                 
+                this.isSyncing = false;
                 return {
                     syncedCount: 0,
                     total: pending.length,
@@ -703,6 +727,7 @@ class QuoteService {
                 await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
             }
             
+            this.isSyncing = false;
             return {
                 syncedCount: 0,
                 total: pending.length,

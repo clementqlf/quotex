@@ -54,8 +54,9 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
       try {
         console.log(`[Realtime] Subscribing to ${table} ${id}`);
         
+        const uniqueId = Math.random().toString(36).substring(2, 9);
         channel = supabase
-          .channel(`${table.toLowerCase()}_${id}_enrichment`)
+          .channel(`${table.toLowerCase()}_${id}_enrichment_${uniqueId}`)
           .on(
             'postgres_changes',
             {
@@ -183,8 +184,9 @@ export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
     const channels: any[] = [];
 
     enrichingBookIds.forEach(bookId => {
+      const uniqueId = Math.random().toString(36).substring(2, 9);
       const channel = supabase
-        .channel(`book_${bookId}_modal`)
+        .channel(`book_${bookId}_modal_${uniqueId}`)
         .on(
           'postgres_changes',
           {
@@ -229,8 +231,9 @@ export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void)
     const channels: any[] = [];
 
     enrichingAuthorIds.forEach(authorId => {
+      const uniqueId = Math.random().toString(36).substring(2, 9);
       const channel = supabase
-        .channel(`author_${authorId}_modal`)
+        .channel(`author_${authorId}_modal_${uniqueId}`)
         .on(
           'postgres_changes',
           {

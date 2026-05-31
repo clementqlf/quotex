@@ -37,7 +37,7 @@ export interface AuthorMatchResult {
  * Finds an author by fuzzy matching on name
  * Tries multiple strategies: exact match, normalized match, partial match, then creates new
  */
-export async function matchAuthor(authorName: string | null | undefined): Promise<AuthorMatchResult | null> {
+export async function matchAuthor(authorName: string | null | undefined, createIfNotFound: boolean = true): Promise<AuthorMatchResult | null> {
   if (!authorName || !authorName.trim()) return null;
 
   const cleanName = authorName.trim();
@@ -137,9 +137,15 @@ export async function matchAuthor(authorName: string | null | undefined): Promis
   }
 
   // Strategy 5: Create new author
+  if (!createIfNotFound) return null;
+  
+  // Use ON CONFLICT to handle race conditions from concurrent sync requests
   const newAuthor = await sql`
     INSERT INTO "Author" (name, "isEnriching") 
-    VALUES (${cleanName}, true) RETURNING id, name
+    VALUES (${cleanName}, true) 
+    ON CONFLICT (name) DO UPDATE 
+    SET "isEnriching" = "Author"."isEnriching"
+    RETURNING id, name
   `;
   
   return {
@@ -163,7 +169,7 @@ export interface BookMatchResult {
 /**
  * Finds a book by fuzzy matching on title and author
  */
-export async function matchBook(bookTitle: string | null | undefined, authorId: number | null): Promise<BookMatchResult | null> {
+export async function matchBook(bookTitle: string | null | undefined, authorId: number | null, createIfNotFound: boolean = true): Promise<BookMatchResult | null> {
   if (!bookTitle || !bookTitle.trim()) return null;
 
   const cleanTitle = bookTitle.trim();
@@ -271,10 +277,33 @@ export async function matchBook(bookTitle: string | null | undefined, authorId: 
   }
 
   // Strategy 5: Create new book
-  const newBook = await sql`
-    INSERT INTO "Book" (title, "authorId", "isEnriching") 
-    VALUES (${cleanTitle}, ${authorId}, true) RETURNING id, title
-  `;
+  if (!createIfNotFound) return null;
+
+  // Use try-catch to handle race conditions from concurrent sync requests
+  let newBook;
+  try {
+    newBook = await sql`
+      INSERT INTO "Book" (title, "authorId", "isEnriching") 
+      VALUES (${cleanTitle}, ${authorId}, true) RETURNING id, title
+    `;
+  } catch (err: any) {
+    if (err.code === '23505') { // unique_violation
+      const existing = await sql`
+        SELECT id, title FROM "Book" 
+        WHERE title = ${cleanTitle} AND "authorId" ${authorId ? sql`= ${authorId}` : sql`IS NULL`}
+        LIMIT 1
+      `;
+      if (existing.length) {
+        return {
+          id: existing[0].id,
+          title: existing[0].title,
+          wasCreated: false,
+          originalTitle: cleanTitle
+        };
+      }
+    }
+    throw err;
+  }
   
   return {
     id: newBook[0].id,
