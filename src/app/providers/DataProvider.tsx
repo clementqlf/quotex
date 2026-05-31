@@ -152,12 +152,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         // Optimistic
         setQuotes(prev => prev.filter(q => q.id !== id));
         await quoteService.deleteQuote(id);
-        
-        await Promise.all([
-            refreshQuotes('deleteQuote complete'),
-            refreshBooks('deleteQuote complete')
-        ]);
-    }, [refreshQuotes, refreshBooks]);
+    }, []);
 
     const getAuthorByName = useCallback(async (name: string) => {
         return authorService.getAuthorByName(name);
@@ -185,13 +180,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         
         // Call service
         await quoteService.updateQuote(id, updates);
-        
-        // Refresh both quotes and books
-        await Promise.all([
-            refreshQuotes('updateQuote complete'),
-            refreshBooks('updateQuote complete')
-        ]);
-    }, [refreshQuotes, refreshBooks]);
+    }, []);
 
     const getBookData = useCallback(async (bookTitle: string) => {
         return await BlockService.getBlockData(bookTitle, 'book');
@@ -230,18 +219,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
         console.log('[DataProvider] Calling quoteService.addQuote...');
         await quoteService.addQuote(text, cleanBook, cleanAuthor);
-        console.log('[DataProvider] quoteService.addQuote completed');
-        
-        // Wait a short delay to ensure the server transaction is committed
-        await delay(300);
-        
-        console.log('[DataProvider] Refreshing quotes and books...');
-        await Promise.all([
-            refreshQuotes('addQuote complete'),
-            refreshBooks('addQuote complete')
-        ]);
-        console.log('[DataProvider] addQuote completed successfully');
-    }, [refreshQuotes, refreshBooks]);
+        console.log('[DataProvider] quoteService.addQuote completed successfully');
+    }, []);
 
     const getUserByUsername = useCallback(async (username: string) => {
         return await quoteService.getUserByUsername(username);
@@ -337,19 +316,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     const toggleSaveAuthor = useCallback(async (id: number) => {
         const res = await authorService.toggleSaveAuthor(id);
-        await refreshAuthors();
+        if (res) {
+            setAuthors(prev => prev.map(a => a.id === id ? { ...a, ...res } : a));
+        }
         return res;
-    }, [refreshAuthors]);
+    }, []);
 
     const toggleSaveBook = useCallback(async (id: number) => {
+        setBooks(prev => prev.map(b => b.id === id ? { ...b, isSaved: !b.isSaved } : b));
         await authorService.toggleSaveBook(id);
-        await refreshBooks();
-    }, [refreshBooks]);
+    }, []);
 
     const updateBookStatus = useCallback(async (id: number, status: string) => {
+        setBooks(prev => prev.map(b => b.id === id ? { ...b, readingStatus: status as any } : b));
         await authorService.updateBookStatus(id, status);
-        await refreshBooks();
-    }, [refreshBooks]);
+    }, []);
 
     const getNotableWorks = useCallback(async (authorId: number) => {
         return await authorService.getNotableWorks(authorId);
