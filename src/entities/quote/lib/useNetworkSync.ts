@@ -94,9 +94,18 @@ export const useNetworkSync = () => {
             setLastSyncTimestamp(new Date().toISOString());
             await StorageService.setItem(STORAGE_KEYS.LAST_SYNC_TIME, new Date().toISOString());
 
-            // If there were errors, we might want to retry
+            // If there were errors, we might want to retry with exponential backoff
             if (result.errors.length > 0) {
-                console.log('[useNetworkSync] Some quotes failed to sync, will retry later');
+                const maxRetry = Math.max(...result.errors.map(e => e.quote.retryCount || 0));
+                const backoffDelay = Math.min(1000 * Math.pow(2, maxRetry), 60000); // Max 1 minute
+                console.log(`[useNetworkSync] Some quotes failed to sync. Scheduling retry in ${backoffDelay}ms`);
+                
+                if (syncTimer.current) {
+                    clearTimeout(syncTimer.current);
+                }
+                syncTimer.current = setTimeout(() => {
+                    triggerSync();
+                }, backoffDelay);
             }
 
         } catch (error: any) {

@@ -21,6 +21,8 @@ interface PendingQuote {
     retryCount?: number;
 }
 
+const MAX_RETRIES = 10;
+
 class QuoteService {
     private async seedDataIfNeeded(): Promise<void> {
         const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
@@ -605,7 +607,16 @@ class QuoteService {
                 
                 // Save remaining pending quotes
                 if (remaining.length > 0) {
-                    await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, remaining);
+                    const validRemaining = remaining.filter(p => (p.retryCount || 0) < MAX_RETRIES);
+                    if (validRemaining.length < remaining.length) {
+                        console.log(`[QuoteService] Dropped ${remaining.length - validRemaining.length} quotes exceeding max retries`);
+                    }
+                    
+                    if (validRemaining.length > 0) {
+                        await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, validRemaining);
+                    } else {
+                        await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+                    }
                 } else {
                     await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
                 }
@@ -627,8 +638,17 @@ class QuoteService {
                 const updatedPending = pending.map(p => ({
                     ...p,
                     retryCount: (p.retryCount || 0) + 1
-                }));
-                await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+                })).filter(p => (p.retryCount || 0) < MAX_RETRIES);
+                
+                if (updatedPending.length < pending.length) {
+                    console.log(`[QuoteService] Dropped ${pending.length - updatedPending.length} quotes exceeding max retries`);
+                }
+                
+                if (updatedPending.length > 0) {
+                    await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+                } else {
+                    await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+                }
                 
                 return {
                     syncedCount: 0,
@@ -647,8 +667,17 @@ class QuoteService {
             const updatedPending = pending.map(p => ({
                 ...p,
                 retryCount: (p.retryCount || 0) + 1
-            }));
-            await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+            })).filter(p => (p.retryCount || 0) < MAX_RETRIES);
+            
+            if (updatedPending.length < pending.length) {
+                console.log(`[QuoteService] Dropped ${pending.length - updatedPending.length} quotes exceeding max retries`);
+            }
+            
+            if (updatedPending.length > 0) {
+                await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+            } else {
+                await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+            }
             
             return {
                 syncedCount: 0,
