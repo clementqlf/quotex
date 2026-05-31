@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">18.8% </span>
+                <span class="strong">18.97% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>69/367</span>
+                <span class='fraction'>70/369</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">11.39% </span>
+                <span class="strong">11.59% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>31/272</span>
+                <span class='fraction'>32/276</span>
             </div>
         
             
@@ -949,7 +949,11 @@
 <a name='L884'></a><a href='#L884'>884</a>
 <a name='L885'></a><a href='#L885'>885</a>
 <a name='L886'></a><a href='#L886'>886</a>
-<a name='L887'></a><a href='#L887'>887</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L887'></a><a href='#L887'>887</a>
+<a name='L888'></a><a href='#L888'>888</a>
+<a name='L889'></a><a href='#L889'>889</a>
+<a name='L890'></a><a href='#L890'>890</a>
+<a name='L891'></a><a href='#L891'>891</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1039,16 +1043,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1085,6 +1089,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1412,6 +1418,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1422,6 +1429,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1924,17 +1932,17 @@ class QuoteService {
 &nbsp;
 &nbsp;
     async getQuotes(): Promise&lt;Quote[]&gt; {
+        let timeoutId: any;
         // Try fetching from server first
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >controller.abort(),</span> 10000);
+            timeoutId = setTimeout(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >controller.abort(),</span> 10000);
 &nbsp;
             const headers = await this.getHeaders();
             const response = await fetch(this.API_URL!, {
                 signal: controller.signal,
                 headers
             });
-            clearTimeout(timeoutId);
 &nbsp;
             <span class="missing-if-branch" title="else path not taken" >E</span>if (response.ok) {
                 const serverQuotes = await response.json();
@@ -1971,6 +1979,8 @@ class QuoteService {
             }
         } catch (error) {
             console.log('Server unreachable, using local storage:', error);
+        } finally {
+            <span class="missing-if-branch" title="else path not taken" >E</span>if (timeoutId) clearTimeout(timeoutId);
         }
 &nbsp;
         // Fallback to local storage (offline mode)
@@ -2298,19 +2308,21 @@ class QuoteService {
      * Check if we have internet connection
      */
 <span class="fstat-no" title="function not covered" >    pr</span>ivate async checkConnection(): Promise&lt;boolean&gt; {
+        let timeoutId: any;
 <span class="cstat-no" title="statement not covered" >        try {</span>
             const controller = <span class="cstat-no" title="statement not covered" >new AbortController();</span>
-            const timeoutId = <span class="cstat-no" title="statement not covered" >setTimeout(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >controller.abort(),</span> 3000);</span>
+<span class="cstat-no" title="statement not covered" >            timeoutId = setTimeout(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >controller.abort(),</span> 3000);</span>
             
             const response = <span class="cstat-no" title="statement not covered" >await fetch(`${this.API_URL}`, {</span>
                 method: 'OPTIONS',
                 signal: controller.signal,
             });
             
-<span class="cstat-no" title="statement not covered" >            clearTimeout(timeoutId);</span>
 <span class="cstat-no" title="statement not covered" >            return response.ok;</span>
         } catch (error) {
 <span class="cstat-no" title="statement not covered" >            return false;</span>
+        } finally {
+<span class="cstat-no" title="statement not covered" >            if (timeoutId) <span class="cstat-no" title="statement not covered" >clearTimeout(timeoutId);</span></span>
         }
     }
 &nbsp;
@@ -2728,7 +2740,7 @@ export const quoteService = new QuoteService();
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-31T19:31:04.964Z
+                at 2026-05-31T19:39:43.477Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
