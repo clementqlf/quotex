@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../../entities/user/api/AuthService';
 import { User } from '../../shared/api/types';
 import { supabase } from '../../shared/api/supabase';
+import { UGCModerationService } from '../../shared/api/UGCModerationService';
 
 interface AuthContextType {
     user: User | null;
@@ -24,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         // Load initial state
+        UGCModerationService.init().catch(console.error);
         loadStoredAuth();
 
         // Listen for auth state changes (Supabase)
@@ -33,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setToken(session.access_token);
                 const profile = await authService.getUser();
                 setUser(profile);
+                UGCModerationService.syncWithServer().catch(console.error);
             } else {
                 setUser(null);
                 setToken(null);
@@ -54,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (storedUser && storedToken) {
                 setUser(storedUser);
                 setToken(storedToken);
+                UGCModerationService.syncWithServer().catch(console.error);
             }
         } catch (e) {
             console.error('Failed to load auth data', e);

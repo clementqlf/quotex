@@ -56,10 +56,7 @@ serve(async (req: Request) => {
         LEFT JOIN "Book" b ON b.id = i."bookId"
       `;
 
-      // Recalculate average rating
-      const aggRows = await sql`SELECT AVG(rating)::float as avg FROM "Review" WHERE "bookId" = ${bookId}`;
-      const newAvg = aggRows[0]?.avg ?? rating;
-      await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
+
 
       return json(newReview[0]);
     }
@@ -83,10 +80,7 @@ serve(async (req: Request) => {
         RETURNING *
       `;
 
-      const bookId = review[0].bookId;
-      const aggRows = await sql`SELECT AVG(rating)::float as avg FROM "Review" WHERE "bookId" = ${bookId}`;
-      const newAvg = aggRows[0]?.avg ?? 0;
-      await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
+
 
       return json(updated[0]);
     }
@@ -102,10 +96,7 @@ serve(async (req: Request) => {
 
       await sql`DELETE FROM "Review" WHERE id = ${idParam}`;
 
-      const bookId = review[0].bookId;
-      const aggRows = await sql`SELECT AVG(rating)::float as avg FROM "Review" WHERE "bookId" = ${bookId}`;
-      const newAvg = aggRows[0]?.avg ?? 0;
-      await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
+
 
       return json({ success: true });
     }

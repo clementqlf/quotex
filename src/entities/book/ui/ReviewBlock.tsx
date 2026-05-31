@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Image, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
-import { Star, User, Send, X, MoreHorizontal } from 'lucide-react-native';
+import { Star, User, Send, X, MoreHorizontal, Trash2 } from 'lucide-react-native';
 import { Review, User as UserType } from '@/src/shared/api/types';
 import { ReviewService } from '@/src/shared/api/ReviewService';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
@@ -24,9 +24,23 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const [comment, setComment] = useState('');
     const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
     const { user } = useAuth();
     const { navigateToUserProfile } = useSmartNavigation();
+
+    const myReview = useMemo(() => {
+        if (!user) return null;
+        return reviews.find(r => r.user && String(r.user.id) === String(user.id)) || null;
+    }, [reviews, user]);
+
+    const communityReviews = useMemo(() => {
+        if (!user) return reviews;
+        return reviews.filter(r => !r.user || String(r.user.id) !== String(user.id));
+    }, [reviews, user]);
+
+    useEffect(() => {
+        setRating(myReview?.rating || 0);
+        setComment(myReview?.comment || '');
+    }, [myReview?.id]);
 
     useEffect(() => {
         loadReviews();
@@ -105,27 +119,22 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         }
     };
 
-    const handleEditReview = (review: Review) => {
-        setEditingReviewId(review.id);
-        setRating(review.rating);
-        setComment(review.comment || '');
-        setAllReviewsVisible(false); // Close modal if open
-    };
-
-    const handleDeleteReview = (reviewId: number) => {
+    const handleDeleteMyReview = () => {
+        if (!myReview) return;
         Alert.alert(
             "Supprimer l'avis",
-            "Êtes-vous sûr de vouloir supprimer cet avis ?",
+            "Êtes-vous sûr de vouloir supprimer votre avis ?",
             [
                 { text: "Annuler", style: "cancel" },
                 { 
                     text: "Supprimer", 
                     style: "destructive",
                     onPress: async () => {
-                        const success = await ReviewService.deleteReview(reviewId);
+                        const success = await ReviewService.deleteReview(myReview.id);
                         if (success) {
-                            Alert.alert("Succès", "L'avis a été supprimé.");
+                            Alert.alert("Succès", "Votre avis a été supprimé.");
                             loadReviews();
+                            if (onReviewAdded) onReviewAdded();
                         } else {
                             Alert.alert("Erreur", "Impossible de supprimer l'avis.");
                         }
@@ -136,31 +145,16 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     };
 
     const handleReviewOptions = (review: Review) => {
-        const isMyReview = user && review.user && String(user.id) === String(review.user.id);
-        
-        if (isMyReview) {
-            Alert.alert(
-                "Options",
-                "Que souhaitez-vous faire avec votre avis ?",
-                [
-                    { text: "Modifier", onPress: () => handleEditReview(review) },
-                    { text: "Supprimer", style: "destructive", onPress: () => handleDeleteReview(review.id) },
-                    { text: "Annuler", style: "cancel" }
-                ],
-                { cancelable: true }
-            );
-        } else {
-            Alert.alert(
-                "Options",
-                "Que souhaitez-vous faire avec cet avis ?",
-                [
-                    { text: "Signaler ce contenu", onPress: () => handleReportReview(review.id) },
-                    { text: "Bloquer cet utilisateur", onPress: () => handleBlockUser(review.user?.id) },
-                    { text: "Annuler", style: "cancel" }
-                ],
-                { cancelable: true }
-            );
-        }
+        Alert.alert(
+            "Options",
+            "Que souhaitez-vous faire avec cet avis ?",
+            [
+                { text: "Signaler ce contenu", onPress: () => handleReportReview(review.id) },
+                { text: "Bloquer cet utilisateur", onPress: () => handleBlockUser(review.user?.id) },
+                { text: "Annuler", style: "cancel" }
+            ],
+            { cancelable: true }
+        );
     };
 
     const handlePublishReview = async () => {
@@ -174,18 +168,18 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             return;
         }
 
-        if (editingReviewId) {
-            const updatedReview = await ReviewService.updateReview(editingReviewId, {
+        if (myReview) {
+            const updatedReview = await ReviewService.updateReview(myReview.id, {
                 rating,
                 comment,
             });
 
             if (updatedReview) {
                 Alert.alert("Succès", "Votre avis a été mis à jour !");
-                setEditingReviewId(null);
-                setRating(0);
-                setComment('');
                 loadReviews();
+                if (onReviewAdded) {
+                    onReviewAdded();
+                }
             } else {
                 Alert.alert("Erreur", "Impossible de mettre à jour l'avis.");
             }
@@ -197,10 +191,8 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             });
 
             if (newReview) {
-                setReviews([newReview, ...reviews]);
-                setRating(0);
-                setComment('');
                 Alert.alert("Succès", "Votre avis a été publié !");
+                loadReviews();
                 if (onReviewAdded) {
                     onReviewAdded();
                 }
@@ -208,12 +200,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                 Alert.alert("Erreur", "Impossible de publier l'avis.");
             }
         }
-    };
-
-    const cancelEdit = () => {
-        setEditingReviewId(null);
-        setRating(0);
-        setComment('');
     };
 
     return (
@@ -253,21 +239,21 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     <View style={{ flexDirection: 'row', gap: 8 }}>
                         <TouchableOpacity style={[styles.publishButton, { flex: 1 }]} onPress={handlePublishReview}>
                             <Send size={14} color="#FFF" />
-                            <Text style={styles.publishButtonText}>{editingReviewId ? "Mettre à jour" : "Publier"}</Text>
+                            <Text style={styles.publishButtonText}>{myReview ? "Mettre à jour" : "Publier"}</Text>
                         </TouchableOpacity>
-                        {editingReviewId && (
-                            <TouchableOpacity style={[styles.publishButton, { backgroundColor: colors.surfaceHighlight, paddingHorizontal: 16 }]} onPress={cancelEdit}>
-                                <X size={14} color={colors.text} />
+                        {myReview && (
+                            <TouchableOpacity style={[styles.publishButton, { backgroundColor: colors.surfaceHighlight, paddingHorizontal: 16 }]} onPress={handleDeleteMyReview}>
+                                <Trash2 size={16} color={colors.warning} />
                             </TouchableOpacity>
                         )}
                     </View>
                 </View>
 
                 {/* Other reviews list */}
-                {reviews.length > 0 && (
+                {communityReviews.length > 0 && (
                     <View style={styles.reviewsList}>
                         <Text style={styles.subTitle}>Avis de la communauté</Text>
-                        {reviews.slice(0, 2).map((review) => (
+                        {communityReviews.slice(0, 2).map((review) => (
                             <View key={review.id} style={styles.reviewItem}>
                                 <View style={styles.reviewHeader}>
                                     <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
@@ -295,9 +281,9 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                 {review.comment && <Text style={styles.reviewComment}>{review.comment}</Text>}
                             </View>
                         ))}
-                        {reviews.length > 2 && (
+                        {communityReviews.length > 2 && (
                             <TouchableOpacity style={styles.seeAllReviewsButton} onPress={() => setAllReviewsVisible(true)}>
-                                <Text style={styles.seeAllReviewsText}>Voir les {reviews.length} avis</Text>
+                                <Text style={styles.seeAllReviewsText}>Voir les {communityReviews.length} avis</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -318,13 +304,13 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Avis ({reviews.length})</Text>
+                        <Text style={styles.modalTitle}>Avis ({communityReviews.length})</Text>
                         <TouchableOpacity onPress={() => setAllReviewsVisible(false)} style={styles.modalCloseButton}>
                             <X size={24} color={colors.text} />
                         </TouchableOpacity>
                     </View>
                     <ScrollView contentContainerStyle={styles.modalContent}>
-                        {reviews.map((review) => (
+                        {communityReviews.map((review) => (
                             <View key={review.id} style={styles.modalReviewItem}>
                                 <View style={styles.reviewHeader}>
                                     <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
