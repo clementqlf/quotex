@@ -10,6 +10,7 @@ interface TypingTextProps {
     style?: TextStyle | TextStyle[];
     containerStyle?: ViewStyle;
     highlightColor?: string;
+    numberOfLines?: number;
 }
 
 /**
@@ -24,6 +25,7 @@ export const TypingText: React.FC<TypingTextProps> = ({
     style,
     containerStyle,
     highlightColor = colors.dark.primary,
+    numberOfLines,
 }) => {
     const [displayText, setDisplayText] = useState<string>(isCorrected && originalText ? originalText : text);
     const [showCursor, setShowCursor] = useState<boolean>(false);
@@ -134,11 +136,11 @@ export const TypingText: React.FC<TypingTextProps> = ({
 
     // Render plain text if not animating/corrected
     if (!showCursor) {
-        return <Text style={style}>{text}</Text>;
+        return <Text style={style} numberOfLines={numberOfLines}>{text}</Text>;
     }
 
     return (
-        <Text style={style}>
+        <Text style={style} numberOfLines={numberOfLines}>
             {displayText}
             {showCursor && (
                 <Text style={[

@@ -10,6 +10,7 @@ import { ChevronDown } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { TypingText } from '@/src/shared/ui/TypingText';
 
 interface AuthorCardData {
   name: string;
@@ -44,7 +45,7 @@ const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
           </View>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={styles.bookCardTitle}>{author.name}</Text>
+          <TypingText style={styles.bookCardTitle} text={author.name} />
           <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
         </View>
         <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
