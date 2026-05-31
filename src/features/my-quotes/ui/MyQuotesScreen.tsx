@@ -340,62 +340,66 @@ export default function MyQuotesScreen() {
 
     if (activeFilters.length > 0) {
       elements.push(
-        <View key="filters" style={styles.filterContainer}>
-          {activeFilters.map((filter, index) => (
-            <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-              <Text style={styles.filterBadgeText}>
-                {filter.type === 'author' ? 'Auteur' :
-                  filter.type === 'book' ? 'Livre' :
-                    filter.type === 'year' ? 'Année' : 'Statut'}: {
-                  filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
-                }
-              </Text>
-              <X size={12} color={colors.primary} />
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
-        </View>
+        <React.Fragment key="filters">
+          <View style={styles.filterContainer}>
+            {activeFilters.map((filter, index) => (
+              <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
+                <Text style={styles.filterBadgeText}>
+                  {filter.type === 'author' ? 'Auteur' :
+                    filter.type === 'book' ? 'Livre' :
+                      filter.type === 'year' ? 'Année' : 'Statut'}: {
+                    filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
+                  }
+                </Text>
+                <X size={12} color={colors.primary} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
+          </View>
+        </React.Fragment>
       );
     }
 
     if (viewMode === 'books') {
       elements.push(
-        <View key="status-pills" style={{ marginBottom: 8 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.statusFilterContainer}
-            contentContainerStyle={styles.statusFilterContent}
-          >
-            <TouchableOpacity
-              onPress={() => setSelectedStatus('ALL')}
-              style={[
-                styles.statusFilterBadge,
-                selectedStatus === 'ALL' && styles.statusFilterBadgeActive
-              ]}
+        <React.Fragment key="status-pills">
+          <View style={{ marginBottom: 8 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.statusFilterContainer}
+              contentContainerStyle={styles.statusFilterContent}
             >
-              <Text style={[
-                styles.statusFilterText,
-                selectedStatus === 'ALL' && styles.statusFilterTextActive
-              ]}>Tout</Text>
-            </TouchableOpacity>
-            {STATUS_OPTIONS.map(opt => (
               <TouchableOpacity
-                key={opt.value}
-                onPress={() => setSelectedStatus(opt.value)}
+                onPress={() => setSelectedStatus('ALL')}
                 style={[
                   styles.statusFilterBadge,
-                  selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
+                  selectedStatus === 'ALL' && styles.statusFilterBadgeActive
                 ]}
               >
                 <Text style={[
                   styles.statusFilterText,
-                  selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
-                ]}>{opt.label}</Text>
+                  selectedStatus === 'ALL' && styles.statusFilterTextActive
+                ]}>Tout</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+              {STATUS_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => setSelectedStatus(opt.value)}
+                  style={[
+                    styles.statusFilterBadge,
+                    selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
+                  ]}
+                >
+                  <Text style={[
+                    styles.statusFilterText,
+                    selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+                  ]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </React.Fragment>
       );
     }
 
@@ -464,7 +468,6 @@ export default function MyQuotesScreen() {
             data={filteredBooksByStatus}
             renderItem={renderBookItem}
             keyExtractor={bookKeyExtractor}
-            estimatedItemSize={120}
             getItemType={() => 'book'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
@@ -478,7 +481,6 @@ export default function MyQuotesScreen() {
             data={authorsData}
             renderItem={renderAuthorItem}
             keyExtractor={authorKeyExtractor}
-            estimatedItemSize={90}
             getItemType={() => 'author'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
@@ -492,7 +494,6 @@ export default function MyQuotesScreen() {
             data={themes}
             renderItem={renderThemeItem}
             keyExtractor={themeKeyExtractor}
-            estimatedItemSize={70}
             getItemType={() => 'theme'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
@@ -507,7 +508,6 @@ export default function MyQuotesScreen() {
             data={quotesToDisplay}
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
-            estimatedItemSize={180}
             getItemType={() => 'quote'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}

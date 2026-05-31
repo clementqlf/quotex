@@ -24,6 +24,7 @@
     "@shopify/flash-list": "2.0.2",
     "@shopify/react-native-skia": "2.4.18",
     "@supabase/supabase-js": "^2.105.3",
+    "@tanstack/react-query": "^5.100.14",
     "expo": "~55.0.26",
     "expo-build-properties": "~55.0.14",
     "expo-constants": "~55.0.16",

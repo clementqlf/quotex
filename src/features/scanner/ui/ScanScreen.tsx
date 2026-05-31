@@ -21,7 +21,7 @@ import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import * as ExpoImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
