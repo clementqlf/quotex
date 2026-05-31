@@ -425,10 +425,9 @@ class QuoteService {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
             
-            const response = await fetch('https://www.google.com', {
+            const response = await fetch(`${this.API_URL}`, {
                 method: 'HEAD',
                 signal: controller.signal,
-                cache: 'no-store'
             });
             
             clearTimeout(timeoutId);
