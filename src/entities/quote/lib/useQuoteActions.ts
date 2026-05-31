@@ -15,7 +15,7 @@ export interface HandleConfirmSaveOptions {
 
 export const useQuoteActions = () => {
   const { addQuote, updateQuote, refreshQuotes } = useQuote();
-  const { refreshBooks } = useAuthor();
+  const { refreshBooks, refreshAuthors } = useAuthor();
   const { setTabIndex } = useTabIndex();
 
   /**
@@ -58,13 +58,12 @@ export const useQuoteActions = () => {
           options.onReset?.();
         }
 
-        // Toujours rafraîchir les quotes
-        await refreshQuotes();
-
-        // Si c'est une édition, rafraîchir aussi les livres (au cas où le titre a changé)
-        if (options.editingQuote) {
-          await refreshBooks();
-        }
+        // Toujours rafraîchir les quotes, livres et auteurs
+        await Promise.all([
+          refreshQuotes(),
+          refreshBooks(),
+          refreshAuthors()
+        ]);
 
       } catch (error) {
         console.error('[useQuoteActions] Error saving quote:', error);

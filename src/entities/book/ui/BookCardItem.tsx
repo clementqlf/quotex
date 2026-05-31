@@ -11,6 +11,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { getStatusColor, getStatusLabel } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { TypingText } from '@/src/shared/ui/TypingText';
 
 interface BookCardData {
   title: string;
@@ -57,13 +58,15 @@ const BookCardItem = React.memo(({ book }: BookCardItemProps) => {
         )}
         <View style={styles.bookCardInfo}>
           <View style={styles.bookCardHeader}>
-            <Text style={styles.bookCardTitle}>{book.title}</Text>
+            <TypingText style={styles.bookCardTitle} text={book.title} />
             {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
           </View>
           <View style={styles.authorRow}>
-            <Text style={styles.bookCardAuthor} numberOfLines={1}>
-              {book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
-            </Text>
+            <TypingText 
+              style={styles.bookCardAuthor} 
+              numberOfLines={1}
+              text={book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
+            />
             {book.readingStatus && statusStyle && (
               <View style={[styles.statusBadge, statusStyle]}>
                 <Text style={[styles.statusText, { color: getStatusColor(book.readingStatus) }]}>

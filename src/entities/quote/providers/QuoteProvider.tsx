@@ -3,6 +3,7 @@ import { Quote } from '@/src/shared/api/types';
 import { IQuoteRepository } from '../api/IQuoteRepository';
 import { SupabaseQuoteRepository } from '../api/SupabaseQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { authService } from '@/src/entities/user/api/AuthService';
 import { useNetworkSync, SyncStatus } from '@/src/entities/quote/lib/useNetworkSync';
 
 type QuoteContextType = {
@@ -101,6 +102,8 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
   const addQuote = useCallback(async (text: string, book?: string | null, author?: string | null) => {
     console.log('[QuoteProvider] addQuote called');
     
+    const user = await authService.getUser();
+    
     const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
     const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
     
@@ -116,6 +119,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
       isSaved: false,
       comments: 0,
       blockData: {},
+      user: user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
     };
     
     console.log('[QuoteProvider] Adding quote to local state, tempId:', tempId);
@@ -152,6 +156,17 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     loadCachedQuotes();
     refreshQuotes('initial load');
   }, [refreshQuotes]);
+
+  // Rafraîchir après un sync réussi
+  useEffect(() => {
+    if (syncStatus.lastSyncTime && syncStatus.pendingCount === 0) {
+      // Small delay to ensure the backend has finished its background enrichments
+      const timer = setTimeout(() => {
+        refreshQuotes('sync complete');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncStatus.lastSyncTime, syncStatus.pendingCount, refreshQuotes]);
 
   const contextValue = useMemo(() => ({
     quotes,

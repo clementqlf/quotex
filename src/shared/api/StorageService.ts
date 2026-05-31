@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
     BLOCK_LAYOUTS: 'block_layouts',
     BLOCK_DATA: 'block_data',
     PENDING_QUOTES: 'pending_quotes',
+    PENDING_OPERATIONS: 'pending_operations',
     AUTH_TOKEN: 'auth_token',
     USER_DATA: 'user_data',
     LAST_SYNC_TIME: 'last_sync_time',

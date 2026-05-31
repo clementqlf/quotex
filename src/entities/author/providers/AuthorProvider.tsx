@@ -4,6 +4,7 @@ import { IAuthorRepository } from '../api/IAuthorRepository';
 import { SupabaseAuthorRepository } from '../api/SupabaseAuthorRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { useNetworkSync } from '@/src/entities/quote/lib/useNetworkSync';
+import { useRealtimeBooks, useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
 
 type AuthorContextType = {
   authors: Author[];
@@ -141,6 +142,10 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
     refreshAuthors('initial load');
     refreshBooks('initial load');
   }, [refreshAuthors, refreshBooks]);
+
+  // Realtime updates pour les entités en cours d'enrichissement
+  useRealtimeBooks(books, refreshBooks);
+  useRealtimeAuthors(authors, refreshAuthors);
 
   const contextValue = useMemo(() => ({
     authors,

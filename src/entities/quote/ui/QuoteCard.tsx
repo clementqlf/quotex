@@ -50,55 +50,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
   const isBookEnriching = isEnriching(book);
   const isAuthorEnriching = isEnriching(author);
 
-  // Animation pour le titre du livre
-  const bookTitleScale = useSharedValue(1);
-  const bookTitleOpacity = useSharedValue(1);
-  const bookTitleAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: bookTitleScale.value }],
-    opacity: bookTitleOpacity.value,
-  }));
 
-  // Animation pour le nom de l'auteur
-  const authorScale = useSharedValue(1);
-  const authorAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: authorScale.value }],
-  }));
-
-  // Détecter les changements de titre/nom et déclencher les animations
-  const prevBookTitle = useRef(getBookTitle(quote.book));
-  const prevAuthorName = useRef(getAuthorName(quote.author));
-
-  useEffect(() => {
-    const currentTitle = getBookTitle(book);
-    const prevTitle = prevBookTitle.current;
-    
-    if (currentTitle && currentTitle !== prevTitle && prevTitle) {
-      // Animation: petit zoom + fade
-      bookTitleScale.value = withSequence(
-        withTiming(1.1, { duration: 150 }),
-        withSpring(1, { damping: 10, stiffness: 400 })
-      );
-      bookTitleOpacity.value = withSequence(
-        withTiming(0.7, { duration: 100 }),
-        withTiming(1, { duration: 200 })
-      );
-      prevBookTitle.current = currentTitle;
-    }
-  }, [book, bookTitleScale, bookTitleOpacity]);
-
-  useEffect(() => {
-    const currentName = getAuthorName(author);
-    const prevName = prevAuthorName.current;
-    
-    if (currentName && currentName !== prevName && prevName) {
-      // Animation: petit zoom
-      authorScale.value = withSequence(
-        withTiming(1.05, { duration: 150 }),
-        withSpring(1, { damping: 10, stiffness: 400 })
-      );
-      prevAuthorName.current = currentName;
-    }
-  }, [author, authorScale]);
 
   const handleShare = useCallback(async () => {
     try {
@@ -147,39 +99,23 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
               {isBookEnriching && !getBookTitle(book) ? (
                 <EnrichingSkeleton width={140} />
               ) : (
-                <Animated.View style={bookTitleAnimatedStyle}>
-                  {quote.syncCorrections?.book ? (
-                    <TypingText
-                      text={getBookTitle(book) || ''}
-                      originalText={quote.syncCorrections.book.original}
-                      isCorrected={true}
-                      style={[styles.bookTitle, { color: colors.text }]}
-                    />
-                  ) : (
-                    <Text style={[styles.bookTitle, { color: colors.text }]}>
-                      {getBookTitle(book)}
-                    </Text>
-                  )}
-                </Animated.View>
+                <TypingText
+                  text={getBookTitle(book) || ''}
+                  originalText={quote.syncCorrections?.book?.original}
+                  isCorrected={!!quote.syncCorrections?.book}
+                  style={[styles.bookTitle, { color: colors.text }]}
+                />
               )}
 
               {isAuthorEnriching && !getAuthorName(author) ? (
                 <EnrichingSkeleton width={80} height={12} />
               ) : (
-                <Animated.View style={authorAnimatedStyle}>
-                  {quote.syncCorrections?.author ? (
-                    <TypingText
-                      text={getAuthorName(author) || ''}
-                      originalText={quote.syncCorrections.author.original}
-                      isCorrected={true}
-                      style={[styles.authorName, { color: colors.primary }]}
-                    />
-                  ) : (
-                    <Text style={[styles.authorName, { color: colors.primary }]}>
-                      {getAuthorName(author)}
-                    </Text>
-                  )}
-                </Animated.View>
+                <TypingText
+                  text={getAuthorName(author) || ''}
+                  originalText={quote.syncCorrections?.author?.original}
+                  isCorrected={!!quote.syncCorrections?.author}
+                  style={[styles.authorName, { color: colors.primary }]}
+                />
               )}
             </View>
             <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>

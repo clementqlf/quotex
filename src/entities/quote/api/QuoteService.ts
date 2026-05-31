@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { supabase } from '@/src/shared/api/supabase';
+import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
@@ -21,7 +22,12 @@ interface PendingQuote {
     retryCount?: number;
 }
 
+const MAX_RETRIES = 10;
+
 class QuoteService {
+    private queue = OperationQueue.getInstance();
+    private isSyncing = false;
+
     private async seedDataIfNeeded(): Promise<void> {
         const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
         if (!storedQuotes) {
@@ -97,8 +103,21 @@ class QuoteService {
                 const serverQuotes = await response.json();
                 const mappedQuotes: Quote[] = serverQuotes.map((q: any) => this.mapQuoteFromServer(q));
 
+                // Add pending quotes that haven't been synced yet
+                const pendingQuotes = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+                const pendingIds = new Set(pendingQuotes.map(p => p.id));
+                
+                // Find full pending quotes from current local cache to preserve book/author objects
+                const currentLocalQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+                const pendingFullQuotes = currentLocalQuotes.filter(q => pendingIds.has(q.id as number));
+                
+                // If a pending quote wasn't in local cache for some reason, we can't easily rebuild it here, 
+                // but the current local cache should always have it since addQuote adds to both.
+                
+                const finalQuotes = [...pendingFullQuotes, ...mappedQuotes];
+
                 // Update local cache
-                await StorageService.setItem(STORAGE_KEYS.QUOTES, mappedQuotes);
+                await StorageService.setItem(STORAGE_KEYS.QUOTES, finalQuotes);
 
                 // Trigger sync of pending quotes in background (fire and forget)
                 this.syncPendingQuotes().then(result => {
@@ -156,6 +175,21 @@ class QuoteService {
     }
 
     async toggleLike(id: number): Promise<boolean> {
+        // 1. Déterminer l'état actuel pour savoir si on like ou unlike
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const quoteIndex = quotes.findIndex(q => q.id === id);
+        const quote = quotes[quoteIndex];
+        const newIsLiked = !(quote?.isLiked);
+
+        // 2. Mise à jour optimiste locale
+        if (quote) {
+            quote.isLiked = newIsLiked;
+            quote.likesCount += newIsLiked ? 1 : -1;
+            quotes[quoteIndex] = quote;
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+        }
+
+        // 3. Tenter l'appel serveur
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}/like`, {
@@ -166,25 +200,31 @@ class QuoteService {
                 const data = await response.json();
                 return data.isLiked;
             }
+            throw new Error(`Server returned ${response.status}`);
         } catch (e) {
             console.error('Error toggling like:', e);
+            // 4. En cas d'échec, ajouter à la queue offline
+            await this.queue.enqueue({
+                type: newIsLiked ? 'LIKE' : 'UNLIKE',
+                entityType: 'quote',
+                entityId: id,
+            });
+            return newIsLiked;  // Retourner l'état optimiste
         }
-
-        // Local fallback (legacy)
-        const quotes = await this.getQuotes();
-        const quoteIndex = quotes.findIndex(q => q.id === id);
-        if (quoteIndex > -1) {
-            const quote = quotes[quoteIndex];
-            quote.isLiked = !quote.isLiked;
-            quote.likesCount += quote.isLiked ? 1 : -1;
-            quotes[quoteIndex] = quote;
-            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-            return quote.isLiked;
-        }
-        return false;
     }
 
     async toggleSave(id: number): Promise<boolean> {
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const quoteIndex = quotes.findIndex(q => q.id === id);
+        const quote = quotes[quoteIndex];
+        const newIsSaved = !(quote?.isSaved);
+
+        if (quote) {
+            quote.isSaved = newIsSaved;
+            quotes[quoteIndex] = quote;
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/${id}/toggle-save`, {
@@ -195,24 +235,24 @@ class QuoteService {
                 const data = await response.json();
                 return data.isSaved;
             }
+            throw new Error(`Server returned ${response.status}`);
         } catch (e) {
             console.error('Error toggling save:', e);
+            await this.queue.enqueue({
+                type: newIsSaved ? 'SAVE' : 'UNSAVE',
+                entityType: 'quote',
+                entityId: id,
+            });
+            return newIsSaved;
         }
-
-        // Local fallback
-        const quotes = await this.getQuotes();
-        const quoteIndex = quotes.findIndex(q => q.id === id);
-        if (quoteIndex > -1) {
-            const quote = quotes[quoteIndex];
-            quote.isSaved = !quote.isSaved;
-            quotes[quoteIndex] = quote;
-            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-            return quote.isSaved;
-        }
-        return false;
     }
 
     async deleteQuote(id: number): Promise<void> {
+        // Optimistic local delete
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const newQuotes = quotes.filter(q => q.id !== id);
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, newQuotes);
+
         try {
             console.log('Deleting quote on server:', id);
             const headers = await this.getHeaders();
@@ -223,17 +263,17 @@ class QuoteService {
 
             if (response.ok) {
                 console.log('Quote deleted on server');
-                // Could also update cache here
+            } else {
+                throw new Error(`Server returned ${response.status}`);
             }
         } catch (error) {
             console.error('Network error deleting quote:', error);
+            await this.queue.enqueue({
+                type: 'DELETE',
+                entityType: 'quote',
+                entityId: id,
+            });
         }
-
-        // Optimistic local delete
-        await delay(300);
-        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-        const newQuotes = quotes.filter(q => q.id !== id);
-        await StorageService.setItem(STORAGE_KEYS.QUOTES, newQuotes);
     }
 
     async addQuote(text: string, book?: string | null, author?: string | null): Promise<number> {
@@ -425,10 +465,9 @@ class QuoteService {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
             
-            const response = await fetch('https://www.google.com', {
-                method: 'HEAD',
+            const response = await fetch(`${this.API_URL}`, {
+                method: 'OPTIONS',
                 signal: controller.signal,
-                cache: 'no-store'
             });
             
             clearTimeout(timeoutId);
@@ -491,12 +530,20 @@ class QuoteService {
         errors: Array<{ quote: PendingQuote; error: string }>;
         corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
     }> {
+        if (this.isSyncing) {
+            console.log('[QuoteService] Sync already in progress, skipping');
+            return { syncedCount: 0, total: 0, errors: [], corrections: [] };
+        }
+        
+        // Block concurrent calls immediately
+        this.isSyncing = true;
+
         const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES);
         if (!pending || pending.length === 0) {
             console.log('No pending quotes to sync');
+            this.isSyncing = false;
             return { syncedCount: 0, total: 0, errors: [], corrections: [] };
         }
-
         console.log(`[QuoteService] Syncing ${pending.length} pending quotes...`);
         
         const user = await authService.getUser();
@@ -546,7 +593,7 @@ class QuoteService {
                 
                 // Build a map of successfully synced quote IDs (from the request)
                 // The server returns errors, so any quote NOT in errors was synced
-                const errorQuoteIds = new Set(errors.map(e => e.quote.id));
+                const errorQuoteIds = new Set(errors.map(e => String(e.quote.id)));
                 
                 // Update local quotes with corrections
                 const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
@@ -606,16 +653,26 @@ class QuoteService {
                 
                 // Save remaining pending quotes
                 if (remaining.length > 0) {
-                    await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, remaining);
+                    const validRemaining = remaining.filter(p => (p.retryCount || 0) < MAX_RETRIES);
+                    if (validRemaining.length < remaining.length) {
+                        console.log(`[QuoteService] Dropped ${remaining.length - validRemaining.length} quotes exceeding max retries`);
+                    }
+                    
+                    if (validRemaining.length > 0) {
+                        await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, validRemaining);
+                    } else {
+                        await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+                    }
                 } else {
                     await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
                 }
                 
+                this.isSyncing = false;
                 return {
                     syncedCount: result.syncedCount || (pending.length - remaining.length),
                     total: pending.length,
                     errors: errors.map(e => ({
-                        quote: pending.find(p => String(p.id) === e.quote.id) || e.quote,
+                        quote: pending.find(p => String(p.id) === String(e.quote.id)) || e.quote,
                         error: e.error
                     })),
                     corrections: corrections
@@ -628,9 +685,19 @@ class QuoteService {
                 const updatedPending = pending.map(p => ({
                     ...p,
                     retryCount: (p.retryCount || 0) + 1
-                }));
-                await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+                })).filter(p => (p.retryCount || 0) < MAX_RETRIES);
                 
+                if (updatedPending.length < pending.length) {
+                    console.log(`[QuoteService] Dropped ${pending.length - updatedPending.length} quotes exceeding max retries`);
+                }
+                
+                if (updatedPending.length > 0) {
+                    await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+                } else {
+                    await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+                }
+                
+                this.isSyncing = false;
                 return {
                     syncedCount: 0,
                     total: pending.length,
@@ -648,9 +715,19 @@ class QuoteService {
             const updatedPending = pending.map(p => ({
                 ...p,
                 retryCount: (p.retryCount || 0) + 1
-            }));
-            await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+            })).filter(p => (p.retryCount || 0) < MAX_RETRIES);
             
+            if (updatedPending.length < pending.length) {
+                console.log(`[QuoteService] Dropped ${pending.length - updatedPending.length} quotes exceeding max retries`);
+            }
+            
+            if (updatedPending.length > 0) {
+                await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, updatedPending);
+            } else {
+                await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+            }
+            
+            this.isSyncing = false;
             return {
                 syncedCount: 0,
                 total: pending.length,
@@ -745,6 +822,14 @@ class QuoteService {
     }
 
     async updateQuote(id: number, updates: Partial<Quote>): Promise<void> {
+        // Maintain local cache update for offline/responsiveness
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const quoteIndex = quotes.findIndex(q => q.id === id);
+        if (quoteIndex > -1) {
+            quotes[quoteIndex] = { ...quotes[quoteIndex], ...updates };
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+        }
+
         // Prefer names for author and book in the payload to match backend "find or create" logic
         const payload: any = { ...updates };
         if (updates.author) {
@@ -767,18 +852,16 @@ class QuoteService {
                 console.log('Quote updated on server successfully');
             } else {
                 console.error('Failed to update quote on server:', await response.text());
+                throw new Error(`Server returned ${response.status}`);
             }
         } catch (error) {
             console.error('Network error updating quote:', error);
-        }
-
-        // Maintain local cache update for offline/responsiveness
-        await delay(100);
-        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-        const quoteIndex = quotes.findIndex(q => q.id === id);
-        if (quoteIndex > -1) {
-            quotes[quoteIndex] = { ...quotes[quoteIndex], ...updates };
-            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+            await this.queue.enqueue({
+                type: 'UPDATE',
+                entityType: 'quote',
+                entityId: id,
+                payload,
+            });
         }
     }
 

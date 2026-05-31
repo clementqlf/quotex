@@ -38,12 +38,29 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
   const fallbackTriggeredRef = React.useRef(false);
 
   useEffect(() => {
-    // Si pas d'ID ou pas d'enrichissement en cours, on garde la valeur initiale
+    // 1. Synchroniser le state local avec les nouvelles props (initialData)
+    // Cela permet d'afficher les corrections du serveur immédiatement (ex: majuscules)
+    // même si l'entité est encore en cours d'enrichissement.
+    setData((currentData) => {
+      const currentIsEnriching = currentData && typeof currentData === 'object' && (currentData as any)[enrichingField];
+      const initialIsEnriching = initialData && typeof initialData === 'object' && (initialData as any)[enrichingField];
+      
+      // On évite d'écraser des données fraîches (enrichissement terminé) par des props périmées
+      const isStale = currentData && initialData && 
+                      typeof currentData === 'object' && typeof initialData === 'object' &&
+                      (currentData as any).id === (initialData as any).id && 
+                      currentIsEnriching === false && 
+                      initialIsEnriching === true;
+                      
+      return isStale ? currentData : initialData;
+    });
+
+    // 2. Décider si on doit souscrire aux mises à jour Realtime
     const isEnriching = initialData && typeof initialData === 'object' && 
       (initialData as any)[enrichingField];
     
+    // Si pas d'ID ou pas d'enrichissement en cours, on s'arrête là (pas de Realtime)
     if (!id || !isEnriching) {
-      setData(initialData);
       return;
     }
 
@@ -54,8 +71,9 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
       try {
         console.log(`[Realtime] Subscribing to ${table} ${id}`);
         
+        const uniqueId = Math.random().toString(36).substring(2, 9);
         channel = supabase
-          .channel(`${table.toLowerCase()}_${id}_enrichment`)
+          .channel(`${table.toLowerCase()}_${id}_enrichment_${uniqueId}`)
           .on(
             'postgres_changes',
             {
@@ -183,8 +201,9 @@ export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
     const channels: any[] = [];
 
     enrichingBookIds.forEach(bookId => {
+      const uniqueId = Math.random().toString(36).substring(2, 9);
       const channel = supabase
-        .channel(`book_${bookId}_modal`)
+        .channel(`book_${bookId}_modal_${uniqueId}`)
         .on(
           'postgres_changes',
           {
@@ -229,8 +248,9 @@ export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void)
     const channels: any[] = [];
 
     enrichingAuthorIds.forEach(authorId => {
+      const uniqueId = Math.random().toString(36).substring(2, 9);
       const channel = supabase
-        .channel(`author_${authorId}_modal`)
+        .channel(`author_${authorId}_modal_${uniqueId}`)
         .on(
           'postgres_changes',
           {

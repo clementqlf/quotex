@@ -4,8 +4,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // Retrieve credentials from expo configuration extra field
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 'https://neurbzkkfxrjzjykthtn.supabase.co';
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldXJiemtrZnhyanpqeWt0aHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTc1NzcsImV4cCI6MjA5MzI5MzU3N30.vwvQQCjuIfCwcJ1vyrPt1bx09_oouKATvNQnO4axIvQ';
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+
+if (!supabaseUrl) {
+  throw new Error('Supabase URL is missing from Expo configuration (extra.supabaseUrl)');
+}
+if (!supabaseAnonKey) {
+  throw new Error('Supabase Anon Key is missing from Expo configuration (extra.supabaseAnonKey)');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
