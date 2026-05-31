@@ -1,4 +1,4 @@
-# Politique de Confidentialité – Quotex
+# Politique de Confidentialité – <img src="../assets/images/frame.svg" alt="Quotex" height="30" style="vertical-align: middle;">
 
 **Date de dernière mise à jour : 30 mai 2026**
 
