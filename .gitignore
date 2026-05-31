@@ -17,9 +17,12 @@ dist/
 web-build/
 
 # Dependency and cache directories
-node_modules/
 .expo/
 .expo-shared/
 .DS_Store
-node_modules
-node_modules
+node_modules/
+.DS_Store
+.expo/
+dist/
+build/
+.env
