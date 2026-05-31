@@ -231,7 +231,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (book) {
             setBooks(prev => {
                 const existing = prev.find(b => b.id === book.id);
-                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                if (existing && existing.lastEnrichedAt === book.lastEnrichedAt && existing.lastEnrichedAt !== undefined) {
                     return prev;
                 }
                 const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
@@ -250,7 +250,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (book) {
             setBooks(prev => {
                 const existing = prev.find(b => b.id === id);
-                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                if (existing && existing.lastEnrichedAt === book.lastEnrichedAt && existing.lastEnrichedAt !== undefined) {
                     return prev;
                 }
                 const updated = prev.map(b => b.id === id ? { ...b, ...book } : b);
@@ -269,7 +269,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (book) {
             setBooks(prev => {
                 const existing = prev.find(b => b.id === book.id);
-                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                if (existing && existing.lastEnrichedAt === book.lastEnrichedAt && existing.lastEnrichedAt !== undefined) {
                     return prev;
                 }
                 const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
@@ -300,7 +300,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         if (book) {
             setBooks(prev => {
                 const existing = prev.find(b => b.id === book.id);
-                if (existing && JSON.stringify(existing) === JSON.stringify(book)) {
+                if (existing && existing.lastEnrichedAt === book.lastEnrichedAt && existing.lastEnrichedAt !== undefined) {
                     return prev;
                 }
                 const updated = prev.map(b => b.id === book.id ? { ...b, ...book } : b);
