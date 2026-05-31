@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { 
-  ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock, 
-  CheckCircle2, XCircle, Database, Trash2, FileText 
+import {
+  ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock,
+  CheckCircle2, XCircle, Database, Trash2, FileText
 } from 'lucide-react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -48,8 +48,8 @@ export default function SettingsScreen() {
       "Entrez votre nouveau nom d'utilisateur (commençant par @)",
       [
         { text: "Annuler", style: "cancel" },
-        { 
-          text: "Enregistrer", 
+        {
+          text: "Enregistrer",
           onPress: async (newUsername: string | undefined) => {
             if (!newUsername) return;
             setIsUpdating(true);
@@ -61,7 +61,7 @@ export default function SettingsScreen() {
             } finally {
               setIsUpdating(false);
             }
-          } 
+          }
         }
       ],
       'plain-text',
@@ -99,9 +99,9 @@ export default function SettingsScreen() {
       "Êtes-vous sûr de vouloir vous déconnecter ?",
       [
         { text: "Annuler", style: "cancel" },
-        { 
-          text: "Se déconnecter", 
-          style: "destructive", 
+        {
+          text: "Se déconnecter",
+          style: "destructive",
           onPress: async () => {
             try {
               await logout();
@@ -109,7 +109,7 @@ export default function SettingsScreen() {
             } catch (error) {
               console.error("Logout error", error);
             }
-          } 
+          }
         }
       ]
     );
@@ -121,9 +121,9 @@ export default function SettingsScreen() {
       "Êtes-vous sûr de vouloir supprimer définitivement votre compte et toutes vos citations ? Cette action est irréversible.",
       [
         { text: "Annuler", style: "cancel" },
-        { 
-          text: "Supprimer", 
-          style: "destructive", 
+        {
+          text: "Supprimer",
+          style: "destructive",
           onPress: async () => {
             try {
               setIsUpdating(true);
@@ -135,7 +135,7 @@ export default function SettingsScreen() {
             } finally {
               setIsUpdating(false);
             }
-          } 
+          }
         }
       ]
     );
@@ -147,9 +147,9 @@ export default function SettingsScreen() {
       "Cela va vider tout le cache de l'application (images, données locales et fichiers temporaires). Les données seront re-téléchargées lors de votre prochaine visite.",
       [
         { text: "Annuler", style: "cancel" },
-        { 
-          text: "Vider", 
-          style: "destructive", 
+        {
+          text: "Vider",
+          style: "destructive",
           onPress: async () => {
             try {
               // 1. Clear ExpoImage caches
@@ -161,7 +161,7 @@ export default function SettingsScreen() {
               if (cacheDir) {
                 const files = await FileSystem.readDirectoryAsync(cacheDir);
                 for (const file of files) {
-                  await FileSystem.deleteAsync(cacheDir + file, { idempotent: true }).catch(() => {});
+                  await FileSystem.deleteAsync(cacheDir + file, { idempotent: true }).catch(() => { });
                 }
               }
 
@@ -185,15 +185,15 @@ export default function SettingsScreen() {
               console.error("Clear cache error", error);
               Alert.alert("Erreur", "Impossible de vider le cache.");
             }
-          } 
+          }
         }
       ]
     );
   };
 
   const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: any) => (
-    <TouchableOpacity 
-      style={styles.settingItem} 
+    <TouchableOpacity
+      style={styles.settingItem}
       onPress={onPress}
       disabled={type === 'switch'}
     >
@@ -203,11 +203,11 @@ export default function SettingsScreen() {
         </View>
         <Text style={styles.settingItemTitle}>{title}</Text>
       </View>
-      
+
       {type === 'chevron' && <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />}
       {type === 'switch' && (
-        <Switch 
-          value={value} 
+        <Switch
+          value={value}
           onValueChange={onPress}
           trackColor={{ false: '#767577', true: colors.primary }}
           thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
@@ -236,25 +236,25 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Compte</Text>
             <View style={styles.sectionCard}>
-              <SettingItem 
-                icon={User} 
-                title="Nom d'utilisateur" 
-                onPress={handleUpdateUsername} 
+              <SettingItem
+                icon={User}
+                title="Nom d'utilisateur"
+                onPress={handleUpdateUsername}
               />
-              <SettingItem 
-                icon={Lock} 
-                title="Mot de passe" 
-                onPress={() => setIsPasswordModalVisible(true)} 
+              <SettingItem
+                icon={Lock}
+                title="Mot de passe"
+                onPress={() => setIsPasswordModalVisible(true)}
               />
-              <SettingItem 
-                icon={Bell} 
-                title="Notifications" 
-                onPress={() => {}} 
+              <SettingItem
+                icon={Bell}
+                title="Notifications"
+                onPress={() => { }}
               />
-              <SettingItem 
-                icon={Trash2} 
-                title="Supprimer mon compte" 
-                onPress={handleDeleteAccount} 
+              <SettingItem
+                icon={Trash2}
+                title="Supprimer mon compte"
+                onPress={handleDeleteAccount}
               />
             </View>
           </View>
@@ -263,17 +263,17 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Application</Text>
             <View style={styles.sectionCard}>
-              <SettingItem 
-                icon={Moon} 
-                title="Mode Sombre" 
+              <SettingItem
+                icon={Moon}
+                title="Mode Sombre"
                 type="switch"
                 value={isDark}
-                onPress={() => {}} // Hook theme toggle here if available
+                onPress={() => { }} // Hook theme toggle here if available
               />
-              <SettingItem 
-                icon={CircleHelp} 
-                title="Aide & Support" 
-                onPress={() => {}} 
+              <SettingItem
+                icon={CircleHelp}
+                title="Aide & Support"
+                onPress={() => { }}
               />
             </View>
           </View>
@@ -282,10 +282,10 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stockage et Données</Text>
             <View style={styles.sectionCard}>
-              <SettingItem 
-                icon={Trash2} 
-                title="Vider le cache" 
-                onPress={handleClearCache} 
+              <SettingItem
+                icon={Trash2}
+                title="Vider le cache"
+                onPress={handleClearCache}
               />
             </View>
             <Text style={styles.sectionFooter}>
@@ -297,15 +297,15 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Légal</Text>
             <View style={styles.sectionCard}>
-              <SettingItem 
-                icon={FileText} 
-                title="Conditions Générales d'Utilisation" 
-                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/docs/CGU.html')} 
+              <SettingItem
+                icon={FileText}
+                title="Conditions Générales d'Utilisation"
+                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/CGU/')}
               />
-              <SettingItem 
-                icon={Shield} 
-                title="Politique de Confidentialité" 
-                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/docs/confidentialite.html')} 
+              <SettingItem
+                icon={Shield}
+                title="Politique de Confidentialité"
+                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/confidentialite/')}
               />
             </View>
           </View>
@@ -314,7 +314,7 @@ export default function SettingsScreen() {
           <View style={{ flex: 1, minHeight: 40 }} />
 
           {/* Logout Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
           >
@@ -339,7 +339,7 @@ export default function SettingsScreen() {
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Changer le mot de passe</Text>
-            
+
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
               <View style={styles.inputWrapper}>
@@ -399,7 +399,7 @@ export default function SettingsScreen() {
 
               <TouchableOpacity
                 style={[
-                  styles.modalButton, 
+                  styles.modalButton,
                   styles.modalButtonSave,
                   (isUpdating || !newPassword || newPassword !== confirmPassword || newPassword.length < 6) && styles.modalButtonDisabled
                 ]}

@@ -233,7 +233,19 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   async getUserByUsername(username: string): Promise<any> {
-    // À implémenter avec Supabase
+    try {
+      const headers = await this.getHeaders();
+      const cleanUsername = username.replace('@', '');
+      const response = await fetch(`${API_BASE_URL}/users/${cleanUsername}`, { headers });
+
+      if (response.ok) {
+        return await response.json();
+      } else {
+        console.error('getUserByUsername error:', response.status, await response.text());
+      }
+    } catch (e) {
+      console.log('Error fetching user:', e);
+    }
     return null;
   }
 }
