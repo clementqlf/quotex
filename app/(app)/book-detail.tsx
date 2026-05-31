@@ -1,12 +1,6 @@
-import React, { Suspense } from 'react';
-import { ScreenFallback } from '@/src/shared/ui/ScreenFallback';
-
-const BookDetailScreen = React.lazy(() => import('@/src/entities/book/ui/BookDetail'));
+import React from 'react';
+import BookDetailScreen from '@/src/entities/book/ui/BookDetail';
 
 export default function BookDetail() {
-	return (
-		<Suspense fallback={<ScreenFallback />}>
-			<BookDetailScreen />
-		</Suspense>
-	);
+	return <BookDetailScreen />;
 }

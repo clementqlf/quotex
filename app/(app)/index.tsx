@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Animated, { 
@@ -7,15 +7,14 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { PageIndicator } from '@/src/shared/ui/PageIndicator';
-import { ScreenFallback } from '@/src/shared/ui/ScreenFallback';
 
 import { TabIndexContext, SwipeEnabledContext } from '@/src/app/providers/TabContext';
 
-const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
+import MyQuotesScreen from '@/src/features/my-quotes/ui/MyQuotesScreen';
+import ScanScreen from '@/src/features/scanner/ui/ScanScreen';
+import SocialFeedScreen from '@/src/features/social/ui/SocialFeedScreen';
 
-const MyQuotesScreen = React.lazy(() => import('@/src/features/my-quotes/ui/MyQuotesScreen'));
-const ScanScreen = React.lazy(() => import('@/src/features/scanner/ui/ScanScreen'));
-const SocialFeedScreen = React.lazy(() => import('@/src/features/social/ui/SocialFeedScreen'));
+const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 export default function Index() {
   const [index, setIndex] = useState(1);
@@ -52,19 +51,13 @@ export default function Index() {
             scrollEnabled={swipeEnabled}
           >
             <View key="0">
-              <Suspense fallback={<ScreenFallback />}>
-                <MyQuotesScreen />
-              </Suspense>
+              <MyQuotesScreen />
             </View>
             <View key="1">
-              <Suspense fallback={<ScreenFallback />}>
-                <ScanScreen />
-              </Suspense>
+              <ScanScreen />
             </View>
             <View key="2">
-              <Suspense fallback={<ScreenFallback />}>
-                <SocialFeedScreen />
-              </Suspense>
+              <SocialFeedScreen />
             </View>
           </AnimatedPagerView>
 

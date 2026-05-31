@@ -1,14 +1,8 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { ScreenFallback } from '@/src/shared/ui/ScreenFallback';
-
-const PrizeDetailScreen = React.lazy(() => import('@/src/features/prizes/ui/PrizeDetailScreen'));
+import PrizeDetailScreen from '@/src/features/prizes/ui/PrizeDetailScreen';
 
 export default function PrizeDetail() {
     const { prizeId, prizeData } = useLocalSearchParams<{ prizeId?: string; prizeData?: string }>();
-        return (
-            <Suspense fallback={<ScreenFallback />}>
-                <PrizeDetailScreen prizeId={prizeId ? parseInt(prizeId) : undefined} prizeData={prizeData} />
-            </Suspense>
-        );
+    return <PrizeDetailScreen prizeId={prizeId ? parseInt(prizeId) : undefined} prizeData={prizeData} />;
 }
