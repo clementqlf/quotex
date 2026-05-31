@@ -29,6 +29,8 @@ import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as WebBrowser from 'expo-web-browser';
 
+import * as Linking from 'expo-linking';
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
@@ -41,6 +43,19 @@ export default function SettingsScreen() {
   const [isPasswordModalVisible, setIsPasswordModalVisible] = React.useState(false);
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
+
+  const handleOpenLink = async (url: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch (error) {
+      console.warn("Failed to open with WebBrowser, trying Linking fallback:", error);
+      try {
+        await Linking.openURL(url);
+      } catch (linkError) {
+        Alert.alert("Erreur", "Impossible d'ouvrir le lien dans le navigateur.");
+      }
+    }
+  };
 
   const handleUpdateUsername = () => {
     Alert.prompt(
@@ -300,12 +315,12 @@ export default function SettingsScreen() {
               <SettingItem
                 icon={FileText}
                 title="Conditions Générales d'Utilisation"
-                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/CGU/')}
+                onPress={() => handleOpenLink('https://clementqlf.github.io/quotex/cgu/')}
               />
               <SettingItem
                 icon={Shield}
                 title="Politique de Confidentialité"
-                onPress={() => WebBrowser.openBrowserAsync('https://clementqlf.github.io/quotex/confidentialite/')}
+                onPress={() => handleOpenLink('https://clementqlf.github.io/quotex/confidentialite/')}
               />
             </View>
           </View>
