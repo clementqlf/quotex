@@ -21,17 +21,13 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 describe('BuyLinkBlock Component', () => {
-  const mockBook: Book = {
-    id: '1',
+  const mockBook = {
+    id: 1,
     isbn: '1234567890',
     title: 'Le Petit Prince',
-    author: { id: 'a1', name: 'Antoine de Saint-Exupéry' },
-    coverUrl: '',
-    description: '',
-    publishDate: '',
-    publisher: '',
+    author: { id: 1, name: 'Antoine de Saint-Exupéry' },
     status: 'to_read'
-  };
+  } as unknown as Book;
 
   beforeEach(() => {
     jest.clearAllMocks();

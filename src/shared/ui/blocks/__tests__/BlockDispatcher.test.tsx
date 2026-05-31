@@ -10,16 +10,27 @@ jest.mock('@/src/app/providers/ThemeContext', () => ({
 }));
 
 // Mocks des sous-composants pour isoler le test du Dispatcher
-jest.mock('../BuyLinkBlock', () => ({
-  BuyLinkBlock: () => <View testID="mock-buy-block" />
-}));
+jest.mock('../BuyLinkBlock', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    BuyLinkBlock: (props: any) => React.createElement(View, { ...props, testID: "mock-buy-block" })
+  };
+});
 
-jest.mock('../NotesBlock', () => ({
-  NotesBlock: ({ onUpdate }: any) => {
-    // Simuler un appel de callback via une fonction attachée aux props
-    return <View testID="mock-notes-block" onTouchEnd={() => onUpdate('Nouveau texte')} />
-  }
-}));
+jest.mock('../NotesBlock', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    NotesBlock: ({ onUpdate, ...props }: any) => {
+      return React.createElement(View, { 
+        ...props,
+        testID: "mock-notes-block", 
+        onTouchEnd: () => onUpdate('Nouveau texte') 
+      });
+    }
+  };
+});
 
 describe('BlockDispatcher Component', () => {
   beforeEach(() => {
