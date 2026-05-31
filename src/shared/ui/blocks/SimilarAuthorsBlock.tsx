@@ -12,7 +12,7 @@ interface SimilarAuthorsBlockProps {
     onRemove?: () => void;
 }
 
-export const SimilarAuthorsBlock: React.FC<SimilarAuthorsBlockProps> = ({ authors, onAuthorPress, onRemove }) => {
+const SimilarAuthorsBlockUI: React.FC<SimilarAuthorsBlockProps> = ({ authors, onAuthorPress, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -48,6 +48,13 @@ export const SimilarAuthorsBlock: React.FC<SimilarAuthorsBlockProps> = ({ author
         </BlockWrapper>
     );
 };
+
+export const SimilarAuthorsBlock = React.memo(SimilarAuthorsBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.authors.length === nextProps.authors.length &&
+        prevProps.authors.every((a, i) => a.id === nextProps.authors[i].id)
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {

@@ -26,7 +26,7 @@ interface ConnectionBlockProps {
     onNavigate?: (type: 'book' | 'author', id: string | number, uri?: string) => void;
 }
 
-export const ConnectionBlock: React.FC<ConnectionBlockProps> = ({
+const ConnectionBlockUI: React.FC<ConnectionBlockProps> = ({
     blockId,
     blockKey = 'connection',
     data,
@@ -87,6 +87,14 @@ export const ConnectionBlock: React.FC<ConnectionBlockProps> = ({
         </BlockWrapper>
     );
 };
+
+export const ConnectionBlock = React.memo(ConnectionBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.data?.id === nextProps.data?.id &&
+        prevProps.data?.type === nextProps.data?.type &&
+        prevProps.blockId === nextProps.blockId
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     emptyButton: {

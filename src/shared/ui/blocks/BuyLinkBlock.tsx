@@ -13,7 +13,7 @@ interface BuyLinkBlockProps {
     onRemove?: () => void;
 }
 
-export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
+const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -119,6 +119,11 @@ export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) =>
         </BlockWrapper>
     );
 };
+
+export const BuyLinkBlock = React.memo(BuyLinkBlockUI, (prevProps, nextProps) => {
+    return prevProps.book?.isbn === nextProps.book?.isbn &&
+           prevProps.book?.title === nextProps.book?.title;
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     buyLinksList: {

@@ -14,7 +14,7 @@ interface NotesBlockProps {
     onRemove?: () => void;
 }
 
-export const NotesBlock: React.FC<NotesBlockProps> = ({
+const NotesBlockUI: React.FC<NotesBlockProps> = ({
     blockKey = 'notes',
     content,
     onUpdate,
@@ -41,6 +41,14 @@ export const NotesBlock: React.FC<NotesBlockProps> = ({
         </BlockWrapper>
     );
 };
+
+export const NotesBlock = React.memo(NotesBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.blockKey === nextProps.blockKey &&
+        prevProps.content === nextProps.content &&
+        prevProps.isEditable === nextProps.isEditable
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     notesInput: {

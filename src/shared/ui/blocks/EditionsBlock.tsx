@@ -53,7 +53,7 @@ const resolveLanguage = (uri: string | null): string => {
     return LANGUAGE_LABELS[uri] || uri.replace('wd:', '');
 };
 
-export const EditionsBlock: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
+const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -187,6 +187,10 @@ export const EditionsBlock: React.FC<EditionsBlockProps> = ({ book, onRemove }) 
         </BlockWrapper>
     );
 };
+
+export const EditionsBlock = React.memo(EditionsBlockUI, (prevProps, nextProps) => {
+    return prevProps.book?.id === nextProps.book?.id;
+});
 
 const createStyles = (colors: ThemeColors) =>
     StyleSheet.create({

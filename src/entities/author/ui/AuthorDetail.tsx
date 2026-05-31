@@ -560,6 +560,8 @@ export default function AuthorDetailScreen() {
                 <FlashList
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
+                  estimatedItemSize={100}
+                  getItemType={() => 'work'}
                   contentContainerStyle={{ padding: 16 }}
                   renderItem={({ item }) => (
                     <TouchableOpacity

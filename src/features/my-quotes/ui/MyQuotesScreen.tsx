@@ -464,6 +464,8 @@ export default function MyQuotesScreen() {
             data={filteredBooksByStatus}
             renderItem={renderBookItem}
             keyExtractor={bookKeyExtractor}
+            estimatedItemSize={120}
+            getItemType={() => 'book'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
@@ -476,6 +478,8 @@ export default function MyQuotesScreen() {
             data={authorsData}
             renderItem={renderAuthorItem}
             keyExtractor={authorKeyExtractor}
+            estimatedItemSize={90}
+            getItemType={() => 'author'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
@@ -488,6 +492,8 @@ export default function MyQuotesScreen() {
             data={themes}
             renderItem={renderThemeItem}
             keyExtractor={themeKeyExtractor}
+            estimatedItemSize={70}
+            getItemType={() => 'theme'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
@@ -501,6 +507,8 @@ export default function MyQuotesScreen() {
             data={quotesToDisplay}
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
+            estimatedItemSize={180}
+            getItemType={() => 'quote'}
             contentContainerStyle={styles.scrollContent}
             ListHeaderComponent={ListHeader}
             refreshControl={

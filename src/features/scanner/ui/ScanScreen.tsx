@@ -17,10 +17,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
+import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, useCameraFormat } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import * as ExpoImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
@@ -53,6 +54,7 @@ interface CameraContainerProps {
   photo: PhotoFile | null;
   isFocused: boolean;
   onTextDetectedChange: (detected: boolean) => void;
+  format?: any;
 }
 
 const CameraContainer = React.memo(({
@@ -65,6 +67,7 @@ const CameraContainer = React.memo(({
   photo,
   isFocused,
   onTextDetectedChange,
+  format,
 }: CameraContainerProps) => {
   const { frameProcessor } = useLiveOCR({
     cameraRef,
@@ -84,6 +87,7 @@ const CameraContainer = React.memo(({
       photo
       pixelFormat="yuv"
       outputOrientation="preview"
+      format={format}
       ref={cameraRef}
       frameProcessor={frameProcessor}
       codeScanner={(!showIsbnPopup && !isSearchingIsbn && !isLoading) ? codeScanner : undefined}
@@ -128,6 +132,10 @@ export default function ScanScreen() {
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
+  const format = useCameraFormat(device, [
+    { videoResolution: { width: 1280, height: 720 } },
+    { fps: 30 }
+  ]);
   const cameraRef = React.useRef<Camera | null>(null);
 
   // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
@@ -444,6 +452,8 @@ export default function ScanScreen() {
     return () => {
       console.log('[ScanScreen] Unmounting component, releasing scanLockRef.current to false');
       scanLockRef.current = false;
+      // Nettoyage complet du dossier temporaire Cache pour éviter la fuite de mémoire des photos
+      FileSystem.deleteAsync(`${FileSystem.cacheDirectory}VisionCamera`, { idempotent: true }).catch(console.error);
     };
   }, []);
 
@@ -734,6 +744,7 @@ export default function ScanScreen() {
           photo={photo}
           isFocused={isFocused && !photo}
           onTextDetectedChange={handleTextDetectedChange}
+          format={format}
         />
       )}
 

@@ -12,7 +12,7 @@ interface ReviewBlockProps {
     onReviewAdded?: () => void;
 }
 
-export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewBlockProps) {
+const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewAdded }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -193,6 +193,12 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
         </View>
     );
 }
+
+const ReviewBlock = React.memo(ReviewBlockUI, (prevProps, nextProps) => {
+    return prevProps.bookId === nextProps.bookId;
+});
+
+export default ReviewBlock;
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     section: {
