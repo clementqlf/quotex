@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { Quote } from '@/src/shared/api/types';
 
 /**
  * Custom hook to handle automatic synchronization of offline data when network is restored
@@ -40,9 +41,9 @@ export const useNetworkSync = () => {
     const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string | null>(null);
 
     // Timer for debounced sync
-    const [syncTimer, setSyncTimer] = useState<NodeJS.Timeout | null>(null);
+    const syncTimer = useRef<NodeJS.Timeout | null>(null);
     // Timer for periodic sync
-    const [periodicTimer, setPeriodicTimer] = useState<NodeJS.Timeout | null>(null);
+    const periodicTimer = useRef<NodeJS.Timeout | null>(null);
 
     // Check if we should trigger a sync
     const shouldSync = useCallback(async (): Promise<boolean> => {
@@ -111,8 +112,8 @@ export const useNetworkSync = () => {
     // Debounced sync trigger
     const debouncedTriggerSync = useCallback(() => {
         // Clear any existing timer
-        if (syncTimer) {
-            clearTimeout(syncTimer);
+        if (syncTimer.current) {
+            clearTimeout(syncTimer.current);
         }
 
         // Set new timer
@@ -120,41 +121,41 @@ export const useNetworkSync = () => {
             triggerSync();
         }, SYNC_DEBOUNCE_MS);
 
-        setSyncTimer(timer);
-    }, [triggerSync, syncTimer]);
+        syncTimer.current = timer;
+    }, [triggerSync]);
 
     // Start periodic sync when online
     const startPeriodicSync = useCallback(() => {
-        if (periodicTimer) {
-            clearInterval(periodicTimer);
+        if (periodicTimer.current) {
+            clearInterval(periodicTimer.current);
         }
 
         const timer = setInterval(() => {
             triggerSync();
         }, SYNC_INTERVAL_MS);
 
-        setPeriodicTimer(timer);
+        periodicTimer.current = timer;
         console.log('[useNetworkSync] Started periodic sync');
-    }, [triggerSync, periodicTimer]);
+    }, [triggerSync]);
 
     // Stop periodic sync
     const stopPeriodicSync = useCallback(() => {
-        if (periodicTimer) {
-            clearInterval(periodicTimer);
-            setPeriodicTimer(null);
+        if (periodicTimer.current) {
+            clearInterval(periodicTimer.current);
+            periodicTimer.current = null;
             console.log('[useNetworkSync] Stopped periodic sync');
         }
-    }, [periodicTimer]);
+    }, []);
 
     // Manual sync trigger
     const syncNow = useCallback(() => {
         // Clear debounce and trigger immediately
-        if (syncTimer) {
-            clearTimeout(syncTimer);
-            setSyncTimer(null);
+        if (syncTimer.current) {
+            clearTimeout(syncTimer.current);
+            syncTimer.current = null;
         }
         triggerSync();
-    }, [triggerSync, syncTimer]);
+    }, [triggerSync]);
 
     /**
      * Clear sync corrections from quotes after animation is done
@@ -210,8 +211,8 @@ export const useNetworkSync = () => {
 
         // Cleanup
         return () => {
-            if (syncTimer) clearTimeout(syncTimer);
-            if (periodicTimer) clearInterval(periodicTimer);
+            if (syncTimer.current) clearTimeout(syncTimer.current);
+            if (periodicTimer.current) clearInterval(periodicTimer.current);
         };
     }, []);
 
