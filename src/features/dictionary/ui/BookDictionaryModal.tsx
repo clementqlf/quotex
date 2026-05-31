@@ -128,7 +128,14 @@ export default function BookDictionaryModal({
 
                     <View style={styles.header}>
                         <Text style={styles.title}>Gérer le dictionnaire</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={styles.closeButton}
+                            accessible={true}
+                            accessibilityLabel="Fermer"
+                            accessibilityRole="button"
+                            testID="close-dictionary-modal-button"
+                        >
                             <X size={24} color={colors.textSecondary} />
                         </TouchableOpacity>
                     </View>
@@ -145,8 +152,19 @@ export default function BookDictionaryModal({
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
                                     onSubmitEditing={handleSearch}
+                                    accessible={true}
+                                    accessibilityLabel="Terme à rechercher"
+                                    testID="search-term-input"
                                 />
-                                <TouchableOpacity style={styles.searchButton} onPress={handleSearch} disabled={isSearching}>
+                                <TouchableOpacity
+                                    style={styles.searchButton}
+                                    onPress={handleSearch}
+                                    disabled={isSearching}
+                                    accessible={true}
+                                    accessibilityLabel="Rechercher"
+                                    accessibilityRole="button"
+                                    testID="search-term-button"
+                                >
                                     {isSearching ? <ActivityIndicator color={colors.buttonText} size="small" /> : <Search size={20} color={colors.buttonText} />}
                                 </TouchableOpacity>
                             </View>
@@ -156,7 +174,14 @@ export default function BookDictionaryModal({
                                         <Text style={styles.previewTerm}>{searchResult.term} <Text style={styles.previewGenre}>{searchResult.genre}</Text></Text>
                                         <Text numberOfLines={2} style={styles.previewDef}>{searchResult.definition}</Text>
                                     </View>
-                                    <TouchableOpacity style={styles.addButton} onPress={addManualDefinition}>
+                                    <TouchableOpacity
+                                        style={styles.addButton}
+                                        onPress={addManualDefinition}
+                                        accessible={true}
+                                        accessibilityLabel="Ajouter manuellement une définition"
+                                        accessibilityRole="button"
+                                        testID="add-definition-button"
+                                    >
                                         <Plus size={20} color={colors.buttonText} />
                                     </TouchableOpacity>
                                 </View>
@@ -177,6 +202,10 @@ export default function BookDictionaryModal({
                                         <TouchableOpacity
                                             style={[styles.checkbox, !isHidden && styles.checkboxChecked]}
                                             onPress={() => toggleVisibility(item.term.toLowerCase())}
+                                            accessible={true}
+                                            accessibilityLabel={`Sélectionner la définition pour ${item.term}`}
+                                            accessibilityRole="checkbox"
+                                            accessibilityState={{ checked: !isHidden }}
                                         >
                                             {!isHidden && <Check size={14} color={colors.buttonText} />}
                                         </TouchableOpacity>
@@ -187,7 +216,12 @@ export default function BookDictionaryModal({
                                         </View>
 
                                         {item.source === 'manual' && (
-                                            <TouchableOpacity onPress={() => removeManualDefinition(item.term)}>
+                                            <TouchableOpacity
+                                                onPress={() => removeManualDefinition(item.term)}
+                                                accessible={true}
+                                                accessibilityLabel={`Supprimer la définition pour ${item.term}`}
+                                                accessibilityRole="button"
+                                            >
                                                 <Trash2 size={18} color={colors.warning} />
                                             </TouchableOpacity>
                                         )}
@@ -204,7 +238,14 @@ export default function BookDictionaryModal({
                     </View>
 
                     <View style={styles.footer}>
-                        <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                        <TouchableOpacity
+                            style={styles.confirmButton}
+                            onPress={handleConfirm}
+                            accessible={true}
+                            accessibilityLabel="Enregistrer le dictionnaire"
+                            accessibilityRole="button"
+                            testID="confirm-dictionary-button"
+                        >
                             <Text style={styles.confirmText}>Enregistrer</Text>
                         </TouchableOpacity>
                     </View>

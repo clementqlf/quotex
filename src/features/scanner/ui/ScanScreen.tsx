@@ -707,6 +707,10 @@ export default function ScanScreen() {
           <TouchableOpacity
             style={styles.headerButtonLeft}
             onPress={() => router.push('/settings')}
+            accessible={true}
+            accessibilityLabel="Paramètres"
+            accessibilityRole="button"
+            testID="settings-button"
           >
             <Settings size={24} color="#E5E7EB" />
           </TouchableOpacity>
@@ -727,6 +731,10 @@ export default function ScanScreen() {
                 router.push('/user-profile');
               }
             }}
+            accessible={true}
+            accessibilityLabel="Profil utilisateur"
+            accessibilityRole="button"
+            testID="profile-button"
           >
             <User size={24} color="#E5E7EB" />
           </TouchableOpacity>
@@ -897,7 +905,14 @@ export default function ScanScreen() {
 
           <View style={styles.controls}>
             <View style={styles.controlsRow}>
-              <TouchableOpacity style={styles.iconButton} onPress={handlePickImage}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={handlePickImage}
+                accessible={true}
+                accessibilityLabel="Sélectionner une image dans la galerie"
+                accessibilityRole="button"
+                testID="gallery-button"
+              >
                 <ImageIcon size={24} color="#E5E7EB" />
               </TouchableOpacity>
 
@@ -911,6 +926,10 @@ export default function ScanScreen() {
                   onPress={handleTakePhoto}
                   disabled={isLoading}
                   activeOpacity={0.9}
+                  accessible={true}
+                  accessibilityLabel="Prendre une photo de la citation"
+                  accessibilityRole="button"
+                  testID="capture-button"
                 >
                   <View>
                     <ScanLine size={28} color={isTextDetectedLive ? colors.primary : "#E5E7EB"} />
@@ -918,7 +937,14 @@ export default function ScanScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.iconButton} onPress={handleRandomQuotePress}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={handleRandomQuotePress}
+                accessible={true}
+                accessibilityLabel="Générer une citation aléatoire"
+                accessibilityRole="button"
+                testID="random-quote-button"
+              >
                 <Sparkles size={24} color="#E5E7EB" />
               </TouchableOpacity>
             </View>

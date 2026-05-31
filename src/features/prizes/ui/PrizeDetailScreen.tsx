@@ -15,7 +15,7 @@ import { ArrowLeft, Award, User, BookOpen, Calendar } from 'lucide-react-native'
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { PrizeService } from '@/src/shared/api/PrizeService';
-import { LiteraryPrize, Laureate } from '@/src/shared/api/types';
+import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
@@ -78,7 +78,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
      * Each successful response patches the local prize state immediately
      * without any reload or loading indicator.
      */
-    const enrichMissingCovers = async (laureates: Laureate[]) => {
+    const enrichMissingCovers = async (laureates: LiteraryPrizeLaureate[]) => {
         const token = await authService.getToken().catch(() => null);
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -284,7 +284,14 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={styles.backButton}
+                        accessible={true}
+                        accessibilityLabel="Retour"
+                        accessibilityRole="button"
+                        testID="back-button"
+                    >
                         <ArrowLeft size={24} color={colors.text} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</Text>
@@ -298,14 +305,21 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
         return (
             <View style={[styles.container, styles.centerContainer]}>
                 <Text style={styles.errorText}>Prix non trouvé.</Text>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButtonInline}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backButtonInline}
+                    accessible={true}
+                    accessibilityLabel="Retour"
+                    accessibilityRole="button"
+                    testID="back-button"
+                >
                     <Text style={styles.backButtonText}>Retour</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
-    const renderLaureate = ({ item }: { item: Laureate }) => {
+    const renderLaureate = ({ item }: { item: LiteraryPrizeLaureate }) => {
         const authorName = item.author?.name || '';
         const authorInventaireUri = item.author?.inventaireUri;
         const bookInventaireUri = item.book?.inventaireUri;
@@ -318,6 +332,10 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                     <TouchableOpacity
                         onPress={() => item.book ? navigateToBook(item.book.id ?? item.book.title, bookInventaireUri) : null}
                         disabled={!item.book}
+                        accessible={true}
+                        accessibilityLabel={item.book ? `Voir les détails du livre : ${item.book.title}` : "Livre non renseigné"}
+                        accessibilityRole="button"
+                        testID="laureate-book-cover"
                     >
                         {coverUrl ? (
                             <Image source={{ uri: coverUrl }} style={styles.laureateCover} />
@@ -335,6 +353,10 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                                 {item.book ? (
                                     <TouchableOpacity
                                         onPress={() => navigateToBook(item.book!.id ?? item.book!.title, bookInventaireUri)}
+                                        accessible={true}
+                                        accessibilityLabel={`Voir les détails du livre : ${item.book.title}`}
+                                        accessibilityRole="button"
+                                        testID="laureate-book-title"
                                     >
                                         <Text style={styles.laureateBookTitle} numberOfLines={2}>
                                             {item.book.title}
@@ -349,7 +371,13 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                             </View>
                         </View>
 
-                        <TouchableOpacity onPress={() => navigateToAuthor(authorName, authorInventaireUri)}>
+                        <TouchableOpacity
+                            onPress={() => navigateToAuthor(authorName, authorInventaireUri)}
+                            accessible={true}
+                            accessibilityLabel={`Voir le profil de l'auteur : ${authorName}`}
+                            accessibilityRole="button"
+                            testID="laureate-author-name"
+                        >
                             <Text style={styles.laureateAuthorName}>{authorName}</Text>
                         </TouchableOpacity>
                     </View>
@@ -361,7 +389,14 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                    accessible={true}
+                    accessibilityLabel="Retour"
+                    accessibilityRole="button"
+                    testID="back-button"
+                >
                     <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</Text>

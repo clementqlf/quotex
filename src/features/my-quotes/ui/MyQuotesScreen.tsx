@@ -412,13 +412,34 @@ export default function MyQuotesScreen() {
       <View style={styles.header}>
         <AnimatedHeaderTitle viewMode={viewMode} colors={colors} styles={styles} />
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => setShowAddMenu(true)}
+            accessible={true}
+            accessibilityLabel="Ajouter une citation"
+            accessibilityRole="button"
+            testID="add-quote-btn"
+          >
             <Plus size={20} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.navigate('/search')}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.navigate('/search')}
+            accessible={true}
+            accessibilityLabel="Rechercher"
+            accessibilityRole="button"
+            testID="search-btn"
+          >
             <Search size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}
+            accessible={true}
+            accessibilityLabel="Filtrer"
+            accessibilityRole="button"
+            testID="filter-btn"
+          >
             <Filter size={20} color={activeFilters.length > 0 ? colors.primary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -430,6 +451,11 @@ export default function MyQuotesScreen() {
           style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
           onPress={() => setViewMode('quotes')}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: viewMode === 'quotes' }}
+          accessibilityLabel={`Onglet Citations, ${myQuotes.length} citations`}
+          testID="tab-quotes"
         >
           <Text style={styles.statValue}>{myQuotes.length}</Text>
           <Text style={styles.statLabel}>Citations</Text>
@@ -439,6 +465,11 @@ export default function MyQuotesScreen() {
           style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
           onPress={() => setViewMode('books')}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: viewMode === 'books' }}
+          accessibilityLabel={`Onglet Livres, ${bookCount} livres`}
+          testID="tab-books"
         >
           <Text style={styles.statValue}>{bookCount}</Text>
           <Text style={styles.statLabel}>Livres</Text>
@@ -447,6 +478,11 @@ export default function MyQuotesScreen() {
           style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
           onPress={() => setViewMode('authors')}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: viewMode === 'authors' }}
+          accessibilityLabel={`Onglet Auteurs, ${authorsData.length} auteurs`}
+          testID="tab-authors"
         >
           <Text style={styles.statValue}>{authorsData.length}</Text>
           <Text style={styles.statLabel}>Auteurs</Text>
@@ -455,6 +491,11 @@ export default function MyQuotesScreen() {
           style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
           onPress={() => setViewMode('themes')}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: viewMode === 'themes' }}
+          accessibilityLabel={`Onglet Thèmes, ${themes.length} thèmes`}
+          testID="tab-themes"
         >
           <Text style={styles.statValue}>{themes.length}</Text>
           <Text style={styles.statLabel}>Thèmes</Text>

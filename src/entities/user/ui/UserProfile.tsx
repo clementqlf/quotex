@@ -451,6 +451,10 @@ export default function UserProfileScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -469,6 +473,10 @@ export default function UserProfileScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -490,12 +498,23 @@ export default function UserProfileScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || username}</Text>
           {!isMe && profileData ? (
-            <TouchableOpacity onPress={handleProfileOptions} style={styles.headerAction}>
+            <TouchableOpacity
+              onPress={handleProfileOptions}
+              style={styles.headerAction}
+              accessible={true}
+              accessibilityLabel="Options du profil"
+              accessibilityRole="button"
+              testID="profile-options-button"
+            >
               <MoreHorizontal size={24} color={colors.text} />
             </TouchableOpacity>
           ) : (
@@ -510,6 +529,10 @@ export default function UserProfileScreen() {
               style={styles.avatar}
               onPress={isEditing ? pickImage : undefined}
               disabled={!isEditing}
+              accessible={true}
+              accessibilityLabel="Photo de profil"
+              accessibilityRole="button"
+              testID="avatar-button"
             >
               {editedImage || profileData.image ? (
                 <Image
@@ -533,6 +556,9 @@ export default function UserProfileScreen() {
                 onChangeText={setEditedName}
                 placeholder="Prénom"
                 placeholderTextColor={colors.textTertiary}
+                accessible={true}
+                accessibilityLabel="Prénom"
+                testID="user-name-input"
               />
             ) : (
               <Text style={styles.userName}>{profileData.name}</Text>
@@ -546,6 +572,10 @@ export default function UserProfileScreen() {
                     style={[styles.editButton, styles.saveButton]}
                     onPress={handleSave}
                     disabled={isSaving}
+                    accessible={true}
+                    accessibilityLabel="Enregistrer les modifications du profil"
+                    accessibilityRole="button"
+                    testID="save-profile-button"
                   >
                     {isSaving ? (
                       <ActivityIndicator size="small" color="#000" />
@@ -557,6 +587,10 @@ export default function UserProfileScreen() {
                     style={[styles.editButton, styles.cancelButton]}
                     onPress={handleCancel}
                     disabled={isSaving}
+                    accessible={true}
+                    accessibilityLabel="Annuler les modifications du profil"
+                    accessibilityRole="button"
+                    testID="cancel-profile-button"
                   >
                     <Text style={styles.cancelButtonText}>Annuler</Text>
                   </TouchableOpacity>
@@ -565,6 +599,10 @@ export default function UserProfileScreen() {
                 <TouchableOpacity
                   style={styles.editButton}
                   onPress={handleEditToggle}
+                  accessible={true}
+                  accessibilityLabel="Modifier le profil"
+                  accessibilityRole="button"
+                  testID="edit-profile-button"
                 >
                   <Text style={styles.editButtonText}>Modifier le profil</Text>
                 </TouchableOpacity>
@@ -576,6 +614,10 @@ export default function UserProfileScreen() {
                   isFollowing && styles.followButtonActive
                 ]}
                 onPress={toggleFollow}
+                accessible={true}
+                accessibilityLabel={isFollowing ? "Se désabonner de l'utilisateur" : "S'abonner à l'utilisateur"}
+                accessibilityRole="button"
+                testID="follow-button"
               >
                 <Text style={[
                   styles.followButtonText,
@@ -615,6 +657,9 @@ export default function UserProfileScreen() {
                   placeholder="Décrivez-vous..."
                   placeholderTextColor={colors.textTertiary}
                   multiline
+                  accessible={true}
+                  accessibilityLabel="Description"
+                  testID="bio-input"
                 />
                 <Text style={styles.inputLabel}>Site web</Text>
                 <TextInput
@@ -624,6 +669,9 @@ export default function UserProfileScreen() {
                   placeholder="https://votre-site.com"
                   placeholderTextColor={colors.textTertiary}
                   autoCapitalize="none"
+                  accessible={true}
+                  accessibilityLabel="Site web"
+                  testID="website-input"
                 />
               </View>
             ) : (

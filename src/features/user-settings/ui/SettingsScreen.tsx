@@ -211,6 +211,10 @@ export default function SettingsScreen() {
       style={styles.settingItem}
       onPress={onPress}
       disabled={type === 'switch'}
+      accessible={true}
+      accessibilityLabel={title}
+      accessibilityRole={type === 'switch' ? 'none' : 'button'}
+      testID={`setting-item-${title.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <View style={styles.settingItemLeft}>
         <View style={styles.iconContainer}>
@@ -226,6 +230,9 @@ export default function SettingsScreen() {
           onValueChange={onPress}
           trackColor={{ false: '#767577', true: colors.primary }}
           thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
+          accessible={true}
+          accessibilityLabel={title}
+          accessibilityRole="switch"
         />
       )}
     </TouchableOpacity>
@@ -239,6 +246,10 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -332,6 +343,10 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={handleLogout}
+            accessible={true}
+            accessibilityLabel="Déconnexion"
+            accessibilityRole="button"
+            testID="logout-button"
           >
             <LogOut size={20} color="#FF4B4B" />
             <Text style={styles.logoutText}>Déconnexion</Text>
@@ -408,6 +423,10 @@ export default function SettingsScreen() {
                   setNewPassword('');
                   setConfirmPassword('');
                 }}
+                accessible={true}
+                accessibilityLabel="Annuler"
+                accessibilityRole="button"
+                testID="modal-cancel-button"
               >
                 <Text style={styles.modalButtonTextCancel}>Annuler</Text>
               </TouchableOpacity>
@@ -420,6 +439,10 @@ export default function SettingsScreen() {
                 ]}
                 onPress={handleSavePassword}
                 disabled={isUpdating || !newPassword || newPassword !== confirmPassword || newPassword.length < 6}
+                accessible={true}
+                accessibilityLabel="Enregistrer le mot de passe"
+                accessibilityRole="button"
+                testID="modal-save-button"
               >
                 {isUpdating ? (
                   <ActivityIndicator size="small" color="#000" />

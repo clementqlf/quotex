@@ -38,6 +38,10 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
               onScanPress();
               onClose();
             }}
+            accessible={true}
+            accessibilityLabel="Scanner une citation"
+            accessibilityRole="button"
+            testID="scan-quote-option"
           >
             <Camera size={20} color={colors.text} style={{ marginRight: 12 }} />
             <Text style={styles.actionMenuText}>Scanner une citation</Text>
@@ -50,6 +54,10 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
               onManualAddPress();
               onClose();
             }}
+            accessible={true}
+            accessibilityLabel="Ajouter manuellement une citation"
+            accessibilityRole="button"
+            testID="manual-entry-button"
           >
             <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
             <Text style={styles.actionMenuText}>Ajouter une citation</Text>

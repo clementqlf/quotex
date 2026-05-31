@@ -220,7 +220,14 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     <Text style={styles.subTitle}>Votre note</Text>
                     <View style={styles.starRow}>
                         {[1, 2, 3, 4, 5].map((star) => (
-                            <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                            <TouchableOpacity
+                                key={star}
+                                onPress={() => setRating(star)}
+                                accessible={true}
+                                accessibilityLabel={`Noter ${star} étoiles sur 5`}
+                                accessibilityRole="button"
+                                testID={`star-rating-${star}`}
+                            >
                                 <Star
                                     size={24}
                                     color={rating >= star ? colors.primary : colors.textTertiary}
@@ -240,14 +247,31 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                         multiline
                         value={comment}
                         onChangeText={setComment}
+                        accessible={true}
+                        accessibilityLabel="Écrire votre avis"
+                        testID="review-input"
                     />
                     <View style={{ flexDirection: 'row', gap: 8 }}>
-                        <TouchableOpacity style={[styles.publishButton, { flex: 1 }]} onPress={handlePublishReview}>
+                        <TouchableOpacity
+                            style={[styles.publishButton, { flex: 1 }]}
+                            onPress={handlePublishReview}
+                            accessible={true}
+                            accessibilityLabel="Publier l'avis"
+                            accessibilityRole="button"
+                            testID="publish-review-button"
+                        >
                             <Send size={14} color="#FFF" />
                             <Text style={styles.publishButtonText}>{myReview ? "Mettre à jour" : "Publier"}</Text>
                         </TouchableOpacity>
                         {myReview && (
-                            <TouchableOpacity style={[styles.publishButton, { backgroundColor: colors.surfaceHighlight, paddingHorizontal: 16 }]} onPress={handleDeleteMyReview}>
+                            <TouchableOpacity
+                                style={[styles.publishButton, { backgroundColor: colors.surfaceHighlight, paddingHorizontal: 16 }]}
+                                onPress={handleDeleteMyReview}
+                                accessible={true}
+                                accessibilityLabel="Supprimer mon avis"
+                                accessibilityRole="button"
+                                testID="delete-review-button"
+                            >
                                 <Trash2 size={16} color={colors.warning} />
                             </TouchableOpacity>
                         )}
@@ -261,7 +285,13 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                         {communityReviews.slice(0, 2).map((review) => (
                             <View key={review.id} style={styles.reviewItem}>
                                 <View style={styles.reviewHeader}>
-                                    <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
+                                    <TouchableOpacity
+                                        style={styles.reviewerInfo}
+                                        onPress={() => handleUserPress(review.user)}
+                                        accessible={true}
+                                        accessibilityLabel={`Profil de ${review.user?.name || 'l\'utilisateur'}`}
+                                        accessibilityRole="button"
+                                    >
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
                                         ) : (
@@ -274,7 +304,13 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                             <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
                                         </View>
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={{ padding: 4 }} onPress={() => handleReviewOptions(review)}>
+                                    <TouchableOpacity
+                                        style={{ padding: 4 }}
+                                        onPress={() => handleReviewOptions(review)}
+                                        accessible={true}
+                                        accessibilityLabel="Options de l'avis"
+                                        accessibilityRole="button"
+                                    >
                                         <MoreHorizontal size={16} color={colors.textTertiary} />
                                     </TouchableOpacity>
                                 </View>
@@ -287,7 +323,14 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                             </View>
                         ))}
                         {communityReviews.length > 2 && (
-                            <TouchableOpacity style={styles.seeAllReviewsButton} onPress={() => setAllReviewsVisible(true)}>
+                            <TouchableOpacity
+                                style={styles.seeAllReviewsButton}
+                                onPress={() => setAllReviewsVisible(true)}
+                                accessible={true}
+                                accessibilityLabel="Voir tous les avis"
+                                accessibilityRole="button"
+                                testID="see-all-reviews-button"
+                            >
                                 <Text style={styles.seeAllReviewsText}>Voir les {communityReviews.length} avis</Text>
                             </TouchableOpacity>
                         )}
@@ -295,7 +338,14 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                 )}
             </View>
             {onRemove && (
-                <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
+                <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={onRemove}
+                    accessible={true}
+                    accessibilityLabel="Enlever le bloc d'avis"
+                    accessibilityRole="button"
+                    testID="remove-review-block-button"
+                >
                     <X size={14} color={colors.warning} />
                 </TouchableOpacity>
             )}
@@ -310,7 +360,14 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Avis ({communityReviews.length})</Text>
-                        <TouchableOpacity onPress={() => setAllReviewsVisible(false)} style={styles.modalCloseButton}>
+                        <TouchableOpacity
+                            onPress={() => setAllReviewsVisible(false)}
+                            style={styles.modalCloseButton}
+                            accessible={true}
+                            accessibilityLabel="Fermer"
+                            accessibilityRole="button"
+                            testID="close-reviews-modal-button"
+                        >
                             <X size={24} color={colors.text} />
                         </TouchableOpacity>
                     </View>

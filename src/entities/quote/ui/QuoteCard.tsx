@@ -73,6 +73,10 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
             onOpenMenu(quote);
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityLabel="Plus d'options pour cette citation"
+          accessibilityRole="button"
+          testID="quote-more-options"
         >
           <MoreVertical size={20} color={colors.textTertiary} />
         </TouchableOpacity>
@@ -127,6 +131,10 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => onToggleLike(quote.id)}
+            accessible={true}
+            accessibilityLabel={`Aimer la citation. Nombre de j'aime actuel : ${quote.likesCount}`}
+            accessibilityRole="button"
+            testID="quote-like-button"
           >
             <Heart
               size={20}
@@ -137,7 +145,14 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
               {quote.likesCount}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleShare}
+            accessible={true}
+            accessibilityLabel="Partager la citation"
+            accessibilityRole="button"
+            testID="quote-share-button"
+          >
             <Share2 size={20} color={colors.textTertiary} />
             <Text style={styles.actionText}>Partager</Text>
           </TouchableOpacity>

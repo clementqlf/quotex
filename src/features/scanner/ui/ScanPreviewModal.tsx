@@ -371,6 +371,9 @@ export default function ScanPreviewModal({
                                             onBlur={() => setIsEditingQuote(false)}
                                             placeholderTextColor={colors.textTertiary}
                                             returnKeyType="done"
+                                            accessible={true}
+                                            accessibilityLabel="Texte de la citation"
+                                            testID="quote-input"
                                         />
                                     ) : (
                                         <TouchableOpacity
@@ -409,6 +412,9 @@ export default function ScanPreviewModal({
                                                                 setIsEditingBook(false);
                                                                 setShowSuggestions(false);
                                                             }}
+                                                            accessible={true}
+                                                            accessibilityLabel="Titre du livre"
+                                                            testID="book-input"
                                                         />
                                                         {showSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
@@ -523,6 +529,9 @@ export default function ScanPreviewModal({
                                                                 setIsEditingAuthor(false);
                                                                 setShowAuthorSuggestions(false);
                                                             }}
+                                                            accessible={true}
+                                                            accessibilityLabel="Nom de l'auteur"
+                                                            testID="author-input"
                                                         />
                                                         {showAuthorSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
@@ -617,6 +626,10 @@ export default function ScanPreviewModal({
                                     style={[styles.previewConfirmButton, isSubmitting && { opacity: 0.7 }]}
                                     onPress={handleConfirm}
                                     disabled={isSubmitting}
+                                    accessible={true}
+                                    accessibilityLabel="Confirmer et enregistrer la citation"
+                                    accessibilityRole="button"
+                                    testID="save-button"
                                 >
                                     {isSubmitting ? (
                                         <ActivityIndicator color="#000" size="small" />

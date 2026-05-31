@@ -327,12 +327,23 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
 
       <View style={styles.controls}>
         <View style={styles.controlsRow}>
-          <TouchableOpacity style={styles.cancelButton} onPress={onReset}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={onReset}
+            accessible={true}
+            accessibilityLabel="Annuler la sélection"
+            accessibilityRole="button"
+            testID="cancel-ocr-button"
+          >
             <Text style={styles.cancelButtonText}>Annuler</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.trashButton}
             onPress={handleClearSelection}
+            accessible={true}
+            accessibilityLabel="Effacer la sélection"
+            accessibilityRole="button"
+            testID="clear-selection-button"
           >
             <Trash2 size={20} color="#E5E7EB" />
           </TouchableOpacity>
@@ -344,6 +355,10 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             ]}
             onPress={() => setIsEraserMode(!isEraserMode)}
             disabled={!selectionRange}
+            accessible={true}
+            accessibilityLabel="Activer le mode gomme pour enlever des mots"
+            accessibilityRole="button"
+            testID="eraser-mode-button"
           >
             <Eraser size={20} color={isEraserMode ? '#0F0F0F' : '#E5E7EB'} />
           </TouchableOpacity>
@@ -351,6 +366,10 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             style={[styles.saveButton, !scannedText && styles.saveButtonDisabled]}
             onPress={handleSaveQuote}
             disabled={!scannedText}
+            accessible={true}
+            accessibilityLabel="Enregistrer la citation sélectionnée"
+            accessibilityRole="button"
+            testID="save-ocr-button"
           >
             <Text style={styles.saveButtonText}>Enregistrer</Text>
           </TouchableOpacity>

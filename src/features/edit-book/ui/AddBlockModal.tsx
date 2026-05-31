@@ -29,7 +29,14 @@ export default function AddBlockModal({ visible, onClose, onSelect, options }: A
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+        accessible={true}
+        accessibilityLabel="Fermer le modal"
+        accessibilityRole="button"
+      >
         <View style={styles.addBlockModal}>
           <Text style={styles.addBlockTitle}>Ajouter un bloc</Text>
           {opts.map(opt => (
@@ -37,6 +44,10 @@ export default function AddBlockModal({ visible, onClose, onSelect, options }: A
               key={opt.key}
               style={styles.addBlockOption}
               onPress={() => onSelect(opt.key)}
+              accessible={true}
+              accessibilityLabel={`Ajouter le bloc ${opt.label}`}
+              accessibilityRole="button"
+              testID={`add-block-option-${opt.key}`}
             >
               <Text style={styles.addBlockOptionText}>{opt.label}</Text>
             </TouchableOpacity>
