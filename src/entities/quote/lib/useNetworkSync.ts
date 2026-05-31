@@ -191,7 +191,7 @@ export const useNetworkSync = () => {
                 setIsInitialized(true);
 
                 // If connected and has pending quotes, sync immediately
-                if (isConnected && pendingCount.length > 0) {
+                if (isConnected && pendingCount > 0) {
                     console.log('[useNetworkSync] Connected with pending quotes, syncing...');
                     triggerSync();
                 }

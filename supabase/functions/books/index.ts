@@ -162,6 +162,9 @@ serve(async (req: Request) => {
 
     // POST /books/import
     if (req.method === 'POST' && parts[0] === 'import') {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
       const bookData = await req.json();
       const normalizedInventaireUri = normalizeInventaireUri(bookData.inventaireUri);
       console.warn('[books/import] start', {
