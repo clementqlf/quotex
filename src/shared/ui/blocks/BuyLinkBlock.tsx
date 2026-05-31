@@ -23,13 +23,16 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
             return book.buyLinks;
         }
         
-        const isbn = book.isbn;
         const title = book.title;
         const authorName = typeof book.author === 'string' 
             ? book.author 
             : (book.author?.name || '');
         
-        const query = isbn ? encodeURIComponent(isbn) : encodeURIComponent(`${title} ${authorName}`);
+        // Clean title of characters that usually break search engines (e.g. colons, semi-colons, dashes)
+        const cleanTitle = title.replace(/[:;,\-]/g, ' ').trim();
+        const cleanAuthor = authorName.trim();
+        const queryText = `${cleanTitle} ${cleanAuthor}`.replace(/\s+/g, ' ');
+        const query = encodeURIComponent(queryText);
         
         return BUY_STORES.map(store => ({
             store: store.name,
@@ -85,6 +88,9 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
                     </TouchableOpacity>
                 )}
             </View>
+            <Text style={{ fontSize: 10, color: colors.textTertiary, textAlign: 'center', marginTop: 12 }}>
+                Quotex peut percevoir une commission sur les achats effectués via ces liens.
+            </Text>
 
             <Modal
                 visible={isModalVisible}
@@ -112,6 +118,9 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
                             <View style={styles.modalGrid}>
                                 {allLinks.map((link, idx) => renderLink(link, idx, true))}
                             </View>
+                            <Text style={{ fontSize: 10, color: colors.textTertiary, textAlign: 'center', marginTop: 24 }}>
+                                Quotex peut percevoir une commission sur les achats effectués via ces liens.
+                            </Text>
                         </ScrollView>
                     </SafeAreaView>
                 </View>
