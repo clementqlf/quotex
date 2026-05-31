@@ -164,6 +164,28 @@ export const useBookDetailController = () => {
     const options = [...STATUS_OPTIONS];
     const canUnsave = userQuotesCountForThisBook === 0;
 
+    const changeStatusOptimistic = async (status: string) => {
+      const prevBookInfo = bookInfo;
+      setBookInfo(prev => prev ? { ...prev, readingStatus: status as any, isSaved: true } : null);
+      try {
+        await updateBookStatus(id, status);
+      } catch (error) {
+        setBookInfo(prevBookInfo);
+        Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
+      }
+    };
+
+    const unsaveBookOptimistic = async () => {
+      const prevBookInfo = bookInfo;
+      setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
+      try {
+        await toggleSaveBook(id);
+      } catch (error) {
+        setBookInfo(prevBookInfo);
+        Alert.alert('Erreur', 'Impossible de retirer le livre de la bibliothèque.');
+      }
+    };
+
     if (Platform.OS === 'ios') {
       const iosOptions = ['Annuler', ...options.map(o => o.label)];
       if (isSaved && canUnsave) {
@@ -180,12 +202,10 @@ export const useBookDetailController = () => {
         async (buttonIndex) => {
           if (buttonIndex > 0) {
             if (isSaved && canUnsave && buttonIndex === iosOptions.length - 1) {
-              await toggleSaveBook(id);
-              setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
+              await unsaveBookOptimistic();
             } else {
               const selected = options[buttonIndex - 1];
-              await updateBookStatus(id, selected.value);
-              setBookInfo(prev => prev ? { ...prev, readingStatus: selected.value as any, isSaved: true } : null);
+              await changeStatusOptimistic(selected.value);
             }
           }
         }
@@ -197,10 +217,7 @@ export const useBookDetailController = () => {
       { text: 'Annuler', style: 'cancel' },
       ...STATUS_OPTIONS.map(o => ({
         text: o.label,
-        onPress: async () => {
-          await updateBookStatus(id, o.value);
-          setBookInfo(prev => prev ? { ...prev, readingStatus: o.value as any, isSaved: true } : null);
-        }
+        onPress: () => changeStatusOptimistic(o.value)
       }))
     ];
 
@@ -208,15 +225,12 @@ export const useBookDetailController = () => {
       androidButtons.push({
         text: 'Retirer de ma bibliothèque',
         style: 'destructive',
-        onPress: async () => {
-          await toggleSaveBook(id);
-          setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
-        }
+        onPress: unsaveBookOptimistic
       });
     }
 
     Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
-  }, [isSaved, toggleSaveBook, updateBookStatus, userQuotesCountForThisBook]);
+  }, [bookInfo, isSaved, toggleSaveBook, updateBookStatus, userQuotesCountForThisBook]);
 
   const handleHeaderSavePress = useCallback(async () => {
     let currentBookInfo = bookInfo;

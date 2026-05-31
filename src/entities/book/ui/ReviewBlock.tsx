@@ -132,6 +132,9 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     onPress: async () => {
                         const success = await ReviewService.deleteReview(myReview.id);
                         if (success) {
+                            setReviews(prev => prev.filter(r => r.id !== myReview.id));
+                            setRating(0);
+                            setComment('');
                             Alert.alert("Succès", "Votre avis a été supprimé.");
                             loadReviews();
                             if (onReviewAdded) onReviewAdded();
@@ -175,6 +178,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             });
 
             if (updatedReview) {
+                setReviews(prev => prev.map(r => r.id === myReview.id ? { ...r, rating, comment } : r));
                 Alert.alert("Succès", "Votre avis a été mis à jour !");
                 loadReviews();
                 if (onReviewAdded) {
@@ -191,6 +195,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             });
 
             if (newReview) {
+                setReviews(prev => [newReview, ...prev]);
                 Alert.alert("Succès", "Votre avis a été publié !");
                 loadReviews();
                 if (onReviewAdded) {
