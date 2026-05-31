@@ -38,12 +38,29 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
   const fallbackTriggeredRef = React.useRef(false);
 
   useEffect(() => {
-    // Si pas d'ID ou pas d'enrichissement en cours, on garde la valeur initiale
+    // 1. Synchroniser le state local avec les nouvelles props (initialData)
+    // Cela permet d'afficher les corrections du serveur immédiatement (ex: majuscules)
+    // même si l'entité est encore en cours d'enrichissement.
+    setData((currentData) => {
+      const currentIsEnriching = currentData && typeof currentData === 'object' && (currentData as any)[enrichingField];
+      const initialIsEnriching = initialData && typeof initialData === 'object' && (initialData as any)[enrichingField];
+      
+      // On évite d'écraser des données fraîches (enrichissement terminé) par des props périmées
+      const isStale = currentData && initialData && 
+                      typeof currentData === 'object' && typeof initialData === 'object' &&
+                      (currentData as any).id === (initialData as any).id && 
+                      currentIsEnriching === false && 
+                      initialIsEnriching === true;
+                      
+      return isStale ? currentData : initialData;
+    });
+
+    // 2. Décider si on doit souscrire aux mises à jour Realtime
     const isEnriching = initialData && typeof initialData === 'object' && 
       (initialData as any)[enrichingField];
     
+    // Si pas d'ID ou pas d'enrichissement en cours, on s'arrête là (pas de Realtime)
     if (!id || !isEnriching) {
-      setData(initialData);
       return;
     }
 
