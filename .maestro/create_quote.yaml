@@ -1,0 +1,19 @@
+appId: com.clementqlf.quotex
+---
+- launchApp
+- assertVisible: "MyQuotes" # Vérifier qu'on est sur le bon onglet
+- tapOn: "Scan" # Nom du tab ou bouton d'ajout (à ajuster selon les IDs)
+- tapOn:
+    id: "manual-entry-button" # Si un bouton spécifique existe pour l'entrée manuelle
+    optional: true
+- tapOn:
+    id: "quote-input"
+- inputText: "Maestro test quote - offline first architecture."
+- tapOn:
+    id: "book-input"
+- inputText: "Automated Book"
+- tapOn: "Enregistrer" # Le texte du bouton de validation
+- assertVisible: "MyQuotes"
+- scrollUntilVisible:
+    element: "Maestro test quote - offline first architecture."
+    direction: DOWN

@@ -4,6 +4,7 @@ import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
 import { Quote } from '@/src/shared/api/types';
+import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 
 export interface HandleConfirmSaveOptions {
   onReset?: () => void;
@@ -15,7 +16,7 @@ export interface HandleConfirmSaveOptions {
 
 export const useQuoteActions = () => {
   const { addQuote, updateQuote, refreshQuotes } = useQuote();
-  const { refreshBooks, refreshAuthors } = useAuthor();
+  const { refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName } = useAuthor();
   const { setTabIndex } = useTabIndex();
 
   /**
@@ -64,6 +65,24 @@ export const useQuoteActions = () => {
           refreshBooks(),
           refreshAuthors()
         ]);
+        
+        // Enrich the book in the background if it lacks metadata
+        if (book && !options.editingQuote) {
+          // Fire and forget enrichment
+          loadBookDetailData({
+            bookTitle: book,
+            getBookById,
+            getBookByTitle,
+            getBookByInventaireUri,
+            importBook,
+            getAuthorByName
+          }).then(() => {
+            // Refresh again after enrichment completes to update the UI
+            refreshBooks();
+          }).catch(err => {
+            console.error('[useQuoteActions] Background book enrichment failed:', err);
+          });
+        }
 
       } catch (error) {
         console.error('[useQuoteActions] Error saving quote:', error);
@@ -73,7 +92,7 @@ export const useQuoteActions = () => {
         options.setEditingQuote?.(null);
       }
     },
-    [addQuote, updateQuote, refreshQuotes, refreshBooks, setTabIndex]
+    [addQuote, updateQuote, refreshQuotes, refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName, setTabIndex]
   );
 
   return { handleConfirmSave };

@@ -475,7 +475,7 @@ export default function ScanPreviewModal({
                                                         style={styles.bookPlaceholderButton}
                                                         onPress={() => {
                                                             setIsEditingBook(true);
-                                                            setEditedBook(''); // Clear on click as requested
+                                                            setEditedBook('');
                                                             setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
@@ -489,7 +489,7 @@ export default function ScanPreviewModal({
                                                     <TouchableOpacity
                                                         onPress={() => {
                                                             setIsEditingBook(true);
-                                                            setEditedBook(''); // Clear on click as requested
+                                                            setEditedBook(bookTitle);
                                                             setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
@@ -558,7 +558,7 @@ export default function ScanPreviewModal({
                                                         style={styles.authorPlaceholderButton}
                                                         onPress={() => {
                                                             setIsEditingAuthor(true);
-                                                            setEditedAuthor(''); // Clear on click as requested
+                                                            setEditedAuthor('');
                                                             setAuthorSuggestions(initialAuthors);
                                                             setShowAuthorSuggestions(true);
                                                             // Close other dropdowns
@@ -572,7 +572,7 @@ export default function ScanPreviewModal({
                                                     <TouchableOpacity
                                                         onPress={() => {
                                                             setIsEditingAuthor(true);
-                                                            setEditedAuthor(''); // Clear on click as requested
+                                                            setEditedAuthor(authorName);
                                                             setAuthorSuggestions(initialAuthors);
                                                             setShowAuthorSuggestions(true);
                                                             // Close other dropdowns

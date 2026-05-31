@@ -4,6 +4,7 @@ import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { quoteService } from '../api/QuoteService';
 
 /**
  * Implémentation du Repository Quote avec Supabase
@@ -48,15 +49,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   async getQuotes(userId?: string): Promise<Quote[]> {
-    // Essayer de récupérer depuis le cache d'abord
-    const cachedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
-    if (cachedQuotes) {
-      return cachedQuotes;
-    }
-    
-    // Sinon, récupérer depuis Supabase (à implémenter)
-    // Pour l'instant, on retourne le cache ou un tableau vide
-    return cachedQuotes || [];
+    return await quoteService.getQuotes();
   }
 
   async getQuoteById(id: number): Promise<Quote | null> {
