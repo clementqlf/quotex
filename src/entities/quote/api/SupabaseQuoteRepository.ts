@@ -2,9 +2,10 @@ import { Quote } from '@/src/shared/api/types';
 import { IQuoteRepository } from './IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { authService } from '@/src/entities/user/api/AuthService';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import { supabase } from '@/src/shared/api/supabase';/**
+
+/**
  * Implémentation du Repository Quote avec Supabase
  * Cette classe implique IQuoteRepository avec l'API Supabase
  */
@@ -21,28 +22,10 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
   constructor() {}
 
-  private async getHeaders(extraHeaders: Record<string, string> = {}) {
-    const token = await authService.getToken();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...extraHeaders,
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
-  }
-
   private async checkConnection(): Promise<boolean> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      const response = await fetch(`${API_BASE_URL}/quotes`, {
-        method: 'OPTIONS',
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response.ok;
+      await httpClient.request('/quotes', { method: 'OPTIONS' });
+      return true;
     } catch (error) {
       return false;
     }
@@ -81,6 +64,14 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     return quotes.find(q => q.id === id) || null;
   }
 
+  /**
+   * Crée une citation et gère la logique de synchronisation offline/online.
+   * Si l'appareil est hors-ligne, la citation est mise en attente (StorageService).
+   * Si en ligne, tente une synchronisation directe avec Inventaire via /sync-quotes.
+   * @param text {string} Contenu de la citation
+   * @param book {string} Titre optionnel du livre
+   * @param author {string} Nom optionnel de l'auteur
+   */
   async createQuote(text: string, book?: string | null, author?: string | null): Promise<Quote> {
     const tempId = Date.now();
     const createdAt = new Date().toISOString();
@@ -96,54 +87,46 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
     if ((book || author) && user && isOnline) {
       try {
-        const headers = await this.getHeaders();
-        const SYNC_URL = `${API_BASE_URL}/sync-quotes`;
-        
-        const response = await fetch(SYNC_URL, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                offlineQuotes: [{
-                    id: String(tempId),
-                    text,
-                    author,
-                    book,
-                    createdAt,
-                    userId: user.id
-                }]
-            }),
+        const result = await httpClient.post<any>('/sync-quotes', {
+            offlineQuotes: [{
+                id: String(tempId),
+                text,
+                author,
+                book,
+                createdAt,
+                userId: user.id
+            }]
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            if (result.syncedCount > 0) {
-                const correction = (result.corrections || [])[0];
-                const detail = (result.syncDetails || [])[0];
-                
-                finalBook = correction?.matchedBook || book;
-                finalAuthor = correction?.matchedAuthor || author;
-                
-                // Fetch full objects if IDs are provided
-                if (detail?.bookId) {
-                    try {
-                        const { data } = await supabase.from('Book').select('*').eq('id', detail.bookId).single();
-                        if (data) finalBook = data;
-                    } catch (e) {}
-                }
-                
-                if (detail?.authorId) {
-                    try {
-                        const { data } = await supabase.from('Author').select('*').eq('id', detail.authorId).single();
-                        if (data) finalAuthor = data;
-                    } catch (e) {}
-                }
-                
-                wasSynced = true;
-                syncCorrections = {
-                    author: correction?.originalAuthor && correction?.matchedAuthor && correction.originalAuthor !== correction.matchedAuthor ? { original: correction.originalAuthor, matched: correction.matchedAuthor } : undefined,
-                    book: correction?.originalBook && correction?.matchedBook && correction.originalBook !== correction.matchedBook ? { original: correction.originalBook, matched: correction.matchedBook } : undefined,
-                };
+        if (result && result.syncedCount > 0) {
+            const correction = (result.corrections || [])[0];
+            const detail = (result.syncDetails || [])[0];
+            
+            finalBook = correction?.matchedBook || book;
+            finalAuthor = correction?.matchedAuthor || author;
+            
+            // Récupération des objets complets via l'API REST de Supabase avec HttpClient
+            const REST_BASE_URL = httpClient['buildUrl']('').replace('/functions/v1', '/rest/v1');
+            
+            if (detail?.bookId) {
+                try {
+                    const data = await httpClient.get<any[]>(`${REST_BASE_URL}/Book`, { params: { select: '*', id: `eq.${detail.bookId}` } });
+                    if (data && data.length > 0) finalBook = data[0];
+                } catch (e) {}
             }
+            
+            if (detail?.authorId) {
+                try {
+                    const data = await httpClient.get<any[]>(`${REST_BASE_URL}/Author`, { params: { select: '*', id: `eq.${detail.authorId}` } });
+                    if (data && data.length > 0) finalAuthor = data[0];
+                } catch (e) {}
+            }
+            
+            wasSynced = true;
+            syncCorrections = {
+                author: correction?.originalAuthor && correction?.matchedAuthor && correction.originalAuthor !== correction.matchedAuthor ? { original: correction.originalAuthor, matched: correction.matchedAuthor } : undefined,
+                book: correction?.originalBook && correction?.matchedBook && correction.originalBook !== correction.matchedBook ? { original: correction.originalBook, matched: correction.matchedBook } : undefined,
+            };
         }
       } catch (error) {
           console.error('[SupabaseQuoteRepository] Direct sync failed:', error);
@@ -234,18 +217,11 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
   async getUserByUsername(username: string): Promise<any> {
     try {
-      const headers = await this.getHeaders();
       const cleanUsername = username.replace('@', '');
-      const response = await fetch(`${API_BASE_URL}/users/${cleanUsername}`, { headers });
-
-      if (response.ok) {
-        return await response.json();
-      } else {
-        console.error('getUserByUsername error:', response.status, await response.text());
-      }
+      return await httpClient.get<any>(`/users/${cleanUsername}`);
     } catch (e) {
       console.log('Error fetching user:', e);
+      return null;
     }
-    return null;
   }
 }

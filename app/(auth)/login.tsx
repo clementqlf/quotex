@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, ArrowRight } from 'lucide-react-native';
-import { Ionicons } from '@expo/vector-icons';
+// Removing @expo/vector-icons import to reduce bundle size
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
@@ -148,7 +148,7 @@ export default function LoginScreen() {
               style={[styles.socialButton, { backgroundColor: isDark ? '#333' : '#F5F5F5', borderColor: colors.border }]}
               onPress={() => handleSocialLogin('google')}
             >
-              <Ionicons name="logo-google" size={20} color={isDark ? '#FFF' : '#000'} />
+
               <Text style={[styles.socialButtonText, { color: colors.text }]}>Continuer avec Google</Text>
             </TouchableOpacity>
 
@@ -157,7 +157,7 @@ export default function LoginScreen() {
               style={[styles.socialButton, { backgroundColor: isDark ? '#333' : '#F5F5F5', borderColor: colors.border }]}
               onPress={() => handleSocialLogin('apple')}
             >
-              <Ionicons name="logo-apple" size={20} color={isDark ? '#FFF' : '#000'} />
+
               <Text style={[styles.socialButtonText, { color: colors.text }]}>Continuer avec Apple</Text>
             </TouchableOpacity>
             */}

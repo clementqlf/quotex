@@ -1,14 +1,23 @@
 # 📖 Quotex - Résumé Exécutif
 
-> **Version** : 1.0  
-> **Date** : 30 mai 2026  
-> **Auteur** : Mistral Vibe
+> **Version** : 1.1  
+> **Date** : 31 mai 2026  
+> **Auteur** : Mistral Vibe & Antigravity
 
 ---
 
 ## 🎯 EN BREF
 
 **Quotex** est une **application mobile cross-platform (iOS/Android)** qui permet aux utilisateurs de **scanner, organiser et découvrir des citations littéraires** de manière intelligente et sociale.
+
+---
+
+## 🆕 DERNIÈRES AVANCÉES (31 Mai 2026)
+
+- **Architecture & Refactoring** : Découpage du "God Object" `DataProvider` achevé pour la partie citations via la mise en place de `QuoteProvider` et `RepositoriesProvider`.
+- **Performances & UI** : Intégration complète de `FlashList` (ex: `MyQuotesScreen`), ajout du Lazy Loading, et implémentation d'animations de transition fluides lors du changement d'onglets.
+- **Synchronisation & Realtime** : Correction majeure des abonnements Supabase (`useRealtimeEntity`), résolution des bugs de base de données synchrones et fiabilisation de la file d'attente hors-ligne.
+- **Correctifs Divers** : Restauration du workflow caméra OCR (`ScanScreen`), affichage de la bibliothèque personnelle (`UserProfile`), réparation des WebViews (`SettingsScreen`), et déploiement de la documentation (CGU, Privacy) sur GitHub Pages.
 
 ---
 
@@ -87,12 +96,12 @@ quotex/
 │
 ├── src/                          # 🏗️ Logique Métier (FSD / Clean Arch)
 │   ├── app/                      # ⚙️ Configuration & Providers globaux
-│   │   └── providers/            # DataProvider, AuthContext, RepositoriesProvider
+│   │   └── providers/            # RepositoriesProvider, AuthContext, DataProvider (legacy)
 │   │
 │   ├── entities/                 # 📦 DDD: Entités métier de base
 │   │   ├── author/               # Modèles, Repositories, UI (AuthorDetail)
 │   │   ├── book/                 # Modèles, API, UI (BookDetail)
-│   │   ├── quote/                # Modèles, Repositories, Sync, UI
+│   │   ├── quote/                # Modèles, Repositories, QuoteProvider, Sync, UI
 │   │   ├── theme/                # UI des thèmes de citations
 │   │   └── user/                 # API Auth, Profil Utilisateur
 │   │
@@ -251,8 +260,7 @@ quotex/
 
 ### 🔴 Critique
 1. **Sécurité** : Clé Supabase exposée dans app.json
-2. **DataProvider** : God Object (~400+ lignes, trop de responsabilités - refonte vers `RepositoriesProvider` initiée)
-3. **Resolution de conflits** : Algorithme de sync à vérifier
+2. **Resolution de conflits** : Algorithme de sync à fiabiliser (bien que les bugs de synchronisation critiques aient été résolus)
 
 ### 🟡 Haute Priorité
 1. **Tests** : Couverture insuffisante (peu de tests E2E/intégration)
@@ -270,12 +278,12 @@ quotex/
 
 ### Phase 1 : Urgent (1-2 semaines)
 - [ ] **Corriger la sécurité** : Masquer la clé Supabase, auditer les RLS
-- [ ] **Fix les bugs critiques** : Vérifier la sync hors ligne, gestion des conflits
+- [x] **Fix les bugs critiques** : Bugs de sync hors ligne, realtime et base de données résolus
 - [ ] **Optimiser le bundle** : Analyser et réduire la taille
 
 ### Phase 2 : Haute Priorité (2-4 semaines)
 - [ ] **Améliorer les tests** : Ajouter des tests E2E avec Detox
-- [ ] **Refactor DataProvider** : Poursuivre le découpage (via `RepositoriesProvider`, `QuoteProvider`, etc.)
+- [x] **Refactor DataProvider** : Découpage réalisé avec `RepositoriesProvider` et `QuoteProvider`
 - [ ] **Optimiser l'OCR** : Réduire la consommation CPU/GPU
 
 ### Phase 3 : Moyenne Priorité (1-2 mois)
@@ -321,8 +329,8 @@ quotex/
 
 ---
 
-> **Généré par** : Mistral Vibe  
-> **Date** : 30 mai 2026  
-> **Version** : 1.0
+> **Généré par** : Mistral Vibe & Antigravity  
+> **Date** : 31 mai 2026  
+> **Version** : 1.1
 
 *Ce document est une synthèse de l'analyse complète disponible dans `QUOTEX_ANALYSE_ET_PROMPT_AUDIT.md`*
