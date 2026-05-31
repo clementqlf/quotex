@@ -87,17 +87,17 @@ class QuoteService {
 
 
     async getQuotes(): Promise<Quote[]> {
+        let timeoutId: any;
         // Try fetching from server first
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            timeoutId = setTimeout(() => controller.abort(), 10000);
 
             const headers = await this.getHeaders();
             const response = await fetch(this.API_URL!, {
                 signal: controller.signal,
                 headers
             });
-            clearTimeout(timeoutId);
 
             if (response.ok) {
                 const serverQuotes = await response.json();
@@ -134,6 +134,8 @@ class QuoteService {
             }
         } catch (error) {
             console.log('Server unreachable, using local storage:', error);
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId);
         }
 
         // Fallback to local storage (offline mode)
@@ -461,19 +463,21 @@ class QuoteService {
      * Check if we have internet connection
      */
     private async checkConnection(): Promise<boolean> {
+        let timeoutId: any;
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            timeoutId = setTimeout(() => controller.abort(), 3000);
             
             const response = await fetch(`${this.API_URL}`, {
                 method: 'OPTIONS',
                 signal: controller.signal,
             });
             
-            clearTimeout(timeoutId);
             return response.ok;
         } catch (error) {
             return false;
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId);
         }
     }
 

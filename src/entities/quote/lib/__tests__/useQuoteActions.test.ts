@@ -80,8 +80,7 @@ describe('useQuoteActions', () => {
     mockUpdateQuote.mockResolvedValue({ id: 1 });
 
     const { result } = renderHook(() => useQuoteActions());
-    // @ts-ignore
-    const editingQuote = { id: 1, text: 'Old', book: 'Old Book', author: 'Old Author' };
+    const editingQuote = { id: 1, text: 'Old', book: 'Old Book', author: 'Old Author', likesCount: 0, isLiked: false };
 
     await act(async () => {
       await result.current.handleConfirmSave('New text', 'New Book', 'New Author', { editingQuote });
