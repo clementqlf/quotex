@@ -540,7 +540,7 @@ export default function QuoteDetailModal() {
         } else {
           return {
             ...b,
-            isEnriching: true,
+            isEnriching: !b.cover,
           };
         }
       }
@@ -606,8 +606,22 @@ export default function QuoteDetailModal() {
     return () => clearTimeout(timer);
   }, [quote?.blockData, quote?.id, updateQuote]);
 
+  const handleRealtimeBooksUpdate = React.useCallback(() => {
+    if (quote?.id) {
+      quoteService.getQuoteById(quote.id).then((freshQuote) => {
+        if (freshQuote) {
+          lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
+          setQuote(freshQuote);
+        }
+      }).catch(err => console.log('Failed to refresh quote on realtime update:', err));
+    }
+    if (refreshBooks) {
+      refreshBooks();
+    }
+  }, [quote?.id, refreshBooks]);
+
   // Utiliser Realtime pour les livres recommandés au lieu du polling
-  useRealtimeBooks(recommendedBooks, refreshBooks);
+  useRealtimeBooks(recommendedBooks, handleRealtimeBooksUpdate);
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setQuote((current: Quote | undefined) => {

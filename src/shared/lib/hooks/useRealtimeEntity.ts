@@ -186,21 +186,24 @@ export function useAuthorRealtime(authorId: number | null | undefined, initialAu
  * Retourne un callback pour rafraîchir manuellement si nécessaire
  */
 export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
-  const enrichingBookIds = useMemo(() => {
+  const enrichingBookIdsStr = useMemo(() => {
     return books
       .filter(b => b?.id && b?.isEnriching)
-      .map(b => b.id);
+      .map(b => b.id)
+      .sort()
+      .join(',');
   }, [books]);
 
   // S'abonner à tous les livres en enrichissement
   useEffect(() => {
-    if (enrichingBookIds.length === 0) return;
+    if (!enrichingBookIdsStr) return;
 
-    console.log(`[Realtime] Subscribing to ${enrichingBookIds.length} enriching books`);
+    const ids = enrichingBookIdsStr.split(',').map(Number);
+    console.log(`[Realtime] Subscribing to ${ids.length} enriching books`);
 
     const channels: any[] = [];
 
-    enrichingBookIds.forEach(bookId => {
+    ids.forEach(bookId => {
       const uniqueId = Math.random().toString(36).substring(2, 9);
       const channel = supabase
         .channel(`book_${bookId}_modal_${uniqueId}`)
@@ -227,27 +230,30 @@ export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
       console.log(`[Cleanup] Unsubscribing from ${channels.length} book channels`);
       channels.forEach(ch => ch.unsubscribe());
     };
-  }, [enrichingBookIds, refreshCallback]);
+  }, [enrichingBookIdsStr, refreshCallback]);
 }
 
 /**
  * Hook pour mettre à jour plusieurs auteurs en temps réel
  */
 export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void) {
-  const enrichingAuthorIds = useMemo(() => {
+  const enrichingAuthorIdsStr = useMemo(() => {
     return authors
       .filter(a => a?.id && a?.isEnriching)
-      .map(a => a.id);
+      .map(a => a.id)
+      .sort()
+      .join(',');
   }, [authors]);
 
   useEffect(() => {
-    if (enrichingAuthorIds.length === 0) return;
+    if (!enrichingAuthorIdsStr) return;
 
-    console.log(`[Realtime] Subscribing to ${enrichingAuthorIds.length} enriching authors`);
+    const ids = enrichingAuthorIdsStr.split(',').map(Number);
+    console.log(`[Realtime] Subscribing to ${ids.length} enriching authors`);
 
     const channels: any[] = [];
 
-    enrichingAuthorIds.forEach(authorId => {
+    ids.forEach(authorId => {
       const uniqueId = Math.random().toString(36).substring(2, 9);
       const channel = supabase
         .channel(`author_${authorId}_modal_${uniqueId}`)
@@ -273,5 +279,5 @@ export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void)
       console.log(`[Cleanup] Unsubscribing from ${channels.length} author channels`);
       channels.forEach(ch => ch.unsubscribe());
     };
-  }, [enrichingAuthorIds, refreshCallback]);
+  }, [enrichingAuthorIdsStr, refreshCallback]);
 }
