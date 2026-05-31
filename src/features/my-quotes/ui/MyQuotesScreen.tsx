@@ -13,6 +13,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
 import { FlashList } from '@shopify/flash-list';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -43,16 +45,107 @@ import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
 // Feature hook
 import { useMyQuotes } from '../model/useMyQuotes';
 
+interface AnimatedHeaderTitleProps {
+  viewMode: 'quotes' | 'books' | 'themes' | 'authors';
+  colors: any;
+  styles: any;
+}
+
+const TAB_INDEXES = {
+  quotes: 0,
+  books: 1,
+  authors: 2,
+  themes: 3,
+};
+
+const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitleProps) => {
+  const [currentMode, setCurrentMode] = useState(viewMode);
+  const [prevMode, setPrevMode] = useState<'quotes' | 'books' | 'themes' | 'authors' | null>(null);
+
+  const enterProgress = useSharedValue(1);
+  const exitProgress = useSharedValue(0);
+  const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
+
+  useEffect(() => {
+    if (viewMode !== currentMode) {
+      const currentIdx = TAB_INDEXES[currentMode];
+      const newIdx = TAB_INDEXES[viewMode];
+      direction.value = newIdx >= currentIdx ? 1 : -1;
+
+      setPrevMode(currentMode);
+      setCurrentMode(viewMode);
+
+      enterProgress.value = 0;
+      exitProgress.value = 0;
+
+      enterProgress.value = withTiming(1, { duration: 300 });
+      exitProgress.value = withTiming(1, { duration: 300 }, (finished) => {
+        if (finished) {
+          runOnJS(setPrevMode)(null);
+        }
+      });
+    }
+  }, [viewMode]);
+
+  const enterStyle = useAnimatedStyle(() => {
+    return {
+      opacity: enterProgress.value,
+      transform: [
+        { translateX: 150 * direction.value * (1 - enterProgress.value) }
+      ],
+    };
+  });
+
+  const exitStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 1 - exitProgress.value,
+      transform: [
+        { translateX: -150 * direction.value * exitProgress.value }
+      ],
+    };
+  });
+
+  const renderContent = (mode: 'quotes' | 'books' | 'themes' | 'authors') => {
+    return (
+      <>
+        {mode === 'quotes' && <QuoteIcon size={24} color={colors.text} />}
+        {mode === 'books' && <BookIcon size={24} color={colors.text} />}
+        {mode === 'authors' && <Users size={24} color={colors.text} />}
+        {mode === 'themes' && <Hash size={24} color={colors.text} />}
+        <Text style={styles.headerTitle}>
+          {mode === 'quotes' && 'Mes Citations'}
+          {mode === 'books' && 'Mes Livres'}
+          {mode === 'authors' && 'Mes Auteurs'}
+          {mode === 'themes' && 'Mes Thèmes'}
+        </Text>
+      </>
+    );
+  };
+
+  return (
+    <View style={styles.headerLeftContainer}>
+      {prevMode && (
+        <Animated.View style={[styles.headerLeft, exitStyle, styles.absoluteHeaderLeft]}>
+          {renderContent(prevMode)}
+        </Animated.View>
+      )}
+      <Animated.View style={[styles.headerLeft, enterStyle]}>
+        {renderContent(currentMode)}
+      </Animated.View>
+    </View>
+  );
+};
+
 export default function MyQuotesScreen() {
   const router = useRouter();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  
+
   // Feature hook - découplé de DataProvider
-  const { 
-    myQuotes, 
-    allAuthors, 
+  const {
+    myQuotes,
+    allAuthors,
     allBooks,
     refreshMyQuotes,
     toggleLike: toggleLikeQuote,
@@ -63,12 +156,12 @@ export default function MyQuotesScreen() {
     getAuthorsData,
     getThemes
   } = useMyQuotes();
-  
+
   const { handleConfirmSave } = useQuoteActions();
   const { tabIndex, setTabIndex } = useTabIndex();
 
   const { user: currentUser } = useAuth();
-  
+
   // Ref pour scroller vers le haut après un ajout via le scanner
   const quotesListRef = useRef<any>(null);
 
@@ -114,22 +207,12 @@ export default function MyQuotesScreen() {
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | 'status' | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
-  const fadeAnim = useSharedValue(1);
-
-  useEffect(() => {
-    fadeAnim.value = 0;
-    fadeAnim.value = withTiming(1, { duration: 300 });
-  }, [viewMode]);
-
-  const fadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeAnim.value,
-  }));
 
   // Memoized derived data - utilisant les getters du hook feature
   const authors = useMemo(() => getAuthors(), [getAuthors]);
   const books = useMemo(() => getBooksData(), [getBooksData]);
   const bookCount = useMemo(() => getBookCount(), [getBookCount]);
-  
+
   const years = useMemo(() => {
     return [...new Set(
       myQuotes
@@ -157,12 +240,12 @@ export default function MyQuotesScreen() {
         const authorMatch = !filtersByType.author || filtersByType.author.includes(getAuthorName(q.author));
         const bookMatch = !filtersByType.book || filtersByType.book.includes(getBookTitle(q.book));
         const yearMatch = !filtersByType.year || (bookDescriptions[getBookTitle(q.book)] && filtersByType.year.includes(bookDescriptions[getBookTitle(q.book)].year));
-        
+
         // Find matching book in allBooks to get the up-to-date readingStatus
         const bookTitle = getBookTitle(q.book);
         const latestBook = allBooks.find(b => b.title.toLowerCase() === bookTitle.toLowerCase());
         const currentReadingStatus = latestBook?.readingStatus || (q.book && typeof q.book === 'object' ? q.book.readingStatus : null);
-        
+
         const statusMatch = !filtersByType.status || (currentReadingStatus && filtersByType.status.includes(currentReadingStatus));
         return authorMatch && bookMatch && yearMatch && statusMatch;
       });
@@ -254,7 +337,7 @@ export default function MyQuotesScreen() {
   // Header component for FlashList (filters + status pills)
   const ListHeader = useMemo(() => {
     const elements: React.ReactNode[] = [];
-    
+
     if (activeFilters.length > 0) {
       elements.push(
         <View key="filters" style={styles.filterContainer}>
@@ -323,18 +406,7 @@ export default function MyQuotesScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Animated.View style={[styles.headerLeft, fadeStyle]}>
-          {viewMode === 'quotes' && <QuoteIcon size={24} color={colors.text} />}
-          {viewMode === 'books' && <BookIcon size={24} color={colors.text} />}
-          {viewMode === 'authors' && <Users size={24} color={colors.text} />}
-          {viewMode === 'themes' && <Hash size={24} color={colors.text} />}
-          <Text style={styles.headerTitle}>
-            {viewMode === 'quotes' && 'Mes Citations'}
-            {viewMode === 'books' && 'Mes Livres'}
-            {viewMode === 'authors' && 'Mes Auteurs'}
-            {viewMode === 'themes' && 'Mes Thèmes'}
-          </Text>
-        </Animated.View>
+        <AnimatedHeaderTitle viewMode={viewMode} colors={colors} styles={styles} />
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
             <Plus size={20} color={colors.primary} />
@@ -511,6 +583,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  headerLeftContainer: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  absoluteHeaderLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   headerLeft: {
     flexDirection: 'row',
