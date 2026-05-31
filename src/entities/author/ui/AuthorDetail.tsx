@@ -84,7 +84,11 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
       ? `https://inventaire.io${entity.image?.url || entity.image?.file}`
       : null;
     const birthDateRaw = claims['wdt:P569']?.[0];
-    const birthDate = birthDateRaw ? birthDateRaw.substring(0, 4) : null;
+    let birthDate = null;
+    if (birthDateRaw) {
+      const cleanDate = birthDateRaw.startsWith('+') ? birthDateRaw.substring(1) : birthDateRaw;
+      birthDate = cleanDate.split('T')[0];
+    }
 
     return { name, description, image, birthDate, nationality: null };
   } catch (e) {
@@ -92,6 +96,22 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
     return null;
   }
 }
+
+const formatDisplayDate = (dateStr?: string | null): string => {
+  if (!dateStr) return 'Inconnu';
+  if (/^\d{4}$/.test(dateStr)) return dateStr;
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime()) && (dateStr.includes('-') || dateStr.includes('/'))) {
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  return dateStr;
+};
 
 export default function AuthorDetailScreen() {
   const { user: currentUser } = useAuth();
@@ -425,7 +445,7 @@ export default function AuthorDetailScreen() {
               <View style={styles.detailItem}>
                 <Calendar size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Naissance</Text>
-                <Text style={styles.detailValue}>{authorInfo?.birthDate || 'Inconnu'}</Text>
+                <Text style={styles.detailValue}>{formatDisplayDate(authorInfo?.birthDate)}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Globe size={16} color={colors.textTertiary} />

@@ -107,17 +107,7 @@ export const formatInventaireDate = (rawDate: string | null): string | null => {
     if (cleanDate.includes('-00-00')) {
         return cleanDate.split('-')[0];
     }
-    try {
-        const date = new Date(cleanDate);
-        if (isNaN(date.getTime())) return rawDate;
-        return date.toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-    } catch (e) {
-        return rawDate;
-    }
+    return cleanDate.split('T')[0];
 };
 
 export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Partial<InventaireWorkDetails> & { label?: string, authors?: string[] } => {
