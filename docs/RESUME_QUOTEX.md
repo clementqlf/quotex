@@ -74,49 +74,46 @@
 quotex/
 ├── app/                          # 📱 Routes (Expo Router)
 │   ├── (app)/                    # Zone authentifiée
-│   │   ├── index.tsx             # 3 onglets : MyQuotes / Scan / Social
+│   │   ├── index.tsx             # 3 onglets principaux
 │   │   ├── quote-detail.tsx      # Détail citation
 │   │   ├── book-detail.tsx       # Détail livre
 │   │   ├── author-detail.tsx     # Détail auteur
+│   │   ├── user-profile.tsx      # Profil utilisateur
+│   │   ├── settings.tsx          # Paramètres
 │   │   └── ...
 │   └── (auth)/                   # Authentification
 │       ├── login.tsx
 │       └── register.tsx
 │
-├── src/                          # 🏗️ Logique Métier
-│   ├── entities/                 # 📦 DDD: Auteurs, Livres, Citations, Utilisateurs
-│   │   ├── author/
-│   │   │   ├── api/AuthorService.ts
-│   │   │   └── ui/AuthorCardItem.tsx
-│   │   ├── book/
-│   │   │   ├── api/BookSearchService.ts
-│   │   │   └── ui/BookDetail.tsx
-│   │   ├── quote/
-│   │   │   ├── api/QuoteService.ts
-│   │   │   └── ui/QuoteCard.tsx
-│   │   └── user/
-│   │       └── api/AuthService.ts
+├── src/                          # 🏗️ Logique Métier (FSD / Clean Arch)
+│   ├── app/                      # ⚙️ Configuration & Providers globaux
+│   │   └── providers/            # DataProvider, AuthContext, RepositoriesProvider
 │   │
-│   ├── features/                 # ✨ Fonctionnalités transverses
-│   │   ├── scanner/              # 📷 OCR + ISBN Scanner
-│   │   │   ├── model/useLiveOCR.ts
-│   │   │   └── ui/ScanWorkflow.tsx
-│   │   ├── dictionary/           # Dictionnaire (Wiktionary)
-│   │   └── search/               # Recherche
+│   ├── entities/                 # 📦 DDD: Entités métier de base
+│   │   ├── author/               # Modèles, Repositories, UI (AuthorDetail)
+│   │   ├── book/                 # Modèles, API, UI (BookDetail)
+│   │   ├── quote/                # Modèles, Repositories, Sync, UI
+│   │   ├── theme/                # UI des thèmes de citations
+│   │   └── user/                 # API Auth, Profil Utilisateur
 │   │
-│   ├── pages/                    # 📄 Pages principales
-│   │   ├── MyQuotesScreen.tsx
-│   │   ├── ScanScreen.tsx
-│   │   └── SocialFeedScreen.tsx
+│   ├── features/                 # ✨ Fonctionnalités & Écrans
+│   │   ├── dictionary/           # Intégration dictionnaire (Wiktionary)
+│   │   ├── edit-book/            # Modification avancée des blocs de livre
+│   │   ├── my-quotes/            # 📱 Écran principal MyQuotesScreen
+│   │   ├── prizes/               # Écran Prix Littéraires
+│   │   ├── scanner/              # 📷 OCR (Vision Camera) + ISBN Scanner
+│   │   ├── search/               # 🔍 Recherche globale (SearchScreen)
+│   │   ├── social/               # 👥 Écran SocialFeedScreen
+│   │   └── user-settings/        # ⚙️ Écran de paramètres (SettingsScreen)
 │   │
 │   └── shared/                   # 🔧 Code partagé
-│       ├── api/supabase.ts       # Client Supabase
-│       ├── api/StorageService.ts # Cache AsyncStorage
-│       ├── lib/hooks/useNetworkSync.ts  # Sync offline/online
-│       └── ui/blocks/            # 🧩 Système de blocs modulaires
-│           ├── BookInfoBlock.tsx
-│           ├── DefinitionBlock.tsx
-│           └── ...
+│       ├── api/                  # Clients externes (Supabase)
+│       ├── config/               # Configuration
+│       ├── lib/                  # Utilitaires, hooks partagés, gestion offline
+│       ├── navigation/           # Typage et utilitaires de navigation
+│       ├── platform/             # Code spécifique à la plateforme (iOS/Android/Web)
+│       ├── theme/                # Design system (Couleurs, typographie)
+│       └── ui/                   # Composants UI partagés, blocs modulaires
 │
 ├── supabase/                     # ☁️ Backend
 │   └── functions/                # Edge Functions
@@ -254,7 +251,7 @@ quotex/
 
 ### 🔴 Critique
 1. **Sécurité** : Clé Supabase exposée dans app.json
-2. **DataProvider** : God Object (~300+ lignes, trop de responsabilités)
+2. **DataProvider** : God Object (~400+ lignes, trop de responsabilités - refonte vers `RepositoriesProvider` initiée)
 3. **Resolution de conflits** : Algorithme de sync à vérifier
 
 ### 🟡 Haute Priorité
@@ -278,7 +275,7 @@ quotex/
 
 ### Phase 2 : Haute Priorité (2-4 semaines)
 - [ ] **Améliorer les tests** : Ajouter des tests E2E avec Detox
-- [ ] **Refactor DataProvider** : Découper en plusieurs providers
+- [ ] **Refactor DataProvider** : Poursuivre le découpage (via `RepositoriesProvider`, `QuoteProvider`, etc.)
 - [ ] **Optimiser l'OCR** : Réduire la consommation CPU/GPU
 
 ### Phase 3 : Moyenne Priorité (1-2 mois)
