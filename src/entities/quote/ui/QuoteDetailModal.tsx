@@ -32,7 +32,9 @@ import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
 import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { BlockService } from '@/src/shared/api/BlockService';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
@@ -282,7 +284,29 @@ export default function QuoteDetailModal() {
   }, []);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
-  const { quotes, books, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote, refreshBooks } = useData();
+  
+  // Remplacement de useData() par les hooks spécifiques
+  const { quotes, updateQuote: updateQuoteMutation, toggleLikeQuote, deleteQuote: deleteQuoteMutation } = useQuote();
+  const { books, refreshBooks } = useAuthor();
+  
+  // Méthodes pour BlockService
+  const getBlockLayout = (parentId: string | number, parentType: 'quote' | 'book') => {
+    return BlockService.getLayout(parentId, parentType);
+  };
+  
+  const updateBlockLayout = (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+    return BlockService.saveLayout(parentId, parentType, layout);
+  };
+  
+  // Wrapper pour updateQuote
+  const updateQuote = async (id: number, updates: Partial<Quote>) => {
+    await updateQuoteMutation(id, updates);
+  };
+  
+  // Wrapper pour deleteQuote
+  const deleteQuote = async (id: number) => {
+    await deleteQuoteMutation(id);
+  };
 
   // 1. Prioritize lookup by ID from global store
   // 2. Fallback to parsing the stringified quote param

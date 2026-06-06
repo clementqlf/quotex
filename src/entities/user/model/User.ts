@@ -31,6 +31,20 @@ export interface UpdateUserDto extends Partial<CreateUserDto> {
   id: string;
 }
 
+// Type pour les données utilisateur du serveur (peut contenir des champs supplémentaires)
+export interface ServerUserData {
+  id: string;
+  username?: string;
+  email?: string;
+  name?: string;
+  image?: string;
+  bio?: string;
+  website?: string;
+  followers?: number;
+  following?: number;
+  [key: string]: any; // Champs supplémentaires non typés
+}
+
 // Fabrique pour créer des objets User
 export class UserFactory {
   static create(dto: CreateUserDto & { id: string }): User {
@@ -47,9 +61,9 @@ export class UserFactory {
     };
   }
 
-  static createFromServer(data: any): User {
+  static createFromServer(data: ServerUserData): User {
     return {
-      ...data,
+      id: data.id,
       username: data.username || '',
       email: data.email || '',
       name: data.name,

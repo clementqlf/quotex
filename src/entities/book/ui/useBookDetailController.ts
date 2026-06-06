@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useData } from '@/src/app/providers/DataProvider';
 import { useAuth } from '@/src/app/providers/AuthContext';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { BlockService } from '@/src/shared/api/BlockService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { getAuthorName, getBookTitle, getStatusLabel, getStatusColor, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { Book, Author } from '@/src/shared/api/types';
@@ -36,21 +38,36 @@ export const useBookDetailController = () => {
   const inventaireUriParam = rawParams.inventaireUri as string | undefined;
   const bookCoverParam = rawParams.cover as string | undefined;
 
-  const {
-    quotes,
-    books: allBooks,
-    getBlockLayout,
-    updateBlockLayout,
-    getBookData,
-    updateBookData,
-    toggleSaveBook,
-    updateBookStatus,
+  // Remplacement de useData() par les hooks spécifiques
+  const { quotes } = useQuote();
+  const { 
+    books: allBooks, 
+    toggleSaveBook, 
+    updateBookStatus, 
     importBook,
     getBookById,
     getBookByTitle,
     getBookByInventaireUri,
     getAuthorByName,
-  } = useData();
+  } = useAuthor();
+  
+  // Méthodes pour BlockService
+  const getBlockLayout = (parentId: string | number, parentType: 'quote' | 'book') => {
+    return BlockService.getLayout(parentId, parentType);
+  };
+  
+  const updateBlockLayout = (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+    return BlockService.saveLayout(parentId, parentType, layout);
+  };
+  
+  // Méthodes pour BookData
+  const getBookData = (bookTitle: string) => {
+    return BlockService.getBlockData(bookTitle, 'book');
+  };
+  
+  const updateBookData = (bookTitle: string, data: Record<string, any>) => {
+    return BlockService.saveBlockData(bookTitle, 'book', data);
+  };
 
   const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
@@ -333,9 +350,9 @@ export const useBookDetailController = () => {
       if (q.blockData) {
         Object.keys(q.blockData).forEach(key => {
           if (key.startsWith('definition')) {
-            const manualDefs = q.blockData![key] as Array<{ term: string, genre: string, definition: string, example: string }>;
+            const manualDefs = q.blockData![key] as unknown;
             if (Array.isArray(manualDefs)) {
-              manualDefs.forEach(d => {
+              (manualDefs as Array<{ term: string; genre: string; definition: string; example: string }>).forEach(d => {
                 if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
                   seenTerms.add(d.term.toLowerCase());
                   aggregatedDefinitions.push(d);

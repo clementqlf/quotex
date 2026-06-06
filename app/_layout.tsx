@@ -5,8 +5,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
-import { DataProvider } from '@/src/app/providers/DataProvider';
 import { AuthProvider, useAuth } from '@/src/app/providers/AuthContext';
+import { AuthGuard } from '@/src/app/providers/AuthGuard';
 import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
 import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
 import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
@@ -32,17 +32,17 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <ThemeProvider>
             <AuthProvider>
-              <RepositoriesProvider>
-                <NavigationProvider>
-                  <QuoteProvider>
-                    <AuthorProvider>
-                      <DataProvider>
+              <AuthGuard>
+                <RepositoriesProvider>
+                  <NavigationProvider>
+                    <QuoteProvider>
+                      <AuthorProvider>
                         <RootLayoutNav />
-                      </DataProvider>
-                    </AuthorProvider>
-                  </QuoteProvider>
-                </NavigationProvider>
-              </RepositoriesProvider>
+                      </AuthorProvider>
+                    </QuoteProvider>
+                  </NavigationProvider>
+                </RepositoriesProvider>
+              </AuthGuard>
             </AuthProvider>
           </ThemeProvider>
         </SafeAreaProvider>
@@ -57,10 +57,8 @@ function RootLayoutNav() {
   }, []);
 
   const { isDark, colors: themeColors } = useTheme();
-  const { isAuthenticated, isLoading } = useAuth();
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
-  const segments = useSegments() as any;
-  const router = useRouter();
+  const { isLoading } = useAuth();
   
   // Navigation Logger
   const pathname = require('expo-router').usePathname();
@@ -77,25 +75,15 @@ function RootLayoutNav() {
     }
   }, [isLoading]);
 
-  // Auth Redirect Logic
+  // Hide splash animation when auth is loaded
   useEffect(() => {
-    if (isLoading) return;
-
-    // Detection plus robuste du groupe d'auth
-    const inAuthGroup = segments.includes('(auth)') || segments.includes('login') || segments.includes('register');
-
-    if (!isAuthenticated && !inAuthGroup) {
-      console.log('[AuthDebug] Redirection vers /login');
-      router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      console.log('[AuthDebug] Redirection vers /');
-      router.replace('/');
+    if (!isLoading && !isSplashAnimationFinished) {
+      setIsSplashAnimationFinished(true);
     }
-  }, [isAuthenticated, segments, isLoading]);
+  }, [isLoading, isSplashAnimationFinished]);
 
-  const inAuthGroup = segments.includes('(auth)') || segments.includes('login') || segments.includes('register');
-  // We are "ready" when loading is done AND we are on the correct side of the auth wall
-  const isReady = !isLoading && ((isAuthenticated && !inAuthGroup) || (!isAuthenticated && inAuthGroup));
+  // We are "ready" when loading is done
+  const isReady = !isLoading;
 
   // If we haven't finished the splash AND we aren't ready, 
   // show only the splash (no background app yet)
@@ -140,7 +128,7 @@ function RootLayoutNav() {
         </Stack>
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </NavThemeProvider>
-      {(isLoading || !isSplashAnimationFinished) && (
+      {(!isSplashAnimationFinished) && (
         <AnimatedSplashScreen 
           isDark={isDark} 
           isLoading={isLoading}

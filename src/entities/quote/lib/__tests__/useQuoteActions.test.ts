@@ -4,6 +4,7 @@ import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
+import { Quote } from '@/src/shared/api/types';
 
 jest.mock('@/src/entities/quote/providers/QuoteProvider');
 jest.mock('@/src/entities/author/providers/AuthorProvider');
@@ -80,7 +81,17 @@ describe('useQuoteActions', () => {
     mockUpdateQuote.mockResolvedValue({ id: 1 });
 
     const { result } = renderHook(() => useQuoteActions());
-    const editingQuote = { id: 1, text: 'Old', book: 'Old Book', author: 'Old Author', likesCount: 0, isLiked: false };
+    const editingQuote: Quote = {
+      id: 1,
+      text: 'Old',
+      book: 'Old Book',
+      author: 'Old Author',
+      likesCount: 0,
+      isLiked: false,
+      user: { id: '1', username: 'test', name: 'Test User' },
+      comments: 0,
+      isSaved: false,
+    };
 
     await act(async () => {
       await result.current.handleConfirmSave('New text', 'New Book', 'New Author', { editingQuote });

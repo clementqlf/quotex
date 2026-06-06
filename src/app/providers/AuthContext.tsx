@@ -1,20 +1,26 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { authService } from '../../entities/user/api/AuthService';
 import { User } from '../../shared/api/types';
 import { supabase } from '../../shared/api/supabase';
 import { UGCModerationService } from '../../shared/api/UGCModerationService';
 
-interface AuthContextType {
+// Séparer les types de state pour éviter les re-renders inutiles
+interface AuthState {
     user: User | null;
     token: string | null;
     isLoading: boolean;
     isAuthenticated: boolean;
+}
+
+interface AuthActions {
     login: (email: string, password: string) => Promise<void>;
     register: (username: string, email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     deleteAccount: () => Promise<void>;
     updateProfile: (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => Promise<void>;
 }
+
+interface AuthContextType extends AuthState, AuthActions {}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -66,47 +72,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
-    const login = async (email: string, password: string) => {
+    // ⚡ Memoize les actions pour éviter leur recréation à chaque render
+    const login = useCallback(async (email: string, password: string) => {
         const data = await authService.login(email, password);
         setUser(data.user);
         setToken(data.token);
-    };
+    }, []);
 
-    const register = async (username: string, email: string, password: string) => {
+    const register = useCallback(async (username: string, email: string, password: string) => {
         const data = await authService.register(username, email, password);
         setUser(data.user);
         setToken(data.token);
-    };
+    }, []);
 
-    const logout = async () => {
+    const logout = useCallback(async () => {
         await authService.logout();
         setUser(null);
         setToken(null);
-    };
+    }, []);
 
-    const deleteAccount = async () => {
+    const deleteAccount = useCallback(async () => {
         await authService.deleteAccount();
         setUser(null);
         setToken(null);
-    };
+    }, []);
 
-    const updateProfile = async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => {
+    const updateProfile = useCallback(async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => {
         const updatedUser = await authService.updateUser(data);
         setUser(updatedUser);
-    };
+    }, []);
+
+    // ✅ Séparer le state et les actions dans des objets memoized distincts
+    const authState = useMemo(() => ({
+        user,
+        token,
+        isLoading,
+        isAuthenticated: !!token,
+    }), [user, token, isLoading]);
+
+    const authActions = useMemo(() => ({
+        login,
+        register,
+        logout,
+        deleteAccount,
+        updateProfile,
+    }), [login, register, logout, deleteAccount, updateProfile]);
+
+    // ✅ Combiner les deux objets dans le contexte
+    const contextValue = useMemo(() => ({
+        ...authState,
+        ...authActions,
+    }), [authState, authActions]);
 
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            token, 
-            isLoading, 
-            isAuthenticated: !!token, 
-            login, 
-            register, 
-            logout,
-            deleteAccount,
-            updateProfile
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

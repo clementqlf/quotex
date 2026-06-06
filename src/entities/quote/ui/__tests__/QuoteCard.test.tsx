@@ -2,7 +2,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { Share } from 'react-native';
 import QuoteCard from '../QuoteCard';
-import { Quote } from '@/src/shared/api/types';
+import { Quote, Book, Author } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 
 // Mocks
@@ -71,11 +71,14 @@ describe('QuoteCard Component', () => {
   const mockQuote: Quote = {
     id: 1,
     text: 'La vie est un mystère qu\'il faut vivre.',
-    book: { id: 1, title: 'Siddhartha', name: '' } as any,
-    author: { id: 1, name: 'Hermann Hesse' } as any,
+    book: { id: 1, title: 'Siddhartha', author: '', description: '', year: 1922, pages: 200, rating: 5, genre: 'Philosophie', cover: '' } as Book,
+    author: { id: 1, name: 'Hermann Hesse', description: '', image: '', birthDate: '1877', nationality: 'Allemand' } as Author,
     date: new Date().toISOString(),
     likesCount: 5,
     isLiked: false,
+    user: { id: '1', username: 'test', name: 'Test User' },
+    comments: 0,
+    isSaved: false,
   };
 
   const mockOnToggleLike = jest.fn();

@@ -16,7 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon, UserPlus, UserCheck } from 'lucide-react-native';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { authorService } from '@/src/entities/author/api/AuthorService';
 import { getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Author, Book } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -125,7 +127,12 @@ export default function AuthorDetailScreen() {
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
 
-  const { quotes, authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor, getNotableWorks } = useData();
+  // Remplacement de useData() par les hooks spécifiques
+  const { quotes } = useQuote();
+  const { authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleSaveAuthor, getNotableWorks } = useAuthor();
+  
+  // Wrapper pour toggleLikeQuote depuis useQuote
+  const { toggleLikeQuote } = useQuote();
   const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);

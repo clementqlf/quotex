@@ -14,8 +14,11 @@ const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
 export const QuoteProvider = ({ children }: { children: ReactNode }) => {
   const syncStatus = useNetworkSync();
 
+  // ✅ Memoize la valeur du contexte pour éviter les re-renders inutiles
+  const contextValue = useMemo(() => ({ syncStatus }), [syncStatus]);
+
   return (
-    <QuoteContext.Provider value={{ syncStatus }}>
+    <QuoteContext.Provider value={contextValue}>
       {children}
     </QuoteContext.Provider>
   );
@@ -41,13 +44,15 @@ export const useQuote = () => {
     await refetch();
   };
 
-  // Sync effect
+  // Sync effect - utiliser useMemo pour éviter la recréation
+  const syncStatus = useMemo(() => context.syncStatus, [context.syncStatus]);
+  
   useEffect(() => {
-    if (context.syncStatus.lastSyncTime && context.syncStatus.pendingCount === 0) {
+    if (syncStatus.lastSyncTime && syncStatus.pendingCount === 0) {
       const timer = setTimeout(() => refreshQuotes('sync complete'), 1000);
       return () => clearTimeout(timer);
     }
-  }, [context.syncStatus.lastSyncTime, context.syncStatus.pendingCount]);
+  }, [syncStatus.lastSyncTime, syncStatus.pendingCount, refreshQuotes]);
 
   const toggleLikeMutation = useMutation({
     mutationFn: (id: number) => quoteRepository.toggleLike(id),

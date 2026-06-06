@@ -4,32 +4,64 @@
  * Découplé de l'implémentation technique (Supabase, etc.)
  */
 
+import { User } from '@/src/entities/user/model/User';
+
+// Type pour un like sur une citation
+export interface QuoteLike {
+  id: string;
+  userId: string;
+  quoteId: number;
+  createdAt: string;
+}
+
+// Type pour les corrections de synchronisation
+export interface SyncCorrection<T = string> {
+  original: string;
+  matched: T;
+}
+
+// Type pour les corrections de sync sur une quote
+export interface QuoteSyncCorrections {
+  author?: SyncCorrection<string>;
+  book?: SyncCorrection<string>;
+}
+
+// Type pour les données de blocks personnalisés
+export interface BlockData {
+  customFields?: Record<string, string | number | boolean>;
+  layout?: string[];
+  theme?: string;
+  tags?: string[];
+  additionalThemes?: string[];
+  // Champs pour l'historique de chat
+  chatHistory?: Array<{ role: 'user' | 'model'; content: string }>;
+  // Autres champs personnalisés
+  [key: string]: string | number | boolean | string[] | Array<{ role: string; content: string }> | Record<string, unknown> | undefined;
+}
+
 // Type de base pour une citation
 export interface Quote {
   id: number; // Identifiant unique
   text: string; // Texte de la citation
-  book?: string | Book | null; // Livre associé (peut être une string ou un objet)
-  author?: string | Author | null; // Auteur (peut être une string ou un objet)
+  book?: string | null; // Livre associé (peut être une string ou un objet Book)
+  author?: string | null; // Auteur (peut être une string ou un objet Author)
   theme?: string; // Thème de la citation
   date?: string; // Date de création
   likesCount: number; // Nombre de likes
-  likes?: any[]; // Tableau de relations (pour Supabase)
+  likes?: QuoteLike[]; // Tableau de relations (pour Supabase)
   isLiked: boolean; // Est-ce que l'utilisateur courant a liké
-  user?: User; // Utilisateur propriétaire
+  user?: User; // Utilisateur propriétaire (devrait être obligatoire)
   comments?: number; // Nombre de commentaires
   isSaved?: boolean; // Est-ce que l'utilisateur courant a sauvegardé
   time?: string; // Heure (pour compatibilité)
-  notes?: string; // Notes personnelles
-  blockData?: Record<string, any>; // Données de blocks personnalisés
-  aiInterpretation?: string; // Interprétation par IA
+  notes?: string | null; // Notes personnelles
+  blockData?: BlockData; // Données de blocks personnalisés
+  aiInterpretation?: string | null; // Interprétation par IA
   
   // Champs de synchronisation
   wasSynced?: boolean; // A été synchronisé avec le serveur
-  syncedAt?: string; // Date de dernière synchronisation
-  syncCorrections?: {
-    author?: { original: string; matched: string };
-    book?: { original: string; matched: string };
-  };
+  syncedAt?: string | null; // Date de dernière synchronisation
+  syncCorrections?: QuoteSyncCorrections; // Corrections appliquées lors de la sync
 }
 
 // DTO pour créer une citation
