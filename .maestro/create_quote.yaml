@@ -1,4 +1,4 @@
-appId: com.clementqlf.quotex
+appId: com.quotex.app
 ---
 - launchApp
 - assertVisible: "MyQuotes" # Vérifier qu'on est sur le bon onglet

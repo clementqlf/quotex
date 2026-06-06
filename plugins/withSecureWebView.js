@@ -75,6 +75,16 @@ function withSecureWebViewXcodeProject(config) {
       }
     });
 
+    // Fix build phase warnings for expo-dev-launcher Strip Local Network Keys build phase
+    const buildPhases = project.hash.project.objects.PBXShellScriptBuildPhase || {};
+    for (const key in buildPhases) {
+      const phase = buildPhases[key];
+      if (phase.name && phase.name.includes("Strip Local Network Keys for Release")) {
+        phase.alwaysOutOfDate = 1;
+        console.log(`[withSecureWebView] Set alwaysOutOfDate = 1 on build phase: ${phase.name}`);
+      }
+    }
+
     return config;
   });
 }

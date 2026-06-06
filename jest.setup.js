@@ -34,6 +34,11 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+// Configurer les variables d'environnement pour les tests Jest
+process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock.supabase.co';
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key';
+process.env.EXPO_PUBLIC_API_BASE_URL = 'https://mock.supabase.co/functions/v1';
+
 // Mock Google Signin
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {

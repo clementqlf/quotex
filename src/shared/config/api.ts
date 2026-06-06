@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Retrieve the base URL dynamically from expo configuration extra field
-const SUPABASE_FUNCTIONS_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1';
+// Retrieve the base URL dynamically from environment variables or expo configuration extra field
+const SUPABASE_FUNCTIONS_URL = process.env.EXPO_PUBLIC_API_BASE_URL || Constants.expoConfig?.extra?.apiBaseUrl || 'https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1';
 
 // ─── Local dev fallback ───────────────────────────────────────────────────────
 // During development, you can switch to the local Express server by setting

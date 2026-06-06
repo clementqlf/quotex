@@ -18,7 +18,7 @@ export class HttpClient {
   private static instance: HttpClient;
   
   // Rétrocompatibilité avec l'API Supabase PostgREST (Edge Functions)
-  private readonly anonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+  private readonly anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || Constants.expoConfig?.extra?.supabaseAnonKey || '';
 
   private constructor() {}
 

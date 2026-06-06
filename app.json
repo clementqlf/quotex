@@ -86,10 +86,6 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "extra": {
-      "supabaseUrl": "https://neurbzkkfxrjzjykthtn.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldXJiemtrZnhyanpqeWt0aHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTc1NzcsImV4cCI6MjA5MzI5MzU3N30.vwvQQCjuIfCwcJ1vyrPt1bx09_oouKATvNQnO4axIvQ",
-      "apiBaseUrl": "https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1"
-    }
+    "extra": {}
   }
 }
