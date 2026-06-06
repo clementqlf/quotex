@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User } from 'lucide-react-native';
+import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, useCameraFormat } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
@@ -78,6 +78,12 @@ const CameraContainer = React.memo(({
     negativeThreshold: 10,  // 10 trames négatives consécutives (~3s) → masque le cadre
     onTextDetectedChange,
   });
+
+  if (!device) {
+    return (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#111827' }]} />
+    );
+  }
 
   return (
     <Camera
@@ -685,13 +691,7 @@ export default function ScanScreen() {
     );
   }
 
-  if (!device) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
-        <Text style={styles.permissionText}>Aucun appareil photo disponible.</Text>
-      </SafeAreaView>
-    );
-  }
+
 
   return (
     <SafeAreaView
@@ -809,7 +809,11 @@ export default function ScanScreen() {
                     <BookOpen size={48} color="#FFFFFF" />
                   </View>
                   <Text style={styles.instructionTextShadow}>
-                    {isLoading ? 'Analyse en cours...' : 'Placez une citation ou un code-barre dans le cadre'}
+                    {isLoading
+                      ? 'Analyse en cours...'
+                      : !device
+                      ? 'Caméra indisponible.\nImportez une image de la galerie.'
+                      : 'Placez une citation ou un code-barre dans le cadre'}
                   </Text>
                 </Animated.View>
               </View>
@@ -900,6 +904,7 @@ export default function ScanScreen() {
               scannedText={randomQuote.text}
               initialBook={getBookTitle(randomQuote.book)}
               initialAuthor={getAuthorName(randomQuote.author)}
+              confirmButtonText="Enregistrer"
             />
           )}
 
@@ -921,10 +926,11 @@ export default function ScanScreen() {
                   style={[
                     styles.scanButton,
                     isLoading && styles.scanButtonActive,
-                    !isTextDetectedLive && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
+                    !device && styles.scanButtonDisabled,
+                    (!isTextDetectedLive && device) && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
                   ]}
                   onPress={handleTakePhoto}
-                  disabled={isLoading}
+                  disabled={isLoading || !device}
                   activeOpacity={0.9}
                   accessible={true}
                   accessibilityLabel="Prendre une photo de la citation"
@@ -932,7 +938,7 @@ export default function ScanScreen() {
                   testID="capture-button"
                 >
                   <View>
-                    <ScanLine size={28} color={isTextDetectedLive ? colors.primary : "#E5E7EB"} />
+                    <ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : "#E5E7EB"} />
                   </View>
                 </TouchableOpacity>
               </View>

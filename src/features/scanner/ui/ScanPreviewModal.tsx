@@ -36,6 +36,7 @@ type ScanPreviewModalProps = {
     initialBook?: string;
     initialAuthor?: string;
     showConfetti?: boolean;
+    confirmButtonText?: string;
 };
 
 export default function ScanPreviewModal({
@@ -46,6 +47,7 @@ export default function ScanPreviewModal({
     initialBook = '',
     initialAuthor = '',
     showConfetti = false,
+    confirmButtonText = 'Confirmer',
 }: ScanPreviewModalProps) {
     const { quotes } = useQuote();
     const { colors } = useTheme();
@@ -634,7 +636,7 @@ export default function ScanPreviewModal({
                                     {isSubmitting ? (
                                         <ActivityIndicator color="#000" size="small" />
                                     ) : (
-                                        <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                        <Text style={styles.previewConfirmButtonText}>{confirmButtonText}</Text>
                                     )}
                                 </TouchableOpacity>
                             </View>
