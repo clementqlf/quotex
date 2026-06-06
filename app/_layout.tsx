@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '@/src/app/providers/AuthContext';
 import { AuthGuard } from '@/src/app/providers/AuthGuard';
+import { TabProvider } from '@/src/app/providers/TabContext';
 import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
 import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
 import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
@@ -33,15 +34,17 @@ export default function RootLayout() {
           <ThemeProvider>
             <AuthProvider>
               <AuthGuard>
-                <RepositoriesProvider>
-                  <NavigationProvider>
-                    <QuoteProvider>
-                      <AuthorProvider>
-                        <RootLayoutNav />
-                      </AuthorProvider>
-                    </QuoteProvider>
-                  </NavigationProvider>
-                </RepositoriesProvider>
+                <TabProvider>
+                  <RepositoriesProvider>
+                    <NavigationProvider>
+                      <QuoteProvider>
+                        <AuthorProvider>
+                          <RootLayoutNav />
+                        </AuthorProvider>
+                      </QuoteProvider>
+                    </NavigationProvider>
+                  </RepositoriesProvider>
+                </TabProvider>
               </AuthGuard>
             </AuthProvider>
           </ThemeProvider>
@@ -60,9 +63,9 @@ function RootLayoutNav() {
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
   const { isLoading } = useAuth();
   
-  // Navigation Logger
+  // Navigation Logger avec typage
   const pathname = require('expo-router').usePathname();
-  const params = require('expo-router').useGlobalSearchParams();
+  const params = require('expo-router').useGlobalSearchParams<import('@/src/shared/types/router').RootLayoutParams>();
 
   useEffect(() => {
     console.log(`[Navigation] Opened Screen: ${pathname}`, params);

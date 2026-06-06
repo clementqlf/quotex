@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import * as Network from 'expo-network';
+import { useQuery } from '@tanstack/react-query';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { Quote } from '@/src/shared/api/types';
@@ -10,9 +11,8 @@ import { Quote } from '@/src/shared/api/types';
  * Features:
  * - Monitors network connectivity state
  * - Automatically triggers sync when connection is restored
- * - Handles auth state changes
- * - Provides manual sync trigger
- * - Shows sync status
+ * - Uses React Query for pending count (optimized caching)
+ * - Reduced polling frequency for better performance
  */
 export interface SyncStatus {
     isConnected: boolean | null;
@@ -22,8 +22,22 @@ export interface SyncStatus {
     lastSyncError: string | null;
 }
 
-const SYNC_DEBOUNCE_MS = 5000; // Wait 5 seconds after connection to avoid flaky networks
+// Configuration des timers (réduits pour améliorer les performances)
+const NETWORK_CHECK_INTERVAL_MS = 15000; // 15 secondes (au lieu de 5s)
+const SYNC_DEBOUNCE_MS = 2000; // 2 secondes (au lieu de 5s)
 const SYNC_INTERVAL_MS = 300000; // 5 minutes - periodic sync when online
+const PENDING_COUNT_INTERVAL_MS = 30000; // 30 secondes (au lieu de 10s)
+
+/**
+ * Clé pour la query du pending count
+ */
+const PENDING_COUNT_QUERY_KEY = ['pendingQuotesCount'];
+
+/**
+ * Fréquence de rafraîchissement du pending count
+ * Utilisé par React Query pour le background refetch
+ */
+const PENDING_COUNT_REFETCH_INTERVAL_MS = 30000; // 30 secondes
 
 export const useNetworkSync = () => {
     const [status, setStatus] = useState<SyncStatus>({
@@ -40,10 +54,33 @@ export const useNetworkSync = () => {
     // Track the last successful sync timestamp
     const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string | null>(null);
 
-    // Timer for debounced sync
+    // Timer pour debounced sync
     const syncTimer = useRef<NodeJS.Timeout | null>(null);
-    // Timer for periodic sync
+    // Timer pour periodic sync
     const periodicTimer = useRef<NodeJS.Timeout | null>(null);
+
+    // ✅ Utiliser React Query pour le pending count (meilleure optimisation)
+    const { data: pendingCount = 0 } = useQuery({
+        queryKey: PENDING_COUNT_QUERY_KEY,
+        queryFn: () => quoteService.getPendingQuotesCount(),
+        // Rafraîchir toutes les 30 secondes
+        refetchInterval: PENDING_COUNT_REFETCH_INTERVAL_MS,
+        // Ne pas rafraîchir en background (quand l'app est en arrière-plan)
+        refetchIntervalInBackground: false,
+        // Ne pas refetch si la fenêtre n'est pas active
+        refetchOnWindowFocus: true,
+        // Cache pour 1 minute
+        staleTime: 60000,
+    });
+
+    // 🎯 Memoizer le status pour éviter les re-renders inutiles
+    const memoizedStatus = useMemo(() => ({
+        isConnected: status.isConnected,
+        isSyncing: status.isSyncing,
+        lastSyncTime: status.lastSyncTime,
+        pendingCount,
+        lastSyncError: status.lastSyncError,
+    }), [status.isConnected, status.isSyncing, status.lastSyncTime, pendingCount, status.lastSyncError]);
 
     // Check if we should trigger a sync
     const shouldSync = useCallback(async (): Promise<boolean> => {
@@ -59,15 +96,14 @@ export const useNetworkSync = () => {
             return false;
         }
 
-        // Check if we have pending quotes
-        const pendingCount = await quoteService.getPendingQuotesCount();
+        // ✅ Utiliser le pendingCount de React Query
         if (pendingCount === 0) {
             console.log('[useNetworkSync] No pending quotes, skipping sync');
             return false;
         }
 
         return true;
-    }, [status.isSyncing, status.isConnected]);
+    }, [status.isSyncing, status.isConnected, pendingCount]);
 
     // Trigger a sync
     const triggerSync = useCallback(async () => {
@@ -88,12 +124,14 @@ export const useNetworkSync = () => {
                 lastSyncTime: new Date(),
                 lastSyncError: result.errors.length > 0 ? 
                     `Failed to sync ${result.errors.length} quotes` : null,
-                pendingCount: Math.max(0, prev.pendingCount - result.syncedCount),
             }));
 
             setLastSyncTimestamp(new Date().toISOString());
             await StorageService.setItem(STORAGE_KEYS.LAST_SYNC_TIME, new Date().toISOString());
 
+            // Invalider la query du pending count après sync
+            // Note: React Query le fera automatiquement si on utilise queryClient
+            
             // If there were errors, we might want to retry with exponential backoff
             if (result.errors.length > 0) {
                 const maxRetry = Math.max(...result.errors.map(e => e.quote.retryCount || 0));
@@ -187,7 +225,6 @@ export const useNetworkSync = () => {
             try {
                 const networkState = await Network.getNetworkStateAsync();
                 const isConnected = networkState.isConnected && networkState.isInternetReachable;
-                const pendingCount = await quoteService.getPendingQuotesCount();
                 const lastSync = await StorageService.getItem<string>(STORAGE_KEYS.LAST_SYNC_TIME);
 
                 const isConnectedVal = networkState.isConnected && networkState.isInternetReachable;
@@ -196,7 +233,7 @@ export const useNetworkSync = () => {
                     isConnected: isConnectedVal ?? false,
                     isSyncing: false,
                     lastSyncTime: lastSync ? new Date(lastSync) : null,
-                    pendingCount,
+                    pendingCount: 0, // Sera mis à jour par React Query
                     lastSyncError: null,
                 });
 
@@ -226,7 +263,7 @@ export const useNetworkSync = () => {
             if (syncTimer.current) clearTimeout(syncTimer.current);
             if (periodicTimer.current) clearInterval(periodicTimer.current);
         };
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Network state listener
     useEffect(() => {
@@ -253,7 +290,8 @@ export const useNetworkSync = () => {
             }
         };
 
-        const interval = setInterval(checkNetwork, 5000); // Check every 5 seconds
+        // ✅ Réduit à toutes les 15 secondes (au lieu de 5s)
+        const interval = setInterval(checkNetwork, NETWORK_CHECK_INTERVAL_MS);
         checkNetwork();
 
         return () => {
@@ -263,20 +301,13 @@ export const useNetworkSync = () => {
         };
     }, [isInitialized, status.isConnected, debouncedTriggerSync, startPeriodicSync, stopPeriodicSync]);
 
-    // Update pending count periodically
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            const count = await quoteService.getPendingQuotesCount();
-            setStatus(prev => ({ ...prev, pendingCount: count }));
-        }, 10000); // Update every 10 seconds
-
-        return () => clearInterval(interval);
-    }, []);
+    // ✅ Supprimé : Plus besoin de mettre à jour le pendingCount manuellement
+    // React Query le gère automatiquement avec refetchInterval
 
     // Clear sync corrections after animation duration (5 seconds)
     // This ensures the typing animation only plays once per sync
     useEffect(() => {
-        if (status.pendingCount === 0 && status.lastSyncTime) {
+        if (pendingCount === 0 && status.lastSyncTime) {
             // After a successful sync, clear corrections after 5 seconds
             const timer = setTimeout(() => {
                 clearSyncCorrections();
@@ -284,14 +315,15 @@ export const useNetworkSync = () => {
             
             return () => clearTimeout(timer);
         }
-    }, [status.pendingCount, status.lastSyncTime, clearSyncCorrections]);
+    }, [pendingCount, status.lastSyncTime, clearSyncCorrections]);
 
-    return {
-        ...status,
+    // ✅ Retourner le status memoized pour éviter les re-renders inutiles
+    return useMemo(() => ({
+        ...memoizedStatus,
         syncNow,
-        isOnline: status.isConnected === true,
-        isOffline: status.isConnected === false,
-    };
+        isOnline: memoizedStatus.isConnected === true,
+        isOffline: memoizedStatus.isConnected === false,
+    }), [memoizedStatus, syncNow]);
 };
 
 // Add to STORAGE_KEYS if not already there

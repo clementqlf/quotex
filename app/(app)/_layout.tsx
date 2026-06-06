@@ -1,5 +1,6 @@
 import React from 'react';
 import { Stack } from 'expo-router';
+import type { AuthorDetailParams, BookDetailParams } from '@/src/shared/types/router';
 
 export default function AppLayout() {
   return (
@@ -10,14 +11,13 @@ export default function AppLayout() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_right',
-          // @ts-ignore
-          getId: ({ params }) => {
-            if (params?.inventaireUri) return `uri-${params.inventaireUri}`;
-            if (params?.authorId) return `id-${params.authorId}`;
-            let name = params?.authorName || params?.name;
-            if (!name && params?.author) {
+          getId: ({ params }: { params: AuthorDetailParams }) => {
+            if (params.inventaireUri) return `uri-${params.inventaireUri}`;
+            if (params.authorId) return `id-${params.authorId}`;
+            let name = params.authorName || params.name;
+            if (!name && params.author) {
               try {
-                const p = JSON.parse(params.author);
+                const p = JSON.parse(params.author) as AuthorDetailParams;
                 if (p.inventaireUri) return `uri-${p.inventaireUri}`;
                 if (p.id) return `id-${p.id}`;
                 name = p.name;
@@ -32,14 +32,13 @@ export default function AppLayout() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_right',
-          // @ts-ignore
-          getId: ({ params }) => {
-            if (params?.inventaireUri) return `uri-${params.inventaireUri}`;
-            if (params?.bookId) return `id-${params.bookId}`;
-            let title = params?.bookTitle || params?.title;
-            if (!title && params?.book) {
+          getId: ({ params }: { params: BookDetailParams }) => {
+            if (params.inventaireUri) return `uri-${params.inventaireUri}`;
+            if (params.bookId) return `id-${params.bookId}`;
+            let title = params.bookTitle || params.title;
+            if (!title && params.book) {
               try {
-                const p = JSON.parse(params.book);
+                const p = JSON.parse(params.book) as BookDetailParams;
                 if (p.inventaireUri) return `uri-${p.inventaireUri}`;
                 if (p.id) return `id-${p.id}`;
                 title = p.title;

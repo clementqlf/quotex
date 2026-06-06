@@ -25,3 +25,25 @@ export { useLiveOCR } from './useLiveOCR';
 export { extractIsbn } from './useIsbnScanner';
 export { recognizeText } from './mlKitParser';
 export { default as textReconstructor } from './textReconstructor';
+
+// OCR Processor (logique métier)
+export {
+  OcrProcessor,
+  WordData,
+  ImageDisplayInfo,
+} from './ocrProcessor';
+
+// Scan State Management
+export {
+  useScanState,
+  UseScanStateProps,
+  ScanStateResult,
+  SelectionRange,
+} from './useScanState';
+
+// Scan Interactions (UI)
+export {
+  useScanInteractions,
+  UseScanInteractionsProps,
+  ScanInteractionsResult,
+} from './useScanInteractions';
