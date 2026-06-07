@@ -9,10 +9,10 @@ import { Quote } from '@/src/shared/api/types';
  * Custom hook to handle automatic synchronization of offline data when network is restored
  * 
  * Features:
- * - Monitors network connectivity state
+ * - Monitors network connectivity state using native API
  * - Automatically triggers sync when connection is restored
  * - Uses React Query for pending count (optimized caching)
- * - Reduced polling frequency for better performance
+ * - Proper cleanup of all timers
  */
 export interface SyncStatus {
     isConnected: boolean | null;
@@ -22,11 +22,10 @@ export interface SyncStatus {
     lastSyncError: string | null;
 }
 
-// Configuration des timers (réduits pour améliorer les performances)
-const NETWORK_CHECK_INTERVAL_MS = 15000; // 15 secondes (au lieu de 5s)
-const SYNC_DEBOUNCE_MS = 2000; // 2 secondes (au lieu de 5s)
+// Configuration des timers
+const NETWORK_CHECK_INTERVAL_MS = 60000; // 1 minute (optimisé)
+const SYNC_DEBOUNCE_MS = 2000; // 2 secondes
 const SYNC_INTERVAL_MS = 300000; // 5 minutes - periodic sync when online
-const PENDING_COUNT_INTERVAL_MS = 30000; // 30 secondes (au lieu de 10s)
 
 /**
  * Clé pour la query du pending count
@@ -105,11 +104,21 @@ export const useNetworkSync = () => {
         return true;
     }, [status.isSyncing, status.isConnected, pendingCount]);
 
+    // Track if sync is already in progress
+    const syncLock = useRef(false);
+
     // Trigger a sync
     const triggerSync = useCallback(async () => {
+        // Prevent concurrent syncs
+        if (syncLock.current) {
+            console.log('[useNetworkSync] Sync already in progress, skipping');
+            return;
+        }
+
         const doSync = await shouldSync();
         if (!doSync) return;
 
+        syncLock.current = true;
         console.log('[useNetworkSync] Starting sync...');
         setStatus(prev => ({ ...prev, isSyncing: true, lastSyncError: null }));
 
@@ -129,21 +138,25 @@ export const useNetworkSync = () => {
             setLastSyncTimestamp(new Date().toISOString());
             await StorageService.setItem(STORAGE_KEYS.LAST_SYNC_TIME, new Date().toISOString());
 
-            // Invalider la query du pending count après sync
-            // Note: React Query le fera automatiquement si on utilise queryClient
-            
             // If there were errors, we might want to retry with exponential backoff
             if (result.errors.length > 0) {
-                const maxRetry = Math.max(...result.errors.map(e => e.quote.retryCount || 0));
+                const maxRetry = Math.max(...result.errors.map((e: any) => {
+                    if (e.operation) return e.operation.retryCount || 0;
+                    if (e.quote && typeof e.quote === 'object') return e.quote.retryCount || 0;
+                    return 0;
+                }));
                 const backoffDelay = Math.min(1000 * Math.pow(2, maxRetry), 60000); // Max 1 minute
-                console.log(`[useNetworkSync] Some quotes failed to sync. Scheduling retry in ${backoffDelay}ms`);
+                console.log(`[useNetworkSync] Some operations failed to sync. Scheduling retry in ${backoffDelay}ms`);
                 
                 if (syncTimer.current) {
                     clearTimeout(syncTimer.current);
                 }
                 syncTimer.current = setTimeout(() => {
+                    syncLock.current = false;
                     triggerSync();
                 }, backoffDelay);
+            } else {
+                syncLock.current = false;
             }
 
         } catch (error: any) {
@@ -153,6 +166,7 @@ export const useNetworkSync = () => {
                 isSyncing: false,
                 lastSyncError: error.message || 'Unknown error',
             }));
+            syncLock.current = false;
         }
     }, [shouldSync]);
 
@@ -224,13 +238,13 @@ export const useNetworkSync = () => {
         const loadInitialState = async () => {
             try {
                 const networkState = await Network.getNetworkStateAsync();
-                const isConnected = networkState.isConnected && networkState.isInternetReachable;
+                const isConnected = Boolean(networkState.isConnected && networkState.isInternetReachable);
                 const lastSync = await StorageService.getItem<string>(STORAGE_KEYS.LAST_SYNC_TIME);
 
-                const isConnectedVal = networkState.isConnected && networkState.isInternetReachable;
+                const isConnectedVal = Boolean(networkState.isConnected && networkState.isInternetReachable);
 
                 setStatus({
-                    isConnected: isConnectedVal ?? false,
+                    isConnected: isConnectedVal,
                     isSyncing: false,
                     lastSyncTime: lastSync ? new Date(lastSync) : null,
                     pendingCount: 0, // Sera mis à jour par React Query
@@ -258,46 +272,64 @@ export const useNetworkSync = () => {
 
         loadInitialState();
 
-        // Cleanup
+        // Cleanup complet de tous les timers
         return () => {
-            if (syncTimer.current) clearTimeout(syncTimer.current);
-            if (periodicTimer.current) clearInterval(periodicTimer.current);
+            syncLock.current = false;
+            if (syncTimer.current) {
+                clearTimeout(syncTimer.current);
+                syncTimer.current = null;
+            }
+            if (periodicTimer.current) {
+                clearInterval(periodicTimer.current);
+                periodicTimer.current = null;
+            }
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Network state listener
+    // Network state listener - utilise Network.getNetworkStateAsync avec intervalle
     useEffect(() => {
         if (!isInitialized) return;
 
         let isMounted = true;
+        let interval: NodeJS.Timeout | null = null;
+
         const checkNetwork = async () => {
             if (!isMounted) return;
-            const state = await Network.getNetworkStateAsync();
-            const wasConnected = status.isConnected;
-            const isConnectedNow = (state.isConnected && state.isInternetReachable) ?? false;
+            try {
+                const state = await Network.getNetworkStateAsync();
+                const isConnectedNow = Boolean(state.isConnected && state.isInternetReachable);
+                const wasConnected = status.isConnected;
 
-            if (wasConnected !== isConnectedNow) {
-                console.log(`[useNetworkSync] Network state changed: ${wasConnected} -> ${isConnectedNow}`);
-                setStatus(prev => ({ ...prev, isConnected: isConnectedNow }));
+                if (wasConnected !== isConnectedNow) {
+                    console.log(`[useNetworkSync] Network state changed: ${wasConnected} -> ${isConnectedNow}`);
+                    setStatus(prev => ({ ...prev, isConnected: isConnectedNow }));
 
-                if (!wasConnected && isConnectedNow) {
-                    console.log('[useNetworkSync] Connection restored, scheduling sync...');
-                    debouncedTriggerSync();
-                    startPeriodicSync();
-                } else if (wasConnected && !isConnectedNow) {
-                    stopPeriodicSync();
+                    if (!wasConnected && isConnectedNow) {
+                        console.log('[useNetworkSync] Connection restored, scheduling sync...');
+                        debouncedTriggerSync();
+                        startPeriodicSync();
+                    } else if (wasConnected && !isConnectedNow) {
+                        stopPeriodicSync();
+                    }
                 }
+            } catch (error) {
+                console.error('[useNetworkSync] Failed to check network state:', error);
             }
         };
 
-        // ✅ Réduit à toutes les 15 secondes (au lieu de 5s)
-        const interval = setInterval(checkNetwork, NETWORK_CHECK_INTERVAL_MS);
+        // Check initial
         checkNetwork();
 
+        // Lancer l'intervalle (toutes les 60 secondes)
+        interval = setInterval(checkNetwork, NETWORK_CHECK_INTERVAL_MS);
+
+        // Cleanup de l'intervalle
         return () => {
             isMounted = false;
-            clearInterval(interval);
-            stopPeriodicSync();
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+            }
         };
     }, [isInitialized, status.isConnected, debouncedTriggerSync, startPeriodicSync, stopPeriodicSync]);
 

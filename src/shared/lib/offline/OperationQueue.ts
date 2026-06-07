@@ -6,7 +6,7 @@ export interface PendingOperation {
   id: string;                   // UUID unique de l'opération
   type: OperationType;
   entityType: 'quote' | 'book' | 'author';
-  entityId: number;
+  entityId: number;            // ID de l'entité (utilise number pour compatibilité)
   payload?: Record<string, any>;
   createdAt: string;
   retryCount: number;
@@ -16,6 +16,7 @@ export interface PendingOperation {
 
 const STORAGE_KEY = STORAGE_KEYS.PENDING_OPERATIONS;
 const MAX_RETRIES = 10;
+const CONCURRENCY = 3; // Nombre max d'opérations simultanées
 
 export class OperationQueue {
   private static instance: OperationQueue;
@@ -31,7 +32,20 @@ export class OperationQueue {
   async enqueue(op: Omit<PendingOperation, 'id' | 'createdAt' | 'retryCount' | 'maxRetries'>): Promise<void> {
     const pending = await this.getAll();
     
-    // Déduplication : si une op inverse existe, les annuler mutuellement
+    // 1. Déduplication des opérations identiques (même type, entityType, entityId)
+    const existingIndex = pending.findIndex(p => 
+      p.entityType === op.entityType && 
+      p.entityId === op.entityId &&
+      p.type === op.type
+    );
+    
+    if (existingIndex !== -1) {
+      // L'opération existe déjà, on ne la duplique pas
+      console.log(`[OperationQueue] Operation ${op.type} for ${op.entityType}:${op.entityId} already in queue, skipping.`);
+      return;
+    }
+    
+    // 2. Déduplication : si une op inverse existe, les annuler mutuellement
     const inverseIndex = pending.findIndex(p => 
       p.entityType === op.entityType && 
       p.entityId === op.entityId &&
@@ -59,7 +73,7 @@ export class OperationQueue {
     console.log(`[OperationQueue] Enqueued ${op.type} for ${op.entityType}:${op.entityId}`);
   }
 
-  /** Rejoue toutes les opérations en attente (FIFO) */
+  /** Rejoue toutes les opérations en attente avec traitement parallèle et backoff exponentiel */
   async flush(executor: (op: PendingOperation) => Promise<void>): Promise<{
     succeeded: number;
     failed: number;
@@ -69,10 +83,23 @@ export class OperationQueue {
     if (pending.length === 0) return { succeeded: 0, failed: 0, remaining: 0 };
 
     let succeeded = 0;
-    const remaining: PendingOperation[] = [];
+    const failed: PendingOperation[] = [];
+    const inProgress = new Set<string>();
 
-    for (const op of pending) {
+    // Traiter en parallèle avec contrôle de concurrence
+    const processNext = async () => {
+      if (pending.length === 0) return;
+
+      const op = pending.shift()!;
+      inProgress.add(op.id);
+
       try {
+        // Appliquer le délai de backoff exponentiel
+        const backoffDelay = this.getBackoffDelay(op.retryCount);
+        if (backoffDelay > 0) {
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+
         await executor(op);
         succeeded++;
       } catch (error: any) {
@@ -80,20 +107,37 @@ export class OperationQueue {
         op.lastError = error.message;
         
         if (op.retryCount < op.maxRetries) {
-          remaining.push(op);
+          failed.push(op);
         } else {
           console.error(`[OperationQueue] Dropping operation after ${op.maxRetries} retries:`, op);
         }
+      } finally {
+        inProgress.delete(op.id);
+        await processNext();
       }
+    };
+
+    // Lancer les premières opérations
+    const promises: Promise<void>[] = [];
+    for (let i = 0; i < Math.min(CONCURRENCY, pending.length); i++) {
+      promises.push(processNext());
     }
 
-    if (remaining.length > 0) {
-      await StorageService.setItem(STORAGE_KEY, remaining);
+    await Promise.all(promises);
+
+    // Sauvegarder les échecs pour retry
+    if (failed.length > 0) {
+      const currentPending = await this.getAll();
+      await StorageService.setItem(STORAGE_KEY, [...currentPending, ...failed]);
     } else {
       await StorageService.removeItem(STORAGE_KEY);
     }
     
-    return { succeeded, failed: remaining.length, remaining: remaining.length };
+    return {
+      succeeded,
+      failed: failed.length,
+      remaining: failed.length
+    };
   }
 
   /** Calculer le délai de backoff exponentiel */

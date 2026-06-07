@@ -62,6 +62,9 @@ export interface Quote {
   wasSynced?: boolean; // A été synchronisé avec le serveur
   syncedAt?: string | null; // Date de dernière synchronisation
   syncCorrections?: QuoteSyncCorrections; // Corrections appliquées lors de la sync
+
+  // Indicateurs offline-first
+  _isPending?: boolean; // Indique si la citation est en attente de synchronisation
 }
 
 // DTO pour créer une citation

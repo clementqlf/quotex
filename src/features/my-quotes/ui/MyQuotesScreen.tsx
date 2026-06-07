@@ -335,71 +335,68 @@ export default function MyQuotesScreen() {
   const themeKeyExtractor = useCallback((item: any) => item.theme, []);
 
   // Header component for FlashList (filters + status pills)
-  const ListHeader = useMemo(() => {
+  // Mémoïser correctement avec des dépendances stables
+  const ListHeader = useCallback(() => {
     const elements: React.ReactNode[] = [];
 
     if (activeFilters.length > 0) {
       elements.push(
-        <React.Fragment key="filters">
-          <View style={styles.filterContainer}>
-            {activeFilters.map((filter, index) => (
-              <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-                <Text style={styles.filterBadgeText}>
-                  {filter.type === 'author' ? 'Auteur' :
-                    filter.type === 'book' ? 'Livre' :
-                      filter.type === 'year' ? 'Année' : 'Statut'}: {
-                    filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
-                  }
-                </Text>
-                <X size={12} color={colors.primary} />
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
-          </View>
-        </React.Fragment>
+        <View key="filters" style={styles.filterContainer}>
+          {activeFilters.map((filter, index) => (
+            <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
+              <Text style={styles.filterBadgeText}>
+                {filter.type === 'author' ? 'Auteur' :
+                  filter.type === 'book' ? 'Livre' :
+                    filter.type === 'year' ? 'Année' : 'Statut'}: {
+                  filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
+                }
+              </Text>
+              <X size={12} color={colors.primary} />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
+        </View>
       );
     }
 
     if (viewMode === 'books') {
       elements.push(
-        <React.Fragment key="status-pills">
-          <View style={{ marginBottom: 8 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.statusFilterContainer}
-              contentContainerStyle={styles.statusFilterContent}
+        <View key="status-pills" style={{ marginBottom: 8 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.statusFilterContainer}
+            contentContainerStyle={styles.statusFilterContent}
+          >
+            <TouchableOpacity
+              onPress={() => setSelectedStatus('ALL')}
+              style={[
+                styles.statusFilterBadge,
+                selectedStatus === 'ALL' && styles.statusFilterBadgeActive
+              ]}
             >
+              <Text style={[
+                styles.statusFilterText,
+                selectedStatus === 'ALL' && styles.statusFilterTextActive
+              ]}>Tout</Text>
+            </TouchableOpacity>
+            {STATUS_OPTIONS.map(opt => (
               <TouchableOpacity
-                onPress={() => setSelectedStatus('ALL')}
+                key={opt.value}
+                onPress={() => setSelectedStatus(opt.value)}
                 style={[
                   styles.statusFilterBadge,
-                  selectedStatus === 'ALL' && styles.statusFilterBadgeActive
+                  selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
                 ]}
               >
                 <Text style={[
                   styles.statusFilterText,
-                  selectedStatus === 'ALL' && styles.statusFilterTextActive
-                ]}>Tout</Text>
+                  selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+                ]}>{opt.label}</Text>
               </TouchableOpacity>
-              {STATUS_OPTIONS.map(opt => (
-                <TouchableOpacity
-                  key={opt.value}
-                  onPress={() => setSelectedStatus(opt.value)}
-                  style={[
-                    styles.statusFilterBadge,
-                    selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
-                  ]}
-                >
-                  <Text style={[
-                    styles.statusFilterText,
-                    selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
-                  ]}>{opt.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </React.Fragment>
+            ))}
+          </ScrollView>
+        </View>
       );
     }
 

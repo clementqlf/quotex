@@ -105,6 +105,20 @@ export function useLiveOCR({
         }
     }, [isScanningActive, onTextDetectedChange]);
 
+    // Cleanup complet au unmount
+    useEffect(() => {
+        return () => {
+            // Reset des Shared Values pour éviter les fuites
+            consecutivePositive.value = 0;
+            consecutiveNegative.value = 0;
+            isCurrentlyDetected.value = false;
+            lastProcessed.value = 0;
+            
+            // Notifier que le scanning est arrêté
+            onTextDetectedChange?.(false);
+        };
+    }, [onTextDetectedChange, consecutivePositive, consecutiveNegative, isCurrentlyDetected, lastProcessed]);
+
     return {
         frameProcessor,
     };

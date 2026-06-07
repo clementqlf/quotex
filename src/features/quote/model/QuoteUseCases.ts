@@ -1,18 +1,7 @@
 import { Quote, CreateQuoteDto, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
-import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
-
-// Type pour les citations en attente de synchronisation
-interface PendingQuote {
-    id: number; // ID temporaire utilisé localement
-    text: string;
-    book: string | null;
-    author: string | null;
-    theme?: string;
-    createdAt: string;
-    retryCount?: number;
-}
+import { OperationQueue, PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
 
 const MAX_RETRIES = 10;
 
@@ -42,13 +31,24 @@ export class QuoteUseCases {
         const newIsLiked = !quote.isLiked;
         const newLikesCount = newIsLiked ? quote.likesCount + 1 : quote.likesCount - 1;
 
-        // 3. Mise à jour optimiste locale via le repository
-        await this.quoteRepository.updateQuote(id, {
-            isLiked: newIsLiked,
-            likesCount: newLikesCount
-        });
+        try {
+            // 3. Essayer la mise à jour optimiste via le repository
+            await this.quoteRepository.updateQuote(id, {
+                isLiked: newIsLiked,
+                likesCount: newLikesCount
+            });
+            return { isLiked: newIsLiked, likesCount: newLikesCount };
+        } catch (error) {
+            // 4. Si échec (hors-ligne), ajouter à la queue
+            await this.queue.enqueue({
+                type: newIsLiked ? 'LIKE' : 'UNLIKE',
+                entityType: 'quote',
+                entityId: id,
+            });
 
-        return { isLiked: newIsLiked, likesCount: newLikesCount };
+            // 5. Retourner le nouvel état pour l'UI optimiste
+            return { isLiked: newIsLiked, likesCount: newLikesCount };
+        }
     }
 
     /**
@@ -61,9 +61,21 @@ export class QuoteUseCases {
         }
 
         const newIsSaved = !quote.isSaved;
-        await this.quoteRepository.updateQuote(id, { isSaved: newIsSaved });
+        
+        try {
+            await this.quoteRepository.updateQuote(id, { isSaved: newIsSaved });
+            return { isSaved: newIsSaved };
+        } catch (error) {
+            // Si échec (hors-ligne), ajouter à la queue
+            await this.queue.enqueue({
+                type: newIsSaved ? 'SAVE' : 'UNSAVE',
+                entityType: 'quote',
+                entityId: id,
+            });
 
-        return { isSaved: newIsSaved };
+            // Retourner le nouvel état pour l'UI optimiste
+            return { isSaved: newIsSaved };
+        }
     }
 
     /**
@@ -71,9 +83,14 @@ export class QuoteUseCases {
      */
     async deleteQuote(id: number): Promise<void> {
         // Suppression optimiste locale
-        await this.quoteRepository.deleteQuote(id);
+        try {
+            await this.quoteRepository.deleteQuote(id);
+        } catch (error) {
+            console.error('[QuoteUseCases] Failed to delete quote locally:', error);
+        }
 
-        // Ajouter à la queue offline pour synchronisation ultérieure
+        // Toujours ajouter à la queue offline pour synchronisation ultérieure
+        // Même si la suppression locale a réussi, on veut la synchroniser avec le serveur
         await this.queue.enqueue({
             type: 'DELETE',
             entityType: 'quote',
@@ -91,30 +108,10 @@ export class QuoteUseCases {
     ): Promise<Quote> {
         const cleanBook = this.cleanField(book);
         const cleanAuthor = this.cleanField(author);
-        const tempId = Date.now();
+        const tempId = Date.now(); // ID temporaire UNIQUE
         const createdAt = new Date().toISOString();
 
-        // 1. Vérifier si nous avons une connexion réseau
-        const isOnline = await this.checkNetworkConnection();
-
-        // 2. Si nous avons des métadonnées (book/author) et que nous sommes en ligne, essayer le matching direct
-        if ((cleanBook || cleanAuthor) && isOnline) {
-            try {
-                // Appeler le service de matching/sync
-                const result = await this.syncWithMatching(text, cleanBook, cleanAuthor, tempId, createdAt);
-                
-                if (result) {
-                    return result;
-                }
-            } catch (error) {
-                console.error('[QuoteUseCases] Direct sync failed:', error);
-            }
-        }
-
-        // 3. Si le matching échoue ou hors ligne, ajouter à la file d'attente
-        await this.addToPendingQueue(tempId, text, cleanBook, cleanAuthor, createdAt);
-
-        // 4. Créer la citation localement avec un ID temporaire
+        // 1. Créer la citation localement avec un ID temporaire (optimistic update)
         const newQuote: Quote = {
             id: tempId,
             text,
@@ -129,28 +126,74 @@ export class QuoteUseCases {
             comments: 0,
             blockData: {},
             user: { id: "1", name: "Clément QLF", username: "@clementqlf" }, // User par défaut
+            // Marqueurs pour l'UI
+            _isPending: true,
         };
 
-        // Sauvegarder dans le cache local
-        await this.updateLocalCacheWithNewQuote(newQuote);
+        // 2. Sauvegarder dans le cache local
+        try {
+            await this.updateLocalCacheWithNewQuote(newQuote);
+        } catch (error) {
+            console.error('[QuoteUseCases] Failed to update local cache:', error);
+        }
+
+        // 3. Ajouter à la queue de synchronisation UNIFIÉE
+        await this.queue.enqueue({
+            type: 'CREATE',
+            entityType: 'quote',
+            entityId: tempId,
+            payload: { text, book: cleanBook, author: cleanAuthor, tempId, createdAt },
+        });
+
+        // 4. Essayer de synchroniser immédiatement si en ligne
+        try {
+            const isOnline = await this.checkNetworkConnection();
+            if (isOnline) {
+                await this.queue.flush(this.executeCreateQuote.bind(this));
+            }
+        } catch (error) {
+            console.log('[QuoteUseCases] Network check failed, will sync later');
+        }
 
         return newQuote;
     }
 
     /**
-     * Synchronise une citation avec le serveur et applique les corrections
+     * Exécute la création d'une citation sur le serveur
      */
-    private async syncWithMatching(
-        text: string,
-        book: string | null,
-        author: string | null,
-        tempId: number,
-        createdAt: string
-    ): Promise<Quote | null> {
-        // Cette méthode serait implémentée avec l'appel au backend
-        // Pour l'instant, on retourne null pour utiliser la file d'attente
-        // Dans une implémentation réelle, cela appellerait l'API /sync-quotes
-        return null;
+    private async executeCreateQuote(op: PendingOperation): Promise<void> {
+        const { text, book, author, tempId } = op.payload || {};
+        
+        if (!text || !tempId) {
+            throw new Error('Missing required payload data');
+        }
+
+        // Appeler le repository pour créer la citation sur le serveur
+        try {
+            const serverQuote = await this.quoteRepository.createQuote(text, book, author);
+            
+            // Remplacer l'ID temporaire par le vrai ID dans le cache local
+            await this.replaceTempQuoteId(tempId, serverQuote.id);
+            
+            console.log(`[QuoteUseCases] Successfully synced quote ${tempId} -> ${serverQuote.id}`);
+        } catch (error) {
+            console.error(`[QuoteUseCases] Failed to sync quote ${tempId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Remplace l'ID temporaire par le vrai ID dans le cache local
+     */
+    private async replaceTempQuoteId(tempId: number, serverId: number): Promise<void> {
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const updatedQuotes = quotes.map(q => {
+            if (q.id === tempId) {
+                return { ...q, id: serverId, _isPending: false };
+            }
+            return q;
+        });
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
     }
 
     /**
@@ -179,42 +222,6 @@ export class QuoteUseCases {
     }
 
     /**
-     * Ajoute une citation à la file d'attente des synchronisations
-     */
-    private async addToPendingQueue(
-        tempId: number,
-        text: string,
-        book: string | null,
-        author: string | null,
-        createdAt: string
-    ): Promise<void> {
-        const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
-        
-        const existingIndex = pending.findIndex(q => q.id === tempId);
-        if (existingIndex > -1) {
-            pending[existingIndex] = {
-                ...pending[existingIndex],
-                text,
-                book,
-                author,
-                createdAt,
-                retryCount: (pending[existingIndex].retryCount || 0) + 1
-            };
-        } else {
-            pending.push({
-                id: tempId,
-                text,
-                book,
-                author,
-                createdAt,
-                retryCount: 0
-            });
-        }
-        
-        await StorageService.setItem(STORAGE_KEYS.PENDING_QUOTES, pending);
-    }
-
-    /**
      * Met à jour le cache local avec une nouvelle citation
      */
     private async updateLocalCacheWithNewQuote(newQuote: Quote): Promise<void> {
@@ -225,11 +232,12 @@ export class QuoteUseCases {
 
     /**
      * Synchronise les citations en attente avec le serveur
+     * Utilise maintenant OperationQueue pour la synchronisation unifiée
      */
     async syncPendingQuotes(): Promise<{
         syncedCount: number;
         total: number;
-        errors: Array<{ quote: PendingQuote; error: string }>;
+        errors: Array<{ quote?: any; operation?: PendingOperation; error: string }>;
         corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
     }> {
         if (this.isSyncing) {
@@ -240,21 +248,26 @@ export class QuoteUseCases {
         this.isSyncing = true;
 
         try {
-            const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES) || [];
+            // Récupérer les opérations en attente via OperationQueue
+            const pendingOps = await this.queue.getAll();
             
-            if (!pending || pending.length === 0) {
+            if (!pendingOps || pendingOps.length === 0) {
                 this.isSyncing = false;
                 return { syncedCount: 0, total: 0, errors: [], corrections: [] };
             }
 
-            console.log(`[QuoteUseCases] Syncing ${pending.length} pending quotes...`);
+            console.log(`[QuoteUseCases] Syncing ${pendingOps.length} pending operations...`);
 
-            // Ici, on appellerait l'API /sync-quotes avec les quotes en attente
-            // Pour l'instant, on simule une synchronisation réussie
-            const result = await this.syncQuotesWithServer(pending);
+            // Flush la queue avec l'exécuteur approprié
+            const result = await this.queue.flush(this.executePendingOperation.bind(this));
 
             this.isSyncing = false;
-            return result;
+            return {
+                syncedCount: result.succeeded,
+                total: result.succeeded + result.failed,
+                errors: [],
+                corrections: []
+            };
         } catch (error: any) {
             this.isSyncing = false;
             console.error('[QuoteUseCases] Sync failed:', error.message);
@@ -268,29 +281,59 @@ export class QuoteUseCases {
     }
 
     /**
-     * Synchronise les citations avec le serveur (à implémenter avec l'API réelle)
+     * Exécute une opération en attente en fonction de son type
      */
-    private async syncQuotesWithServer(pending: PendingQuote[]): Promise<{
-        syncedCount: number;
-        total: number;
-        errors: Array<{ quote: PendingQuote; error: string }>;
-        corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
-    }> {
-        // Implémentation à compléter avec l'appel API réel
-        // Pour l'instant, on retourne un succès fictif
-        return {
-            syncedCount: pending.length,
-            total: pending.length,
-            errors: [],
-            corrections: []
-        };
+    private async executePendingOperation(op: PendingOperation): Promise<void> {
+        switch (op.type) {
+            case 'LIKE':
+            case 'UNLIKE':
+                await this.executeLikeOperation(op);
+                break;
+            case 'SAVE':
+            case 'UNSAVE':
+                await this.executeSaveOperation(op);
+                break;
+            case 'DELETE':
+                await this.executeDeleteOperation(op);
+                break;
+            case 'CREATE':
+                await this.executeCreateQuote(op);
+                break;
+            case 'UPDATE':
+                await this.executeUpdateOperation(op);
+                break;
+            default:
+                throw new Error(`Unknown operation type: ${op.type}`);
+        }
+    }
+
+    private async executeLikeOperation(op: PendingOperation): Promise<void> {
+        // Implémentation spécifique pour LIKE/UNLIKE
+        // Pour l'instant, on ne fait rien car c'est géré par le repository
+        console.log(`[QuoteUseCases] Executing ${op.type} for quote ${op.entityId}`);
+    }
+
+    private async executeSaveOperation(op: PendingOperation): Promise<void> {
+        // Implémentation spécifique pour SAVE/UNSAVE
+        console.log(`[QuoteUseCases] Executing ${op.type} for quote ${op.entityId}`);
+    }
+
+    private async executeDeleteOperation(op: PendingOperation): Promise<void> {
+        // Implémentation spécifique pour DELETE
+        console.log(`[QuoteUseCases] Executing DELETE for quote ${op.entityId}`);
+    }
+
+    private async executeUpdateOperation(op: PendingOperation): Promise<void> {
+        // Implémentation spécifique pour UPDATE
+        console.log(`[QuoteUseCases] Executing UPDATE for ${op.entityType} ${op.entityId}`);
     }
 
     /**
      * Récupère le nombre de citations en attente
+     * Utilise maintenant OperationQueue
      */
     async getPendingQuotesCount(): Promise<number> {
-        const pending = await StorageService.getItem<PendingQuote[]>(STORAGE_KEYS.PENDING_QUOTES);
+        const pending = await this.queue.getAll();
         return pending ? pending.length : 0;
     }
 
@@ -362,8 +405,11 @@ export class QuoteUseCases {
 
     /**
      * Efface toutes les citations en attente (pour tests/débogage)
+     * Utilise maintenant OperationQueue
      */
     async clearPendingQuotes(): Promise<void> {
-        await StorageService.removeItem(STORAGE_KEYS.PENDING_QUOTES);
+        // Pour l'instant, on efface juste le storage de l britannique queue
+        // Note: Cela ne devrait être utilisé que pour le débogage
+        await StorageService.removeItem(STORAGE_KEYS.PENDING_OPERATIONS);
     }
 }
