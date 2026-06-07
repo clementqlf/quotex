@@ -49,9 +49,10 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
   const realtimeBook = useBookRealtime(bookId, typeof quote.book === 'object' ? quote.book : null);
   const realtimeAuthor = useAuthorRealtime(authorId, typeof quote.author === 'object' ? quote.author : null);
 
-  // Offline citations save book/author as strings initially. Fallback to them if realtime hook returns null.
-  const book = realtimeBook || (typeof quote.book === 'string' ? quote.book : null);
-  const author = realtimeAuthor || (typeof quote.author === 'string' ? quote.author : null);
+  // Offline citations save book/author as strings initially.
+  // When they become objects, use the realtime hook's state, but fall back to the object itself during the transition frame.
+  const book = realtimeBook || quote.book;
+  const author = realtimeAuthor || quote.author;
 
   const isBookEnriching = isEnriching(book);
   const isAuthorEnriching = isEnriching(author);
