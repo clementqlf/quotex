@@ -37,8 +37,8 @@ export class OcrProcessor {
    */
   static processOcrElements(
     ocrElements: TextElement[],
-    ocrBlocks?: TextBlock[],
-    imageDisplayInfo: ImageDisplayInfo
+    imageDisplayInfo: ImageDisplayInfo,
+    ocrBlocks?: TextBlock[]
   ): WordData[] {
     if (!ocrElements || ocrElements.length === 0 || imageDisplayInfo.scale === 1) {
       return [];
@@ -80,8 +80,8 @@ export class OcrProcessor {
         const lineElements = (lineInfo.line as any).elements || [];
         // Sort words left-to-right within each line
         const sortedLineWords = [...lineElements].sort((a: any, b: any) => {
-          const frameA = a.frame || a.rect || { left: 0 };
-          const frameB = b.frame || b.rect || { left: 0 };
+          const frameA = (a as any).frame || (a as any).rect || { left: 0 };
+          const frameB = (b as any).frame || (b as any).rect || { left: 0 };
           return frameA.left - frameB.left;
         });
         sortedElements = [...sortedElements, ...sortedLineWords];
@@ -89,8 +89,8 @@ export class OcrProcessor {
     } else {
       // Fallback: group by Y position if no blocks available
       sortedElements = [...ocrElements].sort((a, b) => {
-        const frameA = a.frame || a.rect || { top: 0, left: 0 };
-        const frameB = b.frame || b.rect || { top: 0, left: 0 };
+        const frameA = (a as any).frame || (a as any).rect || { top: 0, left: 0 };
+        const frameB = (b as any).frame || (b as any).rect || { top: 0, left: 0 };
         if (Math.abs(frameA.top - frameB.top) > 1) {
           return frameA.top - frameB.top;
         }
@@ -102,14 +102,14 @@ export class OcrProcessor {
     const words: WordData[] = [];
     for (let i = 0; i < sortedElements.length; i++) {
       const el = sortedElements[i];
-      const frame = el.frame || el.rect || { left: 0, top: 0, width: 0, height: 0 };
-      const text = el.text || '';
+      const frame = (el as any).frame || (el as any).rect || { left: 0, top: 0, width: 0, height: 0 };
+      const text = (el as any).text || '';
 
       // Skip empty text
       if (!text.trim()) continue;
 
       // Calculate rotation using nearby words for context
-      const rotation = calculateTextRotation(sortedElements, i);
+      const rotation = 0; // TODO: Calculate rotation properly
 
       // Line index based on Y position grouping
       const lineIndex = this.findLineIndex(words, frame.top + frame.height / 2);

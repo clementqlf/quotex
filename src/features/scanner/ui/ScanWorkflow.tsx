@@ -1,17 +1,24 @@
-import React from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { Trash2, Bug, Eraser } from 'lucide-react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+
+import { useScanState, WordData, ImageDisplayInfo, SelectionRange } from '../model/useScanState';
+import { useScanInteractions } from '../model/useScanInteractions';
+import { OcrProcessor } from '../model/ocrProcessor';
+import { PlatformServices } from '@/src/shared/platform';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+
 import ScanPreviewModal from './ScanPreviewModal';
-import { useScanWorkflow } from '../model/useScanWorkflow';
 
 type ScanWorkflowProps = {
   photo: PhotoFile;
@@ -20,7 +27,258 @@ type ScanWorkflowProps = {
   onReset: () => void;
   isGallery?: boolean;
   normalizedSize?: { width: number; height: number } | null;
+  onSave?: (text: string, book?: string | null, author?: string | null) => Promise<{ success: boolean; error?: string }>;
 };
+
+/**
+ * Hook personnalisé pour gérer la logique de sélection et d'exclusion dans ScanWorkflow
+ */
+const useScanWorkflowLogic = (
+  photo: PhotoFile,
+  ocrElements: TextElement[],
+  onReset: () => void,
+  ocrBlocks?: TextBlock[],
+  normalizedSize?: { width: number; height: number } | null,
+  onSave?: (text: string, book?: string | null, author?: string | null) => Promise<{ success: boolean; error?: string }>
+) => {
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isDevMode, setIsDevMode] = useState(false);
+  const [debugTouch, setDebugTouch] = useState<{x: number, y: number} | null>(null);
+  const [isEraserMode, setIsEraserMode] = useState(false);
+
+  // Utiliser useScanState pour gérer l'état de sélection
+  const scanState = useScanState({
+    photo,
+    ocrElements,
+    ocrBlocks,
+    normalizedSize,
+    viewportSize,
+  });
+
+  const {
+    words,
+    selectionRange,
+    excludedIndices,
+    selectedText,
+    imageDisplayInfo,
+    setSelectionRange,
+    setExcludedIndices,
+    setIsEraserMode: setEraserModeState,
+    clearSelection,
+    clearExclusions,
+  } = scanState;
+
+  // Synchroniser isEraserMode avec useScanState
+  const handleSetIsEraserMode = useCallback((mode: boolean) => {
+    setIsEraserMode(mode);
+    setEraserModeState(mode);
+  }, [setEraserModeState]);
+
+  // Utiliser useScanInteractions pour gérer les interactions tactiles
+  const scanInteractions = useScanInteractions({
+    words,
+    selectionRange: selectionRange,
+    setSelectionRange: setSelectionRange as React.Dispatch<React.SetStateAction<SelectionRange | null>>,
+    excludedIndices,
+    isEraserMode,
+    imageDisplayInfo,
+  });
+
+  const { imagePanResponder, findWordAtPosition } = scanInteractions;
+
+  // Géométrie des épingles de sélection
+  const pinsGeometry = useMemo(() => {
+    if (!selectionRange || words.length === 0) return null;
+    const startWord = words[selectionRange.start];
+    const endWord = words[selectionRange.end];
+
+    return {
+      startPin: {
+        left: startWord.scaledFrame.left,
+        top: startWord.scaledFrame.top,
+        height: startWord.scaledFrame.height,
+      },
+      endPin: {
+        left: endWord.scaledFrame.left + endWord.scaledFrame.width,
+        top: endWord.scaledFrame.top,
+        height: endWord.scaledFrame.height,
+      }
+    };
+  }, [selectionRange, words]);
+
+  // Handlers pour les épingles de sélection
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  const startPinResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt, gestureState) => {
+        PlatformServices.haptics.impactAsync("light");
+        if (!selectionRange || words.length === 0) return;
+        const startWord = words[selectionRange.start];
+        if (startWord) {
+          dragStartPos.current = {
+            x: startWord.scaledFrame.left,
+            y: startWord.scaledFrame.top + startWord.scaledFrame.height / 2,
+          };
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (!selectionRange) return;
+        const currentX = dragStartPos.current.x + gestureState.dx;
+        const currentY = dragStartPos.current.y + gestureState.dy;
+
+        setIsDevMode(prev => {
+          if (prev) setDebugTouch({ x: currentX, y: currentY });
+          return prev;
+        });
+
+        // Trouver le mot le plus proche
+        const nearestIndex = findWordAtPosition(currentX, currentY);
+        if (nearestIndex !== null && nearestIndex !== selectionRange?.start) {
+          setSelectionRange((prev: SelectionRange | null) => {
+            if (!prev) return null as SelectionRange | null;
+            return { start: Math.min(nearestIndex, prev.end), end: prev.end } as SelectionRange | null;
+          });
+        }
+      },
+    })
+  ).current;
+
+  const endPinResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt, gestureState) => {
+        PlatformServices.haptics.impactAsync("light");
+        if (!selectionRange || words.length === 0) return;
+        const endWord = words[selectionRange.end];
+        if (endWord) {
+          dragStartPos.current = {
+            x: endWord.scaledFrame.left + endWord.scaledFrame.width,
+            y: endWord.scaledFrame.top + endWord.scaledFrame.height / 2,
+          };
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (!selectionRange) return;
+        const currentX = dragStartPos.current.x + gestureState.dx;
+        const currentY = dragStartPos.current.y + gestureState.dy;
+
+        setIsDevMode(prev => {
+          if (prev) setDebugTouch({ x: currentX, y: currentY });
+          return prev;
+        });
+
+        const nearestIndex = findWordAtPosition(currentX, currentY);
+        if (nearestIndex !== null && nearestIndex !== selectionRange?.end) {
+          setSelectionRange((prev: SelectionRange | null) => {
+            if (!prev) return null as SelectionRange | null;
+            return { start: prev.start, end: Math.max(nearestIndex, prev.start) } as SelectionRange | null;
+          });
+        }
+      },
+    })
+  ).current;
+
+  // Actions pour les boutons
+  const handleCopy = async () => {
+    if (selectedText) {
+      PlatformServices.clipboard.setString(selectedText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      PlatformServices.haptics.notificationAsync("success");
+    }
+  };
+
+  const handleShare = async () => {
+    if (selectedText) {
+      await PlatformServices.share.share({ message: selectedText });
+    }
+  };
+
+  const handleSaveQuote = () => setShowPreviewModal(true);
+
+  const handleClearSelection = useCallback(() => {
+    clearSelection();
+    clearExclusions();
+    handleSetIsEraserMode(false);
+  }, [clearSelection, clearExclusions, handleSetIsEraserMode]);
+
+  const handleSelectAll = useCallback(() => {
+    if (words.length > 0) {
+      setSelectionRange({ start: 0, end: words.length - 1 });
+    }
+  }, [words.length, setSelectionRange]);
+
+  // Handler pour la confirmation de sauvegarde
+  const { refreshBooks } = useAuthor();
+
+  const handleConfirmSaveFromScanner = useCallback(
+    async (text: string, book: string, author: string) => {
+      // Si une fonction onSave est fournie, l'utiliser
+      if (onSave) {
+        try {
+          const result = await onSave(text, book || null, author || null);
+          if (result.success) {
+            PlatformServices.haptics.notificationAsync("success");
+            setShowPreviewModal(false);
+            onReset();
+          } else {
+            Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
+          }
+          return;
+        } catch (error) {
+          Alert.alert('Erreur', 'Une erreur est survenue lors de l\'enregistrement.');
+          return;
+        }
+      }
+      
+      // Fallback pour la compatibilité avec l'ancien code
+      // (devrait être supprimé une fois la migration terminée)
+      setShowPreviewModal(false);
+      onReset();
+    },
+    [onSave, onReset, setShowPreviewModal]
+  );
+
+  return {
+    // State
+    isDevMode,
+    setIsDevMode,
+    debugTouch,
+    viewportSize,
+    setViewportSize,
+    showPreviewModal,
+    setShowPreviewModal,
+    copied,
+    words,
+    selectionRange,
+    scannedText: selectedText,
+    imageDisplayInfo,
+    isEraserMode,
+    setIsEraserMode: handleSetIsEraserMode,
+    excludedIndices,
+    needsRotation: false,
+    
+    // Handlers
+    imagePanResponder,
+    startPinResponder,
+    endPinResponder,
+    pinsGeometry,
+    handleClearSelection,
+    handleCopy,
+    handleShare,
+    handleSaveQuote,
+    handleConfirmSave: handleConfirmSaveFromScanner,
+    handleSelectAll,
+    onReset,
+  };
+};
+
+// Import PanResponder from react-native
+import { PanResponder } from 'react-native';
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
   const {
@@ -28,13 +286,17 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     setIsDevMode,
     debugTouch,
     setViewportSize,
-    imageDisplayInfo,
+    showPreviewModal,
+    setShowPreviewModal,
+    copied,
     words,
     selectionRange,
     scannedText,
-    copied,
-    showPreviewModal,
-    setShowPreviewModal,
+    imageDisplayInfo,
+    isEraserMode,
+    setIsEraserMode,
+    excludedIndices,
+    needsRotation,
     imagePanResponder,
     startPinResponder,
     endPinResponder,
@@ -45,11 +307,14 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     handleConfirmSave,
     handleSelectAll,
     onReset,
-    isEraserMode,
-    setIsEraserMode,
-    excludedIndices,
-    needsRotation,
-  } = useScanWorkflow(props);
+  } = useScanWorkflowLogic(
+    props.photo,
+    props.ocrElements,
+    props.onReset,
+    props.ocrBlocks,
+    props.normalizedSize,
+    props.onSave
+  );
 
   return (
     <>
@@ -67,12 +332,12 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           ]}
         >
           <Image
-            source={{ 
+            source={{
               uri: props.photo.path.startsWith('file://') 
                 ? props.photo.path 
                 : `file://${props.photo.path}` 
             }}
-            style={{ 
+            style={{
               width: '100%',
               height: '100%',
               opacity: isDevMode ? 0.4 : 1.0,
@@ -126,7 +391,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
 
           {/* 1. Gesture overlay covers exactly the displayed image area to receive background touches */}
           <View
-            {...imagePanResponder.panHandlers}
+            {...imagePanResponder.current.panHandlers}
             style={StyleSheet.absoluteFillObject}
           />
 

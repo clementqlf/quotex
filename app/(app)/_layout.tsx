@@ -1,6 +1,13 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import type { AuthorDetailParams, BookDetailParams } from '@/src/shared/types/router';
+import type { 
+  AuthorDetailParams, 
+  BookDetailParams,
+  QuoteDetailParams,
+  ThemeDetailParams,
+  UserProfileParams,
+  SearchParams 
+} from '@/src/shared/types/router';
 
 export default function AppLayout() {
   return (
@@ -11,20 +18,6 @@ export default function AppLayout() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_right',
-          getId: ({ params }: { params: AuthorDetailParams }) => {
-            if (params.inventaireUri) return `uri-${params.inventaireUri}`;
-            if (params.authorId) return `id-${params.authorId}`;
-            let name = params.authorName || params.name;
-            if (!name && params.author) {
-              try {
-                const p = JSON.parse(params.author) as AuthorDetailParams;
-                if (p.inventaireUri) return `uri-${p.inventaireUri}`;
-                if (p.id) return `id-${p.id}`;
-                name = p.name;
-              } catch { name = params.author; }
-            }
-            return name ? String(name).toLowerCase().trim() : undefined;
-          },
         }}
       />
       <Stack.Screen
@@ -32,20 +25,6 @@ export default function AppLayout() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_right',
-          getId: ({ params }: { params: BookDetailParams }) => {
-            if (params.inventaireUri) return `uri-${params.inventaireUri}`;
-            if (params.bookId) return `id-${params.bookId}`;
-            let title = params.bookTitle || params.title;
-            if (!title && params.book) {
-              try {
-                const p = JSON.parse(params.book) as BookDetailParams;
-                if (p.inventaireUri) return `uri-${p.inventaireUri}`;
-                if (p.id) return `id-${p.id}`;
-                title = p.title;
-              } catch { title = params.book; }
-            }
-            return title ? String(title).toLowerCase().trim() : undefined;
-          },
         }}
       />
       <Stack.Screen

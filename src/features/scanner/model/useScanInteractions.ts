@@ -9,18 +9,20 @@ import { SelectionRange } from './useScanState';
 export interface UseScanInteractionsProps {
   words: WordData[];
   selectionRange: SelectionRange | null;
-  setSelectionRange: (range: SelectionRange | null) => void;
+  setSelectionRange: React.Dispatch<React.SetStateAction<SelectionRange | null>>;
   excludedIndices: Set<number>;
   isEraserMode: boolean;
   imageDisplayInfo: ImageDisplayInfo;
 }
+
+import { PanResponderInstance } from 'react-native';
 
 /**
  * Résultat du hook useScanInteractions
  */
 export interface ScanInteractionsResult {
   // Réfs pour les gesture handlers
-  imagePanResponder: React.RefObject<any>;
+  imagePanResponder: React.RefObject<PanResponderInstance>;
   
   // Handlers
   handleWordPress: (index: number) => void;
@@ -75,7 +77,7 @@ export const useScanInteractions = ({
         const nearestIndex = findNearestWord(words, locationX, locationY);
         
         if (nearestIndex !== null) {
-          setSelectionRange({ start: nearestIndex, end: nearestIndex });
+          setSelectionRange({ start: nearestIndex, end: nearestIndex } as SelectionRange | null);
         }
       },
       
@@ -87,7 +89,7 @@ export const useScanInteractions = ({
           setSelectionRange({ 
             start: selectionRange.start, 
             end: nearestIndex 
-          });
+          } as SelectionRange | null);
         }
       },
       
@@ -95,7 +97,7 @@ export const useScanInteractions = ({
         // Fin de la sélection
       },
     })
-  ).current;
+  ).current as unknown as React.RefObject<PanResponderInstance>;
 
   // Handler pour la pression sur un mot
   const handleWordPress = (index: number) => {
@@ -104,11 +106,11 @@ export const useScanInteractions = ({
       return;
     }
     
-    setSelectionRange(prev => {
+    setSelectionRange((prev: SelectionRange | null) => {
       if (!prev) {
-        return { start: index, end: index };
+        return { start: index, end: index } as SelectionRange | null;
       }
-      return { start: prev.start, end: index };
+      return { start: prev.start, end: index } as SelectionRange | null;
     });
   };
 
@@ -118,7 +120,7 @@ export const useScanInteractions = ({
   };
 
   return {
-    imagePanResponder,
+    imagePanResponder: imagePanResponder as unknown as React.RefObject<any>,
     handleWordPress,
     findWordAtPosition,
   };

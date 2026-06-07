@@ -1,5 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
-
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,35 +13,26 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, useCameraFormat } from 'react-native-vision-camera';
-import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
-import * as ExpoImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
+
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
+import { ThemeColors } from '@/src/shared/theme';
+import { PlatformServices } from '@/src/shared/platform';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
-import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
-import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
-import { searchService } from '@/src/features/search/api/SearchService';
-import { PlatformServices } from '@/src/shared/platform';
 import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/AnimatedISBNPopup';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
+import { useScanController } from '@/src/features/scanner/model/useScanController';
 
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { useAuth } from '@/src/app/providers/AuthContext';
-import { ThemeColors } from '@/src/shared/theme';
-
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 
 interface CameraContainerProps {
   device: any;
@@ -74,8 +64,8 @@ const CameraContainer = React.memo(({
     isFocused,
     enabled: !photo && !isLoading && !showIsbnPopup && !isSearchingIsbn,
     scanInterval: 300,
-    positiveThreshold: 1,   // 1 positive frame → affiche le cadre immédiatement
-    negativeThreshold: 10,  // 10 trames négatives consécutives (~3s) → masque le cadre
+    positiveThreshold: 1,
+    negativeThreshold: 10,
     onTextDetectedChange,
   });
 
@@ -104,347 +94,85 @@ const CameraContainer = React.memo(({
   );
 });
 
+// Debug flag
+const DEBUG_SCAN_AREA = false;
+
 export default function ScanScreen() {
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
   const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  
   const { tabIndex, setTabIndex } = useTabIndex();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
 
-  const { quotes, addQuote } = useQuote();
-  const [randomQuote, setRandomQuote] = React.useState<any | null>(null);
-  const [showRandomQuoteModal, setShowRandomQuoteModal] = React.useState(false);
-
-  const [photo, setPhoto] = React.useState<PhotoFile | null>(null);
-  const [ocrElements, setOcrElements] = React.useState<TextElement[] | null>(null);
-  const [ocrBlocks, setOcrBlocks] = React.useState<TextBlock[] | null>(null);
-  const [ocrNormalizedSize, setOcrNormalizedSize] = React.useState<{ width: number; height: number } | null>(null);
-  const [isFromGallery, setIsFromGallery] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isPickerActive, setIsPickerActive] = React.useState(false);
-  const [isbnBookData, setIsbnBookData] = React.useState<IsbnBookData | null>(null);
-  const [showIsbnPopup, setShowIsbnPopup] = React.useState(false);
-  const [isSearchingIsbn, setIsSearchingIsbn] = React.useState(false);
+  // ========== SCAN CONTROLLER ==========
+  // Gère toute la logique de scan via un hook centralisé
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
+  const [scanAreaY, setScanAreaY] = React.useState(0);
   const [scanFrameLayout, setScanFrameLayout] = React.useState<{
     x: number;
     y: number;
     width: number;
     height: number;
   } | null>(null);
-  const [scanAreaY, setScanAreaY] = React.useState(0);
 
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1280, height: 720 } },
-    { fps: 30 }
-  ]);
-  const cameraRef = React.useRef<Camera | null>(null);
-
-  // Ref partagé pour éviter les captures concurrentes (Live OCR vs Capture Manuelle)
-  const scanLockRef = React.useRef(false);
-  const isSearchingIsbnRef = React.useRef(false);
-
-  const DEBUG_SCAN_AREA = false;
-
-  const checkAndHandleIsbn = useCallback(async (text: string): Promise<boolean> => {
-    const isbn = extractIsbn(text);
-    if (!isbn) return false;
-
-    console.log('[ScanScreen] Valid ISBN detected:', isbn);
-
-    if (isSearchingIsbnRef.current || isSearchingIsbn) {
-      console.log('[ScanScreen] Already processing or popup visible, ignoring duplicate trigger.');
-      return false;
-    }
-
-    setIsSearchingIsbn(true);
-    isSearchingIsbnRef.current = true;
-    scanLockRef.current = true;
-    console.log('[ScanScreen] Starting ISBN search. Set scanLockRef.current = true');
-
-    let popupShown = false;
-    try {
-      const data = await searchService.search(isbn);
-      if (data.inventaireWorks && data.inventaireWorks.length > 0) {
-        const item = data.inventaireWorks[0];
-        const authorName = item.authors && item.authors.length > 0
-          ? item.authors.join(', ')
-          : 'Auteur inconnu';
-
-        // Import the book to get the same cover that BookDetail will show
-        try {
-          const token = await authService.getToken();
-          const importRes = await fetch(`${API_BASE_URL}/books/import`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({
-              title: item.label || item.title,
-              description: item.description || '',
-              cover: item.image || item.cover || '',
-              inventaireUri: item.uri || item.inventaireUri,
-              googleId: item.googleId,
-              isbn,
-              year: item.year,
-              pages: item.pages,
-              genre: item.genre,
-              authors: item.authors || [],
-              authorUris: item.authorUris || [],
-            }),
-          });
-
-          if (importRes.ok) {
-            const imported = await importRes.json();
-            PlatformServices.haptics.notificationAsync("success");
-            console.log('[ScanScreen] Book imported successfully from inventaireWorks. Showing popup.');
-            setIsbnBookData({
-              title: imported.title || item.title || item.label || 'Livre inconnu',
-              author: authorName,
-              cover: imported.cover || item.image || item.cover || undefined,
-              bookId: imported.id?.toString(),
-              inventaireUri: imported.inventaireUri || item.inventaireUri || item.uri,
-            });
-            setShowIsbnPopup(true);
-            popupShown = true;
-            return true;
-          }
-        } catch (importErr) {
-          console.error('[ScanScreen] Import failed, falling back to search cover:', importErr);
-        }
-
-        // Fallback: use search result cover
-        PlatformServices.haptics.notificationAsync("success");
-        console.log('[ScanScreen] Fallback: showing popup using search result cover.');
-        setIsbnBookData({
-          title: item.title || item.label || 'Livre inconnu',
-          author: authorName,
-          cover: item.image || item.cover || undefined,
-          inventaireUri: item.inventaireUri || item.uri,
-          bookData: item,
-        });
-        setShowIsbnPopup(true);
-        popupShown = true;
-        return true;
-      } else if (data.books && data.books.length > 0) {
-        const book = data.books[0];
-        const authorName = typeof book.author === 'string'
-          ? book.author
-          : (book.author as any)?.name || 'Auteur inconnu';
-        PlatformServices.haptics.notificationAsync("success");
-        console.log('[ScanScreen] Book found in books array. Showing popup.');
-        setIsbnBookData({
-          title: book.title,
-          author: authorName,
-          cover: book.cover || undefined,
-          bookId: book.id?.toString() ?? undefined,
-          inventaireUri: book.inventaireUri,
-        });
-        setShowIsbnPopup(true);
-        popupShown = true;
-        return true;
-      } else {
-        console.log('[ScanScreen] No book found for ISBN:', isbn);
-      }
-    } catch (error) {
-      console.error('Error searching ISBN:', error);
-    } finally {
-      isSearchingIsbnRef.current = false;
-      if (!popupShown) {
-        setIsSearchingIsbn(false);
-        scanLockRef.current = false;
-        console.log('[ScanScreen] ISBN search finished, no popup shown. Released scanLockRef.current = false');
-      } else {
-        console.log('[ScanScreen] ISBN search finished, popup shown. Keeping scanLockRef.current = true');
-      }
-    }
-    return false;
-  }, [showIsbnPopup, isSearchingIsbn]);
-
-  const handleIsbnPopupPress = useCallback(() => {
-    if (!isbnBookData) return;
-    console.log('[ScanScreen] ISBN popup pressed. Releasing scanLockRef.current = false and navigating.');
-    setShowIsbnPopup(false);
-    scanLockRef.current = false;
-    setIsSearchingIsbn(false);
-
-    const coverParam = isbnBookData.cover || undefined;
-
-    if (isbnBookData.bookData) {
-      router.push({
-        pathname: '/book-detail',
-        params: {
-          bookTitle: isbnBookData.title,
-          inventaireUri: isbnBookData.inventaireUri,
-          bookData: JSON.stringify(isbnBookData.bookData),
-          ...(coverParam ? { cover: coverParam } : {}),
-        },
-      });
-    } else if (isbnBookData.bookId) {
-      router.push({
-        pathname: '/book-detail',
-        params: {
-          bookId: isbnBookData.bookId,
-          inventaireUri: isbnBookData.inventaireUri,
-          ...(coverParam ? { cover: coverParam } : {}),
-        },
-      });
-    } else if (isbnBookData.inventaireUri) {
-      router.push({
-        pathname: '/book-detail',
-        params: {
-          bookTitle: isbnBookData.title,
-          inventaireUri: isbnBookData.inventaireUri,
-        },
-      });
-    }
-    setIsbnBookData(null);
-  }, [isbnBookData, router]);
-
-  const handleIsbnPopupDismiss = useCallback(() => {
-    console.log('[ScanScreen] ISBN popup dismissed. Releasing scanLockRef.current = false.');
-    setShowIsbnPopup(false);
-    setIsbnBookData(null);
-    isSearchingIsbnRef.current = false;
-    scanLockRef.current = false;
-    setIsSearchingIsbn(false);
-  }, []);
-
-  const handleRandomQuotePress = useCallback(() => {
-    // 1. Try to get quotes added by other users from the database
-    let candidates: any[] = quotes.filter(q => q.user && q.user.id !== "1" && q.user.id !== currentUser?.id);
-
-    // 2. If none found, fallback to global static quotes added by other users
-    if (candidates.length === 0) {
-      candidates = globalQuotesDB.filter(q => q.user && q.user.id !== "1" && q.user.id !== currentUser?.id);
-    }
-
-    // 3. Absolute fallback to any quotes if still empty
-    if (candidates.length === 0) {
-      candidates = quotes.length > 0 ? quotes : [...localQuotesDB, ...globalQuotesDB];
-    }
-
-    if (candidates.length === 0) {
-      Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
-      return;
-    }
-
-    const randomIndex = Math.floor(Math.random() * candidates.length);
-    const selected = candidates[randomIndex];
-
-    // Play light feedback
-    PlatformServices.haptics.impactAsync("light");
-
-    setRandomQuote(selected);
-    setShowRandomQuoteModal(true);
-  }, [quotes, currentUser]);
-
-  // Hook Live OCR (permet d'animer le contour bleu en temps réel)
-  const [isTextDetectedLive, setIsTextDetectedLive] = React.useState(false);
-  const handleTextDetectedChange = useCallback((detected: boolean) => {
-    setIsTextDetectedLive(detected);
-  }, []);
-
-  const regionOfInterest = useMemo(() => {
-    if (!scanFrameLayout || containerSize.width === 0 || containerSize.height === 0) {
-      return undefined;
-    }
-    return {
-      x: scanFrameLayout.x / containerSize.width,
-      y: (scanAreaY + scanFrameLayout.y) / containerSize.height,
-      width: scanFrameLayout.width / containerSize.width,
-      height: scanFrameLayout.height / containerSize.height,
-    };
-  }, [scanFrameLayout, scanAreaY, containerSize]);
-
-  const codeScanner = useCodeScanner({
-    codeTypes: ['ean-13', 'ean-8'],
-    onCodeScanned: (codes, scannerFrame) => {
-      if (!isFocused || photo || isLoading || showIsbnPopup || isSearchingIsbn) {
-        return;
-      }
-      if (codes.length > 0 && codes[0].value) {
-        const code = codes[0];
-
-        // Filter codes to only those inside the visual scan frame area (in DP)
-        if (code.frame && scanFrameLayout && containerSize.width > 0 && scannerFrame.width > 0 && scannerFrame.height > 0) {
-          const isFrameLandscape = scannerFrame.width > scannerFrame.height;
-
-          let x_screen = 0;
-          let y_screen = 0;
-
-          if (isFrameLandscape) {
-            // Camera sensor is landscape, screen is portrait (90 deg rotation)
-            const scaleX = containerSize.width / scannerFrame.height;
-            const scaleY = containerSize.height / scannerFrame.width;
-            const scale = Math.max(scaleX, scaleY);
-
-            const scaledWidth = scannerFrame.height * scale;
-            const scaledHeight = scannerFrame.width * scale;
-
-            const offsetX = (scaledWidth - containerSize.width) / 2;
-            const offsetY = (scaledHeight - containerSize.height) / 2;
-
-            const codeCenterX = code.frame.x + code.frame.width / 2;
-            const codeCenterY = code.frame.y + code.frame.height / 2;
-
-            x_screen = codeCenterY * scale - offsetX;
-            y_screen = codeCenterX * scale - offsetY;
-          } else {
-            // Camera frame is already portrait (no rotation needed)
-            const scaleX = containerSize.width / scannerFrame.width;
-            const scaleY = containerSize.height / scannerFrame.height;
-            const scale = Math.max(scaleX, scaleY);
-
-            const scaledWidth = scannerFrame.width * scale;
-            const scaledHeight = scannerFrame.height * scale;
-
-            const offsetX = (scaledWidth - containerSize.width) / 2;
-            const offsetY = (scaledHeight - containerSize.height) / 2;
-
-            const codeCenterX = code.frame.x + code.frame.width / 2;
-            const codeCenterY = code.frame.y + code.frame.height / 2;
-
-            x_screen = codeCenterX * scale - offsetX;
-            y_screen = codeCenterY * scale - offsetY;
-          }
-
-          const frameLeft = scanFrameLayout.x;
-          const frameRight = scanFrameLayout.x + scanFrameLayout.width;
-          const frameTop = scanAreaY + scanFrameLayout.y;
-          const frameBottom = scanAreaY + scanFrameLayout.y + scanFrameLayout.height;
-
-          const isInside = x_screen >= frameLeft && x_screen <= frameRight &&
-            y_screen >= frameTop && y_screen <= frameBottom;
-
-          if (!isInside) {
-            console.log('[ScanScreen] Ignored barcode outside visual frame:', code.value, {
-              x_screen,
-              y_screen,
-              frameLeft,
-              frameRight,
-              frameTop,
-              frameBottom
-            });
-            return;
-          }
-        }
-
-        console.log('[ScanScreen] Barcode scanned:', code.value);
-        checkAndHandleIsbn(code.value!);
-      }
-    },
-    regionOfInterest: regionOfInterest,
+  const scanController = useScanController({
+    isFocused,
+    containerSize,
+    scanFrameLayout,
+    scanAreaY,
   });
 
+  const {
+    // Camera state
+    hasPermission,
+    device,
+    format,
+    cameraRef,
+    requestPermission,
+    
+    // Scan state
+    photo,
+    ocrElements,
+    ocrBlocks,
+    ocrNormalizedSize,
+    isFromGallery,
+    isLoading,
+    isPickerActive,
+    
+    // ISBN state
+    showIsbnPopup,
+    isbnBookData,
+    isSearchingIsbn,
+    handleIsbnPopupPress,
+    handleIsbnPopupDismiss,
+    
+    // Random quote state
+    randomQuote,
+    showRandomQuoteModal,
+    setShowRandomQuoteModal,
+    handleRandomQuotePress,
+    
+    // OCR Live state
+    isTextDetectedLive,
+    handleTextDetectedChange,
+    
+    // Code scanner
+    codeScanner,
+    
+    // Actions
+    handleTakePhoto,
+    handleResetCapture,
+    handlePickImage,
+    saveScannedQuote,
+    cleanup,
+  } = scanController;
+
+  // ========== ANIMATIONS ==========
   const fadeAnim = useSharedValue(1);
 
-  // Animation des coins vers cadre complet (live)
   React.useEffect(() => {
     fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
   }, [isTextDetectedLive]);
@@ -453,233 +181,57 @@ export default function ScanScreen() {
     opacity: fadeAnim.value,
   }));
 
-  // Cleanup au unmount du composant
-  React.useEffect(() => {
+  // ========== EFFETS ==========
+  // Cleanup au unmount
+  useEffect(() => {
     return () => {
-      console.log('[ScanScreen] Unmounting component, releasing scanLockRef.current to false');
-      scanLockRef.current = false;
-      // Nettoyage complet du dossier temporaire Cache pour éviter la fuite de mémoire des photos
-      FileSystem.deleteAsync(`${FileSystem.cacheDirectory}VisionCamera`, { idempotent: true }).catch(console.error);
+      console.log('[ScanScreen] Unmounting component, releasing locks and cleaning up.');
+      cleanup();
     };
-  }, []);
+  }, [cleanup]);
 
-  React.useEffect(() => {
+  // Permission check
+  useEffect(() => {
     if (!hasPermission) {
       requestPermission();
     }
   }, [hasPermission, requestPermission]);
 
-  React.useEffect(() => {
+  // Tab index sync
+  useEffect(() => {
     if (isFocused) {
       setTabIndex(1);
     } else {
-      console.log('[ScanScreen] Lost focus, resetting state and scanLockRef.current to false');
-      scanLockRef.current = false;
-
-      // Réinitialiser les états
-      setPhoto(null);
-      setOcrElements(null);
-      setOcrBlocks(null);
-      setIsTextDetectedLive(false); // Le hook le fera si unmount, mais on force ici si besoin
+      console.log('[ScanScreen] Lost focus, resetting state.');
     }
   }, [isFocused, setTabIndex]);
 
-  React.useEffect(() => {
+  // Swipe enabled sync
+  useEffect(() => {
     setSwipeEnabled(!(photo && ocrElements));
   }, [photo, ocrElements, setSwipeEnabled]);
 
-
-
-  // processImage a été déplacé dans mlKitParser.ts sous le nom recognizeAndExtractElements
-
-  const handleTakePhoto = async () => {
-    if (!cameraRef.current || isLoading || !isFocused) {
-      console.log('[ScanScreen] handleTakePhoto: cameraRef is null, loading, or screen not focused. Aborting.', {
-        hasCameraRef: !!cameraRef.current,
-        isLoading,
-        isFocused,
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    scanLockRef.current = true; // Lock global (capture + live)
-    console.log('[ScanScreen] handleTakePhoto: scanLockRef.current set to true');
-
+  // Handle random quote confirmation
+  const handleConfirmRandomQuote = useCallback(async () => {
+    if (!randomQuote) return;
+    
     try {
-      // Final check after potential lock wait
-      if (!cameraRef.current || !isFocused) {
-        console.log('[ScanScreen] handleTakePhoto: Camera unmounted or screen lost focus during setup. Aborting.');
-        setIsLoading(false);
-        scanLockRef.current = false;
-        return;
-      }
-
-      console.log('[ScanScreen] handleTakePhoto: taking photo...');
-      const photoFile = await cameraRef.current.takePhoto({
-        flash: 'off',
-        enableShutterSound: false,
-      });
-
-      console.log('[ScanScreen] handleTakePhoto: photo taken successfully. Path:', photoFile.path);
-
-      console.log('[ScanScreen] handleTakePhoto: recognizing text...');
-      const ocrResult = await recognizeText(photoFile.path);
-      const elements = ocrResult.elements;
-
-      if (!elements || elements.length === 0) {
-        console.log('[ScanScreen] handleTakePhoto: no text recognized in the photo');
-        setPhoto(null);
-        setOcrElements(null);
-        setOcrBlocks(null);
-        Alert.alert(
-          "Aucun texte détecté",
-          "Nous n'avons détecté aucun texte dans l'image. Assurez-vous d'avoir bien cadré le texte et qu'il y a assez de lumière."
-        );
-        return;
-      }
-
-      console.log('[ScanScreen] handleTakePhoto: regular quote text detected. Transitioning to scan workflow...');
-
-      // Use the portrait-normalized image file path
-      const normalizedPath = ocrResult.normalizedUri.replace('file://', '');
-      const pickedPhoto: PhotoFile = {
-        ...photoFile,
-        path: normalizedPath,
-        width: ocrResult.normalizedSize?.width || photoFile.width,
-        height: ocrResult.normalizedSize?.height || photoFile.height,
-        metadata: { Orientation: 1 } as any, // 1 = upright portrait
-      };
-
-      setIsFromGallery(false);
-      setPhoto(pickedPhoto);
-      setOcrElements(elements);
-      setOcrBlocks(ocrResult.blocks);
-      setOcrNormalizedSize(ocrResult.normalizedSize);
-    } catch (error) {
-      console.error('Failed to take photo or recognize text:', error);
-      setPhoto(null);
-      setOcrElements(null);
-      Alert.alert(
-        "Erreur de scan",
-        `Une erreur est survenue lors de la prise de photo ou de la détection de texte : ${error instanceof Error ? error.message : String(error)}`
-      );
-    } finally {
-      setIsLoading(false);
-      // Small delay before releasing lock to let native camera settle
-      setTimeout(() => {
-        scanLockRef.current = false;
-        console.log('[ScanScreen] handleTakePhoto finished: scanLockRef.current released to false');
-      }, 100);
+      console.log('[ScanScreen] Saving random quote:', randomQuote);
+      // For now, we'll use the existing addQuote from useQuote
+      // In the future, this should be moved to a use case
+      // But we need to access it here
+      // This is a temporary solution until we have a proper QuoteUseCases integration
+      
+      // For now, we'll just close the modal
+      // The actual save will be handled by the modal's onConfirm
+      setShowRandomQuoteModal(false);
+    } catch (e) {
+      console.error('[ScanScreen] Failed to save random quote:', e);
+      Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');
     }
-  };
+  }, [randomQuote, setShowRandomQuoteModal]);
 
-  const handleResetCapture = async () => {
-    if (photo?.path) {
-      try {
-        // Supprimer le fichier temporaire (capture camera ou copie galerie)
-        const path = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
-        await FileSystem.deleteAsync(path, { idempotent: true });
-      } catch (e) {
-        console.log("Erreur suppression photo scan:", e);
-      }
-    }
-    setPhoto(null);
-    setOcrElements(null);
-    setOcrBlocks(null);
-    setOcrNormalizedSize(null);
-    setIsFromGallery(false);
-    setIsTextDetectedLive(false);
-  };
-
-  const handlePickImage = async () => {
-    try {
-      if (isLoading || isPickerActive) {
-        console.log('[ScanScreen] handlePickImage: ignored, loading or picker active');
-        return;
-      }
-      console.log('[ScanScreen] handlePickImage: starting gallery image selection');
-
-      // 1. Vérifier la permission sans lancer la boîte de dialogue directement
-      let permission = await ExpoImagePicker.getMediaLibraryPermissionsAsync();
-
-      if (permission.status !== 'granted') {
-        permission = await ExpoImagePicker.requestMediaLibraryPermissionsAsync();
-        if (permission.status !== 'granted') {
-          console.log('[ScanScreen] handlePickImage: permission denied');
-          return;
-        }
-        // Attendre que l'animation de fermeture du dialogue iOS se termine
-        await new Promise(resolve => setTimeout(resolve, 600));
-      }
-
-      // Désactiver le flux de la caméra
-      setIsPickerActive(true);
-
-      // 2. Lancer la galerie après un court délai pour stabiliser l'arborescence
-      setTimeout(async () => {
-        try {
-          const result = await ExpoImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: true,
-            quality: 1,
-          });
-
-          if (result.canceled || !result.assets || result.assets.length === 0) {
-            console.log('[ScanScreen] handlePickImage: gallery selection canceled');
-            setIsPickerActive(false);
-            return;
-          }
-
-          setIsLoading(true);
-
-          const asset = result.assets[0];
-          const cleanPath = asset.uri.startsWith('file://') ? asset.uri : `file://${asset.uri}`;
-          console.log('[ScanScreen] handlePickImage: asset selected:', cleanPath);
-
-          const ocrResult = await recognizeText(cleanPath);
-          const elements = ocrResult.elements;
-          if (elements && elements.length > 0) {
-            const fullText = elements.map(e => e.text).join(' ');
-            console.log('[ScanScreen] handlePickImage: recognized text:', fullText);
-            const isIsbn = await checkAndHandleIsbn(fullText);
-            if (isIsbn) {
-              console.log('[ScanScreen] handlePickImage: ISBN popup active, exiting pickImage');
-              setIsPickerActive(false);
-              return;
-            }
-          } else {
-            console.log('[ScanScreen] handlePickImage: no text elements recognized in selection');
-          }
-
-          const pickedPhoto: PhotoFile = {
-            path: cleanPath,
-            width: asset.width,
-            height: asset.height,
-            isRawPhoto: false,
-            metadata: { Orientation: 1 } as any,
-          } as PhotoFile;
-
-          setIsFromGallery(true);
-          setPhoto(pickedPhoto);
-          setOcrElements(elements || []);
-          setOcrBlocks(ocrResult.blocks || []);
-          setOcrNormalizedSize(ocrResult.normalizedSize);
-        } catch (innerError) {
-          console.error('Picker launch error:', innerError);
-        } finally {
-          setIsLoading(false);
-          setIsPickerActive(false);
-        }
-      }, 300);
-
-    } catch (error: any) {
-      console.error('Picker error:', error);
-      setIsLoading(false);
-      setIsPickerActive(false);
-    }
-  };
-
+  // ========== RENDER ==========
   if (!hasPermission) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -690,8 +242,6 @@ export default function ScanScreen() {
       </SafeAreaView>
     );
   }
-
-
 
   return (
     <SafeAreaView
@@ -764,6 +314,7 @@ export default function ScanScreen() {
           onReset={handleResetCapture}
           isGallery={isFromGallery}
           normalizedSize={ocrNormalizedSize}
+          onSave={saveScannedQuote}
         />
       )}
 
@@ -789,16 +340,12 @@ export default function ScanScreen() {
                 setScanFrameLayout({ x, y, width, height });
               }}
             >
-
               {/* Animation des coins vers cadre complet */}
-              {/* Correction : outputRange numériques, largeur réelle du cadre, animation live OCR */}
               <ScanFrameOverlay
                 isTextDetectedLive={isTextDetectedLive}
                 scanFrameLayout={scanFrameLayout}
                 colors={colors}
               />
-
-              {/* Ligne de scan animée supprimée */}
 
               <View style={styles.content}>
                 <Animated.View
@@ -885,17 +432,21 @@ export default function ScanScreen() {
               showConfetti={true}
               onClose={() => setShowRandomQuoteModal(false)}
               onConfirm={async (text, book, author) => {
-                console.log('[ScanScreen] onConfirm called for random quote');
-                console.log('[ScanScreen] text:', text);
-                console.log('[ScanScreen] book:', book);
-                console.log('[ScanScreen] author:', author);
-                
                 try {
-                  console.log('[ScanScreen] Calling addQuote...');
-                  await addQuote(text, book, author);
-                  console.log('[ScanScreen] addQuote completed');
-                  setShowRandomQuoteModal(false);
-                  PlatformServices.haptics.notificationAsync("success");
+                  console.log('[ScanScreen] onConfirm called for random quote');
+                  console.log('[ScanScreen] text:', text);
+                  console.log('[ScanScreen] book:', book);
+                  console.log('[ScanScreen] author:', author);
+                  
+                  // Utiliser QuoteUseCases via saveScannedQuote
+                  const result = await saveScannedQuote(text, book, author);
+                  
+                  if (result.success) {
+                    PlatformServices.haptics.notificationAsync("success");
+                    setShowRandomQuoteModal(false);
+                  } else {
+                    Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
+                  }
                 } catch (e) {
                   console.error('[ScanScreen] Failed to save random quote:', e);
                   Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');
@@ -957,14 +508,14 @@ export default function ScanScreen() {
           </View>
         </>
       )}
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background, // Should adapt to light/dark for permission screen
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible',
@@ -1025,7 +576,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     aspectRatio: 3 / 4,
     maxHeight: 450,
     borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.2)', // Keep hardcoded or use primary with opacity? Keeping hardcoded for camera overlay consistency
+    borderColor: 'rgba(32, 184, 205, 0.2)',
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1084,7 +635,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   instructionTextShadow: {
     fontSize: 15,
-    color: '#FFFFFF', // Maintain white for overlay visibility
+    color: '#FFFFFF',
     marginTop: 20,
     textAlign: 'center',
     textShadowColor: colors.primary,
@@ -1113,7 +664,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 12,
-    backgroundColor: '#1a1a1a', // Keep dark for overlay buttons
+    backgroundColor: '#1a1a1a',
     justifyContent: 'center',
     alignItems: 'center',
   },

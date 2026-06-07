@@ -3,6 +3,9 @@ import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { WordData, ImageDisplayInfo, OcrProcessor } from './ocrProcessor';
 
+// Re-export types for convenience
+export { WordData, ImageDisplayInfo };
+
 /**
  * Props pour le hook useScanState
  */
@@ -33,9 +36,9 @@ export interface ScanStateResult {
   isEraserMode: boolean;
   
   // Setters
-  setSelectionRange: (range: SelectionRange | null) => void;
-  setExcludedIndices: (indices: Set<number>) => void;
-  setIsEraserMode: (mode: boolean) => void;
+  setSelectionRange: React.Dispatch<React.SetStateAction<SelectionRange | null>>;
+  setExcludedIndices: React.Dispatch<React.SetStateAction<Set<number>>>;
+  setIsEraserMode: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Actions
   toggleWordSelection: (index: number) => void;
@@ -67,7 +70,7 @@ export const useScanState = ({
   const imageDisplayInfo = useMemo(() => {
     return OcrProcessor.calculateImageDisplayInfo(
       viewportSize,
-      normalizedSize,
+      normalizedSize ?? null,
       photo
     );
   }, [viewportSize, normalizedSize, photo.width, photo.height]);
@@ -75,8 +78,8 @@ export const useScanState = ({
   const words = useMemo(() => {
     return OcrProcessor.processOcrElements(
       ocrElements,
-      ocrBlocks,
-      imageDisplayInfo
+      imageDisplayInfo,
+      ocrBlocks
     );
   }, [ocrElements, ocrBlocks, imageDisplayInfo]);
 

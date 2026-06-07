@@ -24,7 +24,7 @@ export {
 export { useLiveOCR } from './useLiveOCR';
 export { extractIsbn } from './useIsbnScanner';
 export { recognizeText } from './mlKitParser';
-export { default as textReconstructor } from './textReconstructor';
+export * from './textReconstructor';
 
 // OCR Processor (logique métier)
 export {
@@ -47,3 +47,12 @@ export {
   UseScanInteractionsProps,
   ScanInteractionsResult,
 } from './useScanInteractions';
+
+// Scan Controller (Main hook for ScanScreen)
+export {
+  useScanController,
+  UseScanControllerProps,
+  ScanControllerState,
+  ScanControllerActions,
+  ScanControllerResult,
+} from './useScanController';
