@@ -161,8 +161,8 @@ export const useScanController = (
   const [showIsbnPopup, setShowIsbnPopup] = useState(false);
   const [isbnBookData, setIsbnBookData] = useState<IsbnBookData | null>(null);
   const [isSearchingIsbn, setIsSearchingIsbn] = useState(false);
-  
   const isSearchingIsbnRef = useRef(false);
+  const showIsbnPopupRef = useRef(false);
 
   // ========== RANDOM QUOTE STATE ==========
   const [randomQuote, setRandomQuote] = useState<any | null>(null);
@@ -200,7 +200,7 @@ export const useScanController = (
 
   // ========== ISBN HANDLERS ==========
   const checkAndHandleIsbn = useCallback(async (text: string): Promise<boolean> => {
-    if (isSearchingIsbnRef.current || isSearchingIsbn) {
+    if (isSearchingIsbnRef.current || showIsbnPopupRef.current) {
       console.log('[ScanController] Already processing or popup visible, ignoring duplicate trigger.');
       return false;
     }
@@ -218,6 +218,7 @@ export const useScanController = (
         console.log('[ScanController] Book found, showing popup.');
         setIsbnBookData(result.bookData);
         setShowIsbnPopup(true);
+        showIsbnPopupRef.current = true;
         popupShown = true;
         return true;
       }
@@ -232,12 +233,13 @@ export const useScanController = (
         scanLockRef.current = false;
       }
     }
-  }, [isSearchingIsbn]);
+  }, []);
 
   const handleIsbnPopupPress = useCallback(() => {
     if (!isbnBookData) return;
     console.log('[ScanController] ISBN popup pressed. Navigating.');
     setShowIsbnPopup(false);
+    showIsbnPopupRef.current = false;
     scanLockRef.current = false;
     setIsSearchingIsbn(false);
 
@@ -277,6 +279,7 @@ export const useScanController = (
   const handleIsbnPopupDismiss = useCallback(() => {
     console.log('[ScanController] ISBN popup dismissed.');
     setShowIsbnPopup(false);
+    showIsbnPopupRef.current = false;
     setIsbnBookData(null);
     isSearchingIsbnRef.current = false;
     scanLockRef.current = false;
@@ -320,7 +323,7 @@ export const useScanController = (
   const codeScanner = useCodeScanner({
     codeTypes: ['ean-13', 'ean-8'],
     onCodeScanned: (codes, scannerFrame) => {
-      if (!isFocused || photo || isLoading || showIsbnPopup || isSearchingIsbn) {
+      if (!isFocused || photo || isLoading || showIsbnPopupRef.current || isSearchingIsbnRef.current) {
         return;
       }
       if (codes.length > 0 && codes[0].value) {
