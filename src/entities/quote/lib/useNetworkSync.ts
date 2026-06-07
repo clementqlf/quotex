@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import * as Network from 'expo-network';
+import NetInfo from '@react-native-community/netinfo';
 import { useQuery } from '@tanstack/react-query';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
@@ -237,7 +237,7 @@ export const useNetworkSync = () => {
     useEffect(() => {
         const loadInitialState = async () => {
             try {
-                const networkState = await Network.getNetworkStateAsync();
+                const networkState = await NetInfo.fetch();
                 const isConnected = Boolean(networkState.isConnected && networkState.isInternetReachable);
                 const lastSync = await StorageService.getItem<string>(STORAGE_KEYS.LAST_SYNC_TIME);
 
@@ -286,50 +286,30 @@ export const useNetworkSync = () => {
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Network state listener - utilise Network.getNetworkStateAsync avec intervalle
+    // Network state listener - utilise NetInfo.addEventListener pour du temps réel sans intervalle
     useEffect(() => {
         if (!isInitialized) return;
 
-        let isMounted = true;
-        let interval: NodeJS.Timeout | null = null;
+        const unsubscribe = NetInfo.addEventListener(state => {
+            const isConnectedNow = Boolean(state.isConnected && state.isInternetReachable);
+            const wasConnected = status.isConnected;
 
-        const checkNetwork = async () => {
-            if (!isMounted) return;
-            try {
-                const state = await Network.getNetworkStateAsync();
-                const isConnectedNow = Boolean(state.isConnected && state.isInternetReachable);
-                const wasConnected = status.isConnected;
+            if (wasConnected !== isConnectedNow) {
+                console.log(`[useNetworkSync] Network state changed: ${wasConnected} -> ${isConnectedNow}`);
+                setStatus(prev => ({ ...prev, isConnected: isConnectedNow }));
 
-                if (wasConnected !== isConnectedNow) {
-                    console.log(`[useNetworkSync] Network state changed: ${wasConnected} -> ${isConnectedNow}`);
-                    setStatus(prev => ({ ...prev, isConnected: isConnectedNow }));
-
-                    if (!wasConnected && isConnectedNow) {
-                        console.log('[useNetworkSync] Connection restored, scheduling sync...');
-                        debouncedTriggerSync();
-                        startPeriodicSync();
-                    } else if (wasConnected && !isConnectedNow) {
-                        stopPeriodicSync();
-                    }
+                if (!wasConnected && isConnectedNow) {
+                    console.log('[useNetworkSync] Connection restored, scheduling sync...');
+                    debouncedTriggerSync();
+                    startPeriodicSync();
+                } else if (wasConnected && !isConnectedNow) {
+                    stopPeriodicSync();
                 }
-            } catch (error) {
-                console.error('[useNetworkSync] Failed to check network state:', error);
             }
-        };
+        });
 
-        // Check initial
-        checkNetwork();
-
-        // Lancer l'intervalle (toutes les 60 secondes)
-        interval = setInterval(checkNetwork, NETWORK_CHECK_INTERVAL_MS);
-
-        // Cleanup de l'intervalle
         return () => {
-            isMounted = false;
-            if (interval) {
-                clearInterval(interval);
-                interval = null;
-            }
+            unsubscribe();
         };
     }, [isInitialized, status.isConnected, debouncedTriggerSync, startPeriodicSync, stopPeriodicSync]);
 

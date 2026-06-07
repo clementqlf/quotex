@@ -7,35 +7,35 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AA0350F0F864244A36C1CF9 /* icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A3B67DB2C8204E26BA726370 /* icon.icon */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		4D315D4361807EE1DA19AD2C /* libPods-Quotex.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5ED7DC862CCDDEA8B640D370 /* libPods-Quotex.a */; };
-		597EEEDED5754F1C8401D010 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F3474972FE6C08BF897A47 /* ExpoModulesProvider.swift */; };
-		67255FA23EB34A5E97F13FFB /* icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 7365CC70D4944AFAA3197F1C /* icon.icon */; };
-		A476C5100ED1444297E08DF7 /* SecureWKWebViewConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55714C186B844F4FB56902AB /* SecureWKWebViewConfiguration.swift */; };
+		5C23A6755AB700CDE93717AF /* libPods-Quotex.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B77F674D99DEADB40647F483 /* libPods-Quotex.a */; };
+		6FF233F07A3618FF1D509670 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E4D86917CA87FC95BC68AF28 /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		E68DE0390F8747A6927D743E /* SecureWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C62A75A94499484EA004DBB4 /* SecureWebViewController.swift */; };
-		EAA291DB8995E7B31EEB81EA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0B25A699AEF3A038C4D26B90 /* PrivacyInfo.xcprivacy */; };
+		D6F99AC6E8854C598F5CE02F /* SecureWKWebViewConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BE49A4DF19046B6A8E25538 /* SecureWKWebViewConfiguration.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F903FFD9B494EEDD8DE857EB /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C74DB6A202E060C5509EB48 /* ExpoModulesProvider.swift */; };
+		FAD0FB80FA724912B9876D93 /* SecureWebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D4EAD4B5814ECB8BCD8830 /* SecureWebViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0B25A699AEF3A038C4D26B90 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Quotex/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Quotex.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Quotex.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Quotex/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Quotex/Info.plist; sourceTree = "<group>"; };
-		45F3474972FE6C08BF897A47 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Quotex/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		55714C186B844F4FB56902AB /* SecureWKWebViewConfiguration.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SecureWKWebViewConfiguration.swift; path = Quotex/SecureWKWebViewConfiguration.swift; sourceTree = "<group>"; };
-		5ED7DC862CCDDEA8B640D370 /* libPods-Quotex.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Quotex.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		7365CC70D4944AFAA3197F1C /* icon.icon */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = icon.icon; path = Quotex/icon.icon; sourceTree = "<group>"; };
-		969F6DC49CB748FF742ED633 /* Pods-Quotex.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Quotex.debug.xcconfig"; path = "Target Support Files/Pods-Quotex/Pods-Quotex.debug.xcconfig"; sourceTree = "<group>"; };
+		1BE49A4DF19046B6A8E25538 /* SecureWKWebViewConfiguration.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SecureWKWebViewConfiguration.swift; path = Quotex/SecureWKWebViewConfiguration.swift; sourceTree = "<group>"; };
+		2101F2938C8F710C5191CBBC /* Pods-Quotex.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Quotex.debug.xcconfig"; path = "Target Support Files/Pods-Quotex/Pods-Quotex.debug.xcconfig"; sourceTree = "<group>"; };
+		44CBE24BEAE274C1E9357ADA /* Pods-Quotex.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Quotex.release.xcconfig"; path = "Target Support Files/Pods-Quotex/Pods-Quotex.release.xcconfig"; sourceTree = "<group>"; };
+		4C74DB6A202E060C5509EB48 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Quotex/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		A3B67DB2C8204E26BA726370 /* icon.icon */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = icon.icon; path = Quotex/icon.icon; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Quotex/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B77F674D99DEADB40647F483 /* libPods-Quotex.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Quotex.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C62A75A94499484EA004DBB4 /* SecureWebViewController.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SecureWebViewController.swift; path = Quotex/SecureWebViewController.swift; sourceTree = "<group>"; };
-		DA25E311DBD98FFC266D1C29 /* Pods-Quotex.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Quotex.release.xcconfig"; path = "Target Support Files/Pods-Quotex/Pods-Quotex.release.xcconfig"; sourceTree = "<group>"; };
+		E4D86917CA87FC95BC68AF28 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = Quotex/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Quotex/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Quotex-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Quotex-Bridging-Header.h"; path = "Quotex/Quotex-Bridging-Header.h"; sourceTree = "<group>"; };
+		F2D4EAD4B5814ECB8BCD8830 /* SecureWebViewController.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = SecureWebViewController.swift; path = Quotex/SecureWebViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,19 +43,20 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4D315D4361807EE1DA19AD2C /* libPods-Quotex.a in Frameworks */,
+				5C23A6755AB700CDE93717AF /* libPods-Quotex.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0C0DD6A57E7A1B83457F30E6 /* Quotex */ = {
+		039BC652C5574665778AC6F2 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				45F3474972FE6C08BF897A47 /* ExpoModulesProvider.swift */,
+				2101F2938C8F710C5191CBBC /* Pods-Quotex.debug.xcconfig */,
+				44CBE24BEAE274C1E9357ADA /* Pods-Quotex.release.xcconfig */,
 			);
-			name = Quotex;
+			path = Pods;
 			sourceTree = "<group>";
 		};
 		13B07FAE1A68108700A75B9A /* Quotex */ = {
@@ -67,10 +68,10 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				7365CC70D4944AFAA3197F1C /* icon.icon */,
-				55714C186B844F4FB56902AB /* SecureWKWebViewConfiguration.swift */,
-				C62A75A94499484EA004DBB4 /* SecureWebViewController.swift */,
-				0B25A699AEF3A038C4D26B90 /* PrivacyInfo.xcprivacy */,
+				A3B67DB2C8204E26BA726370 /* icon.icon */,
+				1BE49A4DF19046B6A8E25538 /* SecureWKWebViewConfiguration.swift */,
+				F2D4EAD4B5814ECB8BCD8830 /* SecureWebViewController.swift */,
+				E4D86917CA87FC95BC68AF28 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Quotex;
 			sourceTree = "<group>";
@@ -79,9 +80,17 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				5ED7DC862CCDDEA8B640D370 /* libPods-Quotex.a */,
+				B77F674D99DEADB40647F483 /* libPods-Quotex.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		7FE2E1BFB0AC9D9AEEA84880 /* Quotex */ = {
+			isa = PBXGroup;
+			children = (
+				4C74DB6A202E060C5509EB48 /* ExpoModulesProvider.swift */,
+			);
+			name = Quotex;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -98,8 +107,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				B06C9BB7C1849C521DCF8438 /* Pods */,
-				F4FA7BEF1889658DC4A97615 /* ExpoModulesProviders */,
+				039BC652C5574665778AC6F2 /* Pods */,
+				8E5F1CC861C83E90E1D40C5A /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -114,13 +123,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		B06C9BB7C1849C521DCF8438 /* Pods */ = {
+		8E5F1CC861C83E90E1D40C5A /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				969F6DC49CB748FF742ED633 /* Pods-Quotex.debug.xcconfig */,
-				DA25E311DBD98FFC266D1C29 /* Pods-Quotex.release.xcconfig */,
+				7FE2E1BFB0AC9D9AEEA84880 /* Quotex */,
 			);
-			path = Pods;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -132,14 +140,6 @@
 			path = Quotex/Supporting;
 			sourceTree = "<group>";
 		};
-		F4FA7BEF1889658DC4A97615 /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				0C0DD6A57E7A1B83457F30E6 /* Quotex */,
-			);
-			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -148,14 +148,14 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Quotex" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				91991A090F75F558CBC700B0 /* [Expo] Configure project */,
+				D851A84A97B7248AA856F9A2 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				8B6C194D6B3E41DEA9B69559 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
-				F3F7DFF303D73E851C6B720E /* [CP] Embed Pods Frameworks */,
+				FEC117BE821E4D6F95E0DC8E /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
+				3B0B4F083ED615E4237C36D6 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -205,8 +205,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				67255FA23EB34A5E97F13FFB /* icon.icon in Resources */,
-				EAA291DB8995E7B31EEB81EA /* PrivacyInfo.xcprivacy in Resources */,
+				0AA0350F0F864244A36C1CF9 /* icon.icon in Resources */,
+				6FF233F07A3618FF1D509670 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -250,6 +250,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		3B0B4F083ED615E4237C36D6 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Quotex/Pods-Quotex-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Quotex/Pods-Quotex-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
@@ -324,22 +346,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Quotex/Pods-Quotex-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		8B6C194D6B3E41DEA9B69559 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "[Expo Dev Launcher] Strip Local Network Keys for Release";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Strip dev-launcher-specific local network permission keys from non-Debug builds\n# This only removes _expo._tcp Bonjour services and the dev-launcher usage description.\n# Other Bonjour services and custom descriptions are preserved for production use.\n\nif [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  PLIST_PATH=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n  if [ -f \"$PLIST_PATH\" ]; then\n    # Check if NSBonjourServices exists\n    if /usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" >/dev/null 2>&1; then\n      # Get the count of services\n      COUNT=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n\n      # Remove _expo._tcp\n      for ((i=COUNT-1; i>=0; i--)); do\n        SERVICE=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n        if echo \"$SERVICE\" | grep -q \"_expo._tcp\"; then\n          /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || true\n        fi\n      done\n\n      # If the array is now empty, remove it entirely\n      REMAINING=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n      if [ \"$REMAINING\" -eq \"0\" ]; then\n        /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null || true\n      fi\n    fi\n\n    # Only delete the description if it matches the dev-launcher default text\n    DESC=$(/usr/libexec/PlistBuddy -c \"Print :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n    if echo \"$DESC\" | grep -q \"Expo Dev Launcher\"; then\n      /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || true\n    fi\n  fi\nfi\n";
-		};
-		91991A090F75F558CBC700B0 /* [Expo] Configure project */ = {
+		D851A84A97B7248AA856F9A2 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -363,27 +370,19 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Quotex/expo-configure-project.sh\"\n";
 		};
-		F3F7DFF303D73E851C6B720E /* [CP] Embed Pods Frameworks */ = {
+		FEC117BE821E4D6F95E0DC8E /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Quotex/Pods-Quotex-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermesvm.framework/hermesvm",
 			);
-			name = "[CP] Embed Pods Frameworks";
+			name = "[Expo Dev Launcher] Strip Local Network Keys for Release";
 			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermesvm.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Quotex/Pods-Quotex-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
+			shellScript = "# Strip dev-launcher-specific local network permission keys from non-Debug builds\n# This only removes _expo._tcp Bonjour services and the dev-launcher usage description.\n# Other Bonjour services and custom descriptions are preserved for production use.\n\nif [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  PLIST_PATH=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n  if [ -f \"$PLIST_PATH\" ]; then\n    # Check if NSBonjourServices exists\n    if /usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" >/dev/null 2>&1; then\n      # Get the count of services\n      COUNT=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n\n      # Remove _expo._tcp\n      for ((i=COUNT-1; i>=0; i--)); do\n        SERVICE=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n        if echo \"$SERVICE\" | grep -q \"_expo._tcp\"; then\n          /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || true\n        fi\n      done\n\n      # If the array is now empty, remove it entirely\n      REMAINING=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n      if [ \"$REMAINING\" -eq \"0\" ]; then\n        /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null || true\n      fi\n    fi\n\n    # Only delete the description if it matches the dev-launcher default text\n    DESC=$(/usr/libexec/PlistBuddy -c \"Print :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n    if echo \"$DESC\" | grep -q \"Expo Dev Launcher\"; then\n      /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || true\n    fi\n  fi\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -393,9 +392,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				A476C5100ED1444297E08DF7 /* SecureWKWebViewConfiguration.swift in Sources */,
-				E68DE0390F8747A6927D743E /* SecureWebViewController.swift in Sources */,
-				597EEEDED5754F1C8401D010 /* ExpoModulesProvider.swift in Sources */,
+				D6F99AC6E8854C598F5CE02F /* SecureWKWebViewConfiguration.swift in Sources */,
+				FAD0FB80FA724912B9876D93 /* SecureWebViewController.swift in Sources */,
+				F903FFD9B494EEDD8DE857EB /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,7 +403,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 969F6DC49CB748FF742ED633 /* Pods-Quotex.debug.xcconfig */;
+			baseConfigurationReference = 2101F2938C8F710C5191CBBC /* Pods-Quotex.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = icon;
 				CLANG_ENABLE_MODULES = YES;
@@ -441,7 +440,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DA25E311DBD98FFC266D1C29 /* Pods-Quotex.release.xcconfig */;
+			baseConfigurationReference = 44CBE24BEAE274C1E9357ADA /* Pods-Quotex.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = icon;
 				CLANG_ENABLE_MODULES = YES;

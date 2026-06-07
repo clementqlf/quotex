@@ -102,10 +102,11 @@ export class VisionCameraScanner implements IScanner {
     this.onCodeScannedCallback = null;
     this.onTextRecognizedCallback = null;
 
-    // Désactiver la caméra
+    // ⚡ Désactiver la caméra native
     if (this.cameraRef.current) {
       try {
-        await this.cameraRef.current.stopRecording?.();
+        await (this.cameraRef.current as any)?.setActive?.(false);
+        this.cameraRef.current = null; // Libérer la référence
       } catch (e) {
         console.warn('[VisionCameraScanner] Error stopping camera:', e);
       }

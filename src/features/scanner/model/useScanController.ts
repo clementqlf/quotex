@@ -559,13 +559,24 @@ export const useScanController = (
     }
   }, [isLoading, isPickerActive]);
 
-  // ========== EFFETS ==========
   // Cleanup au unmount
   const cleanup = useCallback(() => {
     console.log('[ScanController] Cleanup: releasing locks and clearing temp files.');
     scanLockRef.current = false;
+
+    // ⚡ Désactiver la caméra
+    if (cameraRef.current) {
+      try {
+        (cameraRef.current as any)?.setActive?.(false);
+      } catch (e) {
+        console.warn('[ScanController] Error disabling camera:', e);
+      }
+      // ⚡ Nettoyer la ref caméra
+      cameraRef.current = null;
+    }
+
     FileSystem.deleteAsync(`${FileSystem.cacheDirectory}VisionCamera`, { idempotent: true }).catch(console.error);
-  }, []);
+  }, [cameraRef]);
 
   // ========== RENDER RESULT ==========
   return {

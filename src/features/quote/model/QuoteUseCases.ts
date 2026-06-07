@@ -210,15 +210,9 @@ export class QuoteUseCases {
      * Vérifie la connexion réseau
      */
     private async checkNetworkConnection(): Promise<boolean> {
-        try {
-            const response = await fetch('https://www.google.com/favicon.ico', {
-                method: 'HEAD',
-                cache: 'no-store',
-            });
-            return response.ok;
-        } catch {
-            return false;
-        }
+        const NetInfo = await import('@react-native-community/netinfo').then(m => m.default);
+        const state = await NetInfo.fetch();
+        return Boolean(state.isConnected && state.isInternetReachable);
     }
 
     /**
@@ -252,7 +246,6 @@ export class QuoteUseCases {
             const pendingOps = await this.queue.getAll();
             
             if (!pendingOps || pendingOps.length === 0) {
-                this.isSyncing = false;
                 return { syncedCount: 0, total: 0, errors: [], corrections: [] };
             }
 
@@ -261,7 +254,6 @@ export class QuoteUseCases {
             // Flush la queue avec l'exécuteur approprié
             const result = await this.queue.flush(this.executePendingOperation.bind(this));
 
-            this.isSyncing = false;
             return {
                 syncedCount: result.succeeded,
                 total: result.succeeded + result.failed,
@@ -269,14 +261,10 @@ export class QuoteUseCases {
                 corrections: []
             };
         } catch (error: any) {
-            this.isSyncing = false;
             console.error('[QuoteUseCases] Sync failed:', error.message);
-            return {
-                syncedCount: 0,
-                total: 0,
-                errors: [],
-                corrections: []
-            };
+            throw error;
+        } finally {
+            this.isSyncing = false;
         }
     }
 
@@ -308,24 +296,21 @@ export class QuoteUseCases {
     }
 
     private async executeLikeOperation(op: PendingOperation): Promise<void> {
-        // Implémentation spécifique pour LIKE/UNLIKE
-        // Pour l'instant, on ne fait rien car c'est géré par le repository
-        console.log(`[QuoteUseCases] Executing ${op.type} for quote ${op.entityId}`);
+        await this.quoteRepository.toggleLike(op.entityId);
     }
 
     private async executeSaveOperation(op: PendingOperation): Promise<void> {
-        // Implémentation spécifique pour SAVE/UNSAVE
-        console.log(`[QuoteUseCases] Executing ${op.type} for quote ${op.entityId}`);
+        await this.quoteRepository.toggleSave(op.entityId);
     }
 
     private async executeDeleteOperation(op: PendingOperation): Promise<void> {
-        // Implémentation spécifique pour DELETE
-        console.log(`[QuoteUseCases] Executing DELETE for quote ${op.entityId}`);
+        await this.quoteRepository.deleteQuote(op.entityId);
     }
 
     private async executeUpdateOperation(op: PendingOperation): Promise<void> {
-        // Implémentation spécifique pour UPDATE
-        console.log(`[QuoteUseCases] Executing UPDATE for ${op.entityType} ${op.entityId}`);
+        if (op.payload) {
+            await this.quoteRepository.updateQuote(op.entityId, op.payload);
+        }
     }
 
     /**

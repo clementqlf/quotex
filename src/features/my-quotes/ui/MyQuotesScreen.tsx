@@ -136,6 +136,96 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   );
 };
 
+// ListHeader component memoized pour éviter les re-renders inutiles
+interface ListHeaderMemoProps {
+  activeFilters: Array<{ type: string; value: string }>;
+  viewMode: 'quotes' | 'books' | 'authors' | 'themes';
+  selectedStatus: string;
+  colors: ThemeColors;
+  styles: any;
+  removeFilter: (filter: { type: string; value: string }) => void;
+  resetFilters: () => void;
+  setSelectedStatus: (status: string) => void;
+}
+
+const ListHeaderMemo = React.memo(function ListHeaderMemo({
+  activeFilters,
+  viewMode,
+  selectedStatus,
+  colors,
+  styles,
+  removeFilter,
+  resetFilters,
+  setSelectedStatus,
+}: ListHeaderMemoProps) {
+  const elements: React.ReactNode[] = [];
+
+  if (activeFilters.length > 0) {
+    elements.push(
+      <View key="filters" style={styles.filterContainer}>
+        {activeFilters.map((filter, index) => (
+          <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
+            <Text style={styles.filterBadgeText}>
+              {filter.type === 'author' ? 'Auteur' :
+                filter.type === 'book' ? 'Livre' :
+                  filter.type === 'year' ? 'Année' : 'Statut'}: {
+                filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
+              }
+            </Text>
+            <X size={12} color={colors.primary} />
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}>
+          <Text style={styles.clearFilterButtonText}>Tout effacer</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (viewMode === 'books') {
+    elements.push(
+      <View key="status-pills" style={{ marginBottom: 8 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statusFilterContainer}
+          contentContainerStyle={styles.statusFilterContent}
+        >
+          <TouchableOpacity
+            onPress={() => setSelectedStatus('ALL')}
+            style={[
+              styles.statusFilterBadge,
+              selectedStatus === 'ALL' && styles.statusFilterBadgeActive
+            ]}
+          >
+            <Text style={[
+              styles.statusFilterText,
+              selectedStatus === 'ALL' && styles.statusFilterTextActive
+            ]}>Tout</Text>
+          </TouchableOpacity>
+          {STATUS_OPTIONS.map(opt => (
+            <TouchableOpacity
+              key={opt.value}
+              onPress={() => setSelectedStatus(opt.value)}
+              style={[
+                styles.statusFilterBadge,
+                selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
+              ]}
+            >
+              <Text style={[
+                styles.statusFilterText,
+                selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+              ]}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return elements.length > 0 ? <>{elements}</> : null;
+});
+
 export default function MyQuotesScreen() {
   const router = useRouter();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
@@ -308,14 +398,19 @@ export default function MyQuotesScreen() {
     setExpandedSection(current => (current === section ? null : section));
   }, []);
 
+  // Wrapper stable pour toggleLikeQuote
+  const toggleLikeQuoteStable = useCallback((id: number) => {
+    return toggleLikeQuote(id);
+  }, [toggleLikeQuote]);
+
   // Render items for FlashList
   const renderQuoteItem = useCallback(({ item }: { item: Quote }) => (
     <QuoteCard
       quote={item}
-      onToggleLike={toggleLikeQuote}
-      onOpenMenu={handleOpenMenu}
+      onToggleLike={() => toggleLikeQuoteStable(item.id)}
+      onOpenMenu={() => handleOpenMenu(item)}
     />
-  ), [toggleLikeQuote, handleOpenMenu]);
+  ), [toggleLikeQuoteStable, handleOpenMenu]);
 
   const renderBookItem = useCallback(({ item }: { item: any }) => (
     <BookCardItem book={item} />
@@ -333,75 +428,6 @@ export default function MyQuotesScreen() {
   const bookKeyExtractor = useCallback((item: any) => item.title, []);
   const authorKeyExtractor = useCallback((item: any) => item.name, []);
   const themeKeyExtractor = useCallback((item: any) => item.theme, []);
-
-  // Header component for FlashList (filters + status pills)
-  // Mémoïser correctement avec des dépendances stables
-  const ListHeader = useCallback(() => {
-    const elements: React.ReactNode[] = [];
-
-    if (activeFilters.length > 0) {
-      elements.push(
-        <View key="filters" style={styles.filterContainer}>
-          {activeFilters.map((filter, index) => (
-            <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-              <Text style={styles.filterBadgeText}>
-                {filter.type === 'author' ? 'Auteur' :
-                  filter.type === 'book' ? 'Livre' :
-                    filter.type === 'year' ? 'Année' : 'Statut'}: {
-                  filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
-                }
-              </Text>
-              <X size={12} color={colors.primary} />
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (viewMode === 'books') {
-      elements.push(
-        <View key="status-pills" style={{ marginBottom: 8 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.statusFilterContainer}
-            contentContainerStyle={styles.statusFilterContent}
-          >
-            <TouchableOpacity
-              onPress={() => setSelectedStatus('ALL')}
-              style={[
-                styles.statusFilterBadge,
-                selectedStatus === 'ALL' && styles.statusFilterBadgeActive
-              ]}
-            >
-              <Text style={[
-                styles.statusFilterText,
-                selectedStatus === 'ALL' && styles.statusFilterTextActive
-              ]}>Tout</Text>
-            </TouchableOpacity>
-            {STATUS_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                onPress={() => setSelectedStatus(opt.value)}
-                style={[
-                  styles.statusFilterBadge,
-                  selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
-                ]}
-              >
-                <Text style={[
-                  styles.statusFilterText,
-                  selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
-                ]}>{opt.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      );
-    }
-
-    return elements.length > 0 ? <>{elements}</> : null;
-  }, [activeFilters, viewMode, selectedStatus, colors, styles, removeFilter, resetFilters]);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -507,8 +533,20 @@ export default function MyQuotesScreen() {
             renderItem={renderBookItem}
             keyExtractor={bookKeyExtractor}
             getItemType={() => 'book'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -520,8 +558,20 @@ export default function MyQuotesScreen() {
             renderItem={renderAuthorItem}
             keyExtractor={authorKeyExtractor}
             getItemType={() => 'author'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -533,8 +583,20 @@ export default function MyQuotesScreen() {
             renderItem={renderThemeItem}
             keyExtractor={themeKeyExtractor}
             getItemType={() => 'theme'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -547,8 +609,20 @@ export default function MyQuotesScreen() {
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
             getItemType={() => 'quote'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }

@@ -81,9 +81,9 @@ export default function ScanPreviewModal({
         const bookMap = new Map<string, string>(); // title -> author
         quotes.forEach(q => {
             if (q.book) {
-                const title = typeof q.book === 'string' ? q.book : String(q.book);
+                const title = getBookTitle(q.book);
                 const author = getAuthorName(q.author);
-                if (title && !bookMap.has(title)) {
+                if (title && title !== 'Livre inconnu' && !bookMap.has(title)) {
                     bookMap.set(title, author);
                 }
             }
@@ -96,8 +96,8 @@ export default function ScanPreviewModal({
         const authors = new Set<string>();
         quotes.forEach(q => {
             if (q.author) {
-                const name = typeof q.author === 'string' ? q.author : String(q.author);
-                if (name) {
+                const name = getAuthorName(q.author);
+                if (name && name !== 'Auteur inconnu') {
                     authors.add(name);
                 }
             }

@@ -85,6 +85,8 @@ const CameraContainer = React.memo(({
       isActive={isFocused}
       photo
       pixelFormat="yuv"
+      resizeMode="cover"
+      videoStabilizationMode="auto"
       outputOrientation="preview"
       format={format ?? undefined}
       ref={cameraRef}

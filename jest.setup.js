@@ -50,3 +50,11 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
     isSignedIn: jest.fn().mockResolvedValue(true),
   },
 }));
+
+// Mock expo-network
+jest.mock('expo-network', () => ({
+  getNetworkStateAsync: jest.fn().mockResolvedValue({
+    isConnected: true,
+    isInternetReachable: true,
+  }),
+}));
