@@ -12,15 +12,21 @@ interface PageIndicatorProps {
   position: SharedValue<number>;
 }
 
-function Dot({ index, position }: { index: number; position: SharedValue<number> }) {
+function Dot({ index, position, activeIndex }: { index: number; position: SharedValue<number>; activeIndex: number }) {
   const animatedStyle = useAnimatedStyle(() => {
-    const distance = Math.abs(position.value - index);
+    // Ensure position.value is a valid number, fallback to activeIndex if NaN
+    // NaN !== NaN, so we can use this check in worklets
+    const pos = position.value === position.value ? position.value : activeIndex;
+    
+    const distance = Math.abs(pos - index);
     const opacity = Math.max(0.3, 1 - distance * 0.7);
     const width = distance < 1 ? 8 + (1 - distance) * 14 : 8;
     
-    // Smooth color diffusion
+    // Smooth color diffusion - ensure distance is valid for interpolation
+    // If distance is NaN, use 1 as fallback
+    const safeDistance = distance === distance ? distance : 1;
     const backgroundColor = interpolateColor(
-      distance,
+      safeDistance,
       [0, 1],
       ['#20B8CD', '#6B7280']
     );
@@ -40,7 +46,7 @@ export function PageIndicator({ count, activeIndex, position }: PageIndicatorPro
     <View style={styles.container} pointerEvents="none">
       <View style={styles.dotsRow}>
         {Array.from({ length: count }).map((_, i) => (
-          <Dot key={i} index={i} position={position} />
+          <Dot key={i} index={i} position={position} activeIndex={activeIndex} />
         ))}
       </View>
     </View>
