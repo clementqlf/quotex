@@ -26,6 +26,8 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
 
 interface UserRouteParam {
   id: number | string;
@@ -169,18 +171,16 @@ const decodeBase64 = (base64: string) => {
 export default function UserProfileScreen() {
   const router = useRouter();
   const { username } = useLocalSearchParams<{ username?: string }>();
-  const { getUserByUsername } = useQuote();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [profileData, setProfileData] = useState<User | null>(() => {
-    if (username && currentUser?.username === username) return currentUser;
-    if (!username) return currentUser;
-    return null;
-  });
+  const { data: profileData, isLoading: isProfileLoading, isFetching } = useUserProfile(username);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const isMe = currentUser?.username === profileData?.username;
+  const isMe = currentUser?.id === profileData?.id || 
+               (currentUser?.username && profileData?.username && 
+                currentUser.username.replace('@', '') === profileData.username.replace('@', ''));
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -189,9 +189,20 @@ export default function UserProfileScreen() {
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [userQuotes, setUserQuotes] = useState<GlobalQuote[]>([]);
-  const [userBooks, setUserBooks] = useState<any[]>([]);
+  const userQuotes = useMemo(() => {
+    if (!profileData || !(profileData as any).quotes) return [];
+    return (profileData as any).quotes.map((q: any) => ({
+      ...q,
+      user: profileData,
+      time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
+    }));
+  }, [profileData]);
+
+  const userBooks = useMemo(() => {
+    if (!profileData || !(profileData as any).library) return [];
+    return (profileData as any).library;
+  }, [profileData]);
+
   const [isFollowing, setIsFollowing] = useState(false);
 
   const groupedBooks = useMemo(() => {
@@ -201,7 +212,7 @@ export default function UserProfileScreen() {
       'TO_READ': [],
       'DROPPED': []
     };
-    userBooks.forEach(ub => {
+    userBooks.forEach((ub: any) => {
       const status = ub.status || 'TO_READ';
       if (groups[status]) {
         groups[status].push(ub.book);
@@ -212,50 +223,6 @@ export default function UserProfileScreen() {
     });
     return groups;
   }, [userBooks]);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      // Determine if we are viewing our own profile
-      const isViewingOwnProfile = !username || (username === currentUser?.username);
-                                  
-      // Use the special 'me' route for our own profile, otherwise use the specific username
-      const usernameToFetch = isViewingOwnProfile ? 'me' : username;
-
-      if (!usernameToFetch) {
-        setIsLoading(false);
-        return;
-      }
-
-      // If we already have some data for this user, we don't necessarily need to show the big loader
-      const hasInitialData = profileData?.username === usernameToFetch || (isViewingOwnProfile && profileData === currentUser);
-      if (!hasInitialData) {
-        setIsLoading(true);
-      }
-      try {
-        const data = await getUserByUsername(usernameToFetch);
-        if (data) {
-          setProfileData(data);
-          if ((data as any).quotes) {
-            const mapped = (data as any).quotes.map((q: any) => ({
-              ...q,
-              user: data,
-              time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
-            }));
-            setUserQuotes(mapped);
-          }
-          if ((data as any).library) {
-            setUserBooks((data as any).library);
-          }
-        }
-      } catch (e) {
-        console.error("Error loading profile", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [username, currentUser?.username]);
 
   const toggleFollow = () => {
     setIsFollowing(!isFollowing);
@@ -419,14 +386,21 @@ export default function UserProfileScreen() {
       }
       // ---------------------------------------------------------
 
-      // Update local state
-      setProfileData(prev => prev ? {
-        ...prev,
-        name: editedName,
-        bio: editedBio,
-        website: editedWebsite,
-        image: imageUrl || prev.image
-      } : null);
+      // Update react query cache directly for immediate UI feedback
+      if (profileData) {
+        const updatedProfile = {
+          ...profileData,
+          name: editedName,
+          bio: editedBio,
+          website: editedWebsite,
+          image: imageUrl || profileData.image
+        };
+        
+        const isViewingOwnProfile = !username || (currentUser?.username && currentUser.username.replace('@', '') === username.replace('@', ''));
+        const profileQueryKey = isViewingOwnProfile ? `me_${currentUser?.id || 'none'}` : username;
+        
+        queryClient.setQueryData(['userProfile', profileQueryKey], updatedProfile);
+      }
 
       console.log("Profile updated successfully");
       setIsEditing(false);
@@ -444,7 +418,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  if (!profileData && isLoading) {
+  if (!profileData && isProfileLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -734,7 +708,7 @@ export default function UserProfileScreen() {
                   );
                 })}
               </View>
-            ) : isLoading ? (
+            ) : (isProfileLoading || isFetching) ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
                 <BookSkeleton colors={colors} />
                 <BookSkeleton colors={colors} />
@@ -754,7 +728,7 @@ export default function UserProfileScreen() {
 
             {userQuotes.length > 0 ? (
               <View style={styles.savedQuotesList}>
-                {userQuotes.map((quote) => (
+                {userQuotes.map((quote: any) => (
                     <TouchableOpacity
                       key={quote.id}
                       style={styles.savedQuoteCard}
@@ -771,7 +745,7 @@ export default function UserProfileScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : isLoading ? (
+            ) : (isProfileLoading || isFetching) ? (
               <View style={{ gap: 12 }}>
                 <QuoteSkeleton colors={colors} />
                 <QuoteSkeleton colors={colors} />

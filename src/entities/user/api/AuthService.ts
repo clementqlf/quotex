@@ -95,7 +95,7 @@ class AuthService {
 
         if (error || !data) {
             // Fallback to minimal data if profile not yet created
-            return { id: userId, username: 'user' };
+            return { id: userId, username: '' };
         }
         return data as User;
     }

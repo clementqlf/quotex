@@ -3,6 +3,7 @@ import { authService } from '../../entities/user/api/AuthService';
 import { User } from '../../shared/api/types';
 import { supabase } from '../../shared/api/supabase';
 import { UGCModerationService } from '../../shared/api/UGCModerationService';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Séparer les types de state pour éviter les re-renders inutiles
 interface AuthState {
@@ -25,6 +26,7 @@ interface AuthContextType extends AuthState, AuthActions {}
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const queryClient = useQueryClient();
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
                 setUser(null);
                 setToken(null);
+                queryClient.clear();
             }
             setIsLoading(false);
         });
@@ -52,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
+    }, [queryClient]);
 
     const loadStoredAuth = async () => {
         try {
@@ -89,13 +92,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await authService.logout();
         setUser(null);
         setToken(null);
-    }, []);
+        queryClient.clear();
+    }, [queryClient]);
 
     const deleteAccount = useCallback(async () => {
         await authService.deleteAccount();
         setUser(null);
         setToken(null);
-    }, []);
+        queryClient.clear();
+    }, [queryClient]);
 
     const updateProfile = useCallback(async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => {
         const updatedUser = await authService.updateUser(data);
