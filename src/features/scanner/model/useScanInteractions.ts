@@ -65,15 +65,23 @@ export const useScanInteractions = ({
   isEraserMode,
   imageDisplayInfo,
 }: UseScanInteractionsProps): ScanInteractionsResult => {
-  // Créer le PanResponder avec useMemo pour éviter de le recréer à chaque render
-  const panResponderInstance = useMemo(() => 
+  
+  const wordsRef = useRef(words);
+  const selectionRangeRef = useRef(selectionRange);
+  
+  useEffect(() => {
+    wordsRef.current = words;
+    selectionRangeRef.current = selectionRange;
+  }, [words, selectionRange]);
+
+  const panResponderInstance = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       
       onPanResponderGrant: (evt, gestureState) => {
         const { locationX, locationY } = evt.nativeEvent;
-        const nearestIndex = findNearestWord(words, locationX, locationY);
+        const nearestIndex = findNearestWord(wordsRef.current, locationX, locationY);
         
         if (nearestIndex !== null) {
           setSelectionRange({ start: nearestIndex, end: nearestIndex } as SelectionRange);
@@ -82,11 +90,11 @@ export const useScanInteractions = ({
       
       onPanResponderMove: (evt, gestureState) => {
         const { locationX, locationY } = evt.nativeEvent;
-        const nearestIndex = findNearestWord(words, locationX, locationY);
+        const nearestIndex = findNearestWord(wordsRef.current, locationX, locationY);
         
-        if (nearestIndex !== null && selectionRange) {
+        if (nearestIndex !== null && selectionRangeRef.current) {
           setSelectionRange({ 
-            start: selectionRange.start, 
+            start: selectionRangeRef.current.start, 
             end: nearestIndex 
           } as SelectionRange);
         }
@@ -95,17 +103,10 @@ export const useScanInteractions = ({
       onPanResponderRelease: (evt, gestureState) => {
         // Fin de la sélection
       },
-    }),
-    [words, selectionRange, setSelectionRange]
-  );
+    })
+  ).current;
   
-  // Créer un ref qui contient l'instance
   const imagePanResponder = useRef<PanResponderInstance>(panResponderInstance);
-  
-  // Mettre à jour le ref si l'instance change
-  useEffect(() => {
-    imagePanResponder.current = panResponderInstance;
-  }, [panResponderInstance]);
 
   // Handler pour la pression sur un mot
   const handleWordPress = (index: number) => {
@@ -124,7 +125,7 @@ export const useScanInteractions = ({
 
   // Fonction utilitaire pour trouver un mot à une position
   const findWordAtPosition = (x: number, y: number): number | null => {
-    return findNearestWord(words, x, y);
+    return findNearestWord(wordsRef.current, x, y);
   };
 
   return {

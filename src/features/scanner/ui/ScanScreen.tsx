@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -288,17 +289,24 @@ export default function ScanScreen() {
         />
       )}
 
-      {photo && ocrElements && (
-        <ScanWorkflow
-          photo={photo}
-          ocrElements={ocrElements}
-          ocrBlocks={ocrBlocks || []}
-          onReset={handleResetCapture}
-          isGallery={isFromGallery}
-          normalizedSize={ocrNormalizedSize}
-          onSave={saveScannedQuote}
-        />
-      )}
+      <Modal
+        visible={!!(photo && ocrElements)}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleResetCapture}
+      >
+        {photo && ocrElements && (
+          <ScanWorkflow
+            photo={photo}
+            ocrElements={ocrElements}
+            ocrBlocks={ocrBlocks || []}
+            onReset={handleResetCapture}
+            isGallery={isFromGallery}
+            normalizedSize={ocrNormalizedSize}
+            onSave={saveScannedQuote}
+          />
+        )}
+      </Modal>
 
       {isLoading && (
         <View style={styles.loadingOverlay}>

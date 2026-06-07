@@ -1,5 +1,5 @@
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { calculateTextRotation } from '@/src/shared/lib/scanGeometry';
+import { calculateTextGeometry } from '@/src/shared/lib/scanGeometry';
 
 // Types étendus pour les éléments ML Kit avec les propriétés réelles
 interface MLKitTextElement extends TextElement {
@@ -128,17 +128,36 @@ export class OcrProcessor {
       // Skip empty text
       if (!text.trim()) continue;
 
-      // Calculate rotation using nearby words for context
-      const rotation = 0; // TODO: Calculate rotation properly
+      let width = frame.width;
+      let height = frame.height;
+      let centerX = frame.left + width / 2;
+      let centerY = frame.top + height / 2;
+      let rotation = 0;
+
+      if (el.cornerPoints && el.cornerPoints.length >= 4) {
+        const geom = calculateTextGeometry(el.cornerPoints);
+        if (geom) {
+          width = geom.width;
+          height = geom.height;
+          centerX = geom.centerX;
+          centerY = geom.centerY;
+          rotation = geom.rotation;
+        }
+      }
 
       // Line index based on Y position grouping
-      const lineIndex = this.findLineIndex(words, frame.top + frame.height / 2);
+      const lineIndex = this.findLineIndex(words, centerY);
+
+      const scaledCenterX = centerX * imageDisplayInfo.scale + imageDisplayInfo.offsetX;
+      const scaledCenterY = centerY * imageDisplayInfo.scale + imageDisplayInfo.offsetY;
+      const scaledWidth = width * imageDisplayInfo.scale;
+      const scaledHeight = height * imageDisplayInfo.scale;
 
       const scaledFrame = {
-        left: frame.left * imageDisplayInfo.scale + imageDisplayInfo.offsetX,
-        top: frame.top * imageDisplayInfo.scale + imageDisplayInfo.offsetY,
-        width: frame.width * imageDisplayInfo.scale,
-        height: frame.height * imageDisplayInfo.scale,
+        left: scaledCenterX - scaledWidth / 2,
+        top: scaledCenterY - scaledHeight / 2,
+        width: scaledWidth,
+        height: scaledHeight,
       };
 
       words.push({
@@ -146,8 +165,8 @@ export class OcrProcessor {
         text: text.trim(),
         originalFrame: { ...frame },
         scaledFrame,
-        centerX: scaledFrame.left + scaledFrame.width / 2,
-        centerY: scaledFrame.top + scaledFrame.height / 2,
+        centerX: scaledCenterX,
+        centerY: scaledCenterY,
         rotation,
         lineIndex,
       });

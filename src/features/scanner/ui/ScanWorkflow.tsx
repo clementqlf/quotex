@@ -110,14 +110,23 @@ const useScanWorkflowLogic = (
 
   // Handlers pour les épingles de sélection
   const dragStartPos = useRef({ x: 0, y: 0 });
+  const wordsRef = useRef(words);
+  const selectionRangeRef = useRef(selectionRange);
+
+  React.useEffect(() => {
+    wordsRef.current = words;
+    selectionRangeRef.current = selectionRange;
+  }, [words, selectionRange]);
 
   const startPinResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt, gestureState) => {
         PlatformServices.haptics.impactAsync("light");
-        if (!selectionRange || words.length === 0) return;
-        const startWord = words[selectionRange.start];
+        const currentSelectionRange = selectionRangeRef.current;
+        const currentWords = wordsRef.current;
+        if (!currentSelectionRange || currentWords.length === 0) return;
+        const startWord = currentWords[currentSelectionRange.start];
         if (startWord) {
           dragStartPos.current = {
             x: startWord.scaledFrame.left,
@@ -126,7 +135,8 @@ const useScanWorkflowLogic = (
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (!selectionRange) return;
+        const currentSelectionRange = selectionRangeRef.current;
+        if (!currentSelectionRange) return;
         const currentX = dragStartPos.current.x + gestureState.dx;
         const currentY = dragStartPos.current.y + gestureState.dy;
 
@@ -137,7 +147,7 @@ const useScanWorkflowLogic = (
 
         // Trouver le mot le plus proche
         const nearestIndex = findWordAtPosition(currentX, currentY);
-        if (nearestIndex !== null && nearestIndex !== selectionRange?.start) {
+        if (nearestIndex !== null && nearestIndex !== currentSelectionRange?.start) {
           setSelectionRange((prev: SelectionRange | null) => {
             if (!prev) return null as SelectionRange | null;
             return { start: Math.min(nearestIndex, prev.end), end: prev.end } as SelectionRange | null;
@@ -152,8 +162,10 @@ const useScanWorkflowLogic = (
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt, gestureState) => {
         PlatformServices.haptics.impactAsync("light");
-        if (!selectionRange || words.length === 0) return;
-        const endWord = words[selectionRange.end];
+        const currentSelectionRange = selectionRangeRef.current;
+        const currentWords = wordsRef.current;
+        if (!currentSelectionRange || currentWords.length === 0) return;
+        const endWord = currentWords[currentSelectionRange.end];
         if (endWord) {
           dragStartPos.current = {
             x: endWord.scaledFrame.left + endWord.scaledFrame.width,
@@ -162,7 +174,8 @@ const useScanWorkflowLogic = (
         }
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (!selectionRange) return;
+        const currentSelectionRange = selectionRangeRef.current;
+        if (!currentSelectionRange) return;
         const currentX = dragStartPos.current.x + gestureState.dx;
         const currentY = dragStartPos.current.y + gestureState.dy;
 
@@ -172,7 +185,7 @@ const useScanWorkflowLogic = (
         });
 
         const nearestIndex = findWordAtPosition(currentX, currentY);
-        if (nearestIndex !== null && nearestIndex !== selectionRange?.end) {
+        if (nearestIndex !== null && nearestIndex !== currentSelectionRange?.end) {
           setSelectionRange((prev: SelectionRange | null) => {
             if (!prev) return null as SelectionRange | null;
             return { start: prev.start, end: Math.max(nearestIndex, prev.start) } as SelectionRange | null;
