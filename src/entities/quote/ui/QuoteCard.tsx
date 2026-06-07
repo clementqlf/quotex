@@ -46,8 +46,12 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
   // Utiliser Realtime pour obtenir les versions à jour (avec fallback polling)
   const bookId = typeof quote.book === 'object' && quote.book !== null ? quote.book.id : undefined;
   const authorId = typeof quote.author === 'object' && quote.author !== null ? quote.author.id : undefined;
-  const book = useBookRealtime(bookId, typeof quote.book === 'object' ? quote.book : null);
-  const author = useAuthorRealtime(authorId, typeof quote.author === 'object' ? quote.author : null);
+  const realtimeBook = useBookRealtime(bookId, typeof quote.book === 'object' ? quote.book : null);
+  const realtimeAuthor = useAuthorRealtime(authorId, typeof quote.author === 'object' ? quote.author : null);
+
+  // Offline citations save book/author as strings initially. Fallback to them if realtime hook returns null.
+  const book = realtimeBook || (typeof quote.book === 'string' ? quote.book : null);
+  const author = realtimeAuthor || (typeof quote.author === 'string' ? quote.author : null);
 
   const isBookEnriching = isEnriching(book);
   const isAuthorEnriching = isEnriching(author);

@@ -2,6 +2,8 @@ import { Quote, CreateQuoteDto, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { OperationQueue, PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
+import { authService } from '@/src/entities/user/api/AuthService';
+import NetInfo from '@react-native-community/netinfo';
 
 const MAX_RETRIES = 10;
 
@@ -111,6 +113,10 @@ export class QuoteUseCases {
         const tempId = Date.now(); // ID temporaire UNIQUE
         const createdAt = new Date().toISOString();
 
+        // Get the real current user
+        const user = await authService.getUser();
+        const fallbackUser = { id: "1", name: "Clément QLF", username: "@clementqlf" };
+
         // 1. Créer la citation localement avec un ID temporaire (optimistic update)
         const newQuote: Quote = {
             id: tempId,
@@ -125,7 +131,7 @@ export class QuoteUseCases {
             isSaved: false,
             comments: 0,
             blockData: {},
-            user: { id: "1", name: "Clément QLF", username: "@clementqlf" }, // User par défaut
+            user: user || fallbackUser, // User réel
             // Marqueurs pour l'UI
             _isPending: true,
         };
@@ -149,7 +155,7 @@ export class QuoteUseCases {
         try {
             const isOnline = await this.checkNetworkConnection();
             if (isOnline) {
-                await this.queue.flush(this.executeCreateQuote.bind(this));
+                await this.syncPendingQuotes();
             }
         } catch (error) {
             console.log('[QuoteUseCases] Network check failed, will sync later');
@@ -172,8 +178,8 @@ export class QuoteUseCases {
         try {
             const serverQuote = await this.quoteRepository.createQuote(text, book, author);
             
-            // Remplacer l'ID temporaire par le vrai ID dans le cache local
-            await this.replaceTempQuoteId(tempId, serverQuote.id);
+            // Mettre à jour la citation dans le cache local avec les données canoniques du serveur
+            await this.replaceTempQuote(tempId, serverQuote);
             
             console.log(`[QuoteUseCases] Successfully synced quote ${tempId} -> ${serverQuote.id}`);
         } catch (error) {
@@ -183,13 +189,21 @@ export class QuoteUseCases {
     }
 
     /**
-     * Remplace l'ID temporaire par le vrai ID dans le cache local
+     * Remplace l'ID temporaire par le vrai ID et met à jour les données canoniques dans le cache local
      */
-    private async replaceTempQuoteId(tempId: number, serverId: number): Promise<void> {
+    private async replaceTempQuote(tempId: number, serverQuote: Quote): Promise<void> {
         const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
         const updatedQuotes = quotes.map(q => {
             if (q.id === tempId) {
-                return { ...q, id: serverId, _isPending: false };
+                return { 
+                    ...q, 
+                    id: serverQuote.id, 
+                    book: serverQuote.book,
+                    author: serverQuote.author,
+                    _isPending: false,
+                    wasSynced: true,
+                    syncCorrections: serverQuote.syncCorrections
+                };
             }
             return q;
         });
@@ -210,7 +224,6 @@ export class QuoteUseCases {
      * Vérifie la connexion réseau
      */
     private async checkNetworkConnection(): Promise<boolean> {
-        const NetInfo = await import('@react-native-community/netinfo').then(m => m.default);
         const state = await NetInfo.fetch();
         return Boolean(state.isConnected && state.isInternetReachable);
     }

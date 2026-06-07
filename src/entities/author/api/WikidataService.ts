@@ -1,8 +1,13 @@
 import { Book } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
+import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 class WikidataService {
     private async runSPARQL(query: string): Promise<any[]> {
+        if (await isOffline()) {
+            return [];
+        }
+
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
         try {
             const response = await fetch(url, {
@@ -17,7 +22,7 @@ class WikidataService {
             const data = await response.json();
             return data.results.bindings;
         } catch (error) {
-            console.error('[WikidataService] SPARQL Error:', error);
+            logFetchError('[WikidataService] SPARQL Error', error);
             return [];
         }
     }
@@ -70,14 +75,16 @@ class WikidataService {
         // Fetch enrichment from our backend
         let inventaireDetails: Record<string, any> = {};
         if (uris.length > 0) {
-            try {
-                console.log(`[WikidataService] Fetching enrichment for ${uris.length} works...`);
-                const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
-                if (response.ok) {
-                    inventaireDetails = await response.json();
+            if (!(await isOffline())) {
+                try {
+                    console.log(`[WikidataService] Fetching enrichment for ${uris.length} works...`);
+                    const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
+                    if (response.ok) {
+                        inventaireDetails = await response.json();
+                    }
+                } catch (err) {
+                    logFetchError('[WikidataService] Failed to fetch enrichment', err);
                 }
-            } catch (err) {
-                console.error('[WikidataService] Failed to fetch enrichment:', err);
             }
         }
 

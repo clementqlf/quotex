@@ -138,12 +138,12 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
 
 // ListHeader component memoized pour éviter les re-renders inutiles
 interface ListHeaderMemoProps {
-  activeFilters: Array<{ type: string; value: string }>;
+  activeFilters: Array<{ type: 'author' | 'book' | 'year' | 'status'; value: string | number }>;
   viewMode: 'quotes' | 'books' | 'authors' | 'themes';
   selectedStatus: string;
   colors: ThemeColors;
   styles: any;
-  removeFilter: (filter: { type: string; value: string }) => void;
+  removeFilter: (filter: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }) => void;
   resetFilters: () => void;
   setSelectedStatus: (status: string) => void;
 }

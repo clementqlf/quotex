@@ -3,6 +3,7 @@ import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { BookImportPayload } from '@/src/entities/book/lib/bookImport';
+import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 // Debug flag - set to false to disable debug logs in production
 const DEBUG_AUTHOR_SERVICE = false;
@@ -40,6 +41,12 @@ class AuthorService {
     }
 
     async getAuthors(): Promise<Author[]> {
+        if (await isOffline()) {
+            debugLog('getAuthors: device is offline, using cache');
+            const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+            return storedAuthors || [];
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors`, { headers });
@@ -53,7 +60,7 @@ class AuthorService {
                 return mappedAuthors;
             }
         } catch (error) {
-            console.error('Error fetching authors from server:', error);
+            logFetchError('Error fetching authors from server', error);
         }
 
         const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
@@ -61,6 +68,12 @@ class AuthorService {
     }
 
     async getAuthorByName(name: string): Promise<Author | undefined> {
+        if (await isOffline()) {
+            debugLog('getAuthorByName: device is offline, using cache');
+            const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+            return (storedAuthors || []).find(a => a.name.toLowerCase() === name.toLowerCase() || a.name === name);
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/by-name/${encodeURIComponent(name)}`, { headers });
@@ -72,14 +85,20 @@ class AuthorService {
                 };
             }
         } catch (error) {
-            console.error('Error fetching author by name from server:', error);
+            logFetchError('Error fetching author by name from server', error);
         }
 
-        const authors = await this.getAuthors();
-        return authors.find(a => a.name === name);
+        const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+        return (storedAuthors || []).find(a => a.name.toLowerCase() === name.toLowerCase() || a.name === name);
     }
 
     async getAuthorById(id: number): Promise<Author | undefined> {
+        if (await isOffline()) {
+            debugLog('getAuthorById: device is offline, using cache');
+            const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+            return (storedAuthors || []).find(a => a.id === id);
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/${id}`, { headers });
@@ -91,13 +110,23 @@ class AuthorService {
                 };
             }
         } catch (error) {
-            console.error('Error fetching author by ID from server:', error);
+            logFetchError('Error fetching author by ID from server', error);
         }
-        return undefined;
+
+        const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+        return (storedAuthors || []).find(a => a.id === id);
     }
 
 
     async getBooksByAuthor(authorName: string, authorId?: number): Promise<Book[]> {
+        if (await isOffline()) {
+            debugLog('getBooksByAuthor: device is offline, using cache');
+            const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+            return (storedBooks || []).filter(b =>
+                (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
+            );
+        }
+
         try {
             // If we have an ID, use the specialized endpoint
             const url = authorId
@@ -111,7 +140,7 @@ class AuthorService {
                 return books.map((b: any) => this.mapBookFromServer(b));
             }
         } catch (error) {
-            console.error('Error fetching author books from server:', error);
+            logFetchError('Error fetching author books from server', error);
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
@@ -121,6 +150,12 @@ class AuthorService {
     }
 
     async getBookByTitle(title: string): Promise<Book | undefined> {
+        if (await isOffline()) {
+            debugLog('getBookByTitle: device is offline, using cache');
+            const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+            return (storedBooks || []).find(b => b.title === title);
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books`, { headers });
@@ -133,7 +168,7 @@ class AuthorService {
                 return undefined;
             }
         } catch (error) {
-            console.error('Error fetching book by title:', error);
+            logFetchError('Error fetching book by title', error);
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
@@ -146,6 +181,12 @@ class AuthorService {
         if (!target) {
             debugLog('getBookByInventaireUri: empty target', { inventaireUri });
             return undefined;
+        }
+
+        if (await isOffline()) {
+            debugLog('getBookByInventaireUri: device is offline, using cache');
+            const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+            return (storedBooks || []).find(b => this.normalizeInventaireUri(b.inventaireUri) === target);
         }
 
         try {
@@ -163,12 +204,20 @@ class AuthorService {
                 return this.mapBookFromServer(book);
             }
         } catch (error) {
-            console.error('[AuthorService] Error fetching book by inventaireUri:', error);
+            logFetchError('[AuthorService] Error fetching book by inventaireUri', error);
         }
-        return undefined;
+
+        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+        return (storedBooks || []).find(b => this.normalizeInventaireUri(b.inventaireUri) === target);
     }
 
     async getBookById(id: number): Promise<Book | undefined> {
+        if (await isOffline()) {
+            debugLog('getBookById: device is offline, using cache');
+            const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+            return (storedBooks || []).find(b => b.id === id);
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books/${id}`, { headers });
@@ -177,11 +226,19 @@ class AuthorService {
                 return this.mapBookFromServer(book);
             }
         } catch (error) {
-            console.error('Error fetching book by ID:', error);
+            logFetchError('Error fetching book by ID', error);
         }
-        return undefined;
+
+        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+        return (storedBooks || []).find(b => b.id === id);
     }
+
     async toggleSaveAuthor(id: number): Promise<{ isSaved: boolean; followersCount: number } | null> {
+        if (await isOffline()) {
+            debugLog('toggleSaveAuthor: device is offline');
+            return null;
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/${id}/toggle-save`, {
@@ -192,12 +249,17 @@ class AuthorService {
                 return await response.json();
             }
         } catch (error) {
-            console.error('Error toggling author save status:', error);
+            logFetchError('Error toggling author save status', error);
         }
         return null;
     }
 
     async toggleSaveBook(id: number): Promise<boolean> {
+        if (await isOffline()) {
+            debugLog('toggleSaveBook: device is offline');
+            return false;
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books/${id}/toggle-save`, {
@@ -209,12 +271,17 @@ class AuthorService {
                 return result.isSaved;
             }
         } catch (error) {
-            console.error('Error toggling book save status:', error);
+            logFetchError('Error toggling book save status', error);
         }
         return false;
     }
 
     async updateBookStatus(id: number, status: string): Promise<Book | undefined> {
+        if (await isOffline()) {
+            debugLog('updateBookStatus: device is offline');
+            return undefined;
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books/${id}/status`, {
@@ -227,12 +294,17 @@ class AuthorService {
                 return this.mapBookFromServer(book);
             }
         } catch (error) {
-            console.error('Error updating book status:', error);
+            logFetchError('Error updating book status', error);
         }
         return undefined;
     }
 
     async importBook(bookData: BookImportPayload): Promise<Book | undefined> {
+        if (await isOffline()) {
+            debugLog('importBook: device is offline');
+            return undefined;
+        }
+
         try {
             debugLog('importBook: request', {
                 title: bookData.title,
@@ -273,12 +345,18 @@ class AuthorService {
                 statusText: response.statusText,
             });
         } catch (error) {
-            console.error('[AuthorService] Error importing book:', error);
+            logFetchError('[AuthorService] Error importing book', error);
         }
         return undefined;
     }
 
     async getBooks(): Promise<Book[]> {
+        if (await isOffline()) {
+            debugLog('getBooks: device is offline, using cache');
+            const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+            return storedBooks || [];
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/books`, { headers });
@@ -289,7 +367,7 @@ class AuthorService {
                 return mappedBooks;
             }
         } catch (error) {
-            console.error('Error fetching books from server:', error);
+            logFetchError('Error fetching books from server', error);
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
@@ -298,6 +376,14 @@ class AuthorService {
 
 
     async getNotableWorks(authorId: number): Promise<Book[]> {
+        if (await isOffline()) {
+            debugLog('getNotableWorks: device is offline, using cache');
+            const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+            return (storedBooks || []).filter(b => 
+                typeof b.author === 'object' && b.author !== null && b.author.id === authorId
+            );
+        }
+
         try {
             const headers = await this.getHeaders();
             const response = await fetch(`${this.API_URL}/authors/${authorId}/notable-works`, { headers });
@@ -306,9 +392,13 @@ class AuthorService {
                 return books.map((b: any) => this.mapBookFromServer(b));
             }
         } catch (error) {
-            console.error('Error fetching notable works:', error);
+            logFetchError('Error fetching notable works', error);
         }
-        return [];
+
+        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+        return (storedBooks || []).filter(b => 
+            typeof b.author === 'object' && b.author !== null && b.author.id === authorId
+        );
     }
 }
 

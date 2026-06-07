@@ -1,6 +1,7 @@
 import { Review } from './types';
 import { API_BASE_URL } from '../config/api';
 import { authService } from '../../entities/user/api/AuthService';
+import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 export const ReviewService = {
     async getReviewsByBookId(bookId: number): Promise<Review[]> {
@@ -17,7 +18,7 @@ export const ReviewService = {
             }
             return await response.json();
         } catch (error) {
-            console.error('Error fetching reviews:', error);
+            logFetchError('Error fetching reviews', error);
             throw error;
         }
     },
@@ -39,7 +40,7 @@ export const ReviewService = {
             }
             return await response.json();
         } catch (error) {
-            console.error('Error creating review:', error);
+            logFetchError('Error creating review', error);
             return null;
         }
     },
@@ -61,7 +62,7 @@ export const ReviewService = {
             }
             return await response.json();
         } catch (error) {
-            console.error('Error updating review:', error);
+            logFetchError('Error updating review', error);
             return null;
         }
     },
@@ -82,7 +83,7 @@ export const ReviewService = {
             }
             return true;
         } catch (error) {
-            console.error('Error deleting review:', error);
+            logFetchError('Error deleting review', error);
             return false;
         }
     }

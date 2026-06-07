@@ -8,22 +8,11 @@ import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { SupabaseQuoteRepository } from './SupabaseQuoteRepository';
+import { QuoteUseCases } from '@/src/features/quote/model/QuoteUseCases';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
 
-// Type for pending quotes in the queue
-interface PendingQuote {
-    id: number; // Temporary ID used locally
-    text: string;
-    book: string | null;
-    author: string | null;
-    theme?: string;
-    createdAt: string;
-    retryCount?: number;
-}
-
-const MAX_RETRIES = 10;
 
 /**
  * Service de façade pour les Quotes
@@ -34,6 +23,7 @@ const MAX_RETRIES = 10;
 class QuoteService {
     private repository = SupabaseQuoteRepository.getInstance();
     private queue = OperationQueue.getInstance();
+    private useCases = new QuoteUseCases(this.repository);
     private isSyncing = false;
 
     // ========== Méthodes délégées au Repository ==========
@@ -83,30 +73,24 @@ class QuoteService {
     }
 
     async getPendingQuotesCount(): Promise<number> {
-        return this.repository.getPendingQuotesCount();
+        return this.useCases.getPendingQuotesCount();
     }
 
-    async getAllPendingQuotes(): Promise<PendingQuote[]> {
-        // Cast le résultat du repository
-        return this.repository.getAllPendingQuotes() as unknown as PendingQuote[];
+    async getAllPendingQuotes(): Promise<any[]> {
+        const ops = await this.queue.getAll();
+        return ops.filter(op => op.entityType === 'quote');
     }
 
     async clearPendingQuotes(): Promise<void> {
-        return this.repository.clearPendingQuotes();
+        // No-op for now, managed by OperationQueue
     }
 
     /**
      * Synchronise les citations en attente avec le serveur
-     * @deprecated Utiliser directement SupabaseQuoteRepository.syncPendingQuotes()
+     * @deprecated Utiliser QuoteUseCases.syncPendingQuotes()
      */
-    async syncPendingQuotes(): Promise<{
-        syncedCount: number;
-        total: number;
-        errors: Array<{ quote: PendingQuote; error: string }>;
-        corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
-    }> {
-        // @ts-ignore - délégation au repository
-        return this.repository['syncPendingQuotes']();
+    async syncPendingQuotes(): Promise<any> {
+        return this.useCases.syncPendingQuotes();
     }
 
     // ========== Méthodes de compatibilité ascendante ==========

@@ -28,6 +28,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
   const opacity = useSharedValue(0.3);
@@ -94,7 +95,7 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
 
     return { name, description, image, birthDate, nationality: null };
   } catch (e) {
-    console.error('[AuthorDetail] Failed to fetch external author details:', e);
+    logFetchError('[AuthorDetail] Failed to fetch external author details', e);
     return null;
   }
 }
@@ -186,7 +187,7 @@ export default function AuthorDetailScreen() {
               booksToDisplay = fetchedWikiBooks;
             }
           } catch (e) {
-            console.error('[AuthorDetail] Failed to fetch notable works after author retrieval:', e);
+            logFetchError('[AuthorDetail] Failed to fetch notable works after author retrieval', e);
           }
         }
 
@@ -209,7 +210,7 @@ export default function AuthorDetailScreen() {
               if (data.books) setAuthorBooks(data.books);
             }
           } catch (e) {
-            console.error('[AuthorDetail] Synch enrichment failed:', e);
+            logFetchError('[AuthorDetail] Synch enrichment failed', e);
           }
         }
       } else if (!activeAuthor && paramInventaireUri) {
@@ -235,7 +236,7 @@ export default function AuthorDetailScreen() {
       setAuthorBooks(booksToDisplay);
 
     } catch (error) {
-      console.error("Error loading author data:", error);
+      logFetchError("Error loading author data", error);
     } finally {
       setIsLoadingAuthor(false);
     }
@@ -267,7 +268,7 @@ export default function AuthorDetailScreen() {
       const works = await getBooksByAuthor(nameToUse, currentAuthorId);
       setAllWorks(works);
     } catch (error) {
-      console.error("Error fetching all works:", error);
+      logFetchError("Error fetching all works", error);
     } finally {
       setIsLoadingAllWorks(false);
     }

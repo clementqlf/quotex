@@ -1,5 +1,6 @@
 import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
+import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
 import Constants from 'expo-constants';
 
 /**
@@ -122,7 +123,11 @@ export class HttpClient {
 
       return (await response.text()) as any;
     } catch (error) {
-      console.error(`[HttpClient] Request failed: ${options.method || 'GET'} ${url}`, error);
+      if (isNetworkError(error)) {
+        console.warn(`[HttpClient] Request failed due to network connectivity: ${options.method || 'GET'} ${url}`, (error as any).message || error);
+      } else {
+        console.error(`[HttpClient] Request failed: ${options.method || 'GET'} ${url}`, error);
+      }
       throw error;
     }
   }

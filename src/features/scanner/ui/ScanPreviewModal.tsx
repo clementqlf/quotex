@@ -468,11 +468,7 @@ export default function ScanPreviewModal({
                                                                             </View>
                                                                         </TouchableOpacity>
                                                                     ))}
-                                                                    {suggestions.length === 0 && !isLoadingSuggestions && (
-                                                                        <View style={styles.suggestionItem}>
-                                                                            <Text style={styles.suggestionTextMeta}>Aucun livre trouvé</Text>
-                                                                        </View>
-                                                                    )}
+
                                                                 </ScrollView>
                                                             </View>
                                                         )}
@@ -554,11 +550,7 @@ export default function ScanPreviewModal({
                                                                             <Text style={styles.suggestionText} numberOfLines={1}>{item.name}</Text>
                                                                         </TouchableOpacity>
                                                                     ))}
-                                                                    {authorSuggestions.length === 0 && !isLoadingAuthorSuggestions && (
-                                                                        <View style={styles.suggestionItem}>
-                                                                            <Text style={styles.suggestionTextMeta}>Aucun auteur trouvé</Text>
-                                                                        </View>
-                                                                    )}
+
                                                                 </ScrollView>
                                                             </View>
                                                         )}

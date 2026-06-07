@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { Quote } from '@/src/shared/api/types';
@@ -39,6 +39,7 @@ const PENDING_COUNT_QUERY_KEY = ['pendingQuotesCount'];
 const PENDING_COUNT_REFETCH_INTERVAL_MS = 30000; // 30 secondes
 
 export const useNetworkSync = () => {
+    const queryClient = useQueryClient();
     const [status, setStatus] = useState<SyncStatus>({
         isConnected: null,
         isSyncing: false,
@@ -90,19 +91,21 @@ export const useNetworkSync = () => {
         }
 
         // Don't sync if not connected
-        if (status.isConnected === false) {
+        const networkState = await NetInfo.fetch();
+        if (!networkState.isConnected || !networkState.isInternetReachable) {
             console.log('[useNetworkSync] Not connected, skipping sync');
             return false;
         }
 
-        // ✅ Utiliser le pendingCount de React Query
-        if (pendingCount === 0) {
+        // ✅ Vérifier le compte réel
+        const actualPendingCount = await quoteService.getPendingQuotesCount();
+        if (actualPendingCount === 0) {
             console.log('[useNetworkSync] No pending quotes, skipping sync');
             return false;
         }
 
         return true;
-    }, [status.isSyncing, status.isConnected, pendingCount]);
+    }, [status.isSyncing, status.isConnected]);
 
     // Track if sync is already in progress
     const syncLock = useRef(false);
@@ -126,6 +129,8 @@ export const useNetworkSync = () => {
             const result = await quoteService.syncPendingQuotes();
             
             console.log(`[useNetworkSync] Sync completed: ${result.syncedCount}/${result.total} synced`);
+            
+            queryClient.invalidateQueries({ queryKey: PENDING_COUNT_QUERY_KEY });
             
             setStatus(prev => ({
                 ...prev,
