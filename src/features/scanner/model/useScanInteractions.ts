@@ -1,5 +1,5 @@
-import { useRef, useMemo } from 'react';
-import { PanResponder, View } from 'react-native';
+import { useRef, useMemo, useEffect } from 'react';
+import { PanResponder, PanResponderInstance, View } from 'react-native';
 import { WordData, ImageDisplayInfo } from './ocrProcessor';
 import { SelectionRange } from './useScanState';
 
@@ -14,8 +14,6 @@ export interface UseScanInteractionsProps {
   isEraserMode: boolean;
   imageDisplayInfo: ImageDisplayInfo;
 }
-
-import { PanResponderInstance } from 'react-native';
 
 /**
  * Résultat du hook useScanInteractions
@@ -67,7 +65,8 @@ export const useScanInteractions = ({
   isEraserMode,
   imageDisplayInfo,
 }: UseScanInteractionsProps): ScanInteractionsResult => {
-  const imagePanResponder = useRef(
+  // Créer le PanResponder avec useMemo pour éviter de le recréer à chaque render
+  const panResponderInstance = useMemo(() => 
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
@@ -77,7 +76,7 @@ export const useScanInteractions = ({
         const nearestIndex = findNearestWord(words, locationX, locationY);
         
         if (nearestIndex !== null) {
-          setSelectionRange({ start: nearestIndex, end: nearestIndex } as SelectionRange | null);
+          setSelectionRange({ start: nearestIndex, end: nearestIndex } as SelectionRange);
         }
       },
       
@@ -89,15 +88,24 @@ export const useScanInteractions = ({
           setSelectionRange({ 
             start: selectionRange.start, 
             end: nearestIndex 
-          } as SelectionRange | null);
+          } as SelectionRange);
         }
       },
       
       onPanResponderRelease: (evt, gestureState) => {
         // Fin de la sélection
       },
-    })
-  ).current as unknown as React.RefObject<PanResponderInstance>;
+    }),
+    [words, selectionRange, setSelectionRange]
+  );
+  
+  // Créer un ref qui contient l'instance
+  const imagePanResponder = useRef<PanResponderInstance>(panResponderInstance);
+  
+  // Mettre à jour le ref si l'instance change
+  useEffect(() => {
+    imagePanResponder.current = panResponderInstance;
+  }, [panResponderInstance]);
 
   // Handler pour la pression sur un mot
   const handleWordPress = (index: number) => {
@@ -120,7 +128,7 @@ export const useScanInteractions = ({
   };
 
   return {
-    imagePanResponder: imagePanResponder as unknown as React.RefObject<any>,
+    imagePanResponder,
     handleWordPress,
     findWordAtPosition,
   };

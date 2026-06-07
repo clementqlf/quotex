@@ -1,6 +1,23 @@
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { calculateTextRotation } from '@/src/shared/lib/scanGeometry';
 
+// Types étendus pour les éléments ML Kit avec les propriétés réelles
+interface MLKitTextElement extends TextElement {
+  text: string;
+  frame: { left: number; top: number; width: number; height: number };
+  rect?: { left: number; top: number; width: number; height: number };
+}
+
+interface MLKitTextBlock extends TextBlock {
+  elements: MLKitTextElement[];
+}
+
+interface MLKitLine {
+  elements: MLKitTextElement[];
+  frame: { left: number; top: number; width: number; height: number };
+  rect?: { left: number; top: number; width: number; height: number };
+}
+
 /**
  * Données d'un mot après traitement OCR
  */
@@ -44,20 +61,23 @@ export class OcrProcessor {
       return [];
     }
 
-    let sortedElements: TextElement[] = [];
+    // Cast to our extended types for better type safety
+    const elements = ocrElements as unknown as MLKitTextElement[];
+    const blocks = ocrBlocks as unknown as MLKitTextBlock[];
+    let sortedElements: MLKitTextElement[] = [];
 
-    if (ocrBlocks && ocrBlocks.length > 0) {
+    if (blocks && blocks.length > 0) {
       // 1. Group words using ML Kit's native line segmentation to guarantee correct grouping
       interface LineInfo {
-        line: any;
+        line: MLKitLine;
         centerY: number;
         left: number;
       }
       const linesInfo: LineInfo[] = [];
 
-      for (const block of ocrBlocks) {
-        for (const line of block.lines) {
-          const frame = (line as any).frame || (line as any).rect || { left: 0, top: 0, width: 0, height: 0 };
+      for (const block of blocks) {
+        for (const line of (block as unknown as { lines: MLKitLine[] }).lines) {
+          const frame = line.frame || line.rect || { left: 0, top: 0, width: 0, height: 0 };
           const centerY = frame.top + frame.height / 2;
           linesInfo.push({
             line,
@@ -77,20 +97,20 @@ export class OcrProcessor {
 
       // 3. Build a flattened array of all words, sorted properly
       for (const lineInfo of linesInfo) {
-        const lineElements = (lineInfo.line as any).elements || [];
+        const lineElements = lineInfo.line.elements || [];
         // Sort words left-to-right within each line
-        const sortedLineWords = [...lineElements].sort((a: any, b: any) => {
-          const frameA = (a as any).frame || (a as any).rect || { left: 0 };
-          const frameB = (b as any).frame || (b as any).rect || { left: 0 };
+        const sortedLineWords = [...lineElements].sort((a, b) => {
+          const frameA = a.frame || a.rect || { left: 0 };
+          const frameB = b.frame || b.rect || { left: 0 };
           return frameA.left - frameB.left;
         });
         sortedElements = [...sortedElements, ...sortedLineWords];
       }
     } else {
       // Fallback: group by Y position if no blocks available
-      sortedElements = [...ocrElements].sort((a, b) => {
-        const frameA = (a as any).frame || (a as any).rect || { top: 0, left: 0 };
-        const frameB = (b as any).frame || (b as any).rect || { top: 0, left: 0 };
+      sortedElements = [...elements].sort((a, b) => {
+        const frameA = a.frame || a.rect || { top: 0, left: 0 };
+        const frameB = b.frame || b.rect || { top: 0, left: 0 };
         if (Math.abs(frameA.top - frameB.top) > 1) {
           return frameA.top - frameB.top;
         }
@@ -102,8 +122,8 @@ export class OcrProcessor {
     const words: WordData[] = [];
     for (let i = 0; i < sortedElements.length; i++) {
       const el = sortedElements[i];
-      const frame = (el as any).frame || (el as any).rect || { left: 0, top: 0, width: 0, height: 0 };
-      const text = (el as any).text || '';
+      const frame = el.frame || el.rect || { left: 0, top: 0, width: 0, height: 0 };
+      const text = el.text || '';
 
       // Skip empty text
       if (!text.trim()) continue;

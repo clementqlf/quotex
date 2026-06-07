@@ -8,6 +8,40 @@ import { PlatformServices } from '@/src/shared/platform';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Quote } from '@/src/shared/api/types';
+
+/**
+ * Données du livre depuis les APIs externes (Inventaire, Google Books, etc.)
+ */
+export interface ExternalBookData {
+    title?: string;
+    authors?: string[];
+    authorUris?: string[];
+    description?: string;
+    image?: string;
+    cover?: string;
+    uri?: string;
+    inventaireUri?: string;
+    googleId?: string;
+    year?: number;
+    pages?: number;
+    genre?: string;
+    label?: string;
+}
+
+/**
+ * Résultat de recherche pour un livre via ISBN
+ */
+export interface IsbnSearchResult {
+    books?: Array<{
+        id?: number | string;
+        title: string;
+        author: string;
+        cover?: string;
+        inventaireUri?: string;
+    }>;
+    inventaireWorks?: Array<ExternalBookData>;
+}
 
 /**
  * Données du livre récupérées depuis un scan ISBN
@@ -18,7 +52,7 @@ export interface IsbnBookData {
     cover?: string;
     bookId?: string;
     inventaireUri?: string;
-    bookData?: any;
+    bookData?: ExternalBookData;
 }
 
 /**
@@ -70,37 +104,41 @@ export class ScanService {
                 // Essayer d'importer le livre pour obtenir la couverture
                 try {
                     const token = await authService.getToken();
+                    
+                    // Construire le payload d'import avec typage
+                    const importPayload: Record<string, unknown> = {
+                        title: item.label || item.title,
+                        description: item.description || '',
+                        cover: item.image || item.cover || '',
+                        inventaireUri: item.uri || item.inventaireUri,
+                        googleId: item.googleId,
+                        isbn,
+                        ...(item.year && { year: item.year }),
+                        ...(item.pages && { pages: item.pages }),
+                        ...(item.genre && { genre: item.genre }),
+                        authors: item.authors || [],
+                        authorUris: item.authorUris || [],
+                    };
+                    
                     const importRes = await fetch(`${API_BASE_URL}/books/import`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
                         },
-                        body: JSON.stringify({
-                            title: item.label || item.title,
-                            description: item.description || '',
-                            cover: item.image || item.cover || '',
-                            inventaireUri: item.uri || item.inventaireUri,
-                            googleId: item.googleId,
-                            isbn,
-                            year: item.year,
-                            pages: item.pages,
-                            genre: item.genre,
-                            authors: item.authors || [],
-                            authorUris: item.authorUris || [],
-                        }),
+                        body: JSON.stringify(importPayload),
                     });
 
                     if (importRes.ok) {
-                        const imported = await importRes.json();
+                        const imported: Record<string, unknown> = await importRes.json();
                         this.platformServices.haptics.notificationAsync("success");
                         
                         const bookData: IsbnBookData = {
-                            title: imported.title || item.title || item.label || 'Livre inconnu',
+                            title: (imported.title as string) || item.title || item.label || 'Livre inconnu',
                             author: authorName,
-                            cover: imported.cover || item.image || item.cover || undefined,
-                            bookId: imported.id?.toString(),
-                            inventaireUri: imported.inventaireUri || item.inventaireUri || item.uri,
+                            cover: (imported.cover as string) || item.image || item.cover || undefined,
+                            bookId: imported.id ? String(imported.id) : undefined,
+                            inventaireUri: (imported.inventaireUri as string) || item.inventaireUri || item.uri,
                         };
                         
                         return { success: true, bookData, error: undefined };
@@ -110,12 +148,28 @@ export class ScanService {
                 }
 
                 // Fallback: utiliser les données de recherche
+                const externalBookData: ExternalBookData = {
+                    title: item.title || item.label,
+                    authors: item.authors,
+                    authorUris: item.authorUris,
+                    description: item.description,
+                    image: item.image,
+                    cover: item.cover,
+                    uri: item.uri,
+                    inventaireUri: item.inventaireUri,
+                    googleId: item.googleId,
+                    year: item.year,
+                    pages: item.pages,
+                    genre: item.genre,
+                    label: item.label,
+                };
+                
                 const bookData: IsbnBookData = {
                     title: item.title || item.label || 'Livre inconnu',
                     author: authorName,
                     cover: item.image || item.cover || undefined,
                     inventaireUri: item.inventaireUri || item.uri,
-                    bookData: item,
+                    bookData: externalBookData,
                 };
                 
                 return { success: true, bookData, error: undefined };
@@ -176,12 +230,19 @@ export class ScanService {
 
             // Normaliser le chemin de l'image
             const normalizedPath = ocrResult.normalizedUri?.replace('file://', '');
+            
+            // Type pour les métadonnées de photo
+            interface PhotoMetadata {
+                Orientation: number;
+                [key: string]: unknown;
+            }
+            
             const pickedPhoto: PhotoFile = {
                 ...photoFile,
                 path: normalizedPath || photoFile.path,
                 width: ocrResult.normalizedSize?.width || photoFile.width,
                 height: ocrResult.normalizedSize?.height || photoFile.height,
-                metadata: { Orientation: 1 } as any, // 1 = upright portrait
+                metadata: { Orientation: 1 } as PhotoMetadata,
             };
 
             return {
@@ -255,8 +316,8 @@ export class ScanService {
                 width: ocrResult.normalizedSize?.width || 0,
                 height: ocrResult.normalizedSize?.height || 0,
                 isRawPhoto: false,
-                metadata: { Orientation: 1 } as any,
-            } as PhotoFile;
+                metadata: { Orientation: 1 } as PhotoMetadata,
+            };
 
             return {
                 success: true,
@@ -300,28 +361,30 @@ export class ScanService {
      * Sélectionne une citation aléatoire d'autres utilisateurs
      */
     async getRandomQuoteFromOtherUsers(
-        allQuotes: any[],
+        allQuotes: Quote[],
         currentUserId: string | undefined
-    ): Promise<{ success: boolean; quote: any | null; error?: string }> {
+    ): Promise<{ success: boolean; quote: Quote | null; error?: string }> {
         try {
             // Importer les bases de données statiques
             const { localQuotesDB, globalQuotesDB } = await import('@/src/shared/api/staticData');
             
             // 1. Essayer de récupérer les citations ajoutées par d'autres utilisateurs
-            let candidates: any[] = allQuotes.filter(
-                q => q.user && q.user.id !== "1" && q.user.id !== currentUserId
+            let candidates: Quote[] = allQuotes.filter(
+                (q: Quote) => q.user && q.user.id !== "1" && q.user.id !== currentUserId
             );
 
             // 2. Si rien trouvé, fallback sur les citations globales statiques
             if (candidates.length === 0) {
-                candidates = globalQuotesDB.filter(
-                    q => q.user && q.user.id !== "1" && q.user.id !== currentUserId
+                candidates = (globalQuotesDB as Quote[]).filter(
+                    (q: Quote) => q.user && q.user.id !== "1" && q.user.id !== currentUserId
                 );
             }
 
             // 3. Fallback absolu sur n'importe quelles citations
             if (candidates.length === 0) {
-                candidates = allQuotes.length > 0 ? allQuotes : [...localQuotesDB, ...globalQuotesDB];
+                candidates = allQuotes.length > 0 
+                    ? allQuotes 
+                    : [...(localQuotesDB as Quote[]), ...(globalQuotesDB as Quote[])];
             }
 
             if (candidates.length === 0) {
@@ -333,7 +396,7 @@ export class ScanService {
             }
 
             const randomIndex = Math.floor(Math.random() * candidates.length);
-            const selected = candidates[randomIndex];
+            const selected: Quote = candidates[randomIndex];
 
             return { success: true, quote: selected, error: undefined };
         } catch (error) {

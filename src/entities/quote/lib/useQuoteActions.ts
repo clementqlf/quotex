@@ -4,6 +4,7 @@ import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
 import { Quote } from '@/src/shared/api/types';
+import { quoteService } from '@/src/features/quote/api/QuoteService';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { authService } from '@/src/entities/user/api/AuthService';
@@ -17,13 +18,14 @@ export interface HandleConfirmSaveOptions {
 }
 
 export const useQuoteActions = () => {
-  const { addQuote, updateQuote, refreshQuotes } = useQuote();
+  const { updateQuote, refreshQuotes } = useQuote();
   const { refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName } = useAuthor();
   const { setTabIndex } = useTabIndex();
 
   /**
    * Gère la confirmation d'ajout/modification d'une citation
    * Utilisé à la fois par le scanner (ScanWorkflow) et l'ajout manuel (MyQuotesScreen)
+   * Utilise maintenant QuoteUseCases pour créer les citations
    */
   const handleConfirmSave = useCallback(
     async (
@@ -48,8 +50,9 @@ export const useQuoteActions = () => {
             author: author || options.editingQuote.author
           });
         } else {
-          console.log('[useQuoteActions] Adding new quote');
-          newQuote = await addQuote(text, book, author);
+          console.log('[useQuoteActions] Adding new quote via QuoteUseCases');
+          // Utiliser QuoteUseCases pour créer la citation avec matching et synchronisation
+          newQuote = await quoteService.createQuoteWithMatching(text, book, author);
         }
 
         console.log('[useQuoteActions] Quote saved/updated successfully');
@@ -111,7 +114,7 @@ export const useQuoteActions = () => {
         options.setEditingQuote?.(null);
       }
     },
-    [addQuote, updateQuote, refreshQuotes, refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName, setTabIndex]
+    [updateQuote, refreshQuotes, refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName, setTabIndex]
   );
 
   return { handleConfirmSave };

@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
+import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, CameraDevice, CameraDeviceFormat, CodeScanner } from 'react-native-vision-camera';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -35,16 +35,16 @@ import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 
 interface CameraContainerProps {
-  device: any;
+  device: CameraDevice | null;
   cameraRef: React.RefObject<Camera | null>;
-  codeScanner: any;
+  codeScanner: CodeScanner;
   showIsbnPopup: boolean;
   isSearchingIsbn: boolean;
   isLoading: boolean;
   photo: PhotoFile | null;
   isFocused: boolean;
   onTextDetectedChange: (detected: boolean) => void;
-  format?: any;
+  format?: CameraDeviceFormat | null;
 }
 
 const CameraContainer = React.memo(({
@@ -211,25 +211,7 @@ export default function ScanScreen() {
     setSwipeEnabled(!(photo && ocrElements));
   }, [photo, ocrElements, setSwipeEnabled]);
 
-  // Handle random quote confirmation
-  const handleConfirmRandomQuote = useCallback(async () => {
-    if (!randomQuote) return;
-    
-    try {
-      console.log('[ScanScreen] Saving random quote:', randomQuote);
-      // For now, we'll use the existing addQuote from useQuote
-      // In the future, this should be moved to a use case
-      // But we need to access it here
-      // This is a temporary solution until we have a proper QuoteUseCases integration
-      
-      // For now, we'll just close the modal
-      // The actual save will be handled by the modal's onConfirm
-      setShowRandomQuoteModal(false);
-    } catch (e) {
-      console.error('[ScanScreen] Failed to save random quote:', e);
-      Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');
-    }
-  }, [randomQuote, setShowRandomQuoteModal]);
+
 
   // ========== RENDER ==========
   if (!hasPermission) {
