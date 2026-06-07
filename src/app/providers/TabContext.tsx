@@ -79,6 +79,7 @@ export const useTabController = (): TabControllerResult => {
   const setPage = useCallback((idx: number) => {
     if (idx !== index) {
       setIndex(idx);
+      position.value = idx;
       pagerRef.current?.setPage(idx);
     }
   }, [index]);
