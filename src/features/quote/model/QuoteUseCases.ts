@@ -1,4 +1,4 @@
-import { Quote, CreateQuoteDto } from '@/src/shared/api/types';
+import { Quote, CreateQuoteDto, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
@@ -333,12 +333,14 @@ export class QuoteUseCases {
     /**
      * Récupère un utilisateur par son username
      */
-    async getUserByUsername(username: string): Promise<any | undefined> {
+    async getUserByUsername(username: string): Promise<User | undefined> {
         // Utiliser un service dédié ou le repository user
         // Pour l'instant, on délègue au repository
         try {
-            const user = await (this.quoteRepository as any).getUserByUsername?.(username);
-            return user;
+            if (typeof this.quoteRepository.getUserByUsername === 'function') {
+                return await this.quoteRepository.getUserByUsername(username);
+            }
+            return undefined;
         } catch {
             return undefined;
         }

@@ -1,7 +1,23 @@
 import React from 'react';
 import { useAuth } from './AuthContext';
 import { useSegments, useRouter, Redirect } from 'expo-router';
-import SplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
+
+// Constante centrale pour les segments d'authentification
+const AUTH_SEGMENTS = new Set([
+    '(auth)',
+    'login',
+    'register',
+    'login-password',
+    'register-details',
+    'onboarding'
+]);
+
+/**
+ * Vérifie si les segments contiennent une route d'authentification
+ */
+export const isInAuthGroup = (segments: string[]): boolean => {
+    return segments.some(segment => AUTH_SEGMENTS.has(segment));
+};
 
 /**
  * AuthGuard - Composant de protection des routes authentifiées
@@ -16,18 +32,11 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
     const router = useRouter();
 
     // Vérifier si nous sommes dans un groupe d'authentification
-    const inAuthGroup = segments.some(
-        (segment) => 
-            segment === '(auth)' || 
-            segment === 'login' || 
-            segment === 'register' ||
-            segment === 'login-password' ||
-            segment === 'register-details'
-    );
+    const inAuthGroup = isInAuthGroup(segments);
 
-    // Si nous sommes encore en train de charger l'état d'auth, afficher le splash
+    // ✅ Si nous sommes en train de charger, ne rien afficher pour éviter le flash de contenu
     if (isLoading) {
-        return <SplashScreen isDark={false} isLoading={true} onAnimationFinish={() => {}} />;
+        return null;
     }
 
     // Si l'utilisateur n'est pas authentifié et essaie d'accéder à une route protégée
@@ -51,13 +60,7 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
  */
 export const useIsInAuthGroup = (): boolean => {
     const segments = useSegments();
-    return segments.some(
-        (segment) => 
-            segment === '(auth)' || 
-            segment === 'login' || 
-            segment === 'register' ||
-            segment === 'onboarding'
-    );
+    return isInAuthGroup(segments);
 };
 
 /**
@@ -71,13 +74,7 @@ export const useRouteAccess = (): {
     const { isAuthenticated, isLoading } = useAuth();
     const segments = useSegments();
 
-    const inAuthGroup = segments.some(
-        (segment) => 
-            segment === '(auth)' || 
-            segment === 'login' || 
-            segment === 'register' ||
-            segment === 'onboarding'
-    );
+    const inAuthGroup = isInAuthGroup(segments);
 
     // Les routes dans le groupe (auth) ne nécessitent PAS d'authentification
     const requiresAuth = !inAuthGroup;

@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/src/shared/api/supabase';
+
+// Type pour les payloads de changes Supabase
+interface SupabaseRealtimePayload<T> {
+  new: T | null;
+  old: T | null;
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+}
 
 /**
  * Options pour le hook useRealtimeEntity
  */
-export interface RealtimeEntityOptions<T> {
+export interface RealtimeEntityOptions<T extends Record<string, unknown>> {
   /** ID de l'entité à écouter */
   id: number | null | undefined;
   /** Valeur initiale de l'entité */
@@ -12,7 +20,7 @@ export interface RealtimeEntityOptions<T> {
   /** Nom de la table Supabase */
   table: string;
   /** Champ à vérifier pour l'enrichissement (par défaut: 'isEnriching') */
-  enrichingField?: string;
+  enrichingField?: keyof T;
   /** Intervalle de polling en ms si Realtime échoue (par défaut: 2000) */
   pollingInterval?: number;
 }
@@ -31,8 +39,10 @@ export interface RealtimeEntityOptions<T> {
  * });
  * ```
  */
-export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | null | undefined {
-  const { id, initialData, table, enrichingField = 'isEnriching', pollingInterval = 2000 } = options;
+export function useRealtimeEntity<T extends Record<string, unknown>>(
+  options: RealtimeEntityOptions<T>
+): T | null | undefined {
+  const { id, initialData, table, enrichingField = 'isEnriching' as keyof T, pollingInterval = 2000 } = options;
   const [data, setData] = useState<T | null | undefined>(initialData);
   const [useFallback, setUseFallback] = useState(false);
   const fallbackTriggeredRef = React.useRef(false);
@@ -42,13 +52,13 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
     // Cela permet d'afficher les corrections du serveur immédiatement (ex: majuscules)
     // même si l'entité est encore en cours d'enrichissement.
     setData((currentData) => {
-      const currentIsEnriching = currentData && typeof currentData === 'object' && (currentData as any)[enrichingField];
-      const initialIsEnriching = initialData && typeof initialData === 'object' && (initialData as any)[enrichingField];
+      const currentIsEnriching = currentData && typeof currentData === 'object' && currentData[enrichingField];
+      const initialIsEnriching = initialData && typeof initialData === 'object' && initialData[enrichingField];
       
       // On évite d'écraser des données fraîches (enrichissement terminé) par des props périmées
       const isStale = currentData && initialData && 
                       typeof currentData === 'object' && typeof initialData === 'object' &&
-                      (currentData as any).id === (initialData as any).id && 
+                      currentData['id'] === initialData['id'] && 
                       currentIsEnriching === false && 
                       initialIsEnriching === true;
                       
@@ -57,14 +67,14 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
 
     // 2. Décider si on doit souscrire aux mises à jour Realtime
     const isEnriching = initialData && typeof initialData === 'object' && 
-      (initialData as any)[enrichingField];
+      initialData[enrichingField];
     
     // Si pas d'ID ou pas d'enrichissement en cours, on s'arrête là (pas de Realtime)
     if (!id || !isEnriching) {
       return;
     }
 
-    let channel: any = null;
+    let channel: RealtimeChannel | null = null;
     let interval: ReturnType<typeof setInterval> | null = null;
 
     const tryRealtime = async () => {
@@ -82,12 +92,12 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
               table: table,
               filter: `id=eq.${id}`
             },
-            (payload: any) => {
-              console.log(`[Realtime] ${table} ${id} updated`, payload.new?.[enrichingField]);
+            (payload: SupabaseRealtimePayload<T>) => {
+              console.log(`[Realtime] ${table} ${id} updated`, payload.new?.[enrichingField as keyof T]);
               setData(payload.new);
               
               // Si l'enrichissement est terminé, on se désabonne
-              if (payload.new?.[enrichingField] === false) {
+              if (payload.new?.[enrichingField as keyof T] === false) {
                 channel?.unsubscribe();
                 console.log(`[Realtime] ${table} ${id} enrichment complete, unsubscribed`);
               }
@@ -106,10 +116,10 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
             }
           });
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!fallbackTriggeredRef.current) {
           fallbackTriggeredRef.current = true;
-          console.error(`[Realtime] ${table} ${id} realtime setup failed:`, err.message);
+          console.error(`[Realtime] ${table} ${id} realtime setup failed:`, err instanceof Error ? err.message : String(err));
           setUseFallback(true);
         }
       }
@@ -157,11 +167,14 @@ export function useRealtimeEntity<T>(options: RealtimeEntityOptions<T>): T | nul
   return data;
 }
 
+import { Book } from '@/src/shared/api/types';
+import { Author } from '@/src/shared/api/types';
+
 /**
  * Hook spécialisé pour les livres
  */
-export function useBookRealtime(bookId: number | null | undefined, initialBook: any) {
-  return useRealtimeEntity({
+export function useBookRealtime(bookId: number | null | undefined, initialBook: Book | null | undefined) {
+  return useRealtimeEntity<Book>({
     id: bookId,
     initialData: initialBook,
     table: 'Book',
@@ -172,8 +185,8 @@ export function useBookRealtime(bookId: number | null | undefined, initialBook: 
 /**
  * Hook spécialisé pour les auteurs
  */
-export function useAuthorRealtime(authorId: number | null | undefined, initialAuthor: any) {
-  return useRealtimeEntity({
+export function useAuthorRealtime(authorId: number | null | undefined, initialAuthor: Author | null | undefined) {
+  return useRealtimeEntity<Author>({
     id: authorId,
     initialData: initialAuthor,
     table: 'Author',
@@ -185,7 +198,7 @@ export function useAuthorRealtime(authorId: number | null | undefined, initialAu
  * Hook pour mettre à jour plusieurs livres en temps réel
  * Retourne un callback pour rafraîchir manuellement si nécessaire
  */
-export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
+export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
   const enrichingBookIdsStr = useMemo(() => {
     return books
       .filter(b => b?.id && b?.isEnriching)
@@ -201,7 +214,7 @@ export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
     const ids = enrichingBookIdsStr.split(',').map(Number);
     console.log(`[Realtime] Subscribing to ${ids.length} enriching books`);
 
-    const channels: any[] = [];
+    const channels: RealtimeChannel[] = [];
 
     ids.forEach(bookId => {
       const uniqueId = Math.random().toString(36).substring(2, 9);
@@ -215,7 +228,7 @@ export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
             table: 'Book',
             filter: `id=eq.${bookId}`
           },
-          (payload: any) => {
+          (payload: SupabaseRealtimePayload<Book>) => {
             console.log(`[Realtime] Book ${bookId} updated in modal`, payload.new?.isEnriching);
             // Rafraîchir le callback parent si fourni
             refreshCallback?.();
@@ -236,7 +249,7 @@ export function useRealtimeBooks(books: any[], refreshCallback?: () => void) {
 /**
  * Hook pour mettre à jour plusieurs auteurs en temps réel
  */
-export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void) {
+export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => void) {
   const enrichingAuthorIdsStr = useMemo(() => {
     return authors
       .filter(a => a?.id && a?.isEnriching)
@@ -251,7 +264,7 @@ export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void)
     const ids = enrichingAuthorIdsStr.split(',').map(Number);
     console.log(`[Realtime] Subscribing to ${ids.length} enriching authors`);
 
-    const channels: any[] = [];
+    const channels: RealtimeChannel[] = [];
 
     ids.forEach(authorId => {
       const uniqueId = Math.random().toString(36).substring(2, 9);
@@ -265,7 +278,7 @@ export function useRealtimeAuthors(authors: any[], refreshCallback?: () => void)
             table: 'Author',
             filter: `id=eq.${authorId}`
           },
-          (payload: any) => {
+          (payload: SupabaseRealtimePayload<Author>) => {
             console.log(`[Realtime] Author ${authorId} updated in modal`, payload.new?.isEnriching);
             refreshCallback?.();
           }

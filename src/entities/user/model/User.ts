@@ -42,7 +42,8 @@ export interface ServerUserData {
   website?: string;
   followers?: number;
   following?: number;
-  [key: string]: any; // Champs supplémentaires non typés
+  // Champs supplémentaires non typés - limités à string, number ou undefined
+  [key: string]: string | number | undefined;
 }
 
 // Fabrique pour créer des objets User

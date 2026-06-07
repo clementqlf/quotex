@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname, useGlobalSearchParams } from 'expo-router';
+import type { RootLayoutParams } from '@/src/shared/types/router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -64,8 +65,8 @@ function RootLayoutNav() {
   const { isLoading } = useAuth();
   
   // Navigation Logger avec typage
-  const pathname = require('expo-router').usePathname();
-  const params = require('expo-router').useGlobalSearchParams<import('@/src/shared/types/router').RootLayoutParams>();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams<RootLayoutParams>();
 
   useEffect(() => {
     console.log(`[Navigation] Opened Screen: ${pathname}`, params);

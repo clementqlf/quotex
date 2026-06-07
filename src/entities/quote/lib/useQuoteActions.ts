@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { useTabIndex } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
 import { Quote } from '@/src/shared/api/types';
 import { quoteService } from '@/src/features/quote/api/QuoteService';
@@ -15,12 +14,13 @@ export interface HandleConfirmSaveOptions {
   editingQuote?: Quote | null;
   setEditingQuote?: (value: Quote | null) => void;
   isFromScanner?: boolean;
+  // Injection de dépendance pour la navigation
+  setTabIndex?: (index: number) => void;
 }
 
 export const useQuoteActions = () => {
   const { updateQuote, refreshQuotes } = useQuote();
   const { refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName } = useAuthor();
-  const { setTabIndex } = useTabIndex();
 
   /**
    * Gère la confirmation d'ajout/modification d'une citation
@@ -62,7 +62,7 @@ export const useQuoteActions = () => {
 
         // Actions post-sauvegarde
         if (options.isFromScanner) {
-          setTabIndex(0);
+          options.setTabIndex?.(0);
           options.onReset?.();
         }
 
@@ -114,7 +114,7 @@ export const useQuoteActions = () => {
         options.setEditingQuote?.(null);
       }
     },
-    [updateQuote, refreshQuotes, refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName, setTabIndex]
+    [updateQuote, refreshQuotes, refreshBooks, refreshAuthors, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName]
   );
 
   return { handleConfirmSave };

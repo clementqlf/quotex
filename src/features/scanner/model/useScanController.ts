@@ -9,14 +9,18 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { scanService, IsbnBookData } from '../api/ScanService';
 import { quoteService } from '@/src/features/quote/api/QuoteService';
-import { Quote } from '@/src/shared/api/types';
-import { useTheme } from '@/src/app/providers/ThemeContext';
+import { Quote, User } from '@/src/shared/api/types';
 import { useAuth } from '@/src/app/providers/AuthContext';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { OcrResult } from '../api/ScanService';
+
+// Interface pour l'injection de dépendances de navigation
+export interface ITabController {
+  setTabIndex: (index: number) => void;
+  setSwipeEnabled: (enabled: boolean) => void;
+}
+
 
 /**
  * Props pour le hook useScanController
@@ -31,6 +35,10 @@ export interface UseScanControllerProps {
     height: number;
   } | null;
   scanAreaY: number;
+  // Injection de dépendances pour découpler de l'implémentation UI
+  tabController?: ITabController;
+  quotes?: Quote[];
+  currentUser?: User | null;
 }
 
 /**
@@ -121,13 +129,15 @@ export interface ScanControllerResult extends ScanControllerState, ScanControlle
 export const useScanController = (
   props: UseScanControllerProps
 ): ScanControllerResult => {
-  const { isFocused, containerSize, scanFrameLayout, scanAreaY } = props;
-  const { colors } = useTheme();
-  const { user: currentUser } = useAuth();
+  const { isFocused, containerSize, scanFrameLayout, scanAreaY, tabController, quotes: quotesProp, currentUser: currentUserProp } = props;
+  const { user: currentUserFromAuth } = useAuth();
   const router = useRouter();
-  const { setTabIndex } = useTabIndex();
-  const { setSwipeEnabled } = useSwipeEnabled();
-  const { quotes, addQuote } = useQuote();
+
+  // Utiliser les dépendances injectées ou les valeurs par défaut
+  const currentUser = currentUserProp ?? currentUserFromAuth;
+  const quotes = quotesProp ?? [];
+  const setTabIndex = tabController?.setTabIndex ?? (() => {});
+  const setSwipeEnabled = tabController?.setSwipeEnabled ?? (() => {});
 
   // ========== CAMERA STATE ==========
   const { hasPermission, requestPermission } = useCameraPermission();

@@ -1,4 +1,4 @@
-import { Quote } from '@/src/shared/api/types';
+import { Quote, User } from '@/src/shared/api/types';
 
 /**
  * Interface du Repository pour les Quotes
@@ -67,5 +67,5 @@ export interface IQuoteRepository {
   /**
    * Recherche un utilisateur par son @username.
    */
-  getUserByUsername(username: string): Promise<any>;
+  getUserByUsername(username: string): Promise<User | undefined>;
 }

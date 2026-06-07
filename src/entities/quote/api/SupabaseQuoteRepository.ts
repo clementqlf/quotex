@@ -1,4 +1,4 @@
-import { Quote } from '@/src/shared/api/types';
+import { Quote, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from './IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 
@@ -828,13 +828,14 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     return "C'est une excellente question. Cette formulation recèle en effet plusieurs niveaux de lecture. En la replaçant dans l'ensemble de l'œuvre, on comprend que l'auteur cherche avant tout à susciter une réflexion intime chez le lecteur plutôt qu'à imposer une vérité absolue.";
   }
 
-  async getUserByUsername(username: string): Promise<any> {
+  async getUserByUsername(username: string): Promise<User | undefined> {
     try {
         const cleanUsername = username.replace('@', '');
-        return await httpClient.get<any>(`/users/${cleanUsername}`);
+        const user = await httpClient.get<User>(`/users/${cleanUsername}`);
+        return user;
     } catch (e) {
         console.log('Error fetching user:', e);
-        return null;
+        return undefined;
     }
   }
 

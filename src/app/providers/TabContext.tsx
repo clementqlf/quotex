@@ -1,6 +1,18 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { useSharedValue } from 'react-native-reanimated';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
+import { useSharedValue, SharedValue } from 'react-native-reanimated';
 import PagerView from 'react-native-pager-view';
+
+// Types précis pour les événements
+interface PageScrollEvent {
+    position: number;
+    offset: number;
+}
+
+interface PageSelectedEvent {
+    nativeEvent: {
+        position: number;
+    };
+}
 
 /**
  * Type pour le contexte de l'index des tabs
@@ -41,7 +53,7 @@ export interface TabControllerResult {
   // State
   tabIndex: number;
   swipeEnabled: boolean;
-  position: any; // useSharedValue<number>
+  position: SharedValue<number>;
   
   // Réfs
   pagerRef: React.RefObject<PagerView | null>;
@@ -50,8 +62,8 @@ export interface TabControllerResult {
   setPage: (idx: number) => void;
   setTabIndex: (index: number) => void;
   setSwipeEnabled: (enabled: boolean) => void;
-  onPageScroll: (event: any) => void;
-  onPageSelected: (e: any) => void;
+  onPageScroll: (event: PageScrollEvent) => void;
+  onPageSelected: (e: PageSelectedEvent) => void;
 }
 
 /**
@@ -65,13 +77,13 @@ export const useTabController = (): TabControllerResult => {
   const pagerRef = useRef<PagerView | null>(null);
 
   // Handler pour le scroll des pages
-  const onPageScroll = useCallback((event: any) => {
+  const onPageScroll = useCallback((event: PageScrollEvent) => {
     'worklet';
     position.value = event.position + event.offset;
-  }, []);
+  }, [position]);
 
   // Handler pour la sélection des pages
-  const onPageSelected = useCallback((e: any) => {
+  const onPageSelected = useCallback((e: PageSelectedEvent) => {
     setIndex(e.nativeEvent.position);
   }, []);
 
@@ -82,9 +94,10 @@ export const useTabController = (): TabControllerResult => {
       position.value = idx;
       pagerRef.current?.setPage(idx);
     }
-  }, [index]);
+  }, [index, position, pagerRef]);
 
-  return {
+  // ✅ Memoize le résultat complet pour éviter les re-renders
+  return useMemo(() => ({
     tabIndex: index,
     swipeEnabled,
     position,
@@ -94,7 +107,7 @@ export const useTabController = (): TabControllerResult => {
     setSwipeEnabled,
     onPageScroll,
     onPageSelected,
-  };
+  }), [index, swipeEnabled, position, pagerRef, setPage, setIndex, setSwipeEnabled, onPageScroll, onPageSelected]);
 };
 
 /**
@@ -104,15 +117,20 @@ export const useTabController = (): TabControllerResult => {
 export const TabProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const controller = useTabController();
 
+  // ✅ Memoize les valeurs des contextes pour éviter les re-renders
+  const tabIndexValue = useMemo(() => ({
+    tabIndex: controller.tabIndex,
+    setTabIndex: controller.setTabIndex,
+  }), [controller.tabIndex, controller.setTabIndex]);
+
+  const swipeEnabledValue = useMemo(() => ({
+    swipeEnabled: controller.swipeEnabled,
+    setSwipeEnabled: controller.setSwipeEnabled,
+  }), [controller.swipeEnabled, controller.setSwipeEnabled]);
+
   return (
-    <TabIndexContext.Provider value={{
-      tabIndex: controller.tabIndex,
-      setTabIndex: controller.setTabIndex,
-    }}>
-      <SwipeEnabledContext.Provider value={{
-        swipeEnabled: controller.swipeEnabled,
-        setSwipeEnabled: controller.setSwipeEnabled,
-      }}>
+    <TabIndexContext.Provider value={tabIndexValue}>
+      <SwipeEnabledContext.Provider value={swipeEnabledValue}>
         {children}
       </SwipeEnabledContext.Provider>
     </TabIndexContext.Provider>

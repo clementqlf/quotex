@@ -24,6 +24,8 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { PlatformServices } from '@/src/shared/platform';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { ITabController } from '@/src/features/scanner/model/useScanController';
 
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
@@ -107,6 +109,7 @@ export default function ScanScreen() {
   const { tabIndex, setTabIndex } = useTabIndex();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
+  const { quotes } = useQuote();
 
   // ========== SCAN CONTROLLER ==========
   // Gère toute la logique de scan via un hook centralisé
@@ -119,11 +122,20 @@ export default function ScanScreen() {
     height: number;
   } | null>(null);
 
+  // Injection de dépendances pour respecter la Clean Architecture
+  const tabController: ITabController = useMemo(() => ({
+    setTabIndex,
+    setSwipeEnabled,
+  }), [setTabIndex, setSwipeEnabled]);
+
   const scanController = useScanController({
     isFocused,
     containerSize,
     scanFrameLayout,
     scanAreaY,
+    tabController,
+    quotes,
+    currentUser,
   });
 
   const {

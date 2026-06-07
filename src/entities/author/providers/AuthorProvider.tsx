@@ -1,46 +1,41 @@
-import React, { useMemo, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Author, Book } from '@/src/shared/api/types';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { SupabaseAuthorRepository } from '../api/SupabaseAuthorRepository';
 import { useRealtimeBooks, useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
+import { IAuthorRepository } from '@/src/entities/author/api/IAuthorRepository';
+
+// Type pour le contexte Author
+type AuthorContextType = {
+  authors: Author[];
+  books: Book[];
+  isLoading: boolean;
+  refreshAuthors: (reason?: string) => Promise<void>;
+  refreshBooks: (reason?: string) => Promise<void>;
+  getAuthorByName: (name: string) => Promise<Author | undefined>;
+  getAuthorById: (id: number) => Promise<Author | undefined>;
+  getBooksByAuthor: (authorName: string, authorId?: number) => Promise<Book[]>;
+  getBookByTitle: (title: string) => Promise<Book | undefined>;
+  getBookById: (id: number) => Promise<Book | undefined>;
+  getBookByInventaireUri: (uri: string) => Promise<Book | undefined>;
+  toggleSaveAuthor: (id: number) => Promise<void>;
+  toggleSaveBook: (id: number) => Promise<void>;
+  updateBookStatus: (id: number, status: ReadingStatus) => Promise<void>;
+  getNotableWorks: (authorId: number) => Promise<any[]>;
+  importBook: (bookData: any) => Promise<any>;
+};
+
+const AuthorContext = createContext<AuthorContextType | undefined>(undefined);
 
 /**
  * Provider dédié à la gestion des Authors et Books
  * Maintient les souscriptions temps-réel globales
  */
 export const AuthorProvider = ({ children }: { children: ReactNode }) => {
-  const authorRepository = useMemo(() => SupabaseAuthorRepository.getInstance(), []);
   const queryClient = useQueryClient();
-
-  const { data: authors = [] } = useQuery({
-    queryKey: ['authors'],
-    queryFn: () => authorRepository.getAuthors(),
-  });
-
-  const { data: books = [] } = useQuery({
-    queryKey: ['books'],
-    queryFn: () => authorRepository.getBooks(),
-  });
-
-  const refreshAuthors = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['authors'] });
-  }, [queryClient]);
-
-  const refreshBooks = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['books'] });
-  }, [queryClient]);
-
-  // Realtime updates pour les entités en cours d'enrichissement
-  useRealtimeBooks(books, refreshBooks);
-  useRealtimeAuthors(authors, refreshAuthors);
-
-  return <>{children}</>;
-};
-
-// Hook pour accéder aux données et méthodes (via React Query)
-export const useAuthor = () => {
-  const queryClient = useQueryClient();
-  const authorRepository = useMemo(() => SupabaseAuthorRepository.getInstance(), []);
+  const { authorRepository } = useRepositories();
 
   const { data: authors = [], isLoading: isLoadingAuthors, refetch: refetchAuthors } = useQuery({
     queryKey: ['authors'],
@@ -52,16 +47,17 @@ export const useAuthor = () => {
     queryFn: () => authorRepository.getBooks(),
   });
 
-  const refreshAuthors = async (reason?: string) => {
+  const refreshAuthors = useCallback(async (reason?: string) => {
     if (reason) console.log(`refreshAuthors: ${reason}`);
     await refetchAuthors();
-  };
+  }, [refetchAuthors]);
 
-  const refreshBooks = async (reason?: string) => {
+  const refreshBooks = useCallback(async (reason?: string) => {
     if (reason) console.log(`refreshBooks: ${reason}`);
     await refetchBooks();
-  };
+  }, [refetchBooks]);
 
+  // Mutations
   const toggleSaveAuthorMutation = useMutation({
     mutationFn: (id: number) => authorRepository.toggleSaveAuthor(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authors'] }),
@@ -87,14 +83,14 @@ export const useAuthor = () => {
   });
 
   const updateBookStatusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: string }) => authorRepository.updateBookStatus(id, status),
+    mutationFn: ({ id, status }: { id: number; status: ReadingStatus }) => authorRepository.updateBookStatus(id, status),
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: ['books'] });
       const previousBooks = queryClient.getQueryData<Book[]>(['books']);
       if (previousBooks) {
         queryClient.setQueryData<Book[]>(['books'], old => {
           if (!old) return [];
-          return old.map(b => b.id === id ? { ...b, readingStatus: status as any } : b);
+          return old.map(b => b.id === id ? { ...b, readingStatus: status } : b);
         });
       }
       return { previousBooks };
@@ -105,7 +101,12 @@ export const useAuthor = () => {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['books'] }),
   });
 
-  return {
+  // Realtime updates pour les entités en cours d'enrichissement
+  useRealtimeBooks(books, refreshBooks);
+  useRealtimeAuthors(authors, refreshAuthors);
+
+  // ✅ Memoize toutes les fonctions pour éviter les re-renders
+  const contextValue = useMemo(() => ({
     authors,
     books,
     isLoading: isLoadingAuthors || isLoadingBooks,
@@ -119,8 +120,33 @@ export const useAuthor = () => {
     getBookByInventaireUri: (uri: string) => authorRepository.getBookByInventaireUri(uri),
     toggleSaveAuthor: async (id: number) => toggleSaveAuthorMutation.mutateAsync(id),
     toggleSaveBook: async (id: number) => { await toggleSaveBookMutation.mutateAsync(id); },
-    updateBookStatus: async (id: number, status: string) => { await updateBookStatusMutation.mutateAsync({ id, status }); },
+    updateBookStatus: async (id: number, status: ReadingStatus) => { await updateBookStatusMutation.mutateAsync({ id, status }); },
     getNotableWorks: (authorId: number) => authorRepository.getNotableWorks(authorId),
     importBook: (bookData: any) => authorRepository.importBook(bookData),
-  };
+  }), [
+    authors,
+    books,
+    isLoadingAuthors,
+    isLoadingBooks,
+    refreshAuthors,
+    refreshBooks,
+    toggleSaveAuthorMutation,
+    toggleSaveBookMutation,
+    updateBookStatusMutation,
+    authorRepository
+  ]);
+
+  return (
+    <AuthorContext.Provider value={contextValue}>
+      {children}
+    </AuthorContext.Provider>
+  );
+};
+
+export const useAuthor = () => {
+  const context = useContext(AuthorContext);
+  if (context === undefined) {
+    throw new Error('useAuthor must be used within a AuthorProvider');
+  }
+  return context;
 };
