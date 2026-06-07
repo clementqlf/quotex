@@ -54,8 +54,8 @@ export const calculateTextGeometry = (cornerPoints: ReadonlyArray<{ x: number; y
     while (rotation > 90) rotation -= 180;
     while (rotation < -90) rotation += 180;
 
-    // For very narrow chars (like '!'), suppress rotation noise
-    if (width < height * 1.5) {
+    // Suppress rotation only for chars that are genuinely taller than wide (like '!', 'l', 'i')
+    if (width < height * 0.6) {
         rotation = 0;
     }
 
