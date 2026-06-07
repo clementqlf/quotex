@@ -278,13 +278,13 @@ export default function AuthorDetailScreen() {
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
   const totalQuotes = useMemo(() => quotes.filter(q =>
-    typeof q.author === 'string' ? q.author === authorName : q.author?.name === authorName
+    typeof q.author === 'string' ? q.author === authorName : false
   ).length, [quotes, authorName]);
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
     const isMyQuote = q.user?.id === currentUser?.id || !q.user;
     if (!isMyQuote) return false;
-    const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
+      const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
     return qAuthorName === authorName;
   }).length, [quotes, authorName, currentUser]);
 
@@ -518,7 +518,7 @@ export default function AuthorDetailScreen() {
             const userQuotes = quotes.filter(q => {
               const isMyQuote = q.user?.id === currentUser?.id || !q.user;
               if (!isMyQuote) return false;
-              const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
+              const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
               return qAuthorName === authorName;
             });
 

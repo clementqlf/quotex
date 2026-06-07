@@ -131,8 +131,8 @@ class ExpoFileSystemService implements IFileSystemService {
     const info = await FileSystem.getInfoAsync(path);
     return {
       exists: info.exists,
-      size: info.size,
-      modificationTime: info.modificationTime,
+      size: info.exists ? info.size : undefined,
+      modificationTime: info.exists ? info.modificationTime : undefined,
     };
   }
 }
@@ -159,7 +159,7 @@ class ExpoLinkingService implements ILinkingService {
 // ============================================
 class ExpoCameraService implements ICameraService {
   async requestPermission(): Promise<boolean> {
-    const { status } = await Camera.requestCameraPermission();
+    const status = await Camera.requestCameraPermission();
     return status === 'granted';
   }
 

@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Quote } from '@/src/shared/api/types';
 
 /**
+
  * Données du livre depuis les APIs externes (Inventaire, Google Books, etc.)
  */
 export interface ExternalBookData {
@@ -231,18 +232,13 @@ export class ScanService {
             // Normaliser le chemin de l'image
             const normalizedPath = ocrResult.normalizedUri?.replace('file://', '');
             
-            // Type pour les métadonnées de photo
-            interface PhotoMetadata {
-                Orientation: number;
-                [key: string]: unknown;
-            }
-            
+
             const pickedPhoto: PhotoFile = {
                 ...photoFile,
                 path: normalizedPath || photoFile.path,
                 width: ocrResult.normalizedSize?.width || photoFile.width,
                 height: ocrResult.normalizedSize?.height || photoFile.height,
-                metadata: { Orientation: 1 } as PhotoMetadata,
+                metadata: { Orientation: 1 } as any,
             };
 
             return {
@@ -311,13 +307,13 @@ export class ScanService {
                 };
             }
 
-            const pickedPhoto: PhotoFile = {
+            const pickedPhoto = {
                 path: cleanPath,
                 width: ocrResult.normalizedSize?.width || 0,
                 height: ocrResult.normalizedSize?.height || 0,
                 isRawPhoto: false,
-                metadata: { Orientation: 1 } as PhotoMetadata,
-            };
+                metadata: { Orientation: 1 },
+            } as any as PhotoFile;
 
             return {
                 success: true,
@@ -375,7 +371,7 @@ export class ScanService {
 
             // 2. Si rien trouvé, fallback sur les citations globales statiques
             if (candidates.length === 0) {
-                candidates = (globalQuotesDB as Quote[]).filter(
+                candidates = (globalQuotesDB as unknown as Quote[]).filter(
                     (q: Quote) => q.user && q.user.id !== "1" && q.user.id !== currentUserId
                 );
             }
@@ -384,7 +380,7 @@ export class ScanService {
             if (candidates.length === 0) {
                 candidates = allQuotes.length > 0 
                     ? allQuotes 
-                    : [...(localQuotesDB as Quote[]), ...(globalQuotesDB as Quote[])];
+                    : [...(localQuotesDB as unknown as Quote[]), ...(globalQuotesDB as unknown as Quote[])];
             }
 
             if (candidates.length === 0) {

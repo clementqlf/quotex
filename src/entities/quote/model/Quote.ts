@@ -5,6 +5,8 @@
  */
 
 import { User } from '@/src/entities/user/model/User';
+import { Book } from '@/src/entities/book/model/Book';
+import { Author } from '@/src/entities/author/model/Author';
 
 // Type pour un like sur une citation
 export interface QuoteLike {
@@ -43,8 +45,8 @@ export interface BlockData {
 export interface Quote {
   id: number; // Identifiant unique
   text: string; // Texte de la citation
-  book?: string | null; // Livre associé (peut être une string ou un objet Book)
-  author?: string | null; // Auteur (peut être une string ou un objet Author)
+  book?: string | Book | null; // Livre associé (peut être une string ou un objet Book)
+  author?: string | Author | null; // Auteur (peut être une string ou un objet Author)
   theme?: string; // Thème de la citation
   date?: string; // Date de création
   likesCount: number; // Nombre de likes

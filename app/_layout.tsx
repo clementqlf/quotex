@@ -66,7 +66,7 @@ function RootLayoutNav() {
   
   // Navigation Logger avec typage
   const pathname = usePathname();
-  const params = useGlobalSearchParams<RootLayoutParams>();
+  const params = useGlobalSearchParams();
 
   useEffect(() => {
     console.log(`[Navigation] Opened Screen: ${pathname}`, params);

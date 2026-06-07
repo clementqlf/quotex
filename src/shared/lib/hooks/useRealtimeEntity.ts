@@ -85,7 +85,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
         channel = supabase
           .channel(`${table.toLowerCase()}_${id}_enrichment_${uniqueId}`)
           .on(
-            'postgres_changes',
+            'postgres_changes' as any,
             {
               event: '*',
               schema: 'public',
@@ -174,9 +174,9 @@ import { Author } from '@/src/shared/api/types';
  * Hook spécialisé pour les livres
  */
 export function useBookRealtime(bookId: number | null | undefined, initialBook: Book | null | undefined) {
-  return useRealtimeEntity<Book>({
+  return useRealtimeEntity<Book & Record<string, unknown>>({
     id: bookId,
-    initialData: initialBook,
+    initialData: initialBook as (Book & Record<string, unknown>) | null | undefined,
     table: 'Book',
     enrichingField: 'isEnriching'
   });
@@ -186,9 +186,9 @@ export function useBookRealtime(bookId: number | null | undefined, initialBook: 
  * Hook spécialisé pour les auteurs
  */
 export function useAuthorRealtime(authorId: number | null | undefined, initialAuthor: Author | null | undefined) {
-  return useRealtimeEntity<Author>({
+  return useRealtimeEntity<Author & Record<string, unknown>>({
     id: authorId,
-    initialData: initialAuthor,
+    initialData: initialAuthor as (Author & Record<string, unknown>) | null | undefined,
     table: 'Author',
     enrichingField: 'isEnriching'
   });
@@ -221,7 +221,7 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
       const channel = supabase
         .channel(`book_${bookId}_modal_${uniqueId}`)
         .on(
-          'postgres_changes',
+          'postgres_changes' as any,
           {
             event: '*',
             schema: 'public',
@@ -271,7 +271,7 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
       const channel = supabase
         .channel(`author_${authorId}_modal_${uniqueId}`)
         .on(
-          'postgres_changes',
+          'postgres_changes' as any,
           {
             event: '*',
             schema: 'public',

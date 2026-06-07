@@ -625,10 +625,10 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     // Prefer names for author and book in the payload to match backend "find or create" logic
     const payload: any = { ...updates };
     if (updates.author) {
-        payload.author = typeof updates.author === 'string' ? updates.author : (updates.author as any).name;
+        payload.author = typeof updates.author === 'string' ? updates.author : updates.author.name;
     }
     if (updates.book) {
-        payload.book = typeof updates.book === 'string' ? updates.book : (updates.book as any).title;
+        payload.book = typeof updates.book === 'string' ? updates.book : updates.book.title;
     }
 
     try {

@@ -11,11 +11,11 @@ type QuoteContextType = {
   isLoading: boolean;
   syncStatus: SyncStatus & { syncNow: () => void; isOnline: boolean; isOffline: boolean };
   refreshQuotes: () => Promise<void>;
-  toggleLikeQuote: (id: number) => Promise<void>;
-  toggleSaveQuote: (id: number) => Promise<void>;
+  toggleLikeQuote: (id: number) => Promise<{ isLiked: boolean; likesCount: number } | void>;
+  toggleSaveQuote: (id: number) => Promise<{ isSaved: boolean } | void>;
   deleteQuote: (id: number) => Promise<void>;
   addQuote: (text: string, book?: string | null, author?: string | null) => Promise<Quote>;
-  updateQuote: (id: number, updates: Partial<Quote>) => Promise<void>;
+  updateQuote: (id: number, updates: Partial<Quote>) => Promise<Quote | void>;
   getUserByUsername: (username: string) => Promise<User | undefined>;
 };
 

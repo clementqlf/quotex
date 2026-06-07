@@ -76,12 +76,12 @@ export default function ScanPreviewModal({
     const [showAuthorSuggestions, setShowAuthorSuggestions] = useState(false);
     const [isLoadingAuthorSuggestions, setIsLoadingAuthorSuggestions] = useState(false);
 
-    // Initial books fro local data (quotes)
+    // Initial books from local data (quotes)
     const initialBooks = useMemo(() => {
         const bookMap = new Map<string, string>(); // title -> author
         quotes.forEach(q => {
             if (q.book) {
-                const title = typeof q.book === 'string' ? q.book : q.book.title;
+                const title = typeof q.book === 'string' ? q.book : String(q.book);
                 const author = getAuthorName(q.author);
                 if (title && !bookMap.has(title)) {
                     bookMap.set(title, author);
@@ -96,10 +96,9 @@ export default function ScanPreviewModal({
         const authors = new Set<string>();
         quotes.forEach(q => {
             if (q.author) {
-                if (typeof q.author === 'string') {
-                    authors.add(q.author);
-                } else if (q.author?.name) {
-                    authors.add(q.author.name);
+                const name = typeof q.author === 'string' ? q.author : String(q.author);
+                if (name) {
+                    authors.add(name);
                 }
             }
         });

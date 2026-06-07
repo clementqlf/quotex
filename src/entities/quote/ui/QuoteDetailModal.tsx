@@ -421,7 +421,7 @@ export default function QuoteDetailModal() {
       }
     }
 
-    const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean)));
+    const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean) as string[]));
     newPrimaryTheme = allUnique[0] || undefined;
     newAdditionalThemes = allUnique.slice(1);
 
@@ -549,7 +549,7 @@ export default function QuoteDetailModal() {
   // Data helpers based on fetched state
   const aiInterpretation = quote?.aiInterpretation;
   const recommendedBooks = React.useMemo(() => {
-    const recs = quote?.blockData?.recommendedBooks || [];
+    const recs = (quote?.blockData?.recommendedBooks as any[]) || [];
     const booksMap = new Map(books.map((db: any) => [Number(db.id), db]));
     const mapped = recs.map((b: any) => {
       if (b.id) {
@@ -575,7 +575,7 @@ export default function QuoteDetailModal() {
   }, [quote?.blockData?.recommendedBooks, books]);
   const quoteTheme = quote?.theme;
   const additionalThemes = quote?.blockData?.additionalThemes || [];
-  const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean)));
+  const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean) as string[]));
   if (allThemes.length === 0) {
     allThemes.push('Thème non renseigné');
   }

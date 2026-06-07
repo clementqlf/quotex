@@ -93,7 +93,7 @@ export const useQuoteActions = () => {
 
         // Enrich the author in the background if it lacks metadata
         if (newQuote?.author && typeof newQuote.author === 'object' && newQuote.author.id) {
-          const authorObj = newQuote.author as any;
+          const authorObj = newQuote.author;
           if (authorObj.inventaireUri && (!authorObj.description || authorObj.description.length < 50)) {
             console.log('[useQuoteActions] Background enriching author:', authorObj.id);
             const token = await authService.getToken();

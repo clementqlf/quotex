@@ -8,6 +8,7 @@ import { BlockService } from '@/src/shared/api/BlockService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { getAuthorName, getBookTitle, getStatusLabel, getStatusColor, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { Book, Author } from '@/src/shared/api/types';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
 import { buildBookImportPayload } from '@/src/entities/book/lib/bookImport';
@@ -185,7 +186,7 @@ export const useBookDetailController = () => {
       const prevBookInfo = bookInfo;
       setBookInfo(prev => prev ? { ...prev, readingStatus: status as any, isSaved: true } : null);
       try {
-        await updateBookStatus(id, status);
+        await updateBookStatus(id, status as ReadingStatus);
       } catch (error) {
         setBookInfo(prevBookInfo);
         Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
@@ -284,7 +285,9 @@ export const useBookDetailController = () => {
       }
     }
 
-    handleOpenStatusMenuWithId(currentBookInfo.id!);
+    if (currentBookInfo?.id) {
+      handleOpenStatusMenuWithId(currentBookInfo.id);
+    }
   }, [bookInfo, importBook, handleOpenStatusMenuWithId]);
 
   const handleShare = useCallback(async () => {
@@ -439,6 +442,7 @@ export const useBookDetailController = () => {
   return {
     router,
     navigateToBook,
+    navigateToAuthor,
     bookId,
     bookTitleParam,
     getBookById,

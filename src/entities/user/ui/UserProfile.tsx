@@ -235,16 +235,16 @@ export default function UserProfileScreen() {
         const data = await getUserByUsername(usernameToFetch);
         if (data) {
           setProfileData(data);
-          if (data.quotes) {
-            const mapped = data.quotes.map((q: any) => ({
+          if ((data as any).quotes) {
+            const mapped = (data as any).quotes.map((q: any) => ({
               ...q,
               user: data,
               time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
             }));
             setUserQuotes(mapped);
           }
-          if (data.library) {
-            setUserBooks(data.library);
+          if ((data as any).library) {
+            setUserBooks((data as any).library);
           }
         }
       } catch (e) {

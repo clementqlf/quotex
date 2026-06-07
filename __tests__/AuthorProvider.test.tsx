@@ -34,7 +34,7 @@ const TestComponent = () => {
           <Text testID={`book-saved-${b.id}`}>{b.isSaved ? 'saved' : 'unsaved'}</Text>
           <Text testID={`book-status-${b.id}`}>{b.readingStatus}</Text>
           <Button testID={`save-book-btn-${b.id}`} title="Save Book" onPress={() => toggleSaveBook(b.id as number).catch(() => {})} />
-          <Button testID={`status-book-btn-${b.id}`} title="Update Status" onPress={() => updateBookStatus(b.id as number, 'read').catch(() => {})} />
+          <Button testID={`status-book-btn-${b.id}`} title="Update Status" onPress={() => updateBookStatus(b.id as number, 'read' as any).catch(() => {})} />
         </View>
       ))}
     </View>

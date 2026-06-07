@@ -44,10 +44,10 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Utiliser Realtime pour obtenir les versions à jour (avec fallback polling)
-  const bookId = typeof quote.book === 'object' && quote.book !== null ? (quote.book as any).id : undefined;
-  const authorId = typeof quote.author === 'object' && quote.author !== null ? (quote.author as any).id : undefined;
-  const book = useBookRealtime(bookId, quote.book);
-  const author = useAuthorRealtime(authorId, quote.author);
+  const bookId = typeof quote.book === 'object' && quote.book !== null ? quote.book.id : undefined;
+  const authorId = typeof quote.author === 'object' && quote.author !== null ? quote.author.id : undefined;
+  const book = useBookRealtime(bookId, typeof quote.book === 'object' ? quote.book : null);
+  const author = useAuthorRealtime(authorId, typeof quote.author === 'object' ? quote.author : null);
 
   const isBookEnriching = isEnriching(book);
   const isAuthorEnriching = isEnriching(author);

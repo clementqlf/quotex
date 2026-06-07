@@ -71,8 +71,8 @@ describe('QuoteCard Component', () => {
   const mockQuote: Quote = {
     id: 1,
     text: 'La vie est un mystère qu\'il faut vivre.',
-    book: { id: 1, title: 'Siddhartha', author: '', description: '', year: 1922, pages: 200, rating: 5, genre: 'Philosophie', cover: '' } as Book,
-    author: { id: 1, name: 'Hermann Hesse', description: '', image: '', birthDate: '1877', nationality: 'Allemand' } as Author,
+    book: 'Siddhartha',
+    author: 'Hermann Hesse',
     date: new Date().toISOString(),
     likesCount: 5,
     isLiked: false,

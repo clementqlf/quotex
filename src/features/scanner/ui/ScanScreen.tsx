@@ -86,7 +86,7 @@ const CameraContainer = React.memo(({
       photo
       pixelFormat="yuv"
       outputOrientation="preview"
-      format={format}
+      format={format ?? undefined}
       ref={cameraRef}
       frameProcessor={frameProcessor}
       codeScanner={(!showIsbnPopup && !isSearchingIsbn && !isLoading) ? codeScanner : undefined}
