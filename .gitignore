@@ -29,3 +29,6 @@ node_modules
 .env.local
 .env.*.local
 
+# Migration scripts - Service Role Key (NE JAMAIS COMMITER)
+/supabase/migrations/.env.local
+

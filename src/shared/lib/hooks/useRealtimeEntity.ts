@@ -196,101 +196,84 @@ export function useAuthorRealtime(authorId: number | null | undefined, initialAu
 
 /**
  * Hook pour mettre à jour plusieurs livres en temps réel
- * Retourne un callback pour rafraîchir manuellement si nécessaire
+ * Version optimisée : un seul canal pour tous les livres avec filtre IN
  */
 export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
-  const enrichingBookIdsStr = useMemo(() => {
+  const enrichingBookIds = useMemo(() => {
     return books
       .filter(b => b?.id && b?.isEnriching)
       .map(b => b.id)
-      .sort()
-      .join(',');
+      .sort((a, b) => a - b);
   }, [books]);
 
-  // S'abonner à tous les livres en enrichissement
+  // S'abonner à tous les livres en enrichissement avec UN SEUL canal
   useEffect(() => {
-    if (!enrichingBookIdsStr) return;
+    if (!enrichingBookIds.length) return;
 
-    const ids = enrichingBookIdsStr.split(',').map(Number);
-    console.log(`[Realtime] Subscribing to ${ids.length} enriching books`);
+    console.log(`[Realtime] Subscribing to ${enrichingBookIds.length} enriching books with single channel`);
 
-    const channels: RealtimeChannel[] = [];
-
-    ids.forEach(bookId => {
-      const uniqueId = Math.random().toString(36).substring(2, 9);
-      const channel = supabase
-        .channel(`book_${bookId}_modal_${uniqueId}`)
-        .on(
-          'postgres_changes' as any,
-          {
-            event: '*',
-            schema: 'public',
-            table: 'Book',
-            filter: `id=eq.${bookId}`
-          },
-          (payload: SupabaseRealtimePayload<Book>) => {
-            console.log(`[Realtime] Book ${bookId} updated in modal`, payload.new?.isEnriching);
-            // Rafraîchir le callback parent si fourni
-            refreshCallback?.();
-          }
-        )
-        .subscribe();
-      
-      channels.push(channel);
-    });
+    const channel = supabase
+      .channel(`books_enrichment_batch`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'Book',
+          filter: `id=in.(${enrichingBookIds.join(',')})`
+        },
+        (payload: SupabaseRealtimePayload<Book>) => {
+          console.log(`[Realtime] Book ${payload.new?.id} updated in modal`, payload.new?.isEnriching);
+          // Rafraîchir le callback parent si fourni
+          refreshCallback?.();
+        }
+      )
+      .subscribe();
 
     return () => {
-      console.log(`[Cleanup] Unsubscribing from ${channels.length} book channels`);
-      channels.forEach(ch => ch.unsubscribe());
+      console.log(`[Cleanup] Unsubscribing from books batch channel`);
+      channel.unsubscribe();
     };
-  }, [enrichingBookIdsStr, refreshCallback]);
+  }, [enrichingBookIds, refreshCallback]);
 }
 
 /**
  * Hook pour mettre à jour plusieurs auteurs en temps réel
+ * Version optimisée : un seul canal pour tous les auteurs avec filtre IN
  */
 export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => void) {
-  const enrichingAuthorIdsStr = useMemo(() => {
+  const enrichingAuthorIds = useMemo(() => {
     return authors
       .filter(a => a?.id && a?.isEnriching)
       .map(a => a.id)
-      .sort()
-      .join(',');
+      .sort((a, b) => a - b);
   }, [authors]);
 
   useEffect(() => {
-    if (!enrichingAuthorIdsStr) return;
+    if (!enrichingAuthorIds.length) return;
 
-    const ids = enrichingAuthorIdsStr.split(',').map(Number);
-    console.log(`[Realtime] Subscribing to ${ids.length} enriching authors`);
+    console.log(`[Realtime] Subscribing to ${enrichingAuthorIds.length} enriching authors with single channel`);
 
-    const channels: RealtimeChannel[] = [];
-
-    ids.forEach(authorId => {
-      const uniqueId = Math.random().toString(36).substring(2, 9);
-      const channel = supabase
-        .channel(`author_${authorId}_modal_${uniqueId}`)
-        .on(
-          'postgres_changes' as any,
-          {
-            event: '*',
-            schema: 'public',
-            table: 'Author',
-            filter: `id=eq.${authorId}`
-          },
-          (payload: SupabaseRealtimePayload<Author>) => {
-            console.log(`[Realtime] Author ${authorId} updated in modal`, payload.new?.isEnriching);
-            refreshCallback?.();
-          }
-        )
-        .subscribe();
-      
-      channels.push(channel);
-    });
+    const channel = supabase
+      .channel(`authors_enrichment_batch`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'Author',
+          filter: `id=in.(${enrichingAuthorIds.join(',')})`
+        },
+        (payload: SupabaseRealtimePayload<Author>) => {
+          console.log(`[Realtime] Author ${payload.new?.id} updated in modal`, payload.new?.isEnriching);
+          refreshCallback?.();
+        }
+      )
+      .subscribe();
 
     return () => {
-      console.log(`[Cleanup] Unsubscribing from ${channels.length} author channels`);
-      channels.forEach(ch => ch.unsubscribe());
+      console.log(`[Cleanup] Unsubscribing from authors batch channel`);
+      channel.unsubscribe();
     };
-  }, [enrichingAuthorIdsStr, refreshCallback]);
+  }, [enrichingAuthorIds, refreshCallback]);
 }

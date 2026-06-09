@@ -190,15 +190,15 @@ serve(async (req: Request) => {
         // Create the quote with matched IDs
         const quoteRows = await sql`
           INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount")
-          VALUES (${offlineQuote.text}, ${offlineQuote.createdAt}, ${authorId}, ${bookId}, ${offlineQuote.userId}, ${offlineQuote.theme || null}, 0)
+          VALUES (${offlineQuote.text}, ${offlineQuote.createdAt}, ${authorId}, ${bookId}, ${authUser.id}, ${offlineQuote.theme || null}, 0)
           RETURNING id
         `;
 
         // Add to user library
-        if (quoteRows[0].id && offlineQuote.userId) {
+        if (quoteRows[0].id) {
           await sql`
             INSERT INTO "UserBook" ("userId", "bookId", status, "addedViaQuote", "addedAt")
-            VALUES (${offlineQuote.userId}, ${bookId}, 'READING', true, now())
+            VALUES (${authUser.id}, ${bookId}, 'READING', true, now())
             ON CONFLICT ("userId", "bookId") DO NOTHING
           `;
         }

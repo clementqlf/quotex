@@ -19,28 +19,64 @@ import { matchAuthor, matchBook, AuthorMatchResult, BookMatchResult } from '../_
 
 async function fetchQuotes(userId: string | null, quoteId?: number) {
   const where = quoteId ? sql`AND q."id" = ${quoteId}` : sql``;
+
+  // ✅ CORRECTION: Utiliser des JOINs au lieu de sous-requêtes pour éviter N+1
   const rows = await sql`
     SELECT
       q.*,
-      (SELECT row_to_json(u_row) FROM (SELECT u.id, u.username, u.name, u.image, u.bio, u.website FROM "Profile" u WHERE u.id = q."userId") u_row) as "user",
+      row_to_json(u) as "user",
       row_to_json(a) as "author",
-      (
-        SELECT row_to_json(b_row)
-        FROM (
-          SELECT b.*, COALESCE(
-            (SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b."id" AND ub."userId" = ${userId}::uuid),
-            '[]'::json
-          ) as "users"
-          FROM "Book" b WHERE b."id" = q."bookId"
-        ) b_row
-      ) as "book",
-      COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q."id" AND l."userId" = ${userId}::uuid), '[]'::json) as "likes",
-      COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q."id" AND s."userId" = ${userId}::uuid), '[]'::json) as "savedBy"
+      row_to_json(b) as "book",
+      COALESCE((
+        SELECT json_agg(l) 
+        FROM "Like" l 
+        WHERE l."quoteId" = q.id AND l."userId" = ${userId}::uuid
+      ), '[]'::json) as "likes",
+      COALESCE((
+        SELECT json_agg(s) 
+        FROM "UserQuote" s 
+        WHERE s."quoteId" = q.id AND s."userId" = ${userId}::uuid
+      ), '[]'::json) as "savedBy"
     FROM "Quote" q
+    LEFT JOIN "Profile" u ON u.id = q."userId"
     LEFT JOIN "Author" a ON a."id" = q."authorId"
-    WHERE 1=1 ${where}
+    LEFT JOIN "Book" b ON b."id" = q."bookId"
+    WHERE (q."isPublic" = true OR q."userId" = ${userId}::uuid) ${where}
     ORDER BY q."date" DESC
   `;
+
+  // ✅ CORRECTION: Pour les UserBook, faire une requête séparée batch si userId existe
+  if (userId && rows.length > 0) {
+    const quoteIds = rows.map(r => r.id);
+    const bookIds = rows
+      .map(r => r.bookId ?? r.bookid)
+      .filter((id: any) => id !== null && id !== undefined);
+    
+    if (bookIds.length > 0) {
+      const userBooks = await sql`
+        SELECT "bookId", json_agg(ub) as users
+        FROM "UserBook" ub
+        WHERE ub."bookId" = ANY(${bookIds})
+          AND ub."userId" = ${userId}::uuid
+        GROUP BY "bookId"
+      `;
+      
+      // Mapper les résultats users sur les rows
+      const userBooksMap = new Map(userBooks.map((ub: any) => [ub.bookId, ub.users]));
+      for (const r of rows) {
+        const bookId = r.bookId ?? r.bookid;
+        if (bookId && userBooksMap.has(bookId)) {
+          if (r.book) {
+            r.book.users = userBooksMap.get(bookId);
+          } else {
+            r.book = { users: userBooksMap.get(bookId) };
+          }
+        } else if (r.book) {
+          r.book.users = [];
+        }
+      }
+    }
+  }
 
   // Resolve dynamic data (title, cover, author) for recommended books in blockData
   for (const r of rows) {
@@ -280,7 +316,7 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { text, author, book, theme, blockData } = await req.json();
+      const { text, author, book, theme, blockData, isPublic } = await req.json();
       if (!text) return error('Missing required field: text', 400);
 
       const hasAuthor = author && typeof author === 'string' && author.trim() !== '' && author.trim() !== 'Auteur inconnu';
@@ -467,8 +503,8 @@ serve(async (req: Request) => {
       const bookIdToInsert = bookRecord ? bookRecord.id : null;
 
       const quoteRows = await sql`
-        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData")
-        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${theme ?? null}, 0, ${blockData ? JSON.stringify(blockData) : null})
+        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData", "isPublic")
+        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${theme ?? null}, 0, ${blockData ? JSON.stringify(blockData) : null}, ${isPublic !== false})
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;
@@ -510,6 +546,7 @@ serve(async (req: Request) => {
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" b ON b.id = q."bookId"
         WHERE q.id = ${idParam}
+          AND (q."isPublic" = true OR q."userId" = ${authUser.id}::uuid)
         LIMIT 1
       `;
       if (!rows.length) return error('Quote not found', 404);
@@ -587,7 +624,7 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { text, author, book, theme, blockData } = await req.json();
+      const { text, author, book, theme, blockData, isPublic } = await req.json();
       const existingRows = await sql`
         SELECT q.*, row_to_json(a) as author, row_to_json(b) as book,
                (SELECT row_to_json(u_row) FROM (SELECT u.id, u.username, u.name, u.image FROM "Profile" u WHERE u.id = q."userId") u_row) as "user"
@@ -598,6 +635,11 @@ serve(async (req: Request) => {
       `;
       if (!existingRows.length) return error('Quote not found', 404);
       const existing = existingRows[0];
+
+      // Verify ownership
+      if (existing.userId !== authUser.id && existing.userid !== authUser.id) {
+        return error('Unauthorized', 403);
+      }
 
       let authorId = existing.authorId ?? existing.authorid;
       let bookId = existing.bookId ?? existing.bookid;
@@ -822,7 +864,8 @@ serve(async (req: Request) => {
           "theme" = ${theme !== undefined ? theme : (existing.theme ?? null)},
           "authorId" = ${authorId ?? null},
           "bookId" = ${bookId ?? null},
-          "blockData" = ${blockData !== undefined ? (blockData ? JSON.stringify(blockData) : null) : (existing.blockData ?? null)}
+          "blockData" = ${blockData !== undefined ? (blockData ? JSON.stringify(blockData) : null) : (existing.blockData ?? null)},
+          "isPublic" = ${isPublic !== undefined ? isPublic : (existing.isPublic ?? true)}
         WHERE "id" = ${idParam}
       `;
 

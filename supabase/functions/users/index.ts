@@ -94,21 +94,30 @@ serve(async (req: Request) => {
         if (authUser instanceof Response) return authUser;
         
         const userRows = await sql`
-          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following
+          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following, u."isPublic"
           FROM "Profile" u WHERE u.id = ${authUser.id}::uuid LIMIT 1
         `;
         if (!userRows.length) return error('User not found', 404);
         profileUser = userRows[0];
       } else {
+        // ✅ CORRECTION: Exiger authentification pour voir un profil public
+        const authUser = await requireAuth(req);
+        if (authUser instanceof Response) return authUser;
+
         const raw = decodeURIComponent(parts[0]);
         const cleanUsername = raw.startsWith('@') ? raw.slice(1) : raw;
 
         const userRows = await sql`
-          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following
+          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following, u."isPublic"
           FROM "Profile" u WHERE u.username ILIKE ${cleanUsername} LIMIT 1
         `;
         if (!userRows.length) return error(`User not found: '${cleanUsername}'`, 404);
         profileUser = userRows[0];
+
+        // ✅ CORRECTION: Bloquer l'accès si le profil est privé et n'appartient pas à l'utilisateur connecté
+        if (!profileUser.isPublic && profileUser.id !== authUserId) {
+          return error('User profile is private', 403);
+        }
       }
 
       const quotes = await sql`
@@ -122,35 +131,18 @@ serve(async (req: Request) => {
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" bk ON bk.id = q."bookId"
         WHERE q."userId" = ${profileUser.id}::uuid
+          AND (q."isPublic" = true OR ${profileUser.id} = ${authUserId}::uuid)
         ORDER BY q.date DESC
+        LIMIT 50
       `;
 
-      const library = await sql`
-        SELECT ub.status, ub."addedAt",
-          json_build_object(
-            'id', b.id,
-            'title', b.title,
-            'cover', b.cover,
-            'year', b.year,
-            'genre', b.genre,
-            'description', b.description,
-            'isbn', (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1),
-            'rating', b.rating,
-            'inventaireUri', b."inventaireUri",
-            'googleId', b."googleId",
-            'author', json_build_object('id', a.id, 'name', a.name, 'image', a.image)
-          ) as book
-        FROM "UserBook" ub
-        JOIN "Book" b ON b.id = ub."bookId"
-        LEFT JOIN "Author" a ON a.id = b."authorId"
-        WHERE ub."userId" = ${profileUser.id}::uuid
-        ORDER BY ub."addedAt" DESC
-      `;
+      // ✅ CORRECTION: Ne pas exposer la bibliothèque privée d'un autre utilisateur
+      const library = [];
 
       return json({
         ...profileUser,
         quotes: quotes.map((q: any) => formatQuote(q, authUserId ?? '')),
-        library,
+        library,  // ✅ CORRECTION: Bibliothèque vide pour les profils publics
       });
     }
 

@@ -27,23 +27,30 @@ function normalizeInventaireUri(uri?: string | null): string | null {
 }
 
 async function fetchBook(bookId: number, userId: string | number | null) {
+  // ✅ CORRECTION: Utiliser des CTEs pour éviter les sous-requêtes coûteuses
   const rows = await sql`
+    WITH book_users AS (
+      SELECT json_agg(ub) as users
+      FROM "UserBook" ub
+      WHERE ub."bookId" = ${bookId} AND ub."userId" = ${userId}::uuid
+    ),
+    book_laureates AS (
+      SELECT json_agg(json_build_object(
+        'id', l.id,
+        'year', l.year,
+        'prizeId', l."prizeId",
+        'authorId', l."authorId",
+        'bookId', l."bookId",
+        'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+      )) as laureates
+      FROM "Laureate" l
+      WHERE l."bookId" = ${bookId}
+    )
     SELECT b.*,
       (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
       row_to_json(a) as author,
-      COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users,
-      COALESCE((
-        SELECT json_agg(json_build_object(
-          'id', l.id,
-          'year', l.year,
-          'prizeId', l."prizeId",
-          'authorId', l."authorId",
-          'bookId', l."bookId",
-          'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
-        ))
-        FROM "Laureate" l
-        WHERE l."bookId" = b.id
-      ), '[]'::json) as laureates,
+      (SELECT users FROM book_users LIMIT 1) as users,
+      (SELECT laureates FROM book_laureates LIMIT 1) as laureates,
       COALESCE((
         SELECT json_agg(sb) FROM (
           SELECT S.id, S.title, S.cover, S.genre, S.year, S.pages, S.rating, S."inventaireUri",

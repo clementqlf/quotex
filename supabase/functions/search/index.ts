@@ -115,19 +115,23 @@ serve(async (req: Request) => {
     // 1-5. Local queries
     console.log(`[search] Executing local DB queries...`);
     const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw, prizesRaw] = await Promise.all([
+      // ✅ CORRECTION: Utiliser des JOINs au lieu de sous-requêtes pour user et author
       sql`
         SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q."blockData",
-          row_to_json(a) as author, row_to_json(b) as book,
-          (SELECT json_build_object('id', u.id, 'username', u.username, 'name', u.name, 'image', u.image) FROM "Profile" u WHERE u.id = q."userId") as user,
+          row_to_json(u) as user,
+          row_to_json(a) as author,
+          row_to_json(b) as book,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount"
         FROM "Quote" q
+        LEFT JOIN "Profile" u ON u.id = q."userId"
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" b ON b.id = q."bookId"
-        WHERE q.text ILIKE ${'%' + query + '%'} OR q.theme ILIKE ${'%' + query + '%'}
+        WHERE (q."isPublic" = true OR q."userId" = ${authUserId}::uuid)
+          AND (q.text ILIKE ${'%' + query + '%'} OR q.theme ILIKE ${'%' + query + '%'})
         LIMIT 20
       `,
       sql`
-        SELECT a.*, COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${authUserId}::uuid), '[]'::json) as users
+        SELECT a.*
         FROM "Author" a
         WHERE a.name ILIKE ${'%' + query + '%'}
         LIMIT 10
@@ -135,27 +139,15 @@ serve(async (req: Request) => {
       sql`
         SELECT b.*, 
           (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
-          row_to_json(a) as author,
-          COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
-          COALESCE((
-            SELECT json_agg(json_build_object(
-              'id', l.id,
-              'year', l.year,
-              'prizeId', l."prizeId",
-              'authorId', l."authorId",
-              'bookId', l."bookId",
-              'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
-            ))
-            FROM "Laureate" l
-            WHERE l."bookId" = b.id
-          ), '[]'::json) as laureates
+          row_to_json(a) as author
         FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
         WHERE b.title ILIKE ${'%' + query + '%'}
         LIMIT 10
       `,
       sql`
         SELECT DISTINCT theme FROM "Quote"
-        WHERE theme ILIKE ${'%' + query + '%'} AND theme IS NOT NULL
+        WHERE ("isPublic" = true OR "userId" = ${authUserId}::uuid)
+          AND theme ILIKE ${'%' + query + '%'} AND theme IS NOT NULL
         LIMIT 10
       `,
       sql`
@@ -164,6 +156,83 @@ serve(async (req: Request) => {
         LIMIT 10
       `
     ]);
+    
+    // ✅ CORRECTION: Requêtes batch pour éviter N+1 queries
+    if (authUserId) {
+      // Batch UserAuthor for authors
+      const authorIds = localAuthorsRaw.map((a: any) => a.id).filter(Boolean);
+      if (authorIds.length > 0) {
+        const userAuthors = await sql`
+          SELECT "authorId", json_agg(ua) as users
+          FROM "UserAuthor" ua
+          WHERE ua."authorId" = ANY(${authorIds}) AND ua."userId" = ${authUserId}::uuid
+          GROUP BY "authorId"
+        `;
+        const userAuthorsMap = new Map(userAuthors.map((ua: any) => [ua.authorId, ua.users]));
+        for (const a of localAuthorsRaw) {
+          a.users = userAuthorsMap.get(a.id) || [];
+        }
+      }
+      
+      // Batch UserBook and Laureates for books
+      const bookIds = localBooksRaw.map((b: any) => b.id).filter(Boolean);
+      if (bookIds.length > 0) {
+        const userBooks = await sql`
+          SELECT "bookId", json_agg(ub) as users
+          FROM "UserBook" ub
+          WHERE ub."bookId" = ANY(${bookIds}) AND ub."userId" = ${authUserId}::uuid
+          GROUP BY "bookId"
+        `;
+        const userBooksMap = new Map(userBooks.map((ub: any) => [ub.bookId, ub.users]));
+        
+        const laureates = await sql`
+          SELECT l."bookId", 
+            json_agg(json_build_object(
+              'id', l.id,
+              'year', l.year,
+              'prizeId', l."prizeId",
+              'authorId', l."authorId",
+              'bookId', l."bookId",
+              'prize', (SELECT row_to_json(lp) FROM "LiteraryPrize" lp WHERE lp.id = l."prizeId")
+            )) as laureates
+          FROM "Laureate" l
+          WHERE l."bookId" = ANY(${bookIds})
+          GROUP BY l."bookId"
+        `;
+        const laureatesMap = new Map(laureates.map((l: any) => [l.bookId, l.laureates || []]));
+        
+        for (const b of localBooksRaw) {
+          b.users = userBooksMap.get(b.id) || [];
+          b.laureates = laureatesMap.get(b.id) || [];
+        }
+      }
+      
+      // Batch Like and UserQuote for quotes
+      const quoteIds = quotesRaw.map((q: any) => q.id).filter(Boolean);
+      if (quoteIds.length > 0) {
+        const likes = await sql`
+          SELECT "quoteId", json_agg(l) as likes
+          FROM "Like" l
+          WHERE l."quoteId" = ANY(${quoteIds}) AND l."userId" = ${authUserId}::uuid
+          GROUP BY "quoteId"
+        `;
+        const likesMap = new Map(likes.map((l: any) => [l.quoteId, l.likes || []]));
+        
+        const savedBy = await sql`
+          SELECT "quoteId", json_agg(s) as savedBy
+          FROM "UserQuote" s
+          WHERE s."quoteId" = ANY(${quoteIds}) AND s."userId" = ${authUserId}::uuid
+          GROUP BY "quoteId"
+        `;
+        const savedByMap = new Map(savedBy.map((s: any) => [s.quoteId, s.savedBy || []]));
+        
+        for (const q of quotesRaw) {
+          q.likes = likesMap.get(q.id) || [];
+          q.savedBy = savedByMap.get(q.id) || [];
+        }
+      }
+    }
+    
     console.log(`[search] Local queries done.`);
 
     // 5-7. Inventaire searches
