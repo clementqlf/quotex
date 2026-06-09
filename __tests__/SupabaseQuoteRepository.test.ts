@@ -16,7 +16,7 @@ jest.mock('../src/shared/api/StorageService', () => ({
   },
   STORAGE_KEYS: {
     QUOTES: 'quotes',
-    PENDING_QUOTES: 'pending_quotes',
+    PENDING_OPERATIONS: 'pending_operations',
   },
 }));
 
@@ -66,11 +66,11 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     expect(quote.wasSynced).toBeUndefined(); // Non synchronisé
 
     // Vérifier que getItems (pour les quotes existantes) et setItem ont été appelés
-    expect(StorageService.getItem).toHaveBeenCalledWith(STORAGE_KEYS.PENDING_QUOTES);
+    expect(StorageService.getItem).toHaveBeenCalledWith(STORAGE_KEYS.PENDING_OPERATIONS);
     
-    // Vérifier que la file d'attente (pending quotes) a été mise à jour
+    // Vérifier que la file d'attente a été mise à jour
     expect(StorageService.setItem).toHaveBeenCalledWith(
-      STORAGE_KEYS.PENDING_QUOTES,
+      STORAGE_KEYS.PENDING_OPERATIONS,
       expect.arrayContaining([
         expect.objectContaining({
           text: 'Citation de test hors-ligne',
@@ -119,9 +119,9 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
 
     expect(quote.wasSynced).toBe(true);
 
-    // Ne doit PAS être ajouté à PENDING_QUOTES
+    // Ne doit PAS être ajouté à PENDING_OPERATIONS
     expect(StorageService.setItem).not.toHaveBeenCalledWith(
-      STORAGE_KEYS.PENDING_QUOTES,
+      STORAGE_KEYS.PENDING_OPERATIONS,
       expect.anything()
     );
   });

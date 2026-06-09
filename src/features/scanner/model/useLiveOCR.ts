@@ -61,8 +61,8 @@ export function useLiveOCR({
     }, [onTextDetectedChange]);
 
     // ⚡ Utiliser useRunOnJS avec des refs stables
-    const notifyDetectedJS = useRunOnJS(notifyDetected);
-    const notifyGoneJS = useRunOnJS(notifyGone);
+    const notifyDetectedJS = useRunOnJS(notifyDetected, [notifyDetected]);
+    const notifyGoneJS = useRunOnJS(notifyGone, [notifyGone]);
 
     const frameProcessor = useFrameProcessor((frame) => {
         'worklet';

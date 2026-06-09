@@ -202,7 +202,7 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
   const enrichingBookIds = useMemo(() => {
     return books
       .filter(b => b?.id && b?.isEnriching)
-      .map(b => b.id)
+      .map(b => b.id as number)
       .sort((a, b) => a - b);
   }, [books]);
 
@@ -245,7 +245,7 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
   const enrichingAuthorIds = useMemo(() => {
     return authors
       .filter(a => a?.id && a?.isEnriching)
-      .map(a => a.id)
+      .map(a => a.id as number)
       .sort((a, b) => a - b);
   }, [authors]);
 

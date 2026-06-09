@@ -136,13 +136,29 @@ serve(async (req: Request) => {
         LIMIT 50
       `;
 
-      // ✅ CORRECTION: Ne pas exposer la bibliothèque privée d'un autre utilisateur
-      const library = [];
+      // ✅ CORRECTION: N'exposer la bibliothèque que si le profil est public ou si c'est le propriétaire
+      let library = [];
+      if (profileUser.isPublic || profileUser.id === authUserId) {
+        library = await sql`
+          SELECT ub.status, ub."addedAt",
+            json_build_object(
+              'id', b.id,
+              'title', b.title,
+              'cover', b.cover,
+              'author', row_to_json(a)
+            ) as book
+          FROM "UserBook" ub
+          JOIN "Book" b ON b.id = ub."bookId"
+          LEFT JOIN "Author" a ON a.id = b."authorId"
+          WHERE ub."userId" = ${profileUser.id}::uuid
+          ORDER BY ub."addedAt" DESC
+        `;
+      }
 
       return json({
         ...profileUser,
         quotes: quotes.map((q: any) => formatQuote(q, authUserId ?? '')),
-        library,  // ✅ CORRECTION: Bibliothèque vide pour les profils publics
+        library,
       });
     }
 
