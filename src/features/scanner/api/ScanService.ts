@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Platform } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
@@ -9,6 +10,25 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Quote } from '@/src/shared/api/types';
+
+// Timeout and retry configuration for imports
+const IMPORT_TIMEOUT_MS = 10000;
+const MAX_IMPORT_RETRIES = 3;
+
+// Zod schema for book import payload validation
+const BookImportPayloadSchema = z.object({
+    title: z.string().min(1),
+    description: z.string().optional(),
+    cover: z.string().optional(),
+    inventaireUri: z.string().optional(),
+    googleId: z.string().optional(),
+    isbn: z.string().regex(/^(?:\d{10}|\d{13})$/),
+    year: z.number().int().positive().optional(),
+    pages: z.number().int().positive().optional(),
+    genre: z.string().optional(),
+    authors: z.array(z.string()).optional(),
+    authorUris: z.array(z.string()).optional(),
+});
 
 /**
 
@@ -106,46 +126,91 @@ export class ScanService {
                 try {
                     const token = await authService.getToken();
                     
-                    // Construire le payload d'import avec typage
-                    const importPayload: Record<string, unknown> = {
-                        title: item.label || item.title,
-                        description: item.description || '',
-                        cover: item.image || item.cover || '',
-                        inventaireUri: item.uri || item.inventaireUri,
-                        googleId: item.googleId,
+                    // Validate and sanitize import data before building payload
+                    const safeYear = item.year && typeof item.year === 'number' && !isNaN(item.year) 
+                        ? Math.abs(Math.floor(item.year)) : undefined;
+                    const safePages = item.pages && typeof item.pages === 'number' && !isNaN(item.pages) 
+                        ? Math.abs(Math.floor(item.pages)) : undefined;
+                    
+                    // Build and validate payload with Zod
+                    const rawPayload = {
+                        title: String(item.label || item.title || 'Livre inconnu'),
+                        description: String(item.description || ''),
+                        cover: String(item.image || item.cover || ''),
+                        inventaireUri: String(item.uri || item.inventaireUri || ''),
+                        googleId: item.googleId ? String(item.googleId) : undefined,
                         isbn,
-                        ...(item.year && { year: item.year }),
-                        ...(item.pages && { pages: item.pages }),
-                        ...(item.genre && { genre: item.genre }),
-                        authors: item.authors || [],
-                        authorUris: item.authorUris || [],
+                        year: safeYear,
+                        pages: safePages,
+                        genre: item.genre ? String(item.genre) : undefined,
+                        authors: item.authors ? (item.authors as string[]).map(String) : [],
+                        authorUris: item.authorUris ? (item.authorUris as string[]).map(String) : [],
                     };
                     
-                    const importRes = await fetch(`${API_BASE_URL}/books/import`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                        },
-                        body: JSON.stringify(importPayload),
-                    });
-
-                    if (importRes.ok) {
-                        const imported: Record<string, unknown> = await importRes.json();
-                        this.platformServices.haptics.notificationAsync("success");
-                        
-                        const bookData: IsbnBookData = {
-                            title: (imported.title as string) || item.title || item.label || 'Livre inconnu',
-                            author: authorName,
-                            cover: (imported.cover as string) || item.image || item.cover || undefined,
-                            bookId: imported.id ? String(imported.id) : undefined,
-                            inventaireUri: (imported.inventaireUri as string) || item.inventaireUri || item.uri,
-                        };
-                        
-                        return { success: true, bookData, error: undefined };
+                    // Validate payload with Zod
+                    const validatedPayload = BookImportPayloadSchema.parse(rawPayload);
+                    
+                    // Retry logic with exponential backoff
+                    let importSuccess = false;
+                    let lastImportError: any = null;
+                    
+                    for (let attempt = 1; attempt <= MAX_IMPORT_RETRIES; attempt++) {
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), IMPORT_TIMEOUT_MS);
+                            
+                            const importRes = await fetch(`${API_BASE_URL}/books/import`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                                },
+                                body: JSON.stringify(validatedPayload),
+                                signal: controller.signal
+                            });
+                            
+                            clearTimeout(timeoutId);
+                            
+                            if (importRes.ok) {
+                                const imported: Record<string, unknown> = await importRes.json();
+                                this.platformServices.haptics.notificationAsync("success");
+                                
+                                const bookData: IsbnBookData = {
+                                    title: (imported.title as string) || item.title || item.label || 'Livre inconnu',
+                                    author: authorName,
+                                    cover: (imported.cover as string) || item.image || item.cover || undefined,
+                                    bookId: imported.id ? String(imported.id) : undefined,
+                                    inventaireUri: (imported.inventaireUri as string) || item.inventaireUri || item.uri,
+                                };
+                                
+                                importSuccess = true;
+                                return { success: true, bookData, error: undefined };
+                            } else {
+                                lastImportError = new Error(`Server returned ${importRes.status}`);
+                                console.warn(`[ScanService] Import attempt ${attempt} failed with status ${importRes.status}`);
+                            }
+                        } catch (importErr: any) {
+                            clearTimeout(importErr.timeoutId);
+                            lastImportError = importErr;
+                            console.warn(`[ScanService] Import attempt ${attempt} failed:`, importErr.message);
+                            
+                            // Don't retry on validation errors or client errors
+                            if (importErr.name !== 'AbortError' && importErr.message?.includes('Zod')) {
+                                break;
+                            }
+                            
+                            // Exponential backoff
+                            if (attempt < MAX_IMPORT_RETRIES) {
+                                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                            }
+                        }
                     }
-                } catch (importErr) {
-                    console.error('[ScanService] Import failed, falling back to search cover:', importErr);
+                    
+                    if (!importSuccess && lastImportError) {
+                        console.error('[ScanService] All import attempts failed, falling back to search cover:', lastImportError);
+                    }
+                } catch (importErr: any) {
+                    console.error('[ScanService] Import validation/payload error:', importErr.message);
                 }
 
                 // Fallback: utiliser les données de recherche

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Author, Book } from '@/src/shared/api/types';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { buildBookImportPayload } from './bookImport';
@@ -11,8 +12,44 @@ const logDebug = (...args: any[]) => {
 };
 
 const logWarn = (...args: any[]) => {
-  // Logs disabled in production. Use console.error for actual errors.
-  // if (DEBUG_BOOK_DETAIL) console.warn('[BookDetail]', ...args);
+  console.warn('[BookDetail]', ...args);
+};
+
+const logError = (...args: any[]) => {
+  console.error('[BookDetail]', ...args);
+};
+
+// Timeout configuration
+const INVENTAIRE_TIMEOUT_MS = 10000;
+
+// Zod schemas for Inventaire API validation
+const InventaireEntityLabelsSchema = z.record(z.string().optional());
+const InventaireEntityDescriptionsSchema = z.record(z.string().optional());
+const InventaireEntityClaimsSchema = z.record(z.array(z.any()));
+
+const InventaireEntitySchema = z.object({
+  labels: InventaireEntityLabelsSchema.optional(),
+  descriptions: InventaireEntityDescriptionsSchema.optional(),
+  claims: InventaireEntityClaimsSchema.optional(),
+  image: z.union([z.string(), z.object({ url: z.string().optional(), file: z.string().optional() }).partial()]).optional(),
+});
+
+const InventaireEntitiesResponseSchema = z.object({
+  entities: z.record(InventaireEntitySchema).optional(),
+});
+
+const InventaireEditionsResponseSchema = z.object({
+  editions: z.array(z.any()).optional(),
+});
+
+// Network error detection
+const isNetworkError = (error: any): boolean => {
+  if (error?.name === 'AbortError') return true;
+  if (error?.code === 'ECONNABORTED') return true;
+  if (error?.message?.includes('network')) return true;
+  if (error?.message?.includes('Failed to fetch')) return true;
+  if (error?.message?.includes('timeout')) return true;
+  return false;
 };
 
 type LoadBookDetailDataArgs = {
@@ -53,14 +90,65 @@ const getInventaireImageUrl = (imageObj: any): string | null => {
   return null;
 };
 
+// Cache for Inventaire entities to avoid redundant requests
+const inventaireEntitiesCache = new Map<string, Promise<Record<string, any>>>();
+
 const fetchInventaireEntities = async (uris: string[]): Promise<Record<string, any>> => {
   if (!uris.length) return {};
+  
+  // Normalize URIs for cache key
+  const normalizedUris = uris.map(uri => normalizeInventaireUri(uri)).filter(Boolean);
+  if (normalizedUris.length === 0) return {};
+  
+  const cacheKey = normalizedUris.join('|');
+  
+  // Return cached promise if available
+  if (inventaireEntitiesCache.has(cacheKey)) {
+    logDebug('Cache hit for Inventaire entities', { cacheKey });
+    return inventaireEntitiesCache.get(cacheKey)!;
+  }
+  
+  const fetchPromise = fetchInventaireEntitiesUncached(normalizedUris);
+  inventaireEntitiesCache.set(cacheKey, fetchPromise);
+  
+  // Auto-clean cache after 5 minutes
+  setTimeout(() => inventaireEntitiesCache.delete(cacheKey), 300000);
+  
+  return fetchPromise;
+};
+
+const fetchInventaireEntitiesUncached = async (uris: string[]): Promise<Record<string, any>> => {
   const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(uris.join('|'))}&lang=fr`;
-  logDebug('Inventaire request', { uris });
-  const response = await fetch(url, { headers: INVENTAIRE_HEADERS });
-  if (!response.ok) return {};
-  const data = await response.json();
-  return data.entities || {};
+  logDebug('Inventaire request', { uris, url });
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), INVENTAIRE_TIMEOUT_MS);
+  
+  try {
+    const response = await fetch(url, { 
+      signal: controller.signal,
+      headers: INVENTAIRE_HEADERS 
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      logError(`Inventaire API failed: ${response.status} ${response.statusText}`, { url, uris });
+      return {};
+    }
+    
+    const data = await response.json();
+    // Validate response with Zod
+    const validated = InventaireEntitiesResponseSchema.parse(data);
+    return validated.entities || {};
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (isNetworkError(error)) {
+      logError('Inventaire network error', { url, uris, error: error?.message });
+    } else {
+      logError('Inventaire fetch failed', { url, uris, error: String(error) });
+    }
+    return {};
+  }
 };
 
 const resolveInventaireEntity = (entities: Record<string, any>, uri: string): any | null => {
@@ -78,29 +166,69 @@ const fetchInventaireEditions = async (workUri: string): Promise<any[]> => {
     const normalizedUri = normalizeInventaireUri(workUri);
     const url = `https://inventaire.io/api/entities/${encodeURIComponent(normalizedUri)}/editions?lang=fr`;
     logDebug('Fetching Inventaire editions', { workUri: normalizedUri, url });
-    const response = await fetch(url, { headers: INVENTAIRE_HEADERS });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), INVENTAIRE_TIMEOUT_MS);
+    
+    const response = await fetch(url, { 
+      signal: controller.signal,
+      headers: INVENTAIRE_HEADERS 
+    });
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
-      logDebug('Inventaire editions request failed', { status: response.status });
+      logError(`Inventaire editions request failed: ${response.status} ${response.statusText}`, { url });
       return [];
     }
+    
     const data = await response.json();
-    return data.editions || [];
-  } catch (error) {
-    logDebug('Failed to fetch Inventaire editions:', error);
+    // Validate response with Zod
+    const validated = InventaireEditionsResponseSchema.parse(data);
+    return validated.editions || [];
+  } catch (error: any) {
+    if (isNetworkError(error)) {
+      logError('Inventaire editions network error', { workUri, error: error?.message });
+    } else {
+      logDebug('Failed to fetch Inventaire editions:', error);
+    }
     return [];
   }
+};
+
+const buildFallbackBook = (inventaireUri: string, bookData?: string): Book | null => {
+  const parsedBookData = (() => {
+    if (!bookData) return null;
+    try {
+      return typeof bookData === 'string' ? JSON.parse(bookData) : bookData;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!parsedBookData) return null;
+
+  return {
+    title: parsedBookData.title || parsedBookData.label || 'Livre inconnu',
+    description: parsedBookData.description || 'Données indisponibles (mode hors ligne)',
+    year: parsedBookData.year || 0,
+    pages: parsedBookData.pages || 0,
+    author: parsedBookData.authors?.[0] || parsedBookData.author || 'Auteur inconnu',
+    rating: 0,
+    genre: parsedBookData.genre || '',
+    cover: parsedBookData.image || parsedBookData.cover || '',
+    inventaireUri,
+    openLibraryId: parsedBookData.openLibraryId,
+    googleId: parsedBookData.googleId,
+    isbn: parsedBookData.isbn,
+    similarBooks: [],
+  };
 };
 
 const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: string): Promise<Book | null> => {
   try {
     logDebug('Fetching external Inventaire book', { inventaireUri });
-    const entities = await fetchInventaireEntities([inventaireUri]);
-    const entity = resolveInventaireEntity(entities, inventaireUri);
-    if (!entity) return null;
-
-    const labels = entity.labels || {};
-    const descriptions = entity.descriptions || {};
-    const claims = entity.claims || {};
+    
+    // Parse bookData safely
     const parsedBookData = (() => {
       if (!bookData) return null;
       try {
@@ -110,28 +238,98 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
       }
     })();
 
-    const title = labels['fr'] || labels['en'] || parsedBookData?.label || parsedBookData?.title || null;
-    const description = descriptions['fr'] || descriptions['en'] || parsedBookData?.description || null;
-    const image = getInventaireImageUrl(entity.image) || parsedBookData?.image || parsedBookData?.cover || null;
-    const yearRaw = claims['wdt:P577']?.[0];
-    const year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
+    // Batch all URIs we need in a single request: book + authors + genres
+    const allUrisToFetch: string[] = [inventaireUri];
+    
+    // We'll need to fetch the main entity first to get author URIs and genre URIs
+    const firstBatchEntities = await fetchInventaireEntities([inventaireUri]);
+    const mainEntity = resolveInventaireEntity(firstBatchEntities, inventaireUri);
+    
+    if (!mainEntity) {
+      logError('Main Inventaire entity not found', { inventaireUri });
+      return null;
+    }
+    
+    // Validate main entity with Zod
+    const validatedMainEntity = InventaireEntitySchema.safeParse(mainEntity);
+    if (!validatedMainEntity.success) {
+      logError('Invalid Inventaire entity structure', { 
+        inventaireUri, 
+        error: validatedMainEntity.error.message 
+      });
+      return null;
+    }
+    
+    // Extract URIs we need from main entity
+    const claims = validatedMainEntity.data.claims || {};
+    const authorUris = Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : [];
+    const genreUris = Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])]));
+    
+    // Add author and genre URIs to batch
+    if (authorUris.length > 0) {
+      allUrisToFetch.push(...authorUris.slice(0, 5)); // Limit to 5 authors
+    }
+    if (genreUris.length > 0) {
+      allUrisToFetch.push(...genreUris.slice(0, 10)); // Limit to 10 genres
+    }
+    
+    // Fetch all entities in a single batched request
+    const allEntities = await fetchInventaireEntities(allUrisToFetch);
+    
+    // Resolve main entity from batch (might be under different key)
+    const entity = resolveInventaireEntity(allEntities, inventaireUri);
+    if (!entity) {
+      logError('Could not resolve main entity from batch', { inventaireUri, availableKeys: Object.keys(allEntities) });
+      return null;
+    }
+
+    // Safe access to entity properties with validation
+    const entityLabels = entity.labels && typeof entity.labels === 'object' ? entity.labels : ({} as Record<string, string | undefined>);
+    const entityDescriptions = entity.descriptions && typeof entity.descriptions === 'object' ? entity.descriptions : ({} as Record<string, string | undefined>);
+    const safeClaims = entity.claims && typeof entity.claims === 'object' ? entity.claims : ({} as Record<string, any[]>);
+
+    const title = (entityLabels['fr'] || entityLabels['en'] || parsedBookData?.label || parsedBookData?.title || 'Livre sans titre') as string;
+    const description = (entityDescriptions['fr'] || entityDescriptions['en'] || parsedBookData?.description || '') as string;
+    const image = getInventaireImageUrl(entity.image) || parsedBookData?.image || parsedBookData?.cover || '';
+    
+    // Safe year extraction
+    let year = 0;
+    const yearRaw = safeClaims['wdt:P577']?.[0];
+    if (yearRaw !== undefined) {
+      const yearStr = String(yearRaw);
+      const yearMatch = yearStr.match(/^(\d{4})/);
+      if (yearMatch) {
+        year = parseInt(yearMatch[1], 10);
+      }
+    }
+    if (!year && parsedBookData?.year) {
+      year = parsedBookData.year;
+    }
     
     // First try to get pages from the work entity itself
-    let pages = null;
-    const pagesRaw = claims['wdt:P1104']?.[0];
-    if (pagesRaw) {
-      pages = parseInt(String(pagesRaw));
+    let pages = 0;
+    const pagesRaw = safeClaims['wdt:P1104']?.[0];
+    if (pagesRaw !== undefined) {
+      const pagesNum = parseInt(String(pagesRaw), 10);
+      if (!isNaN(pagesNum) && pagesNum > 0) {
+        pages = pagesNum;
+      }
     }
     
     // If no pages from work, try to get from editions (like backend does)
     if (!pages || pages === 0) {
       const editions = await fetchInventaireEditions(inventaireUri);
-      if (editions.length > 0) {
+      // Safe array check
+      if (Array.isArray(editions) && editions.length > 0) {
         // Find edition with pages, preferring French editions
-        const frEdition = editions.find((e: any) => e.languageUri === 'wd:Q150' && e.pages && e.pages > 0);
-        const anyEditionWithPages = editions.find((e: any) => e.pages && e.pages > 0);
+        const frEdition = editions.find((e: any) => {
+          return e?.languageUri === 'wd:Q150' && e?.pages && e.pages > 0;
+        });
+        const anyEditionWithPages = editions.find((e: any) => {
+          return e?.pages && e.pages > 0;
+        });
         const bestEdition = frEdition || anyEditionWithPages;
-        if (bestEdition?.pages) {
+        if (bestEdition?.pages && typeof bestEdition.pages === 'number') {
           pages = bestEdition.pages;
           logDebug('Found pages from edition', { pages, editionLanguage: bestEdition.languageUri });
         }
@@ -139,51 +337,54 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     }
     
     // Fallback to parsed book data
-    if (!pages) {
-      pages = parsedBookData?.pages ?? null;
+    if (!pages && parsedBookData?.pages) {
+      pages = parsedBookData.pages;
     }
     
-    const authorUris = Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : [];
-
+    // Resolve author from batched entities
     let author: string | Author = parsedBookData?.authors?.[0] || parsedBookData?.author || 'Auteur inconnu';
     if (authorUris.length > 0) {
-      const authorEntities = await fetchInventaireEntities([authorUris[0]]);
-      const authorEntity = resolveInventaireEntity(authorEntities, authorUris[0]);
+      const authorEntity = resolveInventaireEntity(allEntities, authorUris[0]);
       if (authorEntity) {
-        const authorLabels = authorEntity.labels || {};
-        const authorDescriptions = authorEntity.descriptions || {};
-        author = {
-          name: authorLabels['fr'] || authorLabels['en'] || parsedBookData?.authors?.[0] || 'Auteur inconnu',
-          description: authorDescriptions['fr'] || authorDescriptions['en'] || '',
-          image: getInventaireImageUrl(authorEntity.image) || '',
-          birthDate: '',
-          nationality: '',
-          inventaireUri: authorUris[0],
-        } as Author;
+        const validatedAuthor = InventaireEntitySchema.safeParse(authorEntity);
+        if (validatedAuthor.success) {
+          const authorLabels = validatedAuthor.data.labels || ({} as Record<string, string | undefined>);
+          const authorDescriptions = validatedAuthor.data.descriptions || ({} as Record<string, string | undefined>);
+          author = {
+            name: authorLabels['fr'] || authorLabels['en'] || parsedBookData?.authors?.[0] || 'Auteur inconnu',
+            description: authorDescriptions['fr'] || authorDescriptions['en'] || '',
+            image: getInventaireImageUrl(authorEntity.image) || '',
+            birthDate: '',
+            nationality: '',
+            inventaireUri: authorUris[0],
+          } as Author;
+        }
       }
     }
 
-    const genreUris = Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])]));
+    // Resolve genres from batched entities
     let genre = parsedBookData?.genre || '';
     if (!genre && genreUris.length > 0) {
-      const genreEntities = await fetchInventaireEntities(genreUris.slice(0, 10));
       const genreLabels = genreUris.map(uri => {
-        const genreEntity = resolveInventaireEntity(genreEntities, uri);
-        if (!genreEntity?.labels) return null;
-        return genreEntity.labels['fr'] || genreEntity.labels['en'] || Object.values(genreEntity.labels)[0] || null;
-      }).filter(Boolean);
+        const genreEntity = resolveInventaireEntity(allEntities, uri);
+        if (!genreEntity) return null;
+        const validatedGenre = InventaireEntitySchema.safeParse(genreEntity);
+        if (!validatedGenre.success) return null;
+        const genreLabelsObj = validatedGenre.data.labels || ({} as Record<string, string | undefined>);
+        return genreLabelsObj['fr'] || genreLabelsObj['en'] || Object.values(genreLabelsObj)[0] || null;
+      }).filter(Boolean) as string[];
       genre = genreLabels.join(', ');
     }
 
     const result: Book = {
-      title: title || parsedBookData?.title || 'Livre sans titre',
-      description: description || '',
-      year: year ?? 0,
-      pages: pages ?? 0,
+      title,
+      description,
+      year,
+      pages,
       author,
       rating: 0,
       genre,
-      cover: image || '',
+      cover: image,
       inventaireUri,
       openLibraryId: parsedBookData?.openLibraryId,
       googleId: parsedBookData?.googleId,
@@ -200,9 +401,22 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     });
     
     return result;
-  } catch (error) {
-    logWarn('Failed to fetch Inventaire book details:', error);
-    return null;
+  } catch (error: any) {
+    if (isNetworkError(error)) {
+      logError('Network error fetching Inventaire book - service may be down', { 
+        inventaireUri,
+        error: error?.message,
+        timestamp: new Date().toISOString()
+      });
+      return buildFallbackBook(inventaireUri, bookData);
+    } else {
+      logError('Error fetching Inventaire book details', { 
+        inventaireUri,
+        error: String(error),
+        stack: error?.stack
+      });
+      throw error;
+    }
   }
 };
 

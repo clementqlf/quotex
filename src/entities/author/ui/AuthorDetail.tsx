@@ -68,34 +68,68 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
   );
 };
 
+// Timeout configuration
+const AUTHOR_DETAIL_TIMEOUT_MS = 10000;
+
 // Fetch author details from Inventaire API (client-side version)
 async function fetchExternalAuthorDetails(inventaireUri: string) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AUTHOR_DETAIL_TIMEOUT_MS);
+  
   try {
     const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(inventaireUri)}&lang=fr&props=labels|descriptions|claims|image`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
-    if (!res.ok) return null;
+    const res = await fetch(url, { 
+      signal: controller.signal,
+      headers: { 'User-Agent': 'QuotexApp/1.0' } 
+    });
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      logFetchError(`[AuthorDetail] Inventaire API failed: ${res.status}`, null);
+      return null;
+    }
+    
     const data = await res.json();
     const entity = data.entities?.[inventaireUri];
     if (!entity) return null;
 
-    const labels = entity.labels || {};
-    const descriptions = entity.descriptions || {};
-    const claims = entity.claims || {};
+    // Safe access to entity properties
+    const labels = entity.labels && typeof entity.labels === 'object' ? entity.labels : {};
+    const descriptions = entity.descriptions && typeof entity.descriptions === 'object' ? entity.descriptions : {};
+    const claims = entity.claims && typeof entity.claims === 'object' ? entity.claims : {};
+    
     const name = labels['fr'] || labels['en'] || null;
     const description = descriptions['fr'] || descriptions['en'] || null;
-    const image = entity.image?.url || entity.image?.file
-      ? `https://inventaire.io${entity.image?.url || entity.image?.file}`
-      : null;
-    const birthDateRaw = claims['wdt:P569']?.[0];
+    
+    // Safe image URL construction
+    let image = null;
+    if (entity.image) {
+      const imageObj = entity.image;
+      const url = typeof imageObj === 'string' 
+        ? imageObj 
+        : (imageObj?.url || imageObj?.file);
+      if (url && typeof url === 'string') {
+        image = url.startsWith('http') ? url : `https://inventaire.io${url}`;
+      }
+    }
+    
+    // Safe birth date extraction
     let birthDate = null;
-    if (birthDateRaw) {
+    const birthDateRaw = claims['wdt:P569']?.[0];
+    if (birthDateRaw && typeof birthDateRaw === 'string') {
       const cleanDate = birthDateRaw.startsWith('+') ? birthDateRaw.substring(1) : birthDateRaw;
-      birthDate = cleanDate.split('T')[0];
+      const datePart = cleanDate.split('T')[0];
+      if (datePart) birthDate = datePart;
     }
 
     return { name, description, image, birthDate, nationality: null };
-  } catch (e) {
-    logFetchError('[AuthorDetail] Failed to fetch external author details', e);
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    if (e?.name === 'AbortError') {
+      console.warn(`[AuthorDetail] Author details fetch timed out after ${AUTHOR_DETAIL_TIMEOUT_MS}ms`);
+    } else {
+      logFetchError('[AuthorDetail] Failed to fetch external author details', e);
+    }
     return null;
   }
 }
@@ -200,7 +234,17 @@ export default function AuthorDetailScreen() {
             const headers: Record<string, string> = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
-            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers, signal });
+            // Create new controller for enrichment request with timeout
+            const enrichController = new AbortController();
+            const enrichTimeoutId = setTimeout(() => enrichController.abort(), AUTHOR_DETAIL_TIMEOUT_MS);
+
+            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { 
+              method: 'POST', 
+              headers, 
+              signal: enrichController.signal 
+            });
+            clearTimeout(enrichTimeoutId);
+
             if (enrichRes.ok) {
               const data = await enrichRes.json();
               if (data.author) {
@@ -209,8 +253,12 @@ export default function AuthorDetailScreen() {
               }
               if (data.books) setAuthorBooks(data.books);
             }
-          } catch (e) {
-            logFetchError('[AuthorDetail] Synch enrichment failed', e);
+          } catch (e: any) {
+            if (e?.name === 'AbortError') {
+              console.warn(`[AuthorDetail] Author enrichment timed out after ${AUTHOR_DETAIL_TIMEOUT_MS}ms`);
+            } else {
+              logFetchError('[AuthorDetail] Synch enrichment failed', e);
+            }
           }
         }
       } else if (!activeAuthor && paramInventaireUri) {

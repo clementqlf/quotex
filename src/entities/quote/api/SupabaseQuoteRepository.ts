@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Quote, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from './IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
@@ -6,9 +7,31 @@ import { httpClient } from '@/src/shared/api/HttpClient';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
+import { safeFetch, trackExternalError, ErrorSeverity } from '@/src/shared/lib/resilience/networkResilience';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
+
+// Timeout configuration for AI requests
+const AI_TIMEOUT_MS = 15000;
+const MAX_AI_MESSAGES = 20;
+
+// Zod schema for AI response validation
+const AIResponseSchema = z.object({
+  response: z.string().min(1).max(10000),
+});
+
+// Sanitization helper to prevent XSS
+const sanitizeString = (input: string | undefined | null): string => {
+  if (!input || typeof input !== 'string') return '';
+  // Remove potentially dangerous characters
+  return input
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .trim();
+};
 
 
 /**
@@ -453,27 +476,44 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   async chatWithAI(id: number, messages: { role: 'user' | 'model'; content: string }[]): Promise<string> {
+    // Validate message count to prevent abuse
+    if (messages.length > MAX_AI_MESSAGES) {
+      throw new Error(`Too many messages for AI processing: ${messages.length} (max: ${MAX_AI_MESSAGES})`);
+    }
+
     try {
         console.log(`[SupabaseQuoteRepository] Sending message to AI for quote ${id}...`);
         const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}/chat`, {
+        
+        const data = await safeFetch(`${this.API_URL}/${id}/chat`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({ messages })
+            body: JSON.stringify({ messages }),
+            timeoutMs: AI_TIMEOUT_MS,
+            maxRetries: 1,
+            schema: AIResponseSchema,
+            onError: (error, ctx) => {
+                trackExternalError('Groq', error, {
+                    ...ctx,
+                    quoteId: id,
+                    messageCount: messages.length
+                }, ErrorSeverity.HIGH);
+            }
         });
-        if (response.ok) {
-            const data = await response.json();
-            return data.response;
+        
+        return data.response;
+    } catch (error: any) {
+        if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+            console.warn(`[SupabaseQuoteRepository] AI request timed out after ${AI_TIMEOUT_MS}ms. Using fallback.`);
         } else {
-            console.warn(`Server returned error: ${response.status}. Using fallback response.`);
+            console.warn('[SupabaseQuoteRepository] Network error chatting with AI, using fallback:', error?.message);
         }
-    } catch (error) {
-        console.warn('[SupabaseQuoteRepository] Network error chatting with AI, using fallback:', error);
     }
 
-    // Rich offline fallback
+    // Rich offline fallback with XSS sanitization
     await delay(1200);
-    const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+    const lastMessage = messages[messages.length - 1];
+    const lastUserMessage = sanitizeString(lastMessage?.content).toLowerCase();
 
     if (lastUserMessage.includes('thème') || lastUserMessage.includes('theme') || lastUserMessage.includes('sujet')) {
         return "Cette citation aborde en profondeur des thèmes universels tels que la condition humaine, le passage du temps et la recherche de sens. L'auteur y exprime une dualité touchante entre l'idéalisme et la dure réalité de son époque.";

@@ -1,7 +1,21 @@
+import { z } from 'zod';
 import { Quote, Author, Book } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { safeFetch, trackExternalError, ErrorSeverity } from '@/src/shared/lib/resilience/networkResilience';
+
+// Schema for search results validation
+const SearchResultsSchema = z.object({
+    quotes: z.array(z.any()).optional(),
+    authors: z.array(z.any()).optional(),
+    books: z.array(z.any()).optional(),
+    themes: z.array(z.string()).optional(),
+    prizes: z.array(z.any()).optional(),
+    inventaireWorks: z.array(z.any()).optional(),
+    inventaireAuthors: z.array(z.any()).optional(),
+    inventairePrizes: z.array(z.any()).optional(),
+});
 
 export interface SearchResults {
     quotes: Quote[];
@@ -16,6 +30,7 @@ export interface SearchResults {
 
 class SearchService {
     private readonly API_URL = `${API_BASE_URL}/search`;
+    private readonly SEARCH_TIMEOUT_MS = 8000;
 
     async search(query: string): Promise<SearchResults> {
         const emptyResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
@@ -30,18 +45,30 @@ class SearchService {
 
         try {
             console.log(`[SearchService] Searching for: "${query}"`);
-            const response = await fetch(`${this.API_URL}?q=${encodeURIComponent(query)}`);
+            const results = await safeFetch<SearchResults>(
+                `${this.API_URL}?q=${encodeURIComponent(query)}`,
+                {
+                    timeoutMs: this.SEARCH_TIMEOUT_MS,
+                    maxRetries: 2,
+                    schema: SearchResultsSchema,
+                    onError: (error, ctx) => {
+                        trackExternalError('Search', error, {
+                            ...ctx,
+                            query,
+                            service: 'SupabaseSearch'
+                        }, ErrorSeverity.MEDIUM);
+                    }
+                }
+            );
 
-            if (response.ok) {
-                const results: SearchResults = await response.json();
-                console.log(`[SearchService] Results: ${results.quotes.length} quotes, ${results.authors.length} local authors (${results.inventaireAuthors?.length || 0} ext), ${results.books.length} local books (${results.inventaireWorks?.length || 0} ext), ${results.prizes.length} local prizes (${results.inventairePrizes?.length || 0} ext)`);
-                return results;
+            console.log(`[SearchService] Results: ${results.quotes?.length || 0} quotes, ${results.authors?.length || 0} local authors (${results.inventaireAuthors?.length || 0} ext), ${results.books?.length || 0} local books (${results.inventaireWorks?.length || 0} ext), ${results.prizes?.length || 0} local prizes (${results.inventairePrizes?.length || 0} ext)`);
+            return results;
+        } catch (error: any) {
+            if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
+                console.warn(`[SearchService] Search timed out after ${this.SEARCH_TIMEOUT_MS}ms, falling back to local search`);
             } else {
-                console.error('[SearchService] Search failed:', response.status);
-                return await this.searchLocal(query);
+                logFetchError('[SearchService] Network error', error);
             }
-        } catch (error) {
-            logFetchError('[SearchService] Network error', error);
             return await this.searchLocal(query);
         }
     }

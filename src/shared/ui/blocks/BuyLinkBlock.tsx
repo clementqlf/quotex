@@ -23,15 +23,28 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
             return book.buyLinks;
         }
         
-        const title = book.title;
+        // Safe extraction of title and author
+        const title = book.title || '';
         const authorName = typeof book.author === 'string' 
             ? book.author 
             : (book.author?.name || '');
         
-        // Clean title of characters that usually break search engines (e.g. colons, semi-colons, dashes)
-        const cleanTitle = title.replace(/[:;,\-]/g, ' ').trim();
-        const cleanAuthor = authorName.trim();
-        const queryText = `${cleanTitle} ${cleanAuthor}`.replace(/\s+/g, ' ');
+        // Comprehensive sanitization: remove special chars that break URLs
+        const cleanTitle = String(title || '')
+            .replace(/['"&<>]/g, '')  // Remove dangerous characters
+            .replace(/[:;,\-]/g, ' ')  // Replace separators with spaces
+            .trim();
+        
+        const cleanAuthor = String(authorName || '')
+            .replace(/['"&<>]/g, '')  // Remove dangerous characters
+            .trim();
+        
+        // Build query text with fallback
+        const queryParts = [cleanTitle, cleanAuthor].filter(Boolean);
+        const queryText = queryParts.length > 0 
+            ? queryParts.join(' ') 
+            : 'Livre inconnu';
+        
         const query = encodeURIComponent(queryText);
         
         return BUY_STORES.map(store => ({
@@ -49,7 +62,17 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
             key={idx}
             style={[styles.buyLinkItem, isCompact && styles.buyLinkItemCompact]}
             onPress={() => {
-                Linking.openURL(link.url).catch(err => Alert.alert("Erreur", "Impossible d'ouvrir le lien"));
+                Linking.canOpenURL(link.url).then(supported => {
+                    if (!supported) {
+                        Alert.alert("Erreur", "Ce type de lien n'est pas supporté sur cet appareil.");
+                        console.error('[BuyLinkBlock] Unsupported URL scheme:', link.url);
+                        return;
+                    }
+                    return Linking.openURL(link.url);
+                }).catch(err => {
+                    console.error('[BuyLinkBlock] Failed to open URL:', link.url, err);
+                    Alert.alert("Erreur", "Impossible d'ouvrir ce lien. L'URL est peut-être invalide.");
+                });
             }}
         >
             <View style={styles.buyLinkInfo}>

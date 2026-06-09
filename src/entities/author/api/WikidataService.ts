@@ -1,29 +1,106 @@
+import { z } from 'zod';
 import { Book } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { safeFetch, trackExternalError, ErrorSeverity } from '@/src/shared/lib/resilience/networkResilience';
+
+// Zod schemas for SPARQL response validation
+const SparqlBindingValueSchema = z.object({
+    type: z.string().optional(),
+    value: z.string().optional(),
+    'xml:lang': z.string().optional()
+});
+
+const SparqlBindingSchema = z.record(z.any()).and(
+    z.object({
+        oeuvre: z.object({ value: z.string().optional() }).optional(),
+        oeuvreLabel: z.object({ value: z.string().optional() }).optional(),
+        article: z.object({ value: z.string().optional() }).optional(),
+        openLibraryID: z.object({ value: z.string().optional() }).optional(),
+        cover: z.object({ value: z.string().optional() }).optional(),
+        title: z.object({ value: z.string().optional() }).optional(),
+        pubDate: z.object({ value: z.string().optional() }).optional(),
+        lblFr: z.object({ value: z.string().optional() }).optional(),
+        lblEn: z.object({ value: z.string().optional() }).optional(),
+        genreLabel: z.object({ value: z.string().optional() }).optional(),
+        genres: z.object({ value: z.string().optional() }).optional()
+    }).partial()
+);
+
+const SparqlResultSchema = z.object({
+    results: z.object({
+        bindings: z.array(SparqlBindingSchema)
+    })
+});
 
 class WikidataService {
+    private enrichmentCache = new Map<string, Promise<Record<string, any>>>();
+    private readonly TIMEOUT_MS = 10000;
+
     private async runSPARQL(query: string): Promise<any[]> {
         if (await isOffline()) {
             return [];
         }
 
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
+        
         try {
-            const response = await fetch(url, {
+            const data = await safeFetch(url, {
+                timeoutMs: this.TIMEOUT_MS,
+                maxRetries: 2,
+                schema: SparqlResultSchema,
                 headers: {
-                    'User-Agent': 'Quotex/1.0 (got@example.com)', // Good practice for Wikidata
+                    'User-Agent': 'Quotex/1.0 (got@example.com)',
                     'Accept': 'application/sparql-results+json'
+                },
+                onError: (error, ctx) => {
+                    trackExternalError('Wikidata', error, {
+                        ...ctx,
+                        query,
+                        service: 'SPARQL'
+                    }, ErrorSeverity.HIGH);
                 }
             });
-            if (!response.ok) {
-                throw new Error(`SPARQL request failed: ${response.status} ${response.statusText}`);
-            }
-            const data = await response.json();
             return data.results.bindings;
         } catch (error) {
             logFetchError('[WikidataService] SPARQL Error', error);
             return [];
+        }
+    }
+
+    private async fetchEnrichment(uris: string[]): Promise<Record<string, any>> {
+        const cacheKey = uris.join('|');
+        if (!this.enrichmentCache.has(cacheKey)) {
+            const promise = this.fetchFromBackendSafe(uris);
+            this.enrichmentCache.set(cacheKey, promise);
+            // Auto-clean cache after 5 minutes
+            setTimeout(() => this.enrichmentCache.delete(cacheKey), 300000);
+        }
+        return this.enrichmentCache.get(cacheKey)!;
+    }
+
+    private async fetchFromBackendSafe(uris: string[]): Promise<Record<string, any>> {
+        if (await isOffline()) {
+            return {};
+        }
+        
+        const url = `${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`;
+        
+        try {
+            return await safeFetch(url, {
+                timeoutMs: this.TIMEOUT_MS,
+                maxRetries: 2,
+                onError: (error, ctx) => {
+                    trackExternalError('Inventaire', error, {
+                        ...ctx,
+                        uris,
+                        service: 'Enrichment'
+                    }, ErrorSeverity.MEDIUM);
+                }
+            });
+        } catch (err) {
+            logFetchError('[WikidataService] Enrichment fetch failed', err);
+            return {};
         }
     }
 
@@ -72,20 +149,11 @@ class WikidataService {
             })
             .filter(Boolean) as string[];
 
-        // Fetch enrichment from our backend
+        // Fetch enrichment from our backend with caching
         let inventaireDetails: Record<string, any> = {};
         if (uris.length > 0) {
-            if (!(await isOffline())) {
-                try {
-                    console.log(`[WikidataService] Fetching enrichment for ${uris.length} works...`);
-                    const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
-                    if (response.ok) {
-                        inventaireDetails = await response.json();
-                    }
-                } catch (err) {
-                    logFetchError('[WikidataService] Failed to fetch enrichment', err);
-                }
-            }
+            inventaireDetails = await this.fetchEnrichment(uris);
+            console.log(`[WikidataService] Fetched enrichment for ${uris.length} works from cache or backend`);
         }
 
         const uniqueTitles = new Set();
