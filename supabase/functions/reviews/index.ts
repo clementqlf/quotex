@@ -6,7 +6,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
-import { requireAuth } from '../_shared/auth.ts';
+import { requireAuth, getAuthUser } from '../_shared/auth.ts';
 
 serve(async (req: Request) => {
   const corsResp = handleCors(req);
@@ -25,12 +25,18 @@ serve(async (req: Request) => {
       const bookId = parseInt(bookIdParam);
       if (isNaN(bookId)) return error('Invalid bookId', 400);
 
+      const authUser = await getAuthUser(req);
+
       const reviews = await sql`
         SELECT r.*, row_to_json(u) as user, row_to_json(b) as book
         FROM "Review" r
         LEFT JOIN "Profile" u ON u.id = r."userId"
         LEFT JOIN "Book" b ON b.id = r."bookId"
         WHERE r."bookId" = ${bookId}
+        ${authUser ? sql`
+          AND r."userId" NOT IN (SELECT "blockedId" FROM "UserBlock" WHERE "blockerId" = ${authUser.id})
+          AND r.id NOT IN (SELECT "reviewId" FROM "Report" WHERE "reporterId" = ${authUser.id})
+        ` : sql``}
         ORDER BY r."createdAt" DESC
       `;
       return json(reviews);
@@ -43,6 +49,12 @@ serve(async (req: Request) => {
 
       const { rating, comment, bookId } = await req.json();
       if (!rating || !bookId) return error('Missing required fields', 400);
+
+      const forbidden = await sql`SELECT word FROM "ForbiddenWord"`;
+      const hasForbiddenWord = forbidden.some(fw => 
+        comment && comment.toLowerCase().includes(fw.word.toLowerCase())
+      );
+      if (hasForbiddenWord) return error('Le contenu contient des termes non autorisés.', 400);
 
       const newReview = await sql`
         WITH inserted AS (
@@ -67,6 +79,12 @@ serve(async (req: Request) => {
       if (authUser instanceof Response) return authUser;
 
       const { rating, comment } = await req.json();
+
+      const forbidden = await sql`SELECT word FROM "ForbiddenWord"`;
+      const hasForbiddenWord = forbidden.some(fw => 
+        comment && comment.toLowerCase().includes(fw.word.toLowerCase())
+      );
+      if (hasForbiddenWord) return error('Le contenu contient des termes non autorisés.', 400);
 
       const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
       if (!review.length) return error('Review not found', 404);
