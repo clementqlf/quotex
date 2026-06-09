@@ -23,6 +23,10 @@ import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+
+const CopilotView = walkthroughable(View);
+const CopilotTouchable = walkthroughable(TouchableOpacity);
 import { bookDescriptions } from '@/src/shared/api/staticData';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useTabIndex } from '@/src/app/providers/TabContext';
@@ -445,16 +449,22 @@ export default function MyQuotesScreen() {
           >
             <Plus size={20} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => router.navigate('/search')}
-            accessible={true}
-            accessibilityLabel="Rechercher"
-            accessibilityRole="button"
-            testID="search-btn"
+          <CopilotStep
+            text="Vous pouvez rechercher les œuvres/auteurs de votre choix et les ajouter à votre bibliothèque."
+            order={3}
+            name="searchButton"
           >
-            <Search size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+            <CopilotTouchable
+              style={styles.headerButton}
+              onPress={() => router.navigate('/search')}
+              accessible={true}
+              accessibilityLabel="Rechercher"
+              accessibilityRole="button"
+              testID="search-btn"
+            >
+              <Search size={20} color={colors.textSecondary} />
+            </CopilotTouchable>
+          </CopilotStep>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}
@@ -526,109 +536,115 @@ export default function MyQuotesScreen() {
       </View>
 
       {/* Content — FlashList for virtualization */}
-      <View style={styles.scrollView}>
-        {viewMode === 'books' ? (
-          <FlashList
-            data={filteredBooksByStatus}
-            renderItem={renderBookItem}
-            keyExtractor={bookKeyExtractor}
-            getItemType={() => 'book'}
-            removeClippedSubviews={true}
-            contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={
-              <ListHeaderMemo
-                activeFilters={activeFilters}
-                viewMode={viewMode}
-                selectedStatus={selectedStatus}
-                colors={colors}
-                styles={styles}
-                removeFilter={removeFilter}
-                resetFilters={resetFilters}
-                setSelectedStatus={setSelectedStatus}
-              />
-            }
-            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-            }
-          />
-        ) : viewMode === 'authors' ? (
-          <FlashList
-            data={authorsData}
-            renderItem={renderAuthorItem}
-            keyExtractor={authorKeyExtractor}
-            getItemType={() => 'author'}
-            removeClippedSubviews={true}
-            contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={
-              <ListHeaderMemo
-                activeFilters={activeFilters}
-                viewMode={viewMode}
-                selectedStatus={selectedStatus}
-                colors={colors}
-                styles={styles}
-                removeFilter={removeFilter}
-                resetFilters={resetFilters}
-                setSelectedStatus={setSelectedStatus}
-              />
-            }
-            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-            }
-          />
-        ) : viewMode === 'themes' ? (
-          <FlashList
-            data={themes}
-            renderItem={renderThemeItem}
-            keyExtractor={themeKeyExtractor}
-            getItemType={() => 'theme'}
-            removeClippedSubviews={true}
-            contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={
-              <ListHeaderMemo
-                activeFilters={activeFilters}
-                viewMode={viewMode}
-                selectedStatus={selectedStatus}
-                colors={colors}
-                styles={styles}
-                removeFilter={removeFilter}
-                resetFilters={resetFilters}
-                setSelectedStatus={setSelectedStatus}
-              />
-            }
-            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-            }
-          />
-        ) : (
-          <FlashList
-            ref={quotesListRef}
-            data={quotesToDisplay}
-            renderItem={renderQuoteItem}
-            keyExtractor={quoteKeyExtractor}
-            getItemType={() => 'quote'}
-            removeClippedSubviews={true}
-            contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={
-              <ListHeaderMemo
-                activeFilters={activeFilters}
-                viewMode={viewMode}
-                selectedStatus={selectedStatus}
-                colors={colors}
-                styles={styles}
-                removeFilter={removeFilter}
-                resetFilters={resetFilters}
-                setSelectedStatus={setSelectedStatus}
-              />
-            }
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-            }
-          />
-        )}
-      </View>
+      <CopilotStep
+        text="Les citations enregistrées se retrouvent ici."
+        order={2}
+        name="myQuotesList"
+      >
+        <CopilotView style={styles.scrollView}>
+          {viewMode === 'books' ? (
+            <FlashList
+              data={filteredBooksByStatus}
+              renderItem={renderBookItem}
+              keyExtractor={bookKeyExtractor}
+              getItemType={() => 'book'}
+              removeClippedSubviews={true}
+              contentContainerStyle={styles.scrollContent}
+              ListHeaderComponent={
+                <ListHeaderMemo
+                  activeFilters={activeFilters}
+                  viewMode={viewMode}
+                  selectedStatus={selectedStatus}
+                  colors={colors}
+                  styles={styles}
+                  removeFilter={removeFilter}
+                  resetFilters={resetFilters}
+                  setSelectedStatus={setSelectedStatus}
+                />
+              }
+              ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+              }
+            />
+          ) : viewMode === 'authors' ? (
+            <FlashList
+              data={authorsData}
+              renderItem={renderAuthorItem}
+              keyExtractor={authorKeyExtractor}
+              getItemType={() => 'author'}
+              removeClippedSubviews={true}
+              contentContainerStyle={styles.scrollContent}
+              ListHeaderComponent={
+                <ListHeaderMemo
+                  activeFilters={activeFilters}
+                  viewMode={viewMode}
+                  selectedStatus={selectedStatus}
+                  colors={colors}
+                  styles={styles}
+                  removeFilter={removeFilter}
+                  resetFilters={resetFilters}
+                  setSelectedStatus={setSelectedStatus}
+                />
+              }
+              ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+              }
+            />
+          ) : viewMode === 'themes' ? (
+            <FlashList
+              data={themes}
+              renderItem={renderThemeItem}
+              keyExtractor={themeKeyExtractor}
+              getItemType={() => 'theme'}
+              removeClippedSubviews={true}
+              contentContainerStyle={styles.scrollContent}
+              ListHeaderComponent={
+                <ListHeaderMemo
+                  activeFilters={activeFilters}
+                  viewMode={viewMode}
+                  selectedStatus={selectedStatus}
+                  colors={colors}
+                  styles={styles}
+                  removeFilter={removeFilter}
+                  resetFilters={resetFilters}
+                  setSelectedStatus={setSelectedStatus}
+                />
+              }
+              ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+              }
+            />
+          ) : (
+            <FlashList
+              ref={quotesListRef}
+              data={quotesToDisplay}
+              renderItem={renderQuoteItem}
+              keyExtractor={quoteKeyExtractor}
+              getItemType={() => 'quote'}
+              removeClippedSubviews={true}
+              contentContainerStyle={styles.scrollContent}
+              ListHeaderComponent={
+                <ListHeaderMemo
+                  activeFilters={activeFilters}
+                  viewMode={viewMode}
+                  selectedStatus={selectedStatus}
+                  colors={colors}
+                  styles={styles}
+                  removeFilter={removeFilter}
+                  resetFilters={resetFilters}
+                  setSelectedStatus={setSelectedStatus}
+                />
+              }
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+              }
+            />
+          )}
+        </CopilotView>
+      </CopilotStep>
 
       <FilterModal
         visible={filterModalVisible}

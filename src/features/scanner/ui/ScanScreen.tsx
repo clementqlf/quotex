@@ -18,6 +18,8 @@ import { useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, CameraDevice, CameraDeviceFormat, CodeScanner } from 'react-native-vision-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CopilotStep, walkthroughable, useCopilot } from 'react-native-copilot';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -32,6 +34,8 @@ import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/AnimatedISBNPopup';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import { useScanController } from '@/src/features/scanner/model/useScanController';
+
+const CopilotTouchable = walkthroughable(TouchableOpacity);
 
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
@@ -108,7 +112,8 @@ export default function ScanScreen() {
   const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
-  const { tabIndex, setTabIndex } = useTabIndex();
+  const { tabIndex, setTabIndex, setPage } = useTabIndex();
+  const { start, copilotEvents } = useCopilot();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
   const { quotes } = useQuote();
@@ -195,6 +200,38 @@ export default function ScanScreen() {
   const fadeStyle = useAnimatedStyle(() => ({
     opacity: fadeAnim.value,
   }));
+
+  // ========== COPILOT TUTORIAL ==========
+  useEffect(() => {
+    const checkTutorial = async () => {
+      const hasSeenTour = await AsyncStorage.getItem('has_seen_tour');
+      if (!hasSeenTour) {
+        setTimeout(() => {
+          start().catch((err) => console.log('Copilot error:', err));
+        }, 1500);
+      }
+    };
+    checkTutorial();
+
+    const handleStepChange = (step: any) => {
+      console.log('[Copilot] Step changed:', step.name);
+      if (step.name === 'myQuotesList') {
+        setPage?.(0);
+      }
+    };
+
+    const handleStop = async () => {
+      await AsyncStorage.setItem('has_seen_tour', 'true');
+    };
+
+    copilotEvents.on('stepChange', handleStepChange);
+    copilotEvents.on('stop', handleStop);
+
+    return () => {
+      copilotEvents.off('stepChange', handleStepChange);
+      copilotEvents.off('stop', handleStop);
+    };
+  }, [start, copilotEvents, setPage]);
 
   // ========== EFFETS ==========
   // Cleanup au unmount
@@ -477,25 +514,31 @@ export default function ScanScreen() {
               </TouchableOpacity>
 
               <View style={styles.scanButtonContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.scanButton,
-                    isLoading && styles.scanButtonActive,
-                    !device && styles.scanButtonDisabled,
-                    (!isTextDetectedLive && device) && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
-                  ]}
-                  onPress={handleTakePhoto}
-                  disabled={isLoading || !device}
-                  activeOpacity={0.9}
-                  accessible={true}
-                  accessibilityLabel="Prendre une photo de la citation"
-                  accessibilityRole="button"
-                  testID="capture-button"
+                <CopilotStep
+                  text="Le bouton scan permet de scanner un passage d'un livre pour enregistrer une citation."
+                  order={1}
+                  name="scanButton"
                 >
-                  <View>
-                    <ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : "#E5E7EB"} />
-                  </View>
-                </TouchableOpacity>
+                  <CopilotTouchable
+                    style={[
+                      styles.scanButton,
+                      isLoading && styles.scanButtonActive,
+                      !device && styles.scanButtonDisabled,
+                      (!isTextDetectedLive && device) && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
+                    ]}
+                    onPress={handleTakePhoto}
+                    disabled={isLoading || !device}
+                    activeOpacity={0.9}
+                    accessible={true}
+                    accessibilityLabel="Prendre une photo de la citation"
+                    accessibilityRole="button"
+                    testID="capture-button"
+                  >
+                    <View>
+                      <ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : "#E5E7EB"} />
+                    </View>
+                  </CopilotTouchable>
+                </CopilotStep>
               </View>
 
               <TouchableOpacity

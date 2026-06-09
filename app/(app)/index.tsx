@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 
 import { PageIndicator } from '@/src/shared/ui/PageIndicator';
-import { useTabController } from '@/src/app/providers/TabContext';
+import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
 
 import MyQuotesScreen from '@/src/features/my-quotes/ui/MyQuotesScreen';
 import ScanScreen from '@/src/features/scanner/ui/ScanScreen';
@@ -12,10 +12,10 @@ import SocialFeedScreen from '@/src/features/social/ui/SocialFeedScreen';
 export default function Index() {
   const { 
     tabIndex, 
-    swipeEnabled, 
     pagerRef, 
     onPageSelected,
-  } = useTabController();
+  } = useTabIndex();
+  const { swipeEnabled } = useSwipeEnabled();
 
   return (
     <View style={{ flex: 1 }}>

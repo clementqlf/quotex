@@ -57,6 +57,14 @@ class AuthService {
     }
 
     /**
+     * Reset password using Supabase Auth
+     */
+    async resetPassword(email: string): Promise<void> {
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw error;
+    }
+
+    /**
      * Register using Supabase Auth
      */
     async register(username: string, email: string, password: string): Promise<AuthResponse> {

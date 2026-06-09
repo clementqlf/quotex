@@ -20,6 +20,9 @@ interface PageSelectedEvent {
 interface TabIndexContextType {
   tabIndex: number;
   setTabIndex: (index: number) => void;
+  setPage?: (idx: number) => void;
+  pagerRef?: React.RefObject<any>;
+  onPageSelected?: (e: any) => void;
 }
 
 /**
@@ -121,7 +124,10 @@ export const TabProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const tabIndexValue = useMemo(() => ({
     tabIndex: controller.tabIndex,
     setTabIndex: controller.setTabIndex,
-  }), [controller.tabIndex, controller.setTabIndex]);
+    setPage: controller.setPage,
+    pagerRef: controller.pagerRef,
+    onPageSelected: controller.onPageSelected,
+  }), [controller.tabIndex, controller.setTabIndex, controller.setPage, controller.pagerRef, controller.onPageSelected]);
 
   const swipeEnabledValue = useMemo(() => ({
     swipeEnabled: controller.swipeEnabled,
