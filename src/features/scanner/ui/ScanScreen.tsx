@@ -15,11 +15,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff } from 'lucide-react-native';
+import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff, RefreshCw } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, CameraDevice, CameraDeviceFormat, CodeScanner } from 'react-native-vision-camera';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CopilotStep, walkthroughable, useCopilot } from 'react-native-copilot';
+import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { useAppTour } from '@/src/features/app-tour';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -113,7 +113,7 @@ export default function ScanScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   
   const { tabIndex, setTabIndex, setPage } = useTabIndex();
-  const { start, copilotEvents } = useCopilot();
+  const { resetTour } = useAppTour();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
   const { quotes } = useQuote();
@@ -201,37 +201,7 @@ export default function ScanScreen() {
     opacity: fadeAnim.value,
   }));
 
-  // ========== COPILOT TUTORIAL ==========
-  useEffect(() => {
-    const checkTutorial = async () => {
-      const hasSeenTour = await AsyncStorage.getItem('has_seen_tour');
-      if (!hasSeenTour) {
-        setTimeout(() => {
-          start().catch((err) => console.log('Copilot error:', err));
-        }, 1500);
-      }
-    };
-    checkTutorial();
 
-    const handleStepChange = (step: any) => {
-      console.log('[Copilot] Step changed:', step.name);
-      if (step.name === 'myQuotesList') {
-        setPage?.(0);
-      }
-    };
-
-    const handleStop = async () => {
-      await AsyncStorage.setItem('has_seen_tour', 'true');
-    };
-
-    copilotEvents.on('stepChange', handleStepChange);
-    copilotEvents.on('stop', handleStop);
-
-    return () => {
-      copilotEvents.off('stepChange', handleStepChange);
-      copilotEvents.off('stop', handleStop);
-    };
-  }, [start, copilotEvents, setPage]);
 
   // ========== EFFETS ==========
   // Cleanup au unmount
@@ -297,6 +267,20 @@ export default function ScanScreen() {
             testID="settings-button"
           >
             <Settings size={24} color="#E5E7EB" />
+          </TouchableOpacity>
+
+          {/* Bouton de debug temporaire pour réinitialiser l'onboarding */}
+          <TouchableOpacity
+            style={[styles.headerButtonLeft, { left: 70 }]}
+            onPress={async () => {
+              await resetTour();
+              Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
+            }}
+            accessible={true}
+            accessibilityLabel="Réinitialiser le tutoriel"
+            accessibilityRole="button"
+          >
+            <RefreshCw size={22} color="#EF4444" />
           </TouchableOpacity>
 
           <View style={styles.logoContainer}>

@@ -23,7 +23,8 @@ import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
-import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { CopilotStep, walkthroughable, useCopilot } from 'react-native-copilot';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CopilotView = walkthroughable(View);
 const CopilotTouchable = walkthroughable(TouchableOpacity);
@@ -285,6 +286,7 @@ export default function MyQuotesScreen() {
   }, [refreshMyQuotes]);
 
   const isScreenFocused = useIsFocused();
+  const { start: startTour } = useCopilot();
 
   useEffect(() => {
     if (isScreenFocused && isFocused) {
@@ -292,6 +294,21 @@ export default function MyQuotesScreen() {
       refreshMyQuotes();
     }
   }, [isScreenFocused, isFocused, refreshMyQuotes, setTabIndex]);
+
+  useEffect(() => {
+    if (isScreenFocused) {
+      const checkResume = async () => {
+        const resumeStep = await AsyncStorage.getItem('resume_tour_step');
+        if (resumeStep) {
+          await AsyncStorage.removeItem('resume_tour_step');
+          setTimeout(() => {
+            startTour(resumeStep).catch(err => console.log('Copilot resume error:', err));
+          }, 600);
+        }
+      };
+      checkResume();
+    }
+  }, [isScreenFocused, startTour]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -408,13 +425,37 @@ export default function MyQuotesScreen() {
   }, [toggleLikeQuote]);
 
   // Render items for FlashList
-  const renderQuoteItem = useCallback(({ item }: { item: Quote }) => (
-    <QuoteCard
-      quote={item}
-      onToggleLike={() => toggleLikeQuoteStable(item.id)}
-      onOpenMenu={() => handleOpenMenu(item)}
-    />
-  ), [toggleLikeQuoteStable, handleOpenMenu]);
+  const renderQuoteItem = useCallback(({ item, index }: { item: Quote; index: number }) => {
+    const card = (
+      <QuoteCard
+        quote={item}
+        onToggleLike={() => toggleLikeQuoteStable(item.id)}
+        onOpenMenu={() => handleOpenMenu(item)}
+      />
+    );
+
+    if (index === 0) {
+      return (
+        <CopilotStep
+          text="Les citations enregistrées se retrouvent ici."
+          order={2}
+          name="myQuotesList"
+        >
+          <CopilotView>
+            <CopilotStep
+              text="Quand on clique sur une citation, on accède aux détails de la citation."
+              order={3}
+              name="quoteCardDetail"
+            >
+              <CopilotView>{card}</CopilotView>
+            </CopilotStep>
+          </CopilotView>
+        </CopilotStep>
+      );
+    }
+
+    return card;
+  }, [toggleLikeQuoteStable, handleOpenMenu]);
 
   const renderBookItem = useCallback(({ item }: { item: any }) => (
     <BookCardItem book={item} />
@@ -432,6 +473,63 @@ export default function MyQuotesScreen() {
   const bookKeyExtractor = useCallback((item: any) => item.title, []);
   const authorKeyExtractor = useCallback((item: any) => item.name, []);
   const themeKeyExtractor = useCallback((item: any) => item.theme, []);
+  const statsContent = (
+    <>
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
+        onPress={() => setViewMode('quotes')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'quotes' }}
+        accessibilityLabel={`Onglet Citations, ${myQuotes.length} citations`}
+        testID="tab-quotes"
+      >
+        <Text style={styles.statValue}>{myQuotes.length}</Text>
+        <Text style={styles.statLabel}>Citations</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
+        onPress={() => setViewMode('books')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'books' }}
+        accessibilityLabel={`Onglet Livres, ${bookCount} livres`}
+        testID="tab-books"
+      >
+        <Text style={styles.statValue}>{bookCount}</Text>
+        <Text style={styles.statLabel}>Livres</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
+        onPress={() => setViewMode('authors')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'authors' }}
+        accessibilityLabel={`Onglet Auteurs, ${authorsData.length} auteurs`}
+        testID="tab-authors"
+      >
+        <Text style={styles.statValue}>{authorsData.length}</Text>
+        <Text style={styles.statLabel}>Auteurs</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
+        onPress={() => setViewMode('themes')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'themes' }}
+        accessibilityLabel={`Onglet Thèmes, ${themes.length} thèmes`}
+        testID="tab-themes"
+      >
+        <Text style={styles.statValue}>{themes.length}</Text>
+        <Text style={styles.statLabel}>Thèmes</Text>
+      </TouchableOpacity>
+    </>
+  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -451,7 +549,7 @@ export default function MyQuotesScreen() {
           </TouchableOpacity>
           <CopilotStep
             text="Vous pouvez rechercher les œuvres/auteurs de votre choix et les ajouter à votre bibliothèque."
-            order={3}
+            order={7}
             name="searchButton"
           >
             <CopilotTouchable
@@ -479,172 +577,132 @@ export default function MyQuotesScreen() {
       </View>
 
       {/* Stats */}
-      <View style={styles.stats}>
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
-          onPress={() => setViewMode('quotes')}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: viewMode === 'quotes' }}
-          accessibilityLabel={`Onglet Citations, ${myQuotes.length} citations`}
-          testID="tab-quotes"
+      {quotesToDisplay.length === 0 ? (
+        <CopilotStep
+          text="Les citations enregistrées se retrouvent ici."
+          order={2}
+          name="myQuotesList"
         >
-          <Text style={styles.statValue}>{myQuotes.length}</Text>
-          <Text style={styles.statLabel}>Citations</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
-          onPress={() => setViewMode('books')}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: viewMode === 'books' }}
-          accessibilityLabel={`Onglet Livres, ${bookCount} livres`}
-          testID="tab-books"
+          <CopilotView style={styles.stats}>
+            {statsContent}
+          </CopilotView>
+        </CopilotStep>
+      ) : (
+        <CopilotStep
+          text="Vos citations sont regroupées par catégorie : Citations, Livres, Auteurs et Thèmes. Appuyez sur un onglet pour changer de vue."
+          order={6}
+          name="filterTabs"
         >
-          <Text style={styles.statValue}>{bookCount}</Text>
-          <Text style={styles.statLabel}>Livres</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
-          onPress={() => setViewMode('authors')}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: viewMode === 'authors' }}
-          accessibilityLabel={`Onglet Auteurs, ${authorsData.length} auteurs`}
-          testID="tab-authors"
-        >
-          <Text style={styles.statValue}>{authorsData.length}</Text>
-          <Text style={styles.statLabel}>Auteurs</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
-          onPress={() => setViewMode('themes')}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: viewMode === 'themes' }}
-          accessibilityLabel={`Onglet Thèmes, ${themes.length} thèmes`}
-          testID="tab-themes"
-        >
-          <Text style={styles.statValue}>{themes.length}</Text>
-          <Text style={styles.statLabel}>Thèmes</Text>
-        </TouchableOpacity>
-      </View>
+          <CopilotView style={styles.stats}>
+            {statsContent}
+          </CopilotView>
+        </CopilotStep>
+      )}
 
       {/* Content — FlashList for virtualization */}
-      <CopilotStep
-        text="Les citations enregistrées se retrouvent ici."
-        order={2}
-        name="myQuotesList"
-      >
-        <CopilotView style={styles.scrollView}>
-          {viewMode === 'books' ? (
-            <FlashList
-              data={filteredBooksByStatus}
-              renderItem={renderBookItem}
-              keyExtractor={bookKeyExtractor}
-              getItemType={() => 'book'}
-              removeClippedSubviews={true}
-              contentContainerStyle={styles.scrollContent}
-              ListHeaderComponent={
-                <ListHeaderMemo
-                  activeFilters={activeFilters}
-                  viewMode={viewMode}
-                  selectedStatus={selectedStatus}
-                  colors={colors}
-                  styles={styles}
-                  removeFilter={removeFilter}
-                  resetFilters={resetFilters}
-                  setSelectedStatus={setSelectedStatus}
-                />
-              }
-              ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-              }
-            />
-          ) : viewMode === 'authors' ? (
-            <FlashList
-              data={authorsData}
-              renderItem={renderAuthorItem}
-              keyExtractor={authorKeyExtractor}
-              getItemType={() => 'author'}
-              removeClippedSubviews={true}
-              contentContainerStyle={styles.scrollContent}
-              ListHeaderComponent={
-                <ListHeaderMemo
-                  activeFilters={activeFilters}
-                  viewMode={viewMode}
-                  selectedStatus={selectedStatus}
-                  colors={colors}
-                  styles={styles}
-                  removeFilter={removeFilter}
-                  resetFilters={resetFilters}
-                  setSelectedStatus={setSelectedStatus}
-                />
-              }
-              ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-              }
-            />
-          ) : viewMode === 'themes' ? (
-            <FlashList
-              data={themes}
-              renderItem={renderThemeItem}
-              keyExtractor={themeKeyExtractor}
-              getItemType={() => 'theme'}
-              removeClippedSubviews={true}
-              contentContainerStyle={styles.scrollContent}
-              ListHeaderComponent={
-                <ListHeaderMemo
-                  activeFilters={activeFilters}
-                  viewMode={viewMode}
-                  selectedStatus={selectedStatus}
-                  colors={colors}
-                  styles={styles}
-                  removeFilter={removeFilter}
-                  resetFilters={resetFilters}
-                  setSelectedStatus={setSelectedStatus}
-                />
-              }
-              ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-              }
-            />
-          ) : (
-            <FlashList
-              ref={quotesListRef}
-              data={quotesToDisplay}
-              renderItem={renderQuoteItem}
-              keyExtractor={quoteKeyExtractor}
-              getItemType={() => 'quote'}
-              removeClippedSubviews={true}
-              contentContainerStyle={styles.scrollContent}
-              ListHeaderComponent={
-                <ListHeaderMemo
-                  activeFilters={activeFilters}
-                  viewMode={viewMode}
-                  selectedStatus={selectedStatus}
-                  colors={colors}
-                  styles={styles}
-                  removeFilter={removeFilter}
-                  resetFilters={resetFilters}
-                  setSelectedStatus={setSelectedStatus}
-                />
-              }
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
-              }
-            />
-          )}
-        </CopilotView>
-      </CopilotStep>
+      <View style={styles.scrollView}>
+        {viewMode === 'books' ? (
+          <FlashList
+            data={filteredBooksByStatus}
+            renderItem={renderBookItem}
+            keyExtractor={bookKeyExtractor}
+            getItemType={() => 'book'}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
+            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
+        ) : viewMode === 'authors' ? (
+          <FlashList
+            data={authorsData}
+            renderItem={renderAuthorItem}
+            keyExtractor={authorKeyExtractor}
+            getItemType={() => 'author'}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
+            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
+        ) : viewMode === 'themes' ? (
+          <FlashList
+            data={themes}
+            renderItem={renderThemeItem}
+            keyExtractor={themeKeyExtractor}
+            getItemType={() => 'theme'}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
+            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
+        ) : (
+          <FlashList
+            ref={quotesListRef}
+            data={quotesToDisplay}
+            renderItem={renderQuoteItem}
+            keyExtractor={quoteKeyExtractor}
+            getItemType={() => 'quote'}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.scrollContent}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+            }
+          />
+        )}
+      </View>
 
       <FilterModal
         visible={filterModalVisible}

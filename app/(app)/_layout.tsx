@@ -1,6 +1,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { CopilotProvider } from 'react-native-copilot';
+import { CustomTooltip } from '@/src/features/app-tour';
 import type { 
   AuthorDetailParams, 
   BookDetailParams,
@@ -15,11 +16,14 @@ export default function AppLayout() {
     <CopilotProvider 
       overlay="svg" 
       animated={true} 
-      labels={{
-        previous: "Précédent",
-        next: "Suivant",
-        skip: "Passer",
-        finish: "Terminer"
+      tooltipComponent={CustomTooltip}
+      stepNumberComponent={() => null}
+      tooltipStyle={{
+        backgroundColor: 'transparent',
+        borderRadius: 18,
+        padding: 0,
+        width: 290,
+        overflow: 'visible',
       }}
     >
       <Stack screenOptions={{ headerShown: false }}>
@@ -49,7 +53,8 @@ export default function AppLayout() {
         <Stack.Screen
           name="quote-detail"
           options={{
-            presentation: 'modal',
+            presentation: 'transparentModal',
+            animation: 'fade',
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />

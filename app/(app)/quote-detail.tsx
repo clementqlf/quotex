@@ -1,6 +1,6 @@
 import React from 'react';
-import QuoteDetailModal from '@/src/entities/quote/ui/QuoteDetailModal';
+import QuoteDetailTourProvider from '@/src/features/app-tour/ui/QuoteDetailTourProvider';
 
 export default function QuoteDetail() {
-	return <QuoteDetailModal />;
+  return <QuoteDetailTourProvider />;
 }

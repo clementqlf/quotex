@@ -4,6 +4,7 @@ import PagerView from 'react-native-pager-view';
 
 import { PageIndicator } from '@/src/shared/ui/PageIndicator';
 import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
+import { useAppTour } from '@/src/features/app-tour';
 
 import MyQuotesScreen from '@/src/features/my-quotes/ui/MyQuotesScreen';
 import ScanScreen from '@/src/features/scanner/ui/ScanScreen';
@@ -16,6 +17,9 @@ export default function Index() {
     onPageSelected,
   } = useTabIndex();
   const { swipeEnabled } = useSwipeEnabled();
+  
+  // Démarrer la gestion globale du cycle de vie du tutoriel
+  useAppTour();
 
   return (
     <View style={{ flex: 1 }}>
