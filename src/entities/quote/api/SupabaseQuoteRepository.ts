@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Quote, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from './IQuoteRepository';
 import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
@@ -9,6 +10,10 @@ import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
+
+const AIResponseSchema = z.object({
+  response: z.string().min(1).max(10000),
+});
 
 
 /**
@@ -453,38 +458,48 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   async chatWithAI(id: number, messages: { role: 'user' | 'model'; content: string }[]): Promise<string> {
+    if (messages.length > 20) {
+      throw new Error('Too many messages for AI processing');
+    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
         console.log(`[SupabaseQuoteRepository] Sending message to AI for quote ${id}...`);
         const headers = await this.getHeaders();
         const response = await fetch(`${this.API_URL}/${id}/chat`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({ messages })
+            body: JSON.stringify({ messages }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (response.ok) {
-            const data = await response.json();
+            const data = AIResponseSchema.parse(await response.json());
             return data.response;
         } else {
             console.warn(`Server returned error: ${response.status}. Using fallback response.`);
         }
     } catch (error) {
+        clearTimeout(timeoutId);
         console.warn('[SupabaseQuoteRepository] Network error chatting with AI, using fallback:', error);
     }
 
-    // Rich offline fallback
+    // Rich offline fallback with sanitized input
     await delay(1200);
-    const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+    const safeMessage = typeof messages[messages.length - 1]?.content === 'string'
+      ? messages[messages.length - 1].content.toLowerCase().trim()
+      : '';
 
-    if (lastUserMessage.includes('thème') || lastUserMessage.includes('theme') || lastUserMessage.includes('sujet')) {
+    if (safeMessage.includes('thème') || safeMessage.includes('theme') || safeMessage.includes('sujet')) {
         return "Cette citation aborde en profondeur des thèmes universels tels que la condition humaine, le passage du temps et la recherche de sens. L'auteur y exprime une dualité touchante entre l'idéalisme et la dure réalité de son époque.";
     }
-    if (lastUserMessage.includes('contexte') || lastUserMessage.includes('époque') || lastUserMessage.includes('quand') || lastUserMessage.includes('histoire')) {
+    if (safeMessage.includes('contexte') || safeMessage.includes('époque') || safeMessage.includes('quand') || safeMessage.includes('histoire')) {
         return "L'œuvre a été écrite dans une période de grands bouleversements intellectuels et sociaux. L'auteur a cherché à travers ces lignes à capturer les tensions invisibles de sa génération, ce qui donne à la citation cette résonance historique unique.";
     }
-    if (lastUserMessage.includes('style') || lastUserMessage.includes('écriture') || lastUserMessage.includes('métaphore') || lastUserMessage.includes('figures')) {
+    if (safeMessage.includes('style') || safeMessage.includes('écriture') || safeMessage.includes('métaphore') || safeMessage.includes('figures')) {
         return "Le style est caractérisé par un équilibre remarquable entre lyrisme poétique et précision philosophique. L'utilisation d'antithèses et de métaphores discrètes permet de condenser une pensée complexe en une formule percutante et mémorable.";
     }
-    if (lastUserMessage.includes('pourquoi') || lastUserMessage.includes('sens') || lastUserMessage.includes('signifie')) {
+    if (safeMessage.includes('pourquoi') || safeMessage.includes('sens') || safeMessage.includes('signifie')) {
         return "À un niveau plus profond, cette phrase remet en question nos certitudes quotidiennes. Elle nous invite à suspendre notre jugement et à contempler l'ironie délicate des relations humaines et de notre propre existence.";
     }
 

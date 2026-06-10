@@ -485,9 +485,20 @@ function QuoteDetailContent() {
       }
     } catch (error) {
       console.error('[AI Analysis]', error);
+      // Fallback: set a default analysis
+      const authorName = getAuthorName(quote);
+      const fallbackAnalysis = {
+        aiInterpretation: `Cette citation de ${authorName} invite à la réflexion littéraire.`,
+        theme: "Art & Littérature",
+        blockData: { recommendedBooks: [] }
+      };
+      setQuote({ ...quote, ...fallbackAnalysis });
+      if (updateQuote) {
+        updateQuote(quote.id, fallbackAnalysis);
+      }
       Alert.alert(
-        "Erreur",
-        "Impossible de lancer l'analyse littéraire. Assurez-vous d'avoir configuré votre Groq_API_KEY dans Supabase."
+        "Analyse indisponible",
+        "Une analyse par défaut a été appliquée. Veuillez réessayer plus tard pour une analyse IA complète."
       );
     } finally {
       setIsAnalyzing(false);

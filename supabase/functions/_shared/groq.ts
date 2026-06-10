@@ -1,4 +1,6 @@
 // Définition des interfaces
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+
 export interface RecommendedBook {
   title: string;
   author: string;
@@ -10,6 +12,26 @@ export interface AnalysisResult {
   recommendedBooks?: RecommendedBook[];
 }
 
+const AnalysisResultSchema = z.object({
+  interpretation: z.string().min(10),
+  theme: z.enum([
+    "Philosophie & Sagesse", "Amour & Relations", "Condition Humaine", 
+    "Temps & Mort", "Art & Littérature", "Politique & Société", 
+    "Liberté & Justice", "Bonheur & Existence", "Nature & Sciences", 
+    "Savoir & Vérité", "Destin & Choix"
+  ]),
+  recommendedBooks: z.array(z.object({
+    title: z.string().min(1),
+    author: z.string().min(1)
+  })).max(7).optional()
+});
+
+const fallbackAnalysis: AnalysisResult = {
+  interpretation: "Analyse indisponible.",
+  theme: "Savoir & Vérité",
+  recommendedBooks: []
+};
+
 export async function analyzeQuoteWithGroq(
   text: string,
   author: string,
@@ -17,7 +39,8 @@ export async function analyzeQuoteWithGroq(
 ): Promise<AnalysisResult> {
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is not configured in Supabase secrets.");
+    console.warn('[Groq] API key missing, returning fallback analysis');
+    return fallbackAnalysis;
   }
 
   const prompt = `Tu es un expert littéraire, historien et critique intellectuel. Analyse la citation suivante de manière concise, captivante et informative, en te focalisant exclusivement sur la substance des arguments avancés dans le texte.
@@ -70,36 +93,59 @@ Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun fo
 }
 `;
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: "Tu es un expert littéraire et critique intellectuel. Tu réponds toujours en JSON strict sans aucun formatage Markdown." },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Groq API error: ${response.status} - ${errText}`);
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: "Tu es un expert littéraire et critique intellectuel. Tu réponds toujours en JSON strict sans aucun formatage Markdown." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0,
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[Groq] API error: ${response.status} - ${errText}`);
+      return fallbackAnalysis;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      console.error('[Groq] Empty response from API');
+      return fallbackAnalysis;
+    }
+
+    try {
+      const parsed = JSON.parse(content);
+      return AnalysisResultSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[Groq] Invalid response format:', parseError);
+      return fallbackAnalysis;
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('[Groq] API timeout after 15s');
+      return fallbackAnalysis;
+    }
+    console.error('[Groq] Unexpected error:', error);
+    return fallbackAnalysis;
   }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-
-  if (!content) {
-    throw new Error("Empty response from Groq API.");
-  }
-
-  return JSON.parse(content) as AnalysisResult;
 }
 
 export async function chatAboutQuoteWithGroq(
@@ -111,7 +157,8 @@ export async function chatAboutQuoteWithGroq(
 ): Promise<string> {
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) {
-    throw new Error("GROQ_API_KEY is not configured in Supabase secrets.");
+    console.warn('[Groq] API key missing for chat');
+    return "Désolé, le service d'analyse est temporairement indisponible.";
   }
 
   const systemPrompt = `Tu es un expert littéraire, historien et critique littéraire chevronné. 
@@ -133,24 +180,40 @@ Réponds de manière concise, captivante, premium et intellectuellement stimulan
     }))
   ];
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: formattedMessages,
-      temperature: 0.7
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Groq API error: ${response.status} - ${errText}`);
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: formattedMessages,
+        temperature: 0.7
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[Groq Chat] API error: ${response.status} - ${errText}`);
+      return "Désolé, je n'ai pas pu générer de réponse. Veuillez réessayer plus tard.";
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || "";
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('[Groq Chat] API timeout after 15s');
+      return "Désolé, la réponse a pris trop de temps. Veuillez réessayer.";
+    }
+    console.error('[Groq Chat] Unexpected error:', error);
+    return "Désolé, une erreur est survenue. Veuillez réessayer plus tard.";
   }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || "";
 }

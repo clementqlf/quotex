@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Platform } from 'react-native';
 import { PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
@@ -9,6 +10,46 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Quote } from '@/src/shared/api/types';
+
+const ImportPayloadSchema = z.object({
+  title: z.string().min(1),
+  isbn: z.string().regex(/^(?:\d{10}|\d{13})$/),
+  year: z.number().int().positive().optional(),
+  pages: z.number().int().positive().optional(),
+  description: z.string().optional(),
+  cover: z.string().optional(),
+  inventaireUri: z.string().optional(),
+  googleId: z.string().optional(),
+  genre: z.string().optional(),
+  authors: z.array(z.string()).optional(),
+  authorUris: z.array(z.string()).optional(),
+});
+
+// Schema for validating search service response
+const SearchResultsSchema = z.object({
+  inventaireWorks: z.array(z.object({
+    label: z.string().optional(),
+    title: z.string().optional(),
+    authors: z.array(z.string()).optional(),
+    authorUris: z.array(z.string()).optional(),
+    description: z.string().optional(),
+    image: z.string().optional(),
+    cover: z.string().optional(),
+    uri: z.string().optional(),
+    inventaireUri: z.string().optional(),
+    googleId: z.string().optional(),
+    year: z.number().optional(),
+    pages: z.number().optional(),
+    genre: z.string().optional()
+  })).optional().default([]),
+  books: z.array(z.object({
+    id: z.union([z.number(), z.string()]).optional(),
+    title: z.string(),
+    author: z.union([z.string(), z.object({ name: z.string() }).partial()]),
+    cover: z.string().optional(),
+    inventaireUri: z.string().optional()
+  })).optional().default([])
+});
 
 /**
 
@@ -94,7 +135,9 @@ export class ScanService {
 
         try {
             // Rechercher le livre via le service de recherche
-            const data = await searchService.search(isbn);
+            const rawData = await searchService.search(isbn);
+            // Validate response with Zod
+            const data = SearchResultsSchema.parse(rawData);
             
             if (data.inventaireWorks && data.inventaireWorks.length > 0) {
                 const item = data.inventaireWorks[0];
@@ -102,50 +145,100 @@ export class ScanService {
                     ? item.authors.join(', ')
                     : 'Auteur inconnu';
 
-                // Essayer d'importer le livre pour obtenir la couverture
-                try {
-                    const token = await authService.getToken();
-                    
-                    // Construire le payload d'import avec typage
-                    const importPayload: Record<string, unknown> = {
-                        title: item.label || item.title,
-                        description: item.description || '',
-                        cover: item.image || item.cover || '',
-                        inventaireUri: item.uri || item.inventaireUri,
+                // Si on a déjà un inventaireUri avec des données complètes, pas besoin d'importer
+                // Cela évite le double appel Inventaire.io (search -> import -> Inventaire.io)
+                if (item.inventaireUri && (item.title || item.label)) {
+                    const externalBookData: ExternalBookData = {
+                        title: item.title || item.label,
+                        authors: item.authors,
+                        authorUris: item.authorUris,
+                        description: item.description,
+                        image: item.image,
+                        cover: item.cover,
+                        uri: item.uri,
+                        inventaireUri: item.inventaireUri,
                         googleId: item.googleId,
-                        isbn,
-                        ...(item.year && { year: item.year }),
-                        ...(item.pages && { pages: item.pages }),
-                        ...(item.genre && { genre: item.genre }),
-                        authors: item.authors || [],
-                        authorUris: item.authorUris || [],
+                        year: item.year,
+                        pages: item.pages,
+                        genre: item.genre,
+                        label: item.label,
                     };
                     
-                    const importRes = await fetch(`${API_BASE_URL}/books/import`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                        },
-                        body: JSON.stringify(importPayload),
-                    });
+                    this.platformServices.haptics.notificationAsync("success");
+                    
+                    const bookData: IsbnBookData = {
+                        title: item.title || item.label || 'Livre inconnu',
+                        author: authorName,
+                        cover: item.image || item.cover || undefined,
+                        inventaireUri: item.inventaireUri,
+                        bookData: externalBookData,
+                    };
+                    
+                    return { success: true, bookData, error: undefined };
+                }
 
-                    if (importRes.ok) {
-                        const imported: Record<string, unknown> = await importRes.json();
-                        this.platformServices.haptics.notificationAsync("success");
-                        
-                        const bookData: IsbnBookData = {
-                            title: (imported.title as string) || item.title || item.label || 'Livre inconnu',
-                            author: authorName,
-                            cover: (imported.cover as string) || item.image || item.cover || undefined,
-                            bookId: imported.id ? String(imported.id) : undefined,
-                            inventaireUri: (imported.inventaireUri as string) || item.inventaireUri || item.uri,
-                        };
-                        
-                        return { success: true, bookData, error: undefined };
+                // Sinon, on import (mais une seule fois) pour enrichir les données
+                const token = await authService.getToken();
+                
+                // Construire et valider le payload d'import avec Zod
+                const rawPayload = {
+                    title: item.label || item.title,
+                    description: item.description || '',
+                    cover: item.image || item.cover || '',
+                    inventaireUri: item.uri || item.inventaireUri,
+                    googleId: item.googleId,
+                    isbn,
+                    ...(item.year && { year: item.year }),
+                    ...(item.pages && { pages: item.pages }),
+                    ...(item.genre && { genre: item.genre }),
+                    authors: item.authors || [],
+                    authorUris: item.authorUris || [],
+                };
+                
+                // Valider et nettoyer le payload
+                const importPayload = ImportPayloadSchema.parse(rawPayload);
+                
+                let importSuccess = false;
+                let imported: Record<string, unknown> | null = null;
+                
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                        const importRes = await fetch(`${API_BASE_URL}/books/import`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                            },
+                            body: JSON.stringify(importPayload),
+                        });
+
+                        if (importRes.ok) {
+                            imported = await importRes.json();
+                            importSuccess = true;
+                            break;
+                        }
+                    } catch (importErr) {
+                        if (attempt === 3) {
+                            console.error('[ScanService] Import failed after 3 attempts:', importErr);
+                            throw importErr;
+                        }
+                        console.warn(`[ScanService] Import attempt ${attempt} failed, retrying...`, importErr);
+                        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
                     }
-                } catch (importErr) {
-                    console.error('[ScanService] Import failed, falling back to search cover:', importErr);
+                }
+                
+                if (importSuccess && imported) {
+                    this.platformServices.haptics.notificationAsync("success");
+                    
+                    const bookData: IsbnBookData = {
+                        title: (imported.title as string) || item.title || item.label || 'Livre inconnu',
+                        author: authorName,
+                        cover: (imported.cover as string) || item.image || item.cover || undefined,
+                        bookId: imported.id ? String(imported.id) : undefined,
+                        inventaireUri: (imported.inventaireUri as string) || item.inventaireUri || item.uri,
+                    };
+                    
+                    return { success: true, bookData, error: undefined };
                 }
 
                 // Fallback: utiliser les données de recherche

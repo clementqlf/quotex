@@ -1,28 +1,50 @@
+import { z } from 'zod';
 import { Book } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
+const SparqlResultSchema = z.object({
+  results: z.object({
+    bindings: z.array(z.record(z.any()))
+  })
+});
+
 class WikidataService {
+    private enrichmentCache = new Map<string, Promise<Record<string, any>>>();
+
     private async runSPARQL(query: string): Promise<any[]> {
         if (await isOffline()) {
             return [];
         }
 
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
             const response = await fetch(url, {
+                signal: controller.signal,
                 headers: {
                     'User-Agent': 'Quotex/1.0 (got@example.com)', // Good practice for Wikidata
                     'Accept': 'application/sparql-results+json'
                 }
             });
+            clearTimeout(timeoutId);
             if (!response.ok) {
-                throw new Error(`SPARQL request failed: ${response.status} ${response.statusText}`);
+                console.warn(`[WikidataService] SPARQL HTTP error: ${response.status}`);
+                return [];
             }
             const data = await response.json();
-            return data.results.bindings;
+            try {
+                return SparqlResultSchema.parse(data).results.bindings;
+            } catch (parseError) {
+                console.error('[WikidataService] Invalid SPARQL format:', parseError);
+                return [];
+            }
         } catch (error) {
-            logFetchError('[WikidataService] SPARQL Error', error);
+            clearTimeout(timeoutId);
+            if (error.name !== 'AbortError') {
+                logFetchError('[WikidataService] SPARQL Error', error);
+            }
             return [];
         }
     }
@@ -30,6 +52,28 @@ class WikidataService {
     // Alias for backward compatibility, defaults to notable works for the main view
     async getBooksByAuthor(authorName: string, _openLibraryId?: string): Promise<Book[]> {
         return this.getNotableWorks(authorName);
+    }
+
+    private async fetchEnrichment(uris: string[]): Promise<Record<string, any>> {
+        const cacheKey = uris.join('|');
+        if (!this.enrichmentCache.has(cacheKey)) {
+            const promise = this.fetchFromBackendSafe(uris);
+            this.enrichmentCache.set(cacheKey, promise);
+            setTimeout(() => this.enrichmentCache.delete(cacheKey), 300000);
+        }
+        return this.enrichmentCache.get(cacheKey)!;
+    }
+
+    private async fetchFromBackendSafe(uris: string[]): Promise<Record<string, any>> {
+        if (await isOffline()) return {};
+        try {
+            const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
+            if (!response.ok) return {};
+            return await response.json();
+        } catch (err) {
+            logFetchError('[WikidataService] Enrichment failed', err);
+            return {};
+        }
     }
 
     async getNotableWorks(authorName: string): Promise<Book[]> {
@@ -72,20 +116,10 @@ class WikidataService {
             })
             .filter(Boolean) as string[];
 
-        // Fetch enrichment from our backend
+        // Fetch enrichment from our backend with cache
         let inventaireDetails: Record<string, any> = {};
         if (uris.length > 0) {
-            if (!(await isOffline())) {
-                try {
-                    console.log(`[WikidataService] Fetching enrichment for ${uris.length} works...`);
-                    const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
-                    if (response.ok) {
-                        inventaireDetails = await response.json();
-                    }
-                } catch (err) {
-                    logFetchError('[WikidataService] Failed to fetch enrichment', err);
-                }
-            }
+            inventaireDetails = await this.fetchEnrichment(uris);
         }
 
         const uniqueTitles = new Set();

@@ -118,6 +118,8 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     const fetchExternalPrizeDetails = async (inventaireUri: string) => {
         if (!inventaireUri.startsWith('wd:')) return null;
         const qid = inventaireUri.substring(3);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
         try {
             const sparql = `
             SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
@@ -138,12 +140,17 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
             `;
             const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
             const res = await fetch(url, {
+                signal: controller.signal,
                 headers: {
                     'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
                     'Accept': 'application/sparql-results+json'
                 }
             });
-            if (!res.ok) return null;
+            clearTimeout(timeoutId);
+            if (!res.ok) {
+                console.warn(`[PrizeDetail] Wikidata error: ${res.status}`);
+                return null;
+            }
             const data = await res.json();
             const binding = data.results?.bindings?.[0];
             if (!binding) return null;
@@ -154,7 +161,10 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
 
             return { inceptionYear, founder };
         } catch (e) {
-            console.error('[PrizeDetail] Failed to fetch external prize details:', e);
+            clearTimeout(timeoutId);
+            if (e.name !== 'AbortError') {
+                console.error('[PrizeDetail] Failed to fetch external prize details:', e);
+            }
             return null;
         }
     };

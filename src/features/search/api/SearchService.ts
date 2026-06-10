@@ -30,15 +30,25 @@ class SearchService {
 
         try {
             console.log(`[SearchService] Searching for: "${query}"`);
-            const response = await fetch(`${this.API_URL}?q=${encodeURIComponent(query)}`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            try {
+                const response = await fetch(`${this.API_URL}?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
 
-            if (response.ok) {
-                const results: SearchResults = await response.json();
-                console.log(`[SearchService] Results: ${results.quotes.length} quotes, ${results.authors.length} local authors (${results.inventaireAuthors?.length || 0} ext), ${results.books.length} local books (${results.inventaireWorks?.length || 0} ext), ${results.prizes.length} local prizes (${results.inventairePrizes?.length || 0} ext)`);
-                return results;
-            } else {
-                console.error('[SearchService] Search failed:', response.status);
-                return await this.searchLocal(query);
+                if (response.ok) {
+                    const results: SearchResults = await response.json();
+                    console.log(`[SearchService] Results: ${results.quotes.length} quotes, ${results.authors.length} local authors (${results.inventaireAuthors?.length || 0} ext), ${results.books.length} local books (${results.inventaireWorks?.length || 0} ext), ${results.prizes.length} local prizes (${results.inventairePrizes?.length || 0} ext)`);
+                    return results;
+                } else {
+                    console.error('[SearchService] Search failed:', response.status);
+                    return await this.searchLocal(query);
+                }
+            } catch (fetchError) {
+                clearTimeout(timeoutId);
+                throw fetchError;
             }
         } catch (error) {
             logFetchError('[SearchService] Network error', error);

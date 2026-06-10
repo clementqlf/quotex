@@ -132,7 +132,18 @@ async function performQuoteAnalysis(quoteId: number) {
     const q = rows[0];
 
     console.log(`[Quotes] Triggering Groq analysis for quote ID ${quoteId}...`);
-    const result = await analyzeQuoteWithGroq(q.text, q.authorName || 'Inconnu', q.bookTitle || 'Inconnu');
+    let result;
+    try {
+      result = await analyzeQuoteWithGroq(q.text, q.authorName || 'Inconnu', q.bookTitle || 'Inconnu');
+    } catch (groqError) {
+      console.error(`[Quotes] Groq analysis failed for quote ID ${quoteId}:`, groqError);
+      // Use fallback analysis
+      result = {
+        interpretation: "Analyse indisponible.",
+        theme: "Savoir & Vérité",
+        recommendedBooks: []
+      };
+    }
 
     let blockDataObj: Record<string, any> = {};
     if (q.blockData) {
