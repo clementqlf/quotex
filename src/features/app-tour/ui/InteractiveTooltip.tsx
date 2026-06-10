@@ -25,22 +25,26 @@ interface Props {
 
 const STEP_TAB_MAP: Record<TourStep, number | null> = {
   scanButton: 1,
+  scanGalleryButton: 1,
   myQuotesList: 0,
   quoteCardDetail: 0,
   quoteDetailIA: null,
   quoteDetailClose: null,
   filterTabs: 0,
   searchButton: 0,
+  addQuoteButton: 0,
 };
 
 const STEP_DELAYS: Record<TourStep, number> = {
   scanButton: 50,
+  scanGalleryButton: 50,
   myQuotesList: 600,     // Transition d'onglet (Scan -> MyQuotes)
   quoteCardDetail: 50,
   quoteDetailIA: 600,    // Ouverture de la modale détail
   quoteDetailClose: 600,   // Transition de retour modale (si retour)
   filterTabs: 600,       // Fermeture de la modale détail (retour liste)
   searchButton: 50,
+  addQuoteButton: 50,
 };
 
 export function InteractiveTooltip({

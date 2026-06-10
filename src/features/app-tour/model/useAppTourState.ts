@@ -2,13 +2,15 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const TOUR_STEPS = [
-  'scanButton',       // 1
-  'myQuotesList',     // 2
-  'quoteCardDetail',  // 3
-  'quoteDetailIA',    // 4
-  'quoteDetailClose', // 5
-  'filterTabs',       // 6
-  'searchButton'      // 7
+  'scanButton',         // 1
+  'scanGalleryButton',  // 2
+  'myQuotesList',       // 3
+  'quoteCardDetail',    // 4
+  'quoteDetailIA',      // 5
+  'quoteDetailClose',   // 6
+  'filterTabs',         // 7
+  'searchButton',       // 8
+  'addQuoteButton'      // 9
 ] as const;
 
 export type TourStep = typeof TOUR_STEPS[number];

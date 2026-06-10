@@ -36,9 +36,14 @@ export function useAppTour() {
   useEffect(() => {
     if (isActive) {
       const stepName = TOUR_STEPS[currentStepIndex];
-      if (stepName === 'myQuotesList' || stepName === 'filterTabs') {
+      if (
+        stepName === 'myQuotesList' ||
+        stepName === 'filterTabs' ||
+        stepName === 'searchButton' ||
+        stepName === 'addQuoteButton'
+      ) {
         setPage?.(0);
-      } else if (stepName === 'scanButton') {
+      } else if (stepName === 'scanButton' || stepName === 'scanGalleryButton') {
         setPage?.(1);
       }
     }

@@ -485,16 +485,22 @@ export default function ScanScreen() {
 
           <View style={styles.controls}>
             <View style={styles.controlsRow}>
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={handlePickImage}
-                accessible={true}
-                accessibilityLabel="Sélectionner une image dans la galerie"
-                accessibilityRole="button"
-                testID="gallery-button"
+              <InteractiveTooltip
+                text="L'icône image permet de scanner une citation depuis sa pellicule."
+                stepName="scanGalleryButton"
+                placement="top"
               >
-                <ImageIcon size={24} color="#E5E7EB" />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={handlePickImage}
+                  accessible={true}
+                  accessibilityLabel="Sélectionner une image dans la galerie"
+                  accessibilityRole="button"
+                  testID="gallery-button"
+                >
+                  <ImageIcon size={24} color="#E5E7EB" />
+                </TouchableOpacity>
+              </InteractiveTooltip>
 
               <View style={styles.scanButtonContainer}>
                 <InteractiveTooltip

@@ -594,16 +594,22 @@ export default function MyQuotesScreen() {
       <View style={styles.header}>
         <AnimatedHeaderTitle viewMode={viewMode} colors={colors} styles={styles} />
         <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => setShowAddMenu(true)}
-            accessible={true}
-            accessibilityLabel="Ajouter une citation"
-            accessibilityRole="button"
-            testID="add-quote-btn"
+          <InteractiveTooltip
+            text="Le bouton + permet de rajouter une citation manuellement."
+            stepName="addQuoteButton"
+            placement="bottom"
           >
-            <Plus size={20} color={colors.primary} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setShowAddMenu(true)}
+              accessible={true}
+              accessibilityLabel="Ajouter une citation"
+              accessibilityRole="button"
+              testID="add-quote-btn"
+            >
+              <Plus size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </InteractiveTooltip>
           <InteractiveTooltip
             text="Vous pouvez rechercher les œuvres/auteurs de votre choix et les ajouter à votre bibliothèque."
             stepName="searchButton"
