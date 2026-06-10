@@ -1,3 +1,3 @@
 export { useAppTour } from './model/useAppTour';
-export { default as CustomTooltip } from './ui/CustomTooltip';
-export { default as QuoteDetailTourProvider } from './ui/QuoteDetailTourProvider';
+export { useAppTourState, TourStep, TOUR_STEPS } from './model/useAppTourState';
+export { InteractiveTooltip } from './ui/InteractiveTooltip';

@@ -23,11 +23,11 @@ import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
-import { CopilotStep, walkthroughable, useCopilot } from 'react-native-copilot';
+import { InteractiveTooltip } from '@/src/features/app-tour/ui/InteractiveTooltip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour/model/useAppTourState';
 
-const CopilotView = walkthroughable(View);
-const CopilotTouchable = walkthroughable(TouchableOpacity);
+
 import { bookDescriptions } from '@/src/shared/api/staticData';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useTabIndex } from '@/src/app/providers/TabContext';
@@ -236,6 +236,9 @@ export default function MyQuotesScreen() {
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { currentStepIndex } = useAppTourState();
+  const activeStepName = TOUR_STEPS[currentStepIndex];
+  const isFilterTabsStep = activeStepName === 'filterTabs';
 
   // Feature hook - découplé de DataProvider
   const {
@@ -286,7 +289,7 @@ export default function MyQuotesScreen() {
   }, [refreshMyQuotes]);
 
   const isScreenFocused = useIsFocused();
-  const { start: startTour } = useCopilot();
+  // useCopilot removed
 
   useEffect(() => {
     if (isScreenFocused && isFocused) {
@@ -302,13 +305,13 @@ export default function MyQuotesScreen() {
         if (resumeStep) {
           await AsyncStorage.removeItem('resume_tour_step');
           setTimeout(() => {
-            startTour(resumeStep).catch(err => console.log('Copilot resume error:', err));
+            // startTour(resumeStep).catch(err => console.log('Copilot resume error:', err));
           }, 600);
         }
       };
       checkResume();
     }
-  }, [isScreenFocused, startTour]);
+  }, [isScreenFocused]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -426,48 +429,122 @@ export default function MyQuotesScreen() {
 
   // Render items for FlashList
   const renderQuoteItem = useCallback(({ item, index }: { item: Quote; index: number }) => {
+    const isHighlighted = isFilterTabsStep && index === 0;
     const card = (
-      <QuoteCard
-        quote={item}
-        onToggleLike={() => toggleLikeQuoteStable(item.id)}
-        onOpenMenu={() => handleOpenMenu(item)}
-      />
+      <View style={{ position: 'relative', width: '100%' }}>
+        <QuoteCard
+          quote={item}
+          onToggleLike={() => toggleLikeQuoteStable(item.id)}
+          onOpenMenu={() => handleOpenMenu(item)}
+        />
+        {isHighlighted && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 16,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 16,
+            }}
+          />
+        )}
+      </View>
     );
 
     if (index === 0) {
       return (
-        <CopilotStep
-          text="Les citations enregistrées se retrouvent ici."
-          order={2}
-          name="myQuotesList"
+        <InteractiveTooltip
+          stepNames={['myQuotesList', 'quoteCardDetail']}
+          texts={[
+            "Les citations enregistrées se retrouvent ici.",
+            "Quand on clique sur une citation, on accède aux détails de la citation."
+          ]}
+          placement="bottom"
+          allowChildInteraction={true}
         >
-          <CopilotView>
-            <CopilotStep
-              text="Quand on clique sur une citation, on accède aux détails de la citation."
-              order={3}
-              name="quoteCardDetail"
-            >
-              <CopilotView>{card}</CopilotView>
-            </CopilotStep>
-          </CopilotView>
-        </CopilotStep>
+          {card}
+        </InteractiveTooltip>
       );
     }
 
     return card;
-  }, [toggleLikeQuoteStable, handleOpenMenu]);
+  }, [toggleLikeQuoteStable, handleOpenMenu, isFilterTabsStep, colors.primary]);
 
-  const renderBookItem = useCallback(({ item }: { item: any }) => (
-    <BookCardItem book={item} />
-  ), []);
+  const renderBookItem = useCallback(({ item, index }: { item: any; index: number }) => {
+    const isHighlighted = isFilterTabsStep && index === 0;
+    return (
+      <View style={{ position: 'relative', width: '100%' }}>
+        <BookCardItem book={item} />
+        {isHighlighted && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 12,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 12,
+            }}
+          />
+        )}
+      </View>
+    );
+  }, [isFilterTabsStep, colors.primary]);
 
-  const renderAuthorItem = useCallback(({ item }: { item: any }) => (
-    <AuthorCardItem author={item} />
-  ), []);
+  const renderAuthorItem = useCallback(({ item, index }: { item: any; index: number }) => {
+    const isHighlighted = isFilterTabsStep && index === 0;
+    return (
+      <View style={{ position: 'relative', width: '100%' }}>
+        <AuthorCardItem author={item} />
+        {isHighlighted && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 12,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 12,
+            }}
+          />
+        )}
+      </View>
+    );
+  }, [isFilterTabsStep, colors.primary]);
 
-  const renderThemeItem = useCallback(({ item }: { item: any }) => (
-    <ThemeCardItem theme={item} />
-  ), []);
+  const renderThemeItem = useCallback(({ item, index }: { item: any; index: number }) => {
+    const isHighlighted = isFilterTabsStep && index === 0;
+    return (
+      <View style={{ position: 'relative', width: '100%' }}>
+        <ThemeCardItem theme={item} />
+        {isHighlighted && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 12,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 12,
+            }}
+          />
+        )}
+      </View>
+    );
+  }, [isFilterTabsStep, colors.primary]);
 
   const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
   const bookKeyExtractor = useCallback((item: any) => item.title, []);
@@ -547,12 +624,12 @@ export default function MyQuotesScreen() {
           >
             <Plus size={20} color={colors.primary} />
           </TouchableOpacity>
-          <CopilotStep
+          <InteractiveTooltip
             text="Vous pouvez rechercher les œuvres/auteurs de votre choix et les ajouter à votre bibliothèque."
-            order={7}
-            name="searchButton"
+            stepName="searchButton"
+            placement="bottom"
           >
-            <CopilotTouchable
+            <TouchableOpacity
               style={styles.headerButton}
               onPress={() => router.navigate('/search')}
               accessible={true}
@@ -561,8 +638,8 @@ export default function MyQuotesScreen() {
               testID="search-btn"
             >
               <Search size={20} color={colors.textSecondary} />
-            </CopilotTouchable>
-          </CopilotStep>
+            </TouchableOpacity>
+          </InteractiveTooltip>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}
@@ -578,25 +655,26 @@ export default function MyQuotesScreen() {
 
       {/* Stats */}
       {quotesToDisplay.length === 0 ? (
-        <CopilotStep
+        <InteractiveTooltip
           text="Les citations enregistrées se retrouvent ici."
-          order={2}
-          name="myQuotesList"
+          stepName="myQuotesList"
+          placement="bottom"
         >
-          <CopilotView style={styles.stats}>
+          <View style={[styles.stats, { width: '100%' }]}>
             {statsContent}
-          </CopilotView>
-        </CopilotStep>
+          </View>
+        </InteractiveTooltip>
       ) : (
-        <CopilotStep
+        <InteractiveTooltip
           text="Vos citations sont regroupées par catégorie : Citations, Livres, Auteurs et Thèmes. Appuyez sur un onglet pour changer de vue."
-          order={6}
-          name="filterTabs"
+          stepName="filterTabs"
+          placement="bottom"
+          allowChildInteraction={true}
         >
-          <CopilotView style={styles.stats}>
+          <View style={[styles.stats, { width: '100%' }]}>
             {statsContent}
-          </CopilotView>
-        </CopilotStep>
+          </View>
+        </InteractiveTooltip>
       )}
 
       {/* Content — FlashList for virtualization */}

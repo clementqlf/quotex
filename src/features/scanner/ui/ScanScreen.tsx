@@ -18,8 +18,8 @@ import { useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff, RefreshCw } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, CameraDevice, CameraDeviceFormat, CodeScanner } from 'react-native-vision-camera';
-import { CopilotStep, walkthroughable } from 'react-native-copilot';
 import { useAppTour } from '@/src/features/app-tour';
+import { InteractiveTooltip } from '@/src/features/app-tour/ui/InteractiveTooltip';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -35,7 +35,7 @@ import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/Anima
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import { useScanController } from '@/src/features/scanner/model/useScanController';
 
-const CopilotTouchable = walkthroughable(TouchableOpacity);
+// Removed CopilotTouchable
 
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
@@ -498,12 +498,12 @@ export default function ScanScreen() {
               </TouchableOpacity>
 
               <View style={styles.scanButtonContainer}>
-                <CopilotStep
+                <InteractiveTooltip
                   text="Le bouton scan permet de scanner un passage d'un livre pour enregistrer une citation."
-                  order={1}
-                  name="scanButton"
+                  stepName="scanButton"
+                  placement="top"
                 >
-                  <CopilotTouchable
+                  <TouchableOpacity
                     style={[
                       styles.scanButton,
                       isLoading && styles.scanButtonActive,
@@ -521,8 +521,8 @@ export default function ScanScreen() {
                     <View>
                       <ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : "#E5E7EB"} />
                     </View>
-                  </CopilotTouchable>
-                </CopilotStep>
+                  </TouchableOpacity>
+                </InteractiveTooltip>
               </View>
 
               <TouchableOpacity

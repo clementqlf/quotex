@@ -11,6 +11,7 @@ import { Heart, Share2, MoreVertical, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Quote } from '@/src/shared/api/types';
+import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour/model/useAppTourState';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -42,6 +43,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { currentStepIndex, nextStep } = useAppTourState();
 
   // Utiliser Realtime pour obtenir les versions à jour (avec fallback polling)
   const bookId = typeof quote.book === 'object' && quote.book !== null ? quote.book.id : undefined;
@@ -89,7 +91,18 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
         </TouchableOpacity>
 
         <Pressable
-          onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+          onPress={() => {
+            const activeStepName = TOUR_STEPS[currentStepIndex];
+            if (activeStepName === 'quoteCardDetail') {
+              nextStep();
+              router.navigate({
+                pathname: '/quote-detail',
+                params: { quoteId: quote.id.toString(), fromTour: 'true' }
+              });
+            } else {
+              router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } });
+            }
+          }}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
         >
           {/* Quote Icon (custom SVG) */}

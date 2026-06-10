@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCopilot } from 'react-native-copilot';
 import { useTabIndex } from '@/src/app/providers/TabContext';
+import { useAppTourState, TourStep, TOUR_STEPS } from './useAppTourState';
 
 /**
  * Hook useAppTour
@@ -13,7 +13,7 @@ import { useTabIndex } from '@/src/app/providers/TabContext';
  * - Fonction de réinitialisation de debug
  */
 export function useAppTour() {
-  const { start, copilotEvents } = useCopilot();
+  const { isActive, currentStepIndex, startTour, resetTour } = useAppTourState();
   const { setPage } = useTabIndex();
   const tourStarted = useRef(false);
 
@@ -25,40 +25,24 @@ export function useAppTour() {
       if (!hasSeenTour) {
         tourStarted.current = true;
         setTimeout(() => {
-          start().catch((err) => console.log('Copilot error:', err));
+          startTour();
         }, 1500);
       }
     };
     
     checkTutorial();
+  }, [startTour]);
 
-    const handleStepChange = (step: any) => {
-      console.log('[Copilot] Step changed:', step.name);
-      
-      if (step.name === 'myQuotesList') {
+  useEffect(() => {
+    if (isActive) {
+      const stepName = TOUR_STEPS[currentStepIndex];
+      if (stepName === 'myQuotesList' || stepName === 'filterTabs') {
         setPage?.(0);
-      } else if (step.name === 'scanButton') {
+      } else if (stepName === 'scanButton') {
         setPage?.(1);
       }
-    };
-
-    const handleStop = async () => {
-      await AsyncStorage.setItem('has_seen_tour', 'true');
-    };
-
-    copilotEvents.on('stepChange', handleStepChange);
-    copilotEvents.on('stop', handleStop);
-
-    return () => {
-      copilotEvents.off('stepChange', handleStepChange);
-      copilotEvents.off('stop', handleStop);
-    };
-  }, [start, copilotEvents, setPage]);
-
-  const resetTour = async () => {
-    tourStarted.current = false;
-    await AsyncStorage.removeItem('has_seen_tour');
-  };
+    }
+  }, [isActive, currentStepIndex, setPage]);
 
   return { resetTour };
 }

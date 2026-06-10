@@ -19,7 +19,8 @@ import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
-import { CopilotStep, walkthroughable } from 'react-native-copilot';
+import { InteractiveTooltip } from '@/src/features/app-tour/ui/InteractiveTooltip';
+import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour/model/useAppTourState';
 import Animated, {
   useAnimatedRef,
   useSharedValue,
@@ -30,8 +31,7 @@ import Animated, {
   Easing
 } from 'react-native-reanimated';
 
-const CopilotView = walkthroughable(View);
-const CopilotTouchable = walkthroughable(TouchableOpacity);
+// Removed walkthroughable components
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
 import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
@@ -153,6 +153,7 @@ function QuoteDetailContent() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const router = useRouter();
+  const { currentStepIndex, nextStep } = useAppTourState();
 
 
   // Apple Intelligence glowing effect shared values
@@ -666,7 +667,13 @@ function QuoteDetailContent() {
     });
   }, []);
 
-  const onClose = () => router.back();
+  const onClose = () => {
+    const activeStepName = TOUR_STEPS[currentStepIndex];
+    if (activeStepName === 'quoteDetailClose') {
+      nextStep();
+    }
+    router.back();
+  };
 
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = React.useState(false);
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = React.useState<string | null>(null);
@@ -857,15 +864,16 @@ function QuoteDetailContent() {
               <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
                 <Trash2 size={20} color={colors.warning} />
               </TouchableOpacity>
-              <CopilotStep
+              <InteractiveTooltip
                 text="Appuyez sur cette croix pour fermer la fiche et revenir à votre liste de citations."
-                order={5}
-                name="quoteDetailClose"
+                stepName="quoteDetailClose"
+                placement="bottom"
+                allowChildInteraction={true}
               >
-                <CopilotTouchable style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
                   <X size={24} color={colors.textTertiary} />
-                </CopilotTouchable>
-              </CopilotStep>
+                </TouchableOpacity>
+              </InteractiveTooltip>
               <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
                 <Edit3 size={20} color={colors.textTertiary} />
               </TouchableOpacity>
@@ -977,12 +985,12 @@ function QuoteDetailContent() {
 
           {/* AI Interpretation */}
           <View ref={aiSectionRef}>
-          <CopilotStep
+          <InteractiveTooltip
             text="L'IA met en contexte la citation et propose des œuvres en rapport avec son thème."
-            order={4}
-            name="quoteDetailIA"
+            stepName="quoteDetailIA"
+            placement="top"
           >
-            <CopilotView style={styles.aiSectionWrapper}>
+            <View style={[styles.aiSectionWrapper, { width: '100%' }]}>
               {!isAnalyzing && (
                 <View style={styles.glowContainer}>
                   {/* Top edge glow */}
@@ -1115,8 +1123,8 @@ function QuoteDetailContent() {
                   </View>
                 )}
               </View>
-            </CopilotView>
-          </CopilotStep>
+            </View>
+          </InteractiveTooltip>
           </View>{/* end aiSectionRef */}
 
 
@@ -1333,7 +1341,6 @@ function QuoteDetailContent() {
 }
 
 // QuoteDetailModal exported as the pure entity component.
-// The CopilotProvider is handled at the page level by features/app-tour/ui/QuoteDetailTourProvider.
 export default function QuoteDetailModal() {
   return <QuoteDetailContent />;
 }
