@@ -23,9 +23,8 @@ import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
-import { InteractiveTooltip } from '@/src/features/app-tour/ui/InteractiveTooltip';
+import { InteractiveTooltip, useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour/model/useAppTourState';
 
 
 import { bookDescriptions } from '@/src/shared/api/staticData';
@@ -321,6 +320,7 @@ export default function MyQuotesScreen() {
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | 'status' | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
+  const [firstItemHeight, setFirstItemHeight] = useState(150);
 
   // Memoized derived data - utilisant les getters du hook feature
   const authors = useMemo(() => getAuthors(), [getAuthors]);
@@ -429,30 +429,12 @@ export default function MyQuotesScreen() {
 
   // Render items for FlashList
   const renderQuoteItem = useCallback(({ item, index }: { item: Quote; index: number }) => {
-    const isHighlighted = isFilterTabsStep && index === 0;
     const card = (
-      <View style={{ position: 'relative', width: '100%' }}>
-        <QuoteCard
-          quote={item}
-          onToggleLike={() => toggleLikeQuoteStable(item.id)}
-          onOpenMenu={() => handleOpenMenu(item)}
-        />
-        {isHighlighted && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 16,
-              borderWidth: 2,
-              borderColor: colors.primary,
-              borderRadius: 16,
-            }}
-          />
-        )}
-      </View>
+      <QuoteCard
+        quote={item}
+        onToggleLike={() => toggleLikeQuoteStable(item.id)}
+        onOpenMenu={() => handleOpenMenu(item)}
+      />
     );
 
     if (index === 0) {
@@ -466,85 +448,83 @@ export default function MyQuotesScreen() {
           placement="bottom"
           allowChildInteraction={true}
         >
-          {card}
+          <View 
+            style={{ width: '100%' }}
+            onLayout={(event) => {
+              const { height } = event.nativeEvent.layout;
+              if (height > 0) {
+                setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+              }
+            }}
+          >
+            {card}
+          </View>
         </InteractiveTooltip>
       );
     }
 
     return card;
-  }, [toggleLikeQuoteStable, handleOpenMenu, isFilterTabsStep, colors.primary]);
+  }, [toggleLikeQuoteStable, handleOpenMenu]);
 
   const renderBookItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    const isHighlighted = isFilterTabsStep && index === 0;
-    return (
-      <View style={{ position: 'relative', width: '100%' }}>
-        <BookCardItem book={item} />
-        {isHighlighted && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 12,
-              borderWidth: 2,
-              borderColor: colors.primary,
-              borderRadius: 12,
-            }}
-          />
-        )}
-      </View>
-    );
-  }, [isFilterTabsStep, colors.primary]);
+    const card = <BookCardItem book={item} />;
+    if (index === 0) {
+      return (
+        <View 
+          style={{ width: '100%' }}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0) {
+              setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+            }
+          }}
+        >
+          {card}
+        </View>
+      );
+    }
+    return card;
+  }, []);
 
   const renderAuthorItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    const isHighlighted = isFilterTabsStep && index === 0;
-    return (
-      <View style={{ position: 'relative', width: '100%' }}>
-        <AuthorCardItem author={item} />
-        {isHighlighted && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 12,
-              borderWidth: 2,
-              borderColor: colors.primary,
-              borderRadius: 12,
-            }}
-          />
-        )}
-      </View>
-    );
-  }, [isFilterTabsStep, colors.primary]);
+    const card = <AuthorCardItem author={item} />;
+    if (index === 0) {
+      return (
+        <View 
+          style={{ width: '100%' }}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0) {
+              setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+            }
+          }}
+        >
+          {card}
+        </View>
+      );
+    }
+    return card;
+  }, []);
 
   const renderThemeItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    const isHighlighted = isFilterTabsStep && index === 0;
-    return (
-      <View style={{ position: 'relative', width: '100%' }}>
-        <ThemeCardItem theme={item} />
-        {isHighlighted && (
-          <View
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 12,
-              borderWidth: 2,
-              borderColor: colors.primary,
-              borderRadius: 12,
-            }}
-          />
-        )}
-      </View>
-    );
-  }, [isFilterTabsStep, colors.primary]);
+    const card = <ThemeCardItem theme={item} />;
+    if (index === 0) {
+      return (
+        <View 
+          style={{ width: '100%' }}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0) {
+              setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+            }
+          }}
+        >
+          {card}
+        </View>
+      );
+    }
+    return card;
+  }, []);
 
   const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
   const bookKeyExtractor = useCallback((item: any) => item.title, []);
@@ -654,28 +634,29 @@ export default function MyQuotesScreen() {
       </View>
 
       {/* Stats */}
-      {quotesToDisplay.length === 0 ? (
-        <InteractiveTooltip
-          text="Les citations enregistrées se retrouvent ici."
-          stepName="myQuotesList"
-          placement="bottom"
-        >
+      <InteractiveTooltip
+        stepName="filterTabs"
+        text="Vos citations sont regroupées par catégorie : Citations, Livres, Auteurs et Thèmes. Appuyez sur un onglet pour changer de vue."
+        placement="bottom"
+        allowChildInteraction={true}
+        verticalOffset={firstItemHeight + 20}
+      >
+        {quotesToDisplay.length === 0 ? (
+          <InteractiveTooltip
+            text="Les citations enregistrées se retrouvent ici."
+            stepName="myQuotesList"
+            placement="bottom"
+          >
+            <View style={[styles.stats, { width: '100%' }]}>
+              {statsContent}
+            </View>
+          </InteractiveTooltip>
+        ) : (
           <View style={[styles.stats, { width: '100%' }]}>
             {statsContent}
           </View>
-        </InteractiveTooltip>
-      ) : (
-        <InteractiveTooltip
-          text="Vos citations sont regroupées par catégorie : Citations, Livres, Auteurs et Thèmes. Appuyez sur un onglet pour changer de vue."
-          stepName="filterTabs"
-          placement="bottom"
-          allowChildInteraction={true}
-        >
-          <View style={[styles.stats, { width: '100%' }]}>
-            {statsContent}
-          </View>
-        </InteractiveTooltip>
-      )}
+        )}
+      </InteractiveTooltip>
 
       {/* Content — FlashList for virtualization */}
       <View style={styles.scrollView}>

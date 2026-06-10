@@ -11,7 +11,7 @@ import { Heart, Share2, MoreVertical, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { Quote } from '@/src/shared/api/types';
-import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour/model/useAppTourState';
+import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useTheme } from '@/src/app/providers/ThemeContext';

@@ -18,8 +18,7 @@ import { useRouter } from 'expo-router';
 import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff, RefreshCw } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, CameraDevice, CameraDeviceFormat, CodeScanner } from 'react-native-vision-camera';
-import { useAppTour } from '@/src/features/app-tour';
-import { InteractiveTooltip } from '@/src/features/app-tour/ui/InteractiveTooltip';
+import { useAppTour, InteractiveTooltip } from '@/src/features/app-tour';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';

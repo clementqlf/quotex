@@ -19,8 +19,7 @@ import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
-import { InteractiveTooltip } from '@/src/features/app-tour/ui/InteractiveTooltip';
-import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour/model/useAppTourState';
+import { InteractiveTooltip, useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
 import Animated, {
   useAnimatedRef,
   useSharedValue,

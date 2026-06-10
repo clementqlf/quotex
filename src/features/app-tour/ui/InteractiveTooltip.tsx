@@ -19,6 +19,8 @@ interface Props {
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'center';
   childrenWrapperStyle?: StyleProp<ViewStyle>;
   useReactNativeModal?: boolean;
+  childContentSpacing?: number;
+  verticalOffset?: number;
 }
 
 const STEP_TAB_MAP: Record<TourStep, number | null> = {
@@ -52,6 +54,8 @@ export function InteractiveTooltip({
   placement = 'bottom',
   childrenWrapperStyle,
   useReactNativeModal,
+  childContentSpacing,
+  verticalOffset,
 }: Props) {
   const { isActive, currentStepIndex, nextStep, prevStep, stopTour } = useAppTourState();
   const colors = useTheme().colors;
@@ -75,6 +79,7 @@ export function InteractiveTooltip({
 
   const isInsideModal = activeStepName === 'quoteDetailIA' || activeStepName === 'quoteDetailClose';
   const shouldReactNativeModal = useReactNativeModal ?? true;
+  const tooltipBgColor = 'rgba(0,0,0,0.6)';
 
   useEffect(() => {
     if (!activeStepName) return;
@@ -133,12 +138,35 @@ export function InteractiveTooltip({
     prevStep();
   };
 
+  const baseTopAdjustment = isInsideModal && Platform.OS === 'ios' 
+    ? Math.max(screenHeight - windowHeight, insets.top > 0 ? insets.top + 10 : 0) 
+    : 0;
+
+  const getPaddingStyle = () => {
+    if (!verticalOffset) return {};
+    switch (placement) {
+      case 'bottom':
+        return { paddingTop: verticalOffset };
+      case 'top':
+        return { paddingBottom: verticalOffset };
+      case 'left':
+        return { paddingRight: verticalOffset };
+      case 'right':
+        return { paddingLeft: verticalOffset };
+      default:
+        return {};
+    }
+  };
+
   return (
     <Tooltip
       key={activeStepName || 'inactive'}
       isVisible={localVisible}
       content={
-        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.surfaceHighlight }]}>
+        <View style={[
+          styles.container, 
+          { backgroundColor: colors.surface, borderColor: colors.surfaceHighlight }
+        ]}>
           <View style={styles.header}>
             <Text style={[styles.stepBadge, { color: colors.primary, backgroundColor: colors.primaryLight }]}>
               Étape {globalStepIndex + 1} / {TOUR_STEPS.length}
@@ -166,11 +194,18 @@ export function InteractiveTooltip({
       onClose={() => {}}
       allowChildInteraction={allowChildInteraction}
       closeOnChildInteraction={closeOnChildInteraction}
-      backgroundColor="rgba(0,0,0,0.6)"
-      contentStyle={{ backgroundColor: 'transparent', padding: 0, borderRadius: 18, elevation: 0 }}
+      backgroundColor={tooltipBgColor}
+      contentStyle={{ 
+        backgroundColor: 'transparent', 
+        padding: 0, 
+        borderRadius: 18, 
+        elevation: 0,
+        ...getPaddingStyle()
+      }}
       childrenWrapperStyle={childrenWrapperStyle}
       useReactNativeModal={shouldReactNativeModal}
-      topAdjustment={isInsideModal && Platform.OS === 'ios' ? Math.max(screenHeight - windowHeight, insets.top > 0 ? insets.top + 10 : 0) : 0}
+      topAdjustment={baseTopAdjustment}
+      childContentSpacing={childContentSpacing}
     >
       {children}
     </Tooltip>
