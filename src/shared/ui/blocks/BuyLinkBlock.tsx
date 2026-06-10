@@ -109,6 +109,7 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
             </View>
         </TouchableOpacity>
     );
+};
 
     return (
         <BlockWrapper blockKey="buy" onRemove={onRemove}>
@@ -125,9 +126,6 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
                     </TouchableOpacity>
                 )}
             </View>
-            <Text style={{ fontSize: 10, color: colors.textTertiary, textAlign: 'center', marginTop: 12 }}>
-                Quotex peut percevoir une commission sur les achats effectués via ces liens.
-            </Text>
 
             <Modal
                 visible={isModalVisible}
@@ -155,9 +153,6 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
                             <View style={styles.modalGrid}>
                                 {allLinks.map((link, idx) => renderLink(link, idx, true))}
                             </View>
-                            <Text style={{ fontSize: 10, color: colors.textTertiary, textAlign: 'center', marginTop: 24 }}>
-                                Quotex peut percevoir une commission sur les achats effectués via ces liens.
-                            </Text>
                         </ScrollView>
                     </SafeAreaView>
                 </View>
