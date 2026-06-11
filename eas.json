@@ -10,9 +10,7 @@
         "simulator": true
       },
       "env": {
-        "NODE_ENV": "development",
-        "SUPABASE_URL": "@@SUPABASE_DEV_URL@@",
-        "SUPABASE_ANON_KEY": "@@SUPABASE_DEV_KEY@@"
+        "NODE_ENV": "development"
       }
     },
     "staging": {
@@ -24,9 +22,7 @@
         "simulator": false
       },
       "env": {
-        "NODE_ENV": "staging",
-        "SUPABASE_URL": "@@SUPABASE_STAGING_URL@@",
-        "SUPABASE_ANON_KEY": "@@SUPABASE_STAGING_KEY@@"
+        "NODE_ENV": "staging"
       }
     },
     "production": {
@@ -38,9 +34,7 @@
         "simulator": false
       },
       "env": {
-        "NODE_ENV": "production",
-        "SUPABASE_URL": "@@SUPABASE_PROD_URL@@",
-        "SUPABASE_ANON_KEY": "@@SUPABASE_PROD_KEY@@"
+        "NODE_ENV": "production"
       }
     }
   },
@@ -50,7 +44,7 @@
         "track": "production"
       },
       "ios": {
-        "ascAppId": "@@ASC_APP_ID@@"
+        "ascAppId": "com.quotex.app"
       }
     }
   }

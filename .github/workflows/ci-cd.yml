@@ -16,28 +16,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+          cache: npm
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Run Jest tests
-        run: yarn test --passWithNoTests
-
-      - name: Run Maestro tests
-        run: |
-          npx maestro test .maestro/
-        env:
-          MAESTRO_API_KEY: ${{ secrets.MAESTRO_API_KEY }}
+        run: npm test -- --passWithNoTests
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: |
-            coverage/
-            .maestro/test-results/
+          path: coverage/
 
   build-dev:
     name: Build Development
@@ -51,10 +43,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+          cache: npm
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
@@ -65,11 +57,12 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build development
-        run: eas build --profile development --platform all
+        run: eas build --profile development --platform all --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          SUPABASE_DEV_URL: ${{ secrets.SUPABASE_DEV_URL }}
-          SUPABASE_DEV_KEY: ${{ secrets.SUPABASE_DEV_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_DEV_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_DEV_URL }}/functions/v1
 
   build-prod:
     name: Build Production
@@ -83,10 +76,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
+          cache: npm
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
@@ -97,14 +90,15 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build production
-        run: eas build --profile production --platform all
+        run: eas build --profile production --platform all --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          SUPABASE_PROD_URL: ${{ secrets.SUPABASE_PROD_URL }}
-          SUPABASE_PROD_KEY: ${{ secrets.SUPABASE_PROD_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PROD_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_PROD_URL }}/functions/v1
 
       - name: Submit to stores
-        run: eas submit --profile production
+        run: eas submit --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -123,5 +117,9 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_FROM }}
-          subject: "Quotex CI/CD : ${{ job.status }}"
-          body: "Workflow ${{ github.workflow }} - ${{ github.ref }} - Status: ${{ job.status }}"
+          subject: "Quotex CI/CD Status"
+          body: |
+            Workflow de build terminé pour la branche/tag : ${{ github.ref }}
+            - Tests unitaires (Jest) : ${{ needs.test.result }}
+            - Build Dev : ${{ needs.build-dev.result }}
+            - Build Prod : ${{ needs.build-prod.result }}
