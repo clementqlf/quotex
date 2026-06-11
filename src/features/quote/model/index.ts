@@ -2,4 +2,4 @@
 export { QuoteUseCases } from './QuoteUseCases';
 
 // Re-export types from the shared types
-export type { Quote, CreateQuoteDto } from '@/src/shared/api/types';
+export type { CreateQuoteDto, Quote } from '@/src/shared/api/types';

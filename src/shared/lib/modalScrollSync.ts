@@ -7,9 +7,9 @@
  * FSD: placed in shared so both entities and features can use it
  * without creating cross-layer imports.
  */
-import { scrollTo } from 'react-native-reanimated';
-import type { AnimatedRef } from 'react-native-reanimated';
 import type { ScrollView } from 'react-native';
+import type { AnimatedRef } from 'react-native-reanimated';
+import { scrollTo } from 'react-native-reanimated';
 
 type ScrollToFn = (y: number, animated?: boolean) => void;
 

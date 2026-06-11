@@ -1,9 +1,8 @@
 name: Quotex CI/CD
 on:
   push:
-    branches: [main, scope4_v2, scope5, scope6]
-  pull_request:
-    branches: [main]
+    branches: ['**']
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -23,6 +22,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       - name: Run Jest tests
         run: npm test -- --passWithNoTests
@@ -51,29 +56,40 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: Install Maestro
         run: curl -Ls https://mobile.dev/install | bash
 
-      - name: Start Android emulator
+      - name: Setup Gradle Cache
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Run E2E Tests (Build & Test)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           arch: x86_64
           profile: pixel_6_pro
           ndk: 23.2.8568313
-
-      - name: Build Android app
-        run: npx eas build --profile development --platform android --non-interactive
+          script: |
+            npx eas build --profile development --platform android --local --non-interactive --output=app.apk
+            adb install app.apk
+            npx maestro test .maestro/
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_DEV_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_DEV_URL }}/functions/v1
 
-      - name: Run Maestro tests
-        run: npx maestro test .maestro/
 
   build-dev:
     name: Build Development
     needs: test
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -87,16 +103,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Login EAS
-        run: eas login --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
       - name: Build development
-        run: eas build --profile development --platform all --non-interactive
+        run: npx eas build --profile development --platform all --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
@@ -120,16 +128,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Login EAS
-        run: eas login --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
       - name: Build production
-        run: eas build --profile production --platform all --non-interactive
+        run: npx eas build --profile production --platform all --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
@@ -137,7 +137,7 @@ jobs:
           EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_PROD_URL }}/functions/v1
 
       - name: Submit to stores
-        run: eas submit --profile production --non-interactive
+        run: npx eas submit --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 

@@ -1,11 +1,11 @@
-import { renderHook, act } from '@testing-library/react-native';
-import { useQuoteActions } from '../useQuoteActions';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
-import { PlatformServices } from '@/src/shared/platform';
-import { Quote } from '@/src/shared/api/types';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { Quote } from '@/src/shared/api/types';
+import { PlatformServices } from '@/src/shared/platform';
+import { act, renderHook } from '@testing-library/react-native';
+import { useQuoteActions } from '../useQuoteActions';
 
 jest.mock('@/src/entities/quote/providers/QuoteProvider');
 jest.mock('@/src/entities/author/providers/AuthorProvider');

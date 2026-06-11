@@ -1,5 +1,5 @@
-import { QuoteUseCases } from '../QuoteUseCases';
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
+import { QuoteUseCases } from '../QuoteUseCases';
 
 const mockRepository: jest.Mocked<IQuoteRepository> = {
   getQuoteById: jest.fn(),

@@ -1,5 +1,5 @@
-import { StyleSheet } from 'react-native';
 import { ThemeColors } from '@/src/shared/theme';
+import { StyleSheet } from 'react-native';
 
 export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },

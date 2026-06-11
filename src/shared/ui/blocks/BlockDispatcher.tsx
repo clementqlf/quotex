@@ -1,20 +1,20 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { BlockKey } from '@/src/shared/config/blocks';
-import { Book, Author, Quote } from '@/src/shared/api/types';
-import ReviewBlock from '@/src/entities/book/ui/ReviewBlock';
-import { BookInfoBlock } from './BookInfoBlock';
-import { AuthorBlock } from './AuthorBlock';
-import { NotesBlock } from './NotesBlock';
-import { SimilarBooksBlock } from './SimilarBooksBlock';
-import { SimilarAuthorsBlock } from './SimilarAuthorsBlock';
-import { DefinitionBlock } from './DefinitionBlock';
-import { SavedQuotesBlock } from './SavedQuotesBlock';
-import { BuyLinkBlock } from './BuyLinkBlock';
-import { EditionsBlock } from './EditionsBlock';
-import { ConnectionBlock } from './ConnectionBlock';
-import { BlockWrapper } from './BlockWrapper';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import ReviewBlock from '@/src/entities/book/ui/ReviewBlock';
+import { Author, Book, Quote } from '@/src/shared/api/types';
+import { BlockKey } from '@/src/shared/config/blocks';
+import React from 'react';
+import { Text, View } from 'react-native';
+import { AuthorBlock } from './AuthorBlock';
+import { BlockWrapper } from './BlockWrapper';
+import { BookInfoBlock } from './BookInfoBlock';
+import { BuyLinkBlock } from './BuyLinkBlock';
+import { ConnectionBlock } from './ConnectionBlock';
+import { DefinitionBlock } from './DefinitionBlock';
+import { EditionsBlock } from './EditionsBlock';
+import { NotesBlock } from './NotesBlock';
+import { SavedQuotesBlock } from './SavedQuotesBlock';
+import { SimilarAuthorsBlock } from './SimilarAuthorsBlock';
+import { SimilarBooksBlock } from './SimilarBooksBlock';
 
 // Defined context interface to pass necessary data to blocks
 export interface BlockContext {

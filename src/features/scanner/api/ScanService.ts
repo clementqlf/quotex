@@ -1,15 +1,14 @@
-import { z } from 'zod';
-import { Platform } from 'react-native';
-import { PhotoFile } from 'react-native-vision-camera';
-import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
+import { authService } from '@/src/entities/user/api/AuthService';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
 import { searchService } from '@/src/features/search/api/SearchService';
-import { PlatformServices } from '@/src/shared/platform';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Quote } from '@/src/shared/api/types';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { PlatformServices } from '@/src/shared/platform';
+import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
+import * as FileSystem from 'expo-file-system/legacy';
+import { PhotoFile } from 'react-native-vision-camera';
+import { z } from 'zod';
 
 const ImportPayloadSchema = z.object({
   title: z.string().min(1),

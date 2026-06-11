@@ -1,7 +1,7 @@
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Author, Book } from '@/src/shared/api/types';
-import { IAuthorRepository } from './IAuthorRepository';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 import { authorService } from '../api/AuthorService';
+import { IAuthorRepository } from './IAuthorRepository';
 
 /**
  * Implémentation du Repository Author avec Supabase

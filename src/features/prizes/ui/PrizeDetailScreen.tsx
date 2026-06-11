@@ -1,25 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Image,
-    ActivityIndicator
-} from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { ArrowLeft, Award, User, BookOpen, Calendar } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
+import { authService } from '@/src/entities/user/api/AuthService';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { API_BASE_URL } from '@/src/shared/config/api';
-import { authService } from '@/src/entities/user/api/AuthService';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { ThemeColors } from '@/src/shared/theme';
+import { FlashList } from '@shopify/flash-list';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ArrowLeft, Award, BookOpen, Calendar, User } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export const PrizeSkeleton = ({ colors }: { colors: ThemeColors }) => {
   const opacity = useSharedValue(0.3);

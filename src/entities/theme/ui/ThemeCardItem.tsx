@@ -1,13 +1,13 @@
-import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { useRouter } from 'expo-router';
+import React, { useMemo } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 interface ThemeCardData {
   theme: string;

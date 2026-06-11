@@ -1,7 +1,5 @@
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { SupabaseQuoteRepository } from '../SupabaseQuoteRepository';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
 
 // Mock global.fetch
 const mockFetch = jest.fn();

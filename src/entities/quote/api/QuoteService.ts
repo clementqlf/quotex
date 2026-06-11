@@ -1,14 +1,8 @@
 import { Quote } from '@/src/shared/api/types';
-import { Platform } from 'react-native';
-import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
-import { supabase } from '@/src/shared/api/supabase';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 
-import { API_BASE_URL } from '@/src/shared/config/api';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { SupabaseQuoteRepository } from './SupabaseQuoteRepository';
 import { QuoteUseCases } from '@/src/features/quote/model/QuoteUseCases';
+import { SupabaseQuoteRepository } from './SupabaseQuoteRepository';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));

@@ -1,14 +1,14 @@
+import { BookOpen, ChevronRight, X } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
   Image,
+  PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  PanResponder,
 } from 'react-native';
-import { BookOpen, ChevronRight, X } from 'lucide-react-native';
 import { ExternalBookData } from '../api/ScanService';
 
 /**

@@ -1,6 +1,6 @@
 import {
-  reconstructTextFromWords,
-  calculateGlobalAngle
+  calculateGlobalAngle,
+  reconstructTextFromWords
 } from '../textReconstructor';
 
 describe('textReconstructor', () => {

@@ -1,10 +1,9 @@
-import React, { createContext, useContext, useMemo, ReactNode, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Quote, User } from '@/src/shared/api/types';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { useNetworkSync, SyncStatus } from '@/src/entities/quote/lib/useNetworkSync';
 import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
-import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
+import { SyncStatus, useNetworkSync } from '@/src/entities/quote/lib/useNetworkSync';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { Quote, User } from '@/src/shared/api/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
 
 type QuoteContextType = {
   quotes: Quote[];

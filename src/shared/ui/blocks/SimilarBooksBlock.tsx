@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet } from 'react-native';
-import { Book as BookIcon } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { Book } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
+import { Book as BookIcon } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface SimilarBooksBlockProps {
     books: (Book | any)[]; // Flexible type as sometimes it's partial data or just strings

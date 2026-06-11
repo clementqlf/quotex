@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Text, StyleSheet, TextStyle, ViewStyle, View, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 import { colors } from '../theme';
 
 interface TypingTextProps {

@@ -1,5 +1,5 @@
-import { PhotoFile } from 'react-native-vision-camera';
 import { getBlockRectOnScreen, getPhotoOrientation, ImageSize, MLKitText } from '@/src/shared/lib/scanGeometry';
+import { PhotoFile } from 'react-native-vision-camera';
 
 const NATURAL_HYPHEN_PARTS = new Set([
     // Pronouns

@@ -1,9 +1,9 @@
+import { IAuthorRepository } from '@/src/entities/author/api/IAuthorRepository';
+import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
+import { render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Text } from 'react-native';
-import { render, waitFor } from '@testing-library/react-native';
 import { RepositoriesProvider, useRepositories } from '../RepositoriesProvider';
-import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
-import { IAuthorRepository } from '@/src/entities/author/api/IAuthorRepository';
 
 jest.mock('@/src/entities/quote/api/SupabaseQuoteRepository', () => ({
   SupabaseQuoteRepository: {

@@ -1,16 +1,12 @@
 // Navigation abstraite
 export {
-  INavigationService,
-  NavigateOptions,
-  RouteParams,
-  NavigationProvider,
-  useNavigation,
-  ExpoRouterAdapter,
+  ExpoRouterAdapter, INavigationService,
+  NavigateOptions, NavigationProvider, RouteParams, useNavigation
 } from './NavigationContext';
 
 export {
   MockNavigationService,
-  createMockNavigationService,
+  createMockNavigationService
 } from './MockNavigationService';
 
 export { useSmartNavigation } from './useSmartNavigation';

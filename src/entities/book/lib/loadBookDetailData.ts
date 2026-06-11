@@ -1,8 +1,8 @@
 import { Author, Book } from '@/src/shared/api/types';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { buildBookImportPayload } from './bookImport';
-import type { BookImportPayload } from './bookImport';
 import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
+import type { BookImportPayload } from './bookImport';
+import { buildBookImportPayload } from './bookImport';
 
 // Debug flag - set to false to disable most logs in production
 const DEBUG_BOOK_DETAIL = false;

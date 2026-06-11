@@ -1,19 +1,19 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
-import { ChevronLeft, Plus, Calendar, BookOpen, Star, Share as ShareIcon, Check } from 'lucide-react-native';
-import Sortable from 'react-native-sortables';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { useBookDetailController } from './useBookDetailController';
-import { BookDetailSkeleton } from './BookDetailSkeleton';
-import { createStyles } from './BookDetail.styles';
-import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
-import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
+import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
-import Animated from 'react-native-reanimated';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
+import { Image } from 'expo-image';
+import { BookOpen, Calendar, Check, ChevronLeft, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
+import React, { useCallback, useMemo } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Sortable from 'react-native-sortables';
+import { createStyles } from './BookDetail.styles';
+import { BookDetailSkeleton } from './BookDetailSkeleton';
+import { useBookDetailController } from './useBookDetailController';
 
 export default function BookDetailScreen() {
   const { colors } = useTheme();

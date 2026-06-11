@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    Modal,
-    TextInput,
-    Image,
-    ActivityIndicator,
-    Dimensions
-} from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { X, Search, BookOpen, User, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { SearchResults, searchService } from '@/src/features/search/api/SearchService';
+import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
-import { searchService, SearchResults } from '@/src/features/search/api/SearchService';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { FlashList } from '@shopify/flash-list';
+import { ArrowRight, BookOpen, Search, User, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 interface ResourceSearchModalProps {
     visible: boolean;
@@ -163,7 +163,7 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
                                 ListEmptyComponent={
                                     query.length > 1 ? (
                                         <View style={styles.emptyState}>
-                                            <Text style={styles.emptyText}>Aucun résultat pour "{query}"</Text>
+                                            <Text style={styles.emptyText}>{`Aucun résultat pour "${query}"`}</Text>
                                         </View>
                                     ) : (
                                         <View style={styles.emptyState}>

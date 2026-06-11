@@ -1,16 +1,16 @@
-import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
-import { Camera, useCameraPermission } from 'react-native-vision-camera';
+import { Camera } from 'react-native-vision-camera';
 import {
-  IClipboardService,
-  IShareService,
-  IHapticService,
-  IFileSystemService,
-  ILinkingService,
+  HapticFeedbackType,
   ICameraService,
+  IClipboardService,
+  IFileSystemService,
+  IHapticService,
+  ILinkingService,
   IPlatformServices,
-  HapticFeedbackType
+  IShareService
 } from './services';
 
 // ============================================
@@ -204,12 +204,5 @@ export const PlatformServices = ExpoPlatformServices.getInstance();
 
 // Export des types
 export type {
-  IClipboardService,
-  IShareService,
-  IHapticService,
-  IFileSystemService,
-  ILinkingService,
-  ICameraService,
-  IPlatformServices,
-  HapticFeedbackType
+  HapticFeedbackType, ICameraService, IClipboardService, IFileSystemService, IHapticService, ILinkingService, IPlatformServices, IShareService
 };

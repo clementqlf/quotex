@@ -1,7 +1,7 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useSharedValue } from 'react-native-reanimated';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
 import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
-import { useSharedValue } from 'react-native-reanimated';
 import { useRunOnJS } from 'react-native-worklets-core';
 
 type UseLiveOCRProps = {

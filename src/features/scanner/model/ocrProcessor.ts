@@ -1,5 +1,5 @@
-import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { calculateTextGeometry } from '@/src/shared/lib/scanGeometry';
+import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
 
 // Types étendus pour les éléments ML Kit avec les propriétés réelles
 interface MLKitTextElement extends TextElement {

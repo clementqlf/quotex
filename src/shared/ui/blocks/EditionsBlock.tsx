@@ -1,20 +1,20 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    Image,
-    TouchableOpacity,
-    ActivityIndicator,
-    StyleSheet,
-    Linking,
-} from 'react-native';
-import { BookCopy, ExternalLink } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
 import { Book } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
+import { ThemeColors } from '@/src/shared/theme';
+import { BookCopy, ExternalLink } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface Edition {
     id: number;

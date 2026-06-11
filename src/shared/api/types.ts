@@ -1,13 +1,10 @@
-import type { User, CreateUserDto, UpdateUserDto } from '@/src/entities/user/model/User';
-import type { Author, ReadingStatus, Laureate, CreateAuthorDto } from '@/src/entities/author/model/Author';
-import type { Book, CreateBookDto, BookImportPayload } from '@/src/entities/book/model/Book';
-import type { Quote, CreateQuoteDto, UpdateQuoteDto } from '@/src/entities/quote/model/Quote';
+import type { Author, CreateAuthorDto, Laureate, ReadingStatus } from '@/src/entities/author/model/Author';
+import type { Book, BookImportPayload, CreateBookDto } from '@/src/entities/book/model/Book';
+import type { CreateQuoteDto, Quote, UpdateQuoteDto } from '@/src/entities/quote/model/Quote';
+import type { CreateUserDto, UpdateUserDto, User } from '@/src/entities/user/model/User';
 
 export type {
-  User, CreateUserDto, UpdateUserDto,
-  Author, ReadingStatus, Laureate, CreateAuthorDto,
-  Book, CreateBookDto, BookImportPayload,
-  Quote, CreateQuoteDto, UpdateQuoteDto
+  Author, Book, BookImportPayload, CreateAuthorDto, CreateBookDto, CreateQuoteDto, CreateUserDto, Laureate, Quote, ReadingStatus, UpdateQuoteDto, UpdateUserDto, User
 };
 
 // Autres types (Review, LiteraryPrize, etc.)

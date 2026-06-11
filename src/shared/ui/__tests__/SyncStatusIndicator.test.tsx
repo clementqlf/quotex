@@ -1,8 +1,8 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { SyncStatusIndicator } from '../SyncStatusIndicator';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { fireEvent, render } from '@testing-library/react-native';
+import React from 'react';
+import { SyncStatusIndicator } from '../SyncStatusIndicator';
 
 // Mocks
 jest.mock('@/src/entities/quote/providers/QuoteProvider', () => ({

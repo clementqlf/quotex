@@ -3,7 +3,7 @@
  * Représente un livre dans le domaine métier
  */
 
-import { ReadingStatus, Laureate, Author } from '@/src/entities/author/model/Author';
+import { Author, Laureate, ReadingStatus } from '@/src/entities/author/model/Author';
 
 // Type de base pour un livre
 export interface Book {

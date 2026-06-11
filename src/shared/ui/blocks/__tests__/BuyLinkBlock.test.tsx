@@ -1,9 +1,9 @@
-import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Linking } from 'react-native';
-import { BuyLinkBlock } from '../BuyLinkBlock';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import React from 'react';
+import { Linking } from 'react-native';
+import { BuyLinkBlock } from '../BuyLinkBlock';
 
 jest.mock('@/src/app/providers/ThemeContext', () => ({
   useTheme: jest.fn(),

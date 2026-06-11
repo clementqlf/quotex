@@ -1,4 +1,4 @@
-import { IScanner, CaptureResult, ScannerState, OnCodeScannedCallback, OnTextRecognizedCallback } from './IScanner';
+import { CaptureResult, IScanner, OnCodeScannedCallback, OnTextRecognizedCallback, ScannerState } from './IScanner';
 
 /**
  * Implémentation Mock du scanner pour les tests

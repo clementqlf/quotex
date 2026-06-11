@@ -1,6 +1,6 @@
+import { Redirect, useRouter, useSegments } from 'expo-router';
 import React from 'react';
 import { useAuth } from './AuthContext';
-import { useSegments, useRouter, Redirect } from 'expo-router';
 
 // Constante centrale pour les segments d'authentification
 const AUTH_SEGMENTS = new Set([

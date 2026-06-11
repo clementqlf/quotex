@@ -1,10 +1,10 @@
-import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { QuoteProvider, useQuote } from '../src/entities/quote/providers/QuoteProvider';
-import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import React from 'react';
+import { Button, Text, View } from 'react-native';
 import { RepositoriesProvider } from '../src/app/providers/RepositoriesProvider';
-import { Text, Button, View } from 'react-native';
+import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
+import { QuoteProvider, useQuote } from '../src/entities/quote/providers/QuoteProvider';
 
 // Mocker le hook de réseau
 jest.mock('../src/entities/quote/lib/useNetworkSync', () => ({

@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { User } from '@/src/shared/api/types';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { User } from '@/src/shared/api/types';
+import { useQuery } from '@tanstack/react-query';
 
 export function useUserProfile(usernameParam?: string) {
   const { user: currentUser } = useAuth();

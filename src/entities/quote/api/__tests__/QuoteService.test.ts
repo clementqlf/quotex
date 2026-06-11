@@ -1,5 +1,5 @@
-import { quoteService } from '../QuoteService';
 import { StorageService } from '@/src/shared/api/StorageService';
+import { quoteService } from '../QuoteService';
 
 jest.mock('@/src/shared/api/StorageService', () => ({
   StorageService: {

@@ -1,8 +1,7 @@
-import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
-import { StorageService, STORAGE_KEYS } from '../src/shared/api/StorageService';
-import { httpClient } from '../src/shared/api/HttpClient';
-import { authService } from '../src/entities/user/api/AuthService';
 import { quoteService } from '../src/entities/quote/api/QuoteService';
+import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
+import { authService } from '../src/entities/user/api/AuthService';
+import { STORAGE_KEYS, StorageService } from '../src/shared/api/StorageService';
 
 jest.mock('../src/entities/quote/api/QuoteService', () => ({
   quoteService: {

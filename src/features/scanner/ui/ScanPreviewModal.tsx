@@ -1,32 +1,31 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import {
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Keyboard,
-    Dimensions,
-} from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { Heart, Share2, X, Book as BookIcon, User as UserIcon } from 'lucide-react-native';
-import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { searchService } from '@/src/features/search/api/SearchService';
+import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
 import { API_BASE_URL } from '@/src/shared/config/api';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { ThemeColors } from '@/src/shared/theme';
+import { Book as BookIcon, Heart, Share2, User as UserIcon, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import {
   CannonConfetti,
   type CannonConfettiMethods
 } from 'react-native-fast-confetti';
+import Svg, { Path } from 'react-native-svg';
 
 type ScanPreviewModalProps = {
     visible: boolean;

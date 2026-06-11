@@ -1,9 +1,9 @@
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { Quote } from '@/src/shared/api/types';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
 import { Share } from 'react-native';
 import QuoteCard from '../QuoteCard';
-import { Quote, Book, Author } from '@/src/shared/api/types';
-import { useTheme } from '@/src/app/providers/ThemeContext';
 
 // Mocks
 jest.mock('@/src/app/providers/ThemeContext', () => ({

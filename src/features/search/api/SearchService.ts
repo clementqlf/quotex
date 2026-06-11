@@ -1,7 +1,7 @@
-import { Quote, Author, Book } from '@/src/shared/api/types';
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { Author, Book, Quote } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 
 export interface SearchResults {
     quotes: Quote[];

@@ -1,5 +1,5 @@
-import { ScanService } from '../ScanService';
 import { searchService } from '@/src/features/search/api/SearchService';
+import { ScanService } from '../ScanService';
 
 jest.mock('@/src/features/search/api/SearchService');
 jest.mock('@react-native-ml-kit/text-recognition');

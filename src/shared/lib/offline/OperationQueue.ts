@@ -1,4 +1,4 @@
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 
 export type OperationType = 'LIKE' | 'UNLIKE' | 'SAVE' | 'UNSAVE' | 'DELETE' | 'UPDATE' | 'CREATE';
 

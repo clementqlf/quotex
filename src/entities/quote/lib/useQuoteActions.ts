@@ -1,12 +1,12 @@
-import { useCallback } from 'react';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { PlatformServices } from '@/src/shared/platform';
-import { Quote } from '@/src/shared/api/types';
-import { quoteService } from '@/src/features/quote/api/QuoteService';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { Quote } from '@/src/shared/api/types';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { PlatformServices } from '@/src/shared/platform';
+import { useCallback } from 'react';
 
 export interface HandleConfirmSaveOptions {
   onReset?: () => void;

@@ -1,22 +1,21 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
+import { Bug, Eraser, Trash2 } from 'lucide-react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Alert,
 } from 'react-native';
-import { Trash2, Bug, Eraser } from 'lucide-react-native';
-import { PhotoFile } from 'react-native-vision-camera';
-import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import { PhotoFile } from 'react-native-vision-camera';
 
-import { useScanState, WordData, ImageDisplayInfo, SelectionRange } from '../model/useScanState';
-import { useScanInteractions } from '../model/useScanInteractions';
-import { OcrProcessor } from '../model/ocrProcessor';
-import { PlatformServices } from '@/src/shared/platform';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { PlatformServices } from '@/src/shared/platform';
+import { useScanInteractions } from '../model/useScanInteractions';
+import { SelectionRange, useScanState } from '../model/useScanState';
 
 import ScanPreviewModal from './ScanPreviewModal';
 

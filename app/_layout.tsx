@@ -1,24 +1,21 @@
-import React, { useEffect } from 'react';
-import { Stack, useRouter, useSegments, usePathname, useGlobalSearchParams } from 'expo-router';
-import type { RootLayoutParams } from '@/src/shared/types/router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
 import { AuthProvider, useAuth } from '@/src/app/providers/AuthContext';
 import { AuthGuard } from '@/src/app/providers/AuthGuard';
+import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
 import { TabProvider } from '@/src/app/providers/TabContext';
 import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
-import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
-import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
 import { AuthorProvider } from '@/src/entities/author/providers/AuthorProvider';
+import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
 import { NavigationProvider } from '@/src/shared/navigation/NavigationContext';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
-import { useColorScheme } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Stack, useGlobalSearchParams, usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import * as SplashScreen from 'expo-splash-screen';
 import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
+import * as SplashScreen from 'expo-splash-screen';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
