@@ -26,7 +26,7 @@ interface DefinitionBlockProps {
     onRemove?: () => void;
 }
 
-export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
+const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
     blockKey = 'definition',
     definitions,
     onEditSelection,
@@ -145,6 +145,15 @@ export const DefinitionBlock: React.FC<DefinitionBlockProps> = ({
         </BlockWrapper>
     );
 };
+
+export const DefinitionBlock = React.memo(DefinitionBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.blockKey === nextProps.blockKey &&
+        prevProps.isAggregated === nextProps.isAggregated &&
+        prevProps.definitions.length === nextProps.definitions.length &&
+        JSON.stringify(prevProps.definitions) === JSON.stringify(nextProps.definitions)
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     container: {

@@ -52,7 +52,7 @@ export const useMyQuotes = () => {
   // Obtenir le nombre de livres uniques
   const getBookCount = useCallback(() => {
     return new Set(myQuotes.map(q => {
-      if (typeof q.book === 'object' && q.book) {
+      if (typeof q.book === 'object' && q.book !== null) {
         return q.book.title;
       }
       return q.book as string;
@@ -63,10 +63,10 @@ export const useMyQuotes = () => {
   const getAuthors = useCallback(() => {
     const authors = new Set<string>();
     myQuotes.forEach(q => {
-      if (typeof q.author === 'object' && q.author) {
+      if (typeof q.author === 'object' && q.author !== null) {
         authors.add(q.author.name);
-      } else {
-        authors.add(q.author as string);
+      } else if (typeof q.author === 'string') {
+        authors.add(q.author);
       }
     });
     return Array.from(authors);
@@ -81,12 +81,12 @@ export const useMyQuotes = () => {
     }> = {};
 
     myQuotes.forEach(quote => {
-      const title = typeof quote.book === 'object' && quote.book 
+      const title = typeof quote.book === 'object' && quote.book !== null 
         ? quote.book.title 
-        : (quote.book as string);
-      const author = typeof quote.author === 'object' && quote.author 
+        : quote.book as string;
+      const author = typeof quote.author === 'object' && quote.author !== null 
         ? quote.author.name 
-        : (quote.author as string);
+        : quote.author as string;
       
       if (!grouped[title]) {
         grouped[title] = { authors: new Set(), quoteCount: 0 };
@@ -104,9 +104,9 @@ export const useMyQuotes = () => {
       if (grouped[book.title]) {
         grouped[book.title].bookObj = book;
       } else if (book.isSaved) {
-        const authorName = typeof book.author === 'object' && book.author 
+        const authorName = typeof book.author === 'object' && book.author !== null 
           ? book.author.name 
-          : book.author;
+          : book.author as string;
         grouped[book.title] = {
           authors: new Set([authorName]),
           quoteCount: 0,
@@ -133,9 +133,9 @@ export const useMyQuotes = () => {
     const grouped: Record<string, { author: any; quoteCount: number }> = {};
 
     myQuotes.forEach(quote => {
-      const name = typeof quote.author === 'object' && quote.author 
+      const name = typeof quote.author === 'object' && quote.author !== null 
         ? quote.author.name 
-        : (quote.author as string);
+        : quote.author as string;
       
       if (!grouped[name]) {
         grouped[name] = { author: quote.author, quoteCount: 0 };
@@ -153,9 +153,9 @@ export const useMyQuotes = () => {
     });
 
     return Object.values(grouped).map((data: any) => ({
-      name: typeof data.author === 'object' && data.author 
+      name: typeof data.author === 'object' && data.author !== null 
         ? data.author.name 
-        : data.author,
+        : data.author as string,
       image: typeof data.author !== 'string' ? data.author?.image : null,
       quoteCount: data.quoteCount,
       inventaireUri: typeof data.author !== 'string' ? data.author?.inventaireUri : undefined,
@@ -172,9 +172,9 @@ export const useMyQuotes = () => {
         grouped[theme] = { books: new Set(), quoteCount: 0 };
       }
       
-      const bookTitle = typeof q.book === 'object' && q.book 
+      const bookTitle = typeof q.book === 'object' && q.book !== null 
         ? q.book.title 
-        : (q.book as string);
+        : q.book as string;
       grouped[theme].books.add(bookTitle);
       grouped[theme].quoteCount += 1;
     });

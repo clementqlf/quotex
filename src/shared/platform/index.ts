@@ -1,6 +1,9 @@
 // Platform Services
 export {
   PlatformServices,
+} from './ExpoPlatformServices';
+
+export type {
   IClipboardService,
   IShareService,
   IHapticService,
@@ -9,7 +12,7 @@ export {
   ICameraService,
   IPlatformServices,
   HapticFeedbackType,
-} from './ExpoPlatformServices';
+} from './services';
 
 export {
   usePlatformServices,
@@ -20,14 +23,3 @@ export {
   useLinking,
   useCamera,
 } from './usePlatformServices';
-
-export type {
-  IClipboardService,
-  IShareService,
-  IHapticService,
-  IFileSystemService,
-  ILinkingService,
-  ICameraService,
-  IPlatformServices,
-  HapticFeedbackType
-} from './services';

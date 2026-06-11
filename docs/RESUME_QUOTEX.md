@@ -1,14 +1,24 @@
 # 📖 Quotex - Résumé Exécutif
 
-> **Version** : 1.0  
-> **Date** : 30 mai 2026  
-> **Auteur** : Mistral Vibe
+> **Version** : 1.2  
+> **Date** : 31 mai 2026  
+> **Auteur** : Mistral Vibe & Antigravity
 
 ---
 
 ## 🎯 EN BREF
 
 **Quotex** est une **application mobile cross-platform (iOS/Android)** qui permet aux utilisateurs de **scanner, organiser et découvrir des citations littéraires** de manière intelligente et sociale.
+
+---
+
+## 🆕 DERNIÈRES AVANCÉES (31 Mai 2026)
+
+- **Architecture & Refactoring** : Découpage du "God Object" `DataProvider` achevé pour la partie citations via la mise en place de `QuoteProvider` et `RepositoriesProvider`.
+- **Système d'Avis & Modération (Nouveau)** : Implémentation d'un système d'avis style "App Store" (limité à un avis par utilisateur), avec calcul dynamique de la note moyenne des livres. Mise en place d'un système de modération (UGC) pour se conformer aux directives strictes des stores (App Store Audit Compliance).
+- **Affiliation & Monétisation** : Optimisation de la fiabilité des liens d'achat (Buy Links) via une logique de fallback robuste (recherche par ISBN puis Titre + Auteur).
+- **Performances & UI** : Intégration complète de `FlashList` (ex: `MyQuotesScreen`), correction des chargements infinis (Skeleton Loading), gestion affinée des formats de date (auteurs), et résolution des bugs de focus/curseur (`ScanPreviewModal`).
+- **Synchronisation & Realtime** : Correction majeure des abonnements Supabase (`useRealtimeEntity`), résolution des bugs de base de données synchrones et fiabilisation de la file d'attente hors-ligne.
 
 ---
 
@@ -74,55 +84,54 @@
 quotex/
 ├── app/                          # 📱 Routes (Expo Router)
 │   ├── (app)/                    # Zone authentifiée
-│   │   ├── index.tsx             # 3 onglets : MyQuotes / Scan / Social
+│   │   ├── index.tsx             # 3 onglets principaux
 │   │   ├── quote-detail.tsx      # Détail citation
 │   │   ├── book-detail.tsx       # Détail livre
 │   │   ├── author-detail.tsx     # Détail auteur
+│   │   ├── user-profile.tsx      # Profil utilisateur
+│   │   ├── settings.tsx          # Paramètres
 │   │   └── ...
 │   └── (auth)/                   # Authentification
 │       ├── login.tsx
 │       └── register.tsx
 │
-├── src/                          # 🏗️ Logique Métier
-│   ├── entities/                 # 📦 DDD: Auteurs, Livres, Citations, Utilisateurs
-│   │   ├── author/
-│   │   │   ├── api/AuthorService.ts
-│   │   │   └── ui/AuthorCardItem.tsx
-│   │   ├── book/
-│   │   │   ├── api/BookSearchService.ts
-│   │   │   └── ui/BookDetail.tsx
-│   │   ├── quote/
-│   │   │   ├── api/QuoteService.ts
-│   │   │   └── ui/QuoteCard.tsx
-│   │   └── user/
-│   │       └── api/AuthService.ts
+├── src/                          # 🏗️ Logique Métier (FSD / Clean Arch)
+│   ├── app/                      # ⚙️ Configuration & Providers globaux
+│   │   └── providers/            # RepositoriesProvider, AuthContext, DataProvider (legacy)
 │   │
-│   ├── features/                 # ✨ Fonctionnalités transverses
-│   │   ├── scanner/              # 📷 OCR + ISBN Scanner
-│   │   │   ├── model/useLiveOCR.ts
-│   │   │   └── ui/ScanWorkflow.tsx
-│   │   ├── dictionary/           # Dictionnaire (Wiktionary)
-│   │   └── search/               # Recherche
+│   ├── entities/                 # 📦 DDD: Entités métier de base
+│   │   ├── author/               # Modèles, Repositories, UI (AuthorDetail)
+│   │   ├── book/                 # Modèles, API, UI (BookDetail, ReviewBlock)
+│   │   ├── quote/                # Modèles, Repositories, QuoteProvider, Sync, UI
+│   │   ├── theme/                # UI des thèmes de citations
+│   │   └── user/                 # API Auth, Profil Utilisateur
 │   │
-│   ├── pages/                    # 📄 Pages principales
-│   │   ├── MyQuotesScreen.tsx
-│   │   ├── ScanScreen.tsx
-│   │   └── SocialFeedScreen.tsx
+│   ├── features/                 # ✨ Fonctionnalités & Écrans
+│   │   ├── dictionary/           # Intégration dictionnaire (Wiktionary)
+│   │   ├── edit-book/            # Modification avancée des blocs de livre
+│   │   ├── my-quotes/            # 📱 Écran principal MyQuotesScreen
+│   │   ├── prizes/               # Écran Prix Littéraires
+│   │   ├── scanner/              # 📷 OCR (Vision Camera) + ISBN Scanner
+│   │   ├── search/               # 🔍 Recherche globale (SearchScreen)
+│   │   ├── social/               # 👥 Écran SocialFeedScreen
+│   │   └── user-settings/        # ⚙️ Écran de paramètres (SettingsScreen)
 │   │
 │   └── shared/                   # 🔧 Code partagé
-│       ├── api/supabase.ts       # Client Supabase
-│       ├── api/StorageService.ts # Cache AsyncStorage
-│       ├── lib/hooks/useNetworkSync.ts  # Sync offline/online
-│       └── ui/blocks/            # 🧩 Système de blocs modulaires
-│           ├── BookInfoBlock.tsx
-│           ├── DefinitionBlock.tsx
-│           └── ...
+│       ├── api/                  # Clients externes (Supabase)
+│       ├── config/               # Configuration
+│       ├── lib/                  # Utilitaires, hooks partagés, gestion offline
+│       ├── navigation/           # Typage et utilitaires de navigation
+│       ├── platform/             # Code spécifique à la plateforme (iOS/Android/Web)
+│       ├── theme/                # Design system (Couleurs, typographie)
+│       └── ui/                   # Composants UI partagés, blocs modulaires
 │
 ├── supabase/                     # ☁️ Backend
 │   └── functions/                # Edge Functions
 │       ├── quotes/
 │       ├── authors/
 │       ├── books/
+│       ├── reviews/              # ⭐ Gestion des avis et notes
+│       ├── moderation/           # 🛡️ Système de modération (UGC)
 │       └── _shared/entityMatcher.ts
 │
 └── assets/                       # 🎨 Ressources
@@ -188,6 +197,12 @@ quotex/
   - Profils utilisateurs
   - Partage de citations
 
+### 7. ⭐ Système d'Avis et Modération (UGC)
+- **Fonctionnalités** :
+  - Notation et avis sur les livres (un seul avis par utilisateur)
+  - Calcul automatique et dynamique de la note moyenne du livre
+  - Système de modération et de signalement de contenu pour la conformité App Store/Play Store
+
 ---
 
 ## 🔒 SÉCURITÉ
@@ -232,8 +247,8 @@ quotex/
 | **Lignes de code** | ~5,000+ (à estimer) |
 | **Nombre de fichiers** | ~100+ |
 | **Dépendances npm** | 55+ |
-| **Edge Functions** | 10+ |
-| **Entités** | 4 (Quote, Book, Author, User) |
+| **Edge Functions** | 14 |
+| **Entités** | 5 (Quote, Book, Author, User, Theme) |
 | **Blocs modulaires** | 15+ |
 | **Couverture tests** | ~10-20% (à estimer) |
 
@@ -254,8 +269,7 @@ quotex/
 
 ### 🔴 Critique
 1. **Sécurité** : Clé Supabase exposée dans app.json
-2. **DataProvider** : God Object (~300+ lignes, trop de responsabilités)
-3. **Resolution de conflits** : Algorithme de sync à vérifier
+2. **Resolution de conflits** : Algorithme de sync à fiabiliser (bien que les bugs de synchronisation critiques aient été résolus)
 
 ### 🟡 Haute Priorité
 1. **Tests** : Couverture insuffisante (peu de tests E2E/intégration)
@@ -273,12 +287,14 @@ quotex/
 
 ### Phase 1 : Urgent (1-2 semaines)
 - [ ] **Corriger la sécurité** : Masquer la clé Supabase, auditer les RLS
-- [ ] **Fix les bugs critiques** : Vérifier la sync hors ligne, gestion des conflits
+- [x] **Fix les bugs critiques** : Bugs de sync hors ligne, realtime et base de données résolus
+- [x] **Conformité Stores** : Système de modération (UGC) implémenté pour l'App Store / Play Store
 - [ ] **Optimiser le bundle** : Analyser et réduire la taille
 
 ### Phase 2 : Haute Priorité (2-4 semaines)
 - [ ] **Améliorer les tests** : Ajouter des tests E2E avec Detox
-- [ ] **Refactor DataProvider** : Découper en plusieurs providers
+- [x] **Refactor DataProvider** : Découpage réalisé avec `RepositoriesProvider` et `QuoteProvider`
+- [x] **Système d'Avis** : Intégration des avis utilisateurs limités à un par livre avec notation dynamique
 - [ ] **Optimiser l'OCR** : Réduire la consommation CPU/GPU
 
 ### Phase 3 : Moyenne Priorité (1-2 mois)
@@ -295,6 +311,7 @@ quotex/
 
 ## 📝 CHECKLIST POUR AUDIT
 
+- [x] **Conformité Stores (UGC)** : Signalement, modération des avis et limitation d'un avis par utilisateur
 - [ ] **Sécurité** : Audit complet (RLS, Edge Functions, clés API)
 - [ ] **Stabilité** : Test des scénarios edge cases (hors ligne, conflits)
 - [ ] **Performances** : Profiling CPU/mémoire, optimisation du bundle
@@ -324,8 +341,8 @@ quotex/
 
 ---
 
-> **Généré par** : Mistral Vibe  
-> **Date** : 30 mai 2026  
-> **Version** : 1.0
+> **Généré par** : Mistral Vibe & Antigravity  
+> **Date** : 31 mai 2026  
+> **Version** : 1.2
 
 *Ce document est une synthèse de l'analyse complète disponible dans `QUOTEX_ANALYSE_ET_PROMPT_AUDIT.md`*

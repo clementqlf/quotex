@@ -1,0 +1,28 @@
+appId: com.quotex.app
+---
+- launchApp
+- assertVisible:
+    id: "my-quotes-tab"
+    timeout: 10000
+- tapOn:
+    id: "add-quote-button"
+- inputText:
+    id: "quote-input"
+    text: "Maestro test quote - offline first architecture."
+- inputText:
+    id: "book-input"
+    text: "Automated Book"
+- inputText:
+    id: "author-input"
+    text: "Test Author"
+- tapOn:
+    id: "save-button"
+- assertVisible:
+    id: "my-quotes-tab"
+- scrollUntilVisible:
+    element:
+      id: "quote-card-Maestro test quote"
+    direction: DOWN
+    timeout: 5000
+- assertVisible:
+    id: "quote-card-Maestro test quote"

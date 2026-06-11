@@ -16,7 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon, UserPlus, UserCheck } from 'lucide-react-native';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { authorService } from '@/src/entities/author/api/AuthorService';
 import { getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Author, Book } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -26,6 +28,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
   const opacity = useSharedValue(0.3);
@@ -45,22 +48,22 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
 
   return (
     <View style={{ flex: 1, padding: 16 }}>
-       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
-          <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-          <Animated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       </View>
-       
-       <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       
-       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-          <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-          <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-       </View>
-       
-       <Animated.View style={[{ width: '40%', height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+      <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
+        <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+        <Animated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+      </View>
+
+      <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+      <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+
+      <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+        <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+        <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
+      </View>
+
+      <Animated.View style={[{ width: '40%', height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+      <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
+      <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
     </View>
   );
 };
@@ -84,14 +87,34 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
       ? `https://inventaire.io${entity.image?.url || entity.image?.file}`
       : null;
     const birthDateRaw = claims['wdt:P569']?.[0];
-    const birthDate = birthDateRaw ? birthDateRaw.substring(0, 4) : null;
+    let birthDate = null;
+    if (birthDateRaw) {
+      const cleanDate = birthDateRaw.startsWith('+') ? birthDateRaw.substring(1) : birthDateRaw;
+      birthDate = cleanDate.split('T')[0];
+    }
 
     return { name, description, image, birthDate, nationality: null };
   } catch (e) {
-    console.error('[AuthorDetail] Failed to fetch external author details:', e);
+    logFetchError('[AuthorDetail] Failed to fetch external author details', e);
     return null;
   }
 }
+
+const formatDisplayDate = (dateStr?: string | null): string => {
+  if (!dateStr) return 'Inconnu';
+  if (/^\d{4}$/.test(dateStr)) return dateStr;
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime()) && (dateStr.includes('-') || dateStr.includes('/'))) {
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  return dateStr;
+};
 
 export default function AuthorDetailScreen() {
   const { user: currentUser } = useAuth();
@@ -105,7 +128,12 @@ export default function AuthorDetailScreen() {
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
 
-  const { quotes, authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleLikeQuote, toggleSaveAuthor, getNotableWorks } = useData();
+  // Remplacement de useData() par les hooks spécifiques
+  const { quotes } = useQuote();
+  const { authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleSaveAuthor, getNotableWorks } = useAuthor();
+  
+  // Wrapper pour toggleLikeQuote depuis useQuote
+  const { toggleLikeQuote } = useQuote();
   const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
@@ -121,7 +149,7 @@ export default function AuthorDetailScreen() {
 
     // 1. Try to find the author in our local cache first!
     let localAuthor = author || allAuthors.find(a => a.name.toLowerCase() === nameToUse.toLowerCase());
-    
+
     // 2. If we have the author locally, set it and disable full-screen loading immediately!
     if (localAuthor) {
       console.log('[AuthorDetail] Found author in local cache, loading instantly');
@@ -149,7 +177,7 @@ export default function AuthorDetailScreen() {
       if (fetchedAuthor) {
         setAuthorInfo(fetchedAuthor);
         activeAuthor = fetchedAuthor;
-        
+
         // If we didn't have an ID initially, we couldn't fetch notable works. Fetch them now!
         if (!initialAuthorId && fetchedAuthor.id) {
           console.log(`[AuthorDetail] Author fetched with ID ${fetchedAuthor.id}, now fetching notable works...`);
@@ -159,10 +187,10 @@ export default function AuthorDetailScreen() {
               booksToDisplay = fetchedWikiBooks;
             }
           } catch (e) {
-            console.error('[AuthorDetail] Failed to fetch notable works after author retrieval:', e);
+            logFetchError('[AuthorDetail] Failed to fetch notable works after author retrieval', e);
           }
         }
-        
+
         // Force enrichment if description is missing
         if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
           console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
@@ -182,7 +210,7 @@ export default function AuthorDetailScreen() {
               if (data.books) setAuthorBooks(data.books);
             }
           } catch (e) {
-            console.error('[AuthorDetail] Synch enrichment failed:', e);
+            logFetchError('[AuthorDetail] Synch enrichment failed', e);
           }
         }
       } else if (!activeAuthor && paramInventaireUri) {
@@ -208,7 +236,7 @@ export default function AuthorDetailScreen() {
       setAuthorBooks(booksToDisplay);
 
     } catch (error) {
-      console.error("Error loading author data:", error);
+      logFetchError("Error loading author data", error);
     } finally {
       setIsLoadingAuthor(false);
     }
@@ -240,7 +268,7 @@ export default function AuthorDetailScreen() {
       const works = await getBooksByAuthor(nameToUse, currentAuthorId);
       setAllWorks(works);
     } catch (error) {
-      console.error("Error fetching all works:", error);
+      logFetchError("Error fetching all works", error);
     } finally {
       setIsLoadingAllWorks(false);
     }
@@ -251,13 +279,13 @@ export default function AuthorDetailScreen() {
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
   const totalQuotes = useMemo(() => quotes.filter(q =>
-    typeof q.author === 'string' ? q.author === authorName : q.author?.name === authorName
+    typeof q.author === 'string' ? q.author === authorName : false
   ).length, [quotes, authorName]);
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
     const isMyQuote = q.user?.id === currentUser?.id || !q.user;
     if (!isMyQuote) return false;
-    const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
+      const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
     return qAuthorName === authorName;
   }).length, [quotes, authorName, currentUser]);
 
@@ -361,7 +389,7 @@ export default function AuthorDetailScreen() {
           <View style={styles.profileHeader}>
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
-            
+
             {authorInfo && authorInfo.id !== 0 && (
               <>
                 <Text style={styles.followersText}>
@@ -371,7 +399,7 @@ export default function AuthorDetailScreen() {
                     return `Suivi par ${count} personne${count > 1 ? 's' : ''}`;
                   })()}
                 </Text>
-                
+
                 <TouchableOpacity
                   style={[
                     styles.followButton,
@@ -396,16 +424,16 @@ export default function AuthorDetailScreen() {
                 </TouchableOpacity>
               </>
             )}
-            
-            <TouchableOpacity 
-              style={styles.wikipediaButton} 
+
+            <TouchableOpacity
+              style={styles.wikipediaButton}
               onPress={handleOpenWikipedia}
               activeOpacity={0.7}
             >
               <View style={styles.wikipediaLogoContainer}>
-                <Image 
-                  source={{ uri: 'https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2.png' }} 
-                  style={styles.wikipediaLogo} 
+                <Image
+                  source={{ uri: 'https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2.png' }}
+                  style={styles.wikipediaLogo}
                 />
               </View>
               <Text style={styles.wikipediaText}>Wikipédia</Text>
@@ -425,7 +453,7 @@ export default function AuthorDetailScreen() {
               <View style={styles.detailItem}>
                 <Calendar size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Naissance</Text>
-                <Text style={styles.detailValue}>{authorInfo?.birthDate || 'Inconnu'}</Text>
+                <Text style={styles.detailValue}>{formatDisplayDate(authorInfo?.birthDate)}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Globe size={16} color={colors.textTertiary} />
@@ -491,7 +519,7 @@ export default function AuthorDetailScreen() {
             const userQuotes = quotes.filter(q => {
               const isMyQuote = q.user?.id === currentUser?.id || !q.user;
               if (!isMyQuote) return false;
-              const qAuthorName = typeof q.author === 'string' ? q.author : q.author?.name;
+              const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
               return qAuthorName === authorName;
             });
 
@@ -560,6 +588,7 @@ export default function AuthorDetailScreen() {
                 <FlashList
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
+                  getItemType={() => 'work'}
                   contentContainerStyle={{ padding: 16 }}
                   renderItem={({ item }) => (
                     <TouchableOpacity

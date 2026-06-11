@@ -9,7 +9,7 @@ import { useLiveOCR } from './useLiveOCR';
  * Utilise react-native-vision-camera et ML Kit pour la reconnaissance de texte
  */
 export class VisionCameraScanner implements IScanner {
-  private cameraRef: React.RefObject<Camera>;
+  private cameraRef: React.RefObject<Camera | null>;
   private device: CameraDevice | undefined;
   private permission: { hasPermission: boolean; requestPermission: () => Promise<boolean> };
   
@@ -27,7 +27,7 @@ export class VisionCameraScanner implements IScanner {
   constructor() {
     // Initialiser avec des valeurs par défaut
     // Les vraies valeurs seront définies dans start()
-    this.cameraRef = React.createRef<Camera>();
+    this.cameraRef = React.createRef<Camera | null>();
     this.device = undefined;
     this.permission = { 
       hasPermission: false, 
@@ -40,7 +40,7 @@ export class VisionCameraScanner implements IScanner {
     const devices = await Camera.getAvailableCameraDevices();
     this.device = devices.find(d => d.position === 'back') || devices[0];
     
-    const { status } = await Camera.requestCameraPermission();
+    const status = await Camera.requestCameraPermission();
     this.state.hasPermission = status === 'granted';
     this.state.isActive = true;
   }
@@ -66,16 +66,16 @@ export class VisionCameraScanner implements IScanner {
 
   async toggleTorch(enabled: boolean): Promise<void> {
     this.state.torchEnabled = enabled;
-    if (this.cameraRef.current) {
-      await this.cameraRef.current.setTorch(enabled ? 'on' : 'off');
-    }
+      // Torch is controlled via the Camera component prop, not a method
+      // Store the state for the component to use
+      this.state.torchEnabled = enabled;
   }
 
   async setZoom(zoom: number): Promise<void> {
     this.state.zoom = zoom;
-    if (this.cameraRef.current) {
-      await this.cameraRef.current.setZoom(zoom);
-    }
+      // Zoom is controlled via the Camera component prop, not a method
+      // Store the state for the component to use
+      this.state.zoom = zoom;
   }
 
   onCodeScanned(callback: OnCodeScannedCallback): void {
@@ -87,7 +87,7 @@ export class VisionCameraScanner implements IScanner {
   }
 
   async requestPermission(): Promise<boolean> {
-    const { status } = await Camera.requestCameraPermission();
+    const status = await Camera.requestCameraPermission();
     this.state.hasPermission = status === 'granted';
     return this.state.hasPermission;
   }
@@ -101,6 +101,16 @@ export class VisionCameraScanner implements IScanner {
     this.state.isScanning = false;
     this.onCodeScannedCallback = null;
     this.onTextRecognizedCallback = null;
+
+    // ⚡ Désactiver la caméra native
+    if (this.cameraRef.current) {
+      try {
+        await (this.cameraRef.current as any)?.setActive?.(false);
+        this.cameraRef.current = null; // Libérer la référence
+      } catch (e) {
+        console.warn('[VisionCameraScanner] Error stopping camera:', e);
+      }
+    }
   }
 }
 
@@ -126,9 +136,10 @@ export const useVisionCameraScanner = (options: ScannerOptions = {}) => {
 
   // Gérer le code scanner
   const codeScanner = useCodeScanner({
+    codeTypes: ['ean-13', 'ean-8', 'qr'],
     onCodeScanned: (codes) => {
       if (codes.length > 0 && onCodeScannedCallback) {
-        onCodeScannedCallback(codes[0].value);
+        onCodeScannedCallback(codes[0].value ?? '');
       }
     },
   });
@@ -139,9 +150,9 @@ export const useVisionCameraScanner = (options: ScannerOptions = {}) => {
     isFocused: state.isActive && hasPermission,
     enabled: options.enabled !== false && !state.isScanning,
     scanInterval: options.scanInterval || 300,
-    onTextDetected: (text: string) => {
-      if (onTextRecognizedCallback) {
-        onTextRecognizedCallback(text);
+    onTextDetectedChange: (detected: boolean) => {
+      if (detected && onTextRecognizedCallback) {
+        onTextRecognizedCallback('');
       }
     },
   });
@@ -170,17 +181,13 @@ export const useVisionCameraScanner = (options: ScannerOptions = {}) => {
   }, []);
 
   const toggleTorch = useCallback(async (enabled: boolean) => {
-    setState(prev => ({ ...prev, torchEnabled: enabled }));
-    if (cameraRef.current) {
-      await cameraRef.current.setTorch(enabled ? 'on' : 'off');
-    }
+      // Torch is controlled via Camera component prop
+      setState(prev => ({ ...prev, torchEnabled: enabled }));
   }, []);
 
   const setZoom = useCallback(async (zoom: number) => {
-    setState(prev => ({ ...prev, zoom }));
-    if (cameraRef.current) {
-      await cameraRef.current.setZoom(zoom);
-    }
+      // Zoom is controlled via Camera component prop
+      setState(prev => ({ ...prev, zoom }));
   }, []);
 
   // Créer un objet scanner compatible avec IScanner

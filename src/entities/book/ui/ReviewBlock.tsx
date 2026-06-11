@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Image, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
-import { Star, User, Send, X } from 'lucide-react-native';
+import { Star, User, Send, X, MoreHorizontal, Trash2 } from 'lucide-react-native';
 import { Review, User as UserType } from '@/src/shared/api/types';
 import { ReviewService } from '@/src/shared/api/ReviewService';
+import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 
 interface ReviewBlockProps {
     bookId: number;
@@ -12,7 +15,7 @@ interface ReviewBlockProps {
     onReviewAdded?: () => void;
 }
 
-export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewBlockProps) {
+const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewAdded }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -21,6 +24,23 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
     const [comment, setComment] = useState('');
     const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const { user } = useAuth();
+    const { navigateToUserProfile } = useSmartNavigation();
+
+    const myReview = useMemo(() => {
+        if (!user) return null;
+        return reviews.find(r => r.user && String(r.user.id) === String(user.id)) || null;
+    }, [reviews, user]);
+
+    const communityReviews = useMemo(() => {
+        if (!user) return reviews;
+        return reviews.filter(r => !r.user || String(r.user.id) !== String(user.id));
+    }, [reviews, user]);
+
+    useEffect(() => {
+        setRating(myReview?.rating || 0);
+        setComment(myReview?.comment || '');
+    }, [myReview?.id]);
 
     useEffect(() => {
         loadReviews();
@@ -32,7 +52,19 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
         try {
             const fetchedReviews = await ReviewService.getReviewsByBookId(bookId);
             console.log(`[ReviewBlock] Fetched ${fetchedReviews.length} reviews`);
-            setReviews(fetchedReviews);
+            
+            const blockedUsers = await UGCModerationService.getBlockedUsers();
+            const reportedReviews = await UGCModerationService.getReportedReviews();
+            
+            const filteredReviews = fetchedReviews.filter(review => {
+                const userId = review.user?.id ? String(review.user.id) : null;
+                const reviewId = String(review.id);
+                if (userId && blockedUsers.includes(userId)) return false;
+                if (reportedReviews.includes(reviewId)) return false;
+                return true;
+            });
+            
+            setReviews(filteredReviews);
         } catch (error) {
             console.error("[ReviewBlock] Error loading reviews:", error);
             Alert.alert("Erreur", "Impossible de charger les avis. Veuillez vérifier votre connexion.");
@@ -41,28 +73,137 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
         }
     };
 
+    const handleReportReview = (reviewId: string | number) => {
+        Alert.alert(
+            "Signaler cet avis",
+            "Êtes-vous sûr de vouloir signaler ce contenu comme offensant ou inapproprié ?",
+            [
+                { text: "Annuler", style: "cancel" },
+                { 
+                    text: "Signaler", 
+                    style: "destructive",
+                    onPress: async () => {
+                        await UGCModerationService.reportReview(reviewId);
+                        Alert.alert("Succès", "Cet avis a été signalé et masqué.");
+                        loadReviews(); // Reload to apply filters
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleBlockUser = (userId: string | number | undefined) => {
+        if (!userId) return;
+        Alert.alert(
+            "Bloquer l'utilisateur",
+            "Voulez-vous vraiment bloquer cet utilisateur ? Vous ne verrez plus aucun de ses avis.",
+            [
+                { text: "Annuler", style: "cancel" },
+                { 
+                    text: "Bloquer", 
+                    style: "destructive",
+                    onPress: async () => {
+                        await UGCModerationService.blockUser(userId);
+                        Alert.alert("Succès", "Utilisateur bloqué. Ses avis seront masqués.");
+                        loadReviews(); // Reload to apply filters
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleUserPress = (reviewUser: UserType) => {
+        if (reviewUser && reviewUser.username) {
+            setAllReviewsVisible(false); // Close modal if open
+            navigateToUserProfile(reviewUser.username);
+        }
+    };
+
+    const handleDeleteMyReview = () => {
+        if (!myReview) return;
+        Alert.alert(
+            "Supprimer l'avis",
+            "Êtes-vous sûr de vouloir supprimer votre avis ?",
+            [
+                { text: "Annuler", style: "cancel" },
+                { 
+                    text: "Supprimer", 
+                    style: "destructive",
+                    onPress: async () => {
+                        const success = await ReviewService.deleteReview(myReview.id);
+                        if (success) {
+                            setReviews(prev => prev.filter(r => r.id !== myReview.id));
+                            setRating(0);
+                            setComment('');
+                            Alert.alert("Succès", "Votre avis a été supprimé.");
+                            loadReviews();
+                            if (onReviewAdded) onReviewAdded();
+                        } else {
+                            Alert.alert("Erreur", "Impossible de supprimer l'avis.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleReviewOptions = (review: Review) => {
+        Alert.alert(
+            "Options",
+            "Que souhaitez-vous faire avec cet avis ?",
+            [
+                { text: "Signaler ce contenu", onPress: () => handleReportReview(review.id) },
+                { text: "Bloquer cet utilisateur", onPress: () => handleBlockUser(review.user?.id) },
+                { text: "Annuler", style: "cancel" }
+            ],
+            { cancelable: true }
+        );
+    };
+
     const handlePublishReview = async () => {
         if (rating === 0) {
             Alert.alert("Erreur", "Veuillez donner une note.");
             return;
         }
 
-        const newReview = await ReviewService.createReview({
-            rating,
-            comment,
-            bookId,
-        });
+        if (UGCModerationService.containsOffensiveContent(comment)) {
+            Alert.alert("Erreur", "Votre commentaire contient un langage inapproprié et ne peut pas être publié.");
+            return;
+        }
 
-        if (newReview) {
-            setReviews([newReview, ...reviews]);
-            setRating(0);
-            setComment('');
-            Alert.alert("Succès", "Votre avis a été publié !");
-            if (onReviewAdded) {
-                onReviewAdded();
+        if (myReview) {
+            const updatedReview = await ReviewService.updateReview(myReview.id, {
+                rating,
+                comment,
+            });
+
+            if (updatedReview) {
+                setReviews(prev => prev.map(r => r.id === myReview.id ? { ...r, rating, comment } : r));
+                Alert.alert("Succès", "Votre avis a été mis à jour !");
+                loadReviews();
+                if (onReviewAdded) {
+                    onReviewAdded();
+                }
+            } else {
+                Alert.alert("Erreur", "Impossible de mettre à jour l'avis.");
             }
         } else {
-            Alert.alert("Erreur", "Impossible de publier l'avis.");
+            const newReview = await ReviewService.createReview({
+                rating,
+                comment,
+                bookId,
+            });
+
+            if (newReview) {
+                setReviews(prev => [newReview, ...prev]);
+                Alert.alert("Succès", "Votre avis a été publié !");
+                loadReviews();
+                if (onReviewAdded) {
+                    onReviewAdded();
+                }
+            } else {
+                Alert.alert("Erreur", "Impossible de publier l'avis.");
+            }
         }
     };
 
@@ -79,7 +220,14 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                     <Text style={styles.subTitle}>Votre note</Text>
                     <View style={styles.starRow}>
                         {[1, 2, 3, 4, 5].map((star) => (
-                            <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                            <TouchableOpacity
+                                key={star}
+                                onPress={() => setRating(star)}
+                                accessible={true}
+                                accessibilityLabel={`Noter ${star} étoiles sur 5`}
+                                accessibilityRole="button"
+                                testID={`star-rating-${star}`}
+                            >
                                 <Star
                                     size={24}
                                     color={rating >= star ? colors.primary : colors.textTertiary}
@@ -99,21 +247,51 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                         multiline
                         value={comment}
                         onChangeText={setComment}
+                        accessible={true}
+                        accessibilityLabel="Écrire votre avis"
+                        testID="review-input"
                     />
-                    <TouchableOpacity style={styles.publishButton} onPress={handlePublishReview}>
-                        <Send size={14} color="#FFF" />
-                        <Text style={styles.publishButtonText}>Publier</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity
+                            style={[styles.publishButton, { flex: 1 }]}
+                            onPress={handlePublishReview}
+                            accessible={true}
+                            accessibilityLabel="Publier l'avis"
+                            accessibilityRole="button"
+                            testID="publish-review-button"
+                        >
+                            <Send size={14} color="#FFF" />
+                            <Text style={styles.publishButtonText}>{myReview ? "Mettre à jour" : "Publier"}</Text>
+                        </TouchableOpacity>
+                        {myReview && (
+                            <TouchableOpacity
+                                style={[styles.publishButton, { backgroundColor: colors.surfaceHighlight, paddingHorizontal: 16 }]}
+                                onPress={handleDeleteMyReview}
+                                accessible={true}
+                                accessibilityLabel="Supprimer mon avis"
+                                accessibilityRole="button"
+                                testID="delete-review-button"
+                            >
+                                <Trash2 size={16} color={colors.warning} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
 
                 {/* Other reviews list */}
-                {reviews.length > 0 && (
+                {communityReviews.length > 0 && (
                     <View style={styles.reviewsList}>
                         <Text style={styles.subTitle}>Avis de la communauté</Text>
-                        {reviews.slice(0, 2).map((review) => (
+                        {communityReviews.slice(0, 2).map((review) => (
                             <View key={review.id} style={styles.reviewItem}>
                                 <View style={styles.reviewHeader}>
-                                    <View style={styles.reviewerInfo}>
+                                    <TouchableOpacity
+                                        style={styles.reviewerInfo}
+                                        onPress={() => handleUserPress(review.user)}
+                                        accessible={true}
+                                        accessibilityLabel={`Profil de ${review.user?.name || 'l\'utilisateur'}`}
+                                        accessibilityRole="button"
+                                    >
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
                                         ) : (
@@ -121,9 +299,20 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                                 <User size={12} color={colors.textTertiary} />
                                             </View>
                                         )}
-                                        <Text style={styles.reviewerName}>{review.user.name || 'Utilisateur'}</Text>
-                                    </View>
-                                    <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                                        <View>
+                                            <Text style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</Text>
+                                            <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={{ padding: 4 }}
+                                        onPress={() => handleReviewOptions(review)}
+                                        accessible={true}
+                                        accessibilityLabel="Options de l'avis"
+                                        accessibilityRole="button"
+                                    >
+                                        <MoreHorizontal size={16} color={colors.textTertiary} />
+                                    </TouchableOpacity>
                                 </View>
                                 <View style={styles.reviewRating}>
                                     {[1, 2, 3, 4, 5].map(s => (
@@ -133,16 +322,30 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                 {review.comment && <Text style={styles.reviewComment}>{review.comment}</Text>}
                             </View>
                         ))}
-                        {reviews.length > 2 && (
-                            <TouchableOpacity style={styles.seeAllReviewsButton} onPress={() => setAllReviewsVisible(true)}>
-                                <Text style={styles.seeAllReviewsText}>Voir les {reviews.length} avis</Text>
+                        {communityReviews.length > 2 && (
+                            <TouchableOpacity
+                                style={styles.seeAllReviewsButton}
+                                onPress={() => setAllReviewsVisible(true)}
+                                accessible={true}
+                                accessibilityLabel="Voir tous les avis"
+                                accessibilityRole="button"
+                                testID="see-all-reviews-button"
+                            >
+                                <Text style={styles.seeAllReviewsText}>Voir les {communityReviews.length} avis</Text>
                             </TouchableOpacity>
                         )}
                     </View>
                 )}
             </View>
             {onRemove && (
-                <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
+                <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={onRemove}
+                    accessible={true}
+                    accessibilityLabel="Enlever le bloc d'avis"
+                    accessibilityRole="button"
+                    testID="remove-review-block-button"
+                >
                     <X size={14} color={colors.warning} />
                 </TouchableOpacity>
             )}
@@ -156,16 +359,23 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Avis ({reviews.length})</Text>
-                        <TouchableOpacity onPress={() => setAllReviewsVisible(false)} style={styles.modalCloseButton}>
+                        <Text style={styles.modalTitle}>Avis ({communityReviews.length})</Text>
+                        <TouchableOpacity
+                            onPress={() => setAllReviewsVisible(false)}
+                            style={styles.modalCloseButton}
+                            accessible={true}
+                            accessibilityLabel="Fermer"
+                            accessibilityRole="button"
+                            testID="close-reviews-modal-button"
+                        >
                             <X size={24} color={colors.text} />
                         </TouchableOpacity>
                     </View>
                     <ScrollView contentContainerStyle={styles.modalContent}>
-                        {reviews.map((review) => (
+                        {communityReviews.map((review) => (
                             <View key={review.id} style={styles.modalReviewItem}>
                                 <View style={styles.reviewHeader}>
-                                    <View style={styles.reviewerInfo}>
+                                    <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
                                         {review.user?.image ? (
                                             <Image source={{ uri: review.user.image }} style={styles.reviewerAvatarLarge} />
                                         ) : (
@@ -174,14 +384,19 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
                                             </View>
                                         )}
                                         <View>
-                                            <Text style={styles.reviewerNameLarge}>{review.user.name || 'Utilisateur'}</Text>
+                                            <Text style={styles.reviewerNameLarge}>{review.user?.name || 'Utilisateur'}</Text>
                                             <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
                                         </View>
-                                    </View>
-                                    <View style={styles.reviewRating}>
-                                        {[1, 2, 3, 4, 5].map(s => (
-                                            <Star key={s} size={12} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
-                                        ))}
+                                    </TouchableOpacity>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                        <View style={styles.reviewRating}>
+                                            {[1, 2, 3, 4, 5].map(s => (
+                                                <Star key={s} size={12} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
+                                            ))}
+                                        </View>
+                                        <TouchableOpacity style={{ padding: 4 }} onPress={() => handleReviewOptions(review)}>
+                                            <MoreHorizontal size={20} color={colors.textTertiary} />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
                                 {review.comment && <Text style={styles.reviewCommentLarge}>{review.comment}</Text>}
@@ -193,6 +408,12 @@ export default function ReviewBlock({ bookId, onRemove, onReviewAdded }: ReviewB
         </View>
     );
 }
+
+const ReviewBlock = React.memo(ReviewBlockUI, (prevProps, nextProps) => {
+    return prevProps.bookId === nextProps.bookId;
+});
+
+export default ReviewBlock;
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     section: {

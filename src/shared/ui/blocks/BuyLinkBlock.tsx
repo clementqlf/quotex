@@ -13,23 +13,49 @@ interface BuyLinkBlockProps {
     onRemove?: () => void;
 }
 
-export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
+const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [isModalVisible, setIsModalVisible] = useState(false);
+
+    // Sanitize function for URL safety
+    const sanitizeForUrl = (str: string): string => {
+        return str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "") // Remove accents
+            .replace(/[^\p{L}\p{N}\s\-']/gu, "") // Keep only letters, numbers, spaces, hyphens, apostrophes
+            .replace(/\s+/g, " ")
+            .trim()
+            .substring(0, 200); // Limit length for URL safety
+    };
 
     const allLinks = useMemo(() => {
         if (book.buyLinks && book.buyLinks.length > 0) {
             return book.buyLinks;
         }
         
-        const isbn = book.isbn;
-        const title = book.title;
-        const authorName = typeof book.author === 'string' 
-            ? book.author 
-            : (book.author?.name || '');
+        const title = typeof book.title === 'string' && book.title.trim()
+            ? book.title.trim()
+            : 'Livre sans titre';
+        const authorName = typeof book.author === 'string'
+            ? book.author.trim()
+            : (book.author?.name ? String(book.author.name).trim() : 'Auteur inconnu');
         
-        const query = isbn ? encodeURIComponent(isbn) : encodeURIComponent(`${title} ${authorName}`);
+        if (!title || !authorName) {
+            return BUY_STORES.map(store => ({
+                store: store.name,
+                url: store.generateUrl('Livre inconnu'),
+                price: store.priceLabel
+            }));
+        }
+        
+        // Use improved sanitization
+        const cleanTitle = sanitizeForUrl(title) || 'Livre';
+        const cleanAuthor = sanitizeForUrl(authorName) || 'Auteur';
+        
+        // Generate safe query text
+        const queryText = `${cleanTitle} ${cleanAuthor}`.trim();
+        const query = encodeURIComponent(queryText);
         
         return BUY_STORES.map(store => ({
             store: store.name,
@@ -41,14 +67,28 @@ export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) =>
     const initialLinks = allLinks.slice(0, 2);
     const hasMore = allLinks.length > 2;
 
-    const renderLink = (link: any, idx: number, isCompact = false) => (
-        <TouchableOpacity
-            key={idx}
-            style={[styles.buyLinkItem, isCompact && styles.buyLinkItemCompact]}
-            onPress={() => {
-                Linking.openURL(link.url).catch(err => Alert.alert("Erreur", "Impossible d'ouvrir le lien"));
-            }}
-        >
+    const renderLink = (link: any, idx: number, isCompact = false) => {
+        const safeUrl = typeof link.url === 'string' && link.url.startsWith('http')
+            ? link.url
+            : 'https://quotex.app';
+
+        return (
+            <TouchableOpacity
+                key={idx}
+                style={[styles.buyLinkItem, isCompact && styles.buyLinkItemCompact]}
+                onPress={() => {
+                    Linking.canOpenURL(safeUrl).then(supported => {
+                        if (supported) {
+                            Linking.openURL(safeUrl).catch(err => {
+                                console.error('[BuyLinkBlock] Failed to open URL:', safeUrl, err);
+                                Alert.alert("Erreur", "Impossible d'ouvrir ce lien.");
+                            });
+                        } else {
+                            Alert.alert("Erreur", "Aucune application ne peut ouvrir ce type de lien.");
+                        }
+                    });
+                }}
+            >
             <View style={styles.buyLinkInfo}>
                 <View style={[styles.storeIcon, { backgroundColor: colors.primary + '15' }]}>
                     <ShoppingCart size={14} color={colors.primary} />
@@ -69,6 +109,7 @@ export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) =>
             </View>
         </TouchableOpacity>
     );
+};
 
     return (
         <BlockWrapper blockKey="buy" onRemove={onRemove}>
@@ -119,6 +160,11 @@ export const BuyLinkBlock: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) =>
         </BlockWrapper>
     );
 };
+
+export const BuyLinkBlock = React.memo(BuyLinkBlockUI, (prevProps, nextProps) => {
+    return prevProps.book?.isbn === nextProps.book?.isbn &&
+           prevProps.book?.title === nextProps.book?.title;
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     buyLinksList: {

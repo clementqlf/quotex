@@ -60,6 +60,7 @@ export function useLiveOCR({
         onTextDetectedChange?.(false);
     }, [onTextDetectedChange]);
 
+    // ⚡ Utiliser useRunOnJS avec des refs stables
     const notifyDetectedJS = useRunOnJS(notifyDetected, [notifyDetected]);
     const notifyGoneJS = useRunOnJS(notifyGone, [notifyGone]);
 
@@ -104,6 +105,20 @@ export function useLiveOCR({
             onTextDetectedChange?.(false);
         }
     }, [isScanningActive, onTextDetectedChange]);
+
+    // Cleanup complet au unmount
+    useEffect(() => {
+        return () => {
+            // Reset des Shared Values pour éviter les fuites
+            consecutivePositive.value = 0;
+            consecutiveNegative.value = 0;
+            isCurrentlyDetected.value = false;
+            lastProcessed.value = 0;
+            
+            // Notifier que le scanning est arrêté
+            onTextDetectedChange?.(false);
+        };
+    }, [onTextDetectedChange, consecutivePositive, consecutiveNegative, isCurrentlyDetected, lastProcessed]);
 
     return {
         frameProcessor,

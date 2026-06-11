@@ -19,10 +19,6 @@ export class SupabaseAuthorRepository implements IAuthorRepository {
   constructor() {}
 
   async getAuthors(): Promise<Author[]> {
-    const cachedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
-    if (cachedAuthors) {
-      return cachedAuthors;
-    }
     return await authorService.getAuthors();
   }
 
@@ -35,10 +31,6 @@ export class SupabaseAuthorRepository implements IAuthorRepository {
   }
 
   async getBooks(): Promise<Book[]> {
-    const cachedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-    if (cachedBooks) {
-      return cachedBooks;
-    }
     return await authorService.getBooks();
   }
 

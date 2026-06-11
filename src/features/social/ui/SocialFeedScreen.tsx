@@ -53,6 +53,10 @@ export default function SocialFeedScreen() {
               } 
             });
           }}
+          accessible={true}
+          accessibilityLabel={`Profil de ${quote.user?.name}`}
+          accessibilityRole="button"
+          testID={`user-profile-${quote.user?.username}`}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(quote.user?.name || 'A')}</Text>
@@ -69,6 +73,9 @@ export default function SocialFeedScreen() {
         <Pressable
           onPress={() => router.push({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+          accessible={true}
+          accessibilityLabel={`Citation de ${quote.user?.name} : ${quote.text}`}
+          testID={`quote-detail-pressable-${quote.id}`}
         >
           <View style={styles.quoteContent}>
             <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
@@ -96,6 +103,10 @@ export default function SocialFeedScreen() {
               style={styles.actionButton}
               activeOpacity={0.7}
               onPress={() => toggleLikeQuote(quote.id)}
+              accessible={true}
+              accessibilityLabel={`Aimer la citation de ${quote.user?.name}. Actuellement ${quote.likesCount} j'aime`}
+              accessibilityRole="button"
+              testID={`like-button-${quote.id}`}
             >
               <Heart
                 size={20}
@@ -112,17 +123,38 @@ export default function SocialFeedScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityLabel={`Commenter la citation de ${quote.user?.name}. Actuellement ${quote.comments} commentaires`}
+              accessibilityRole="button"
+              testID={`comment-button-${quote.id}`}
+            >
               <MessageCircle size={20} color={colors.textTertiary} />
               <Text style={styles.actionText}>{quote.comments}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityLabel="Partager"
+              accessibilityRole="button"
+              testID={`share-button-${quote.id}`}
+            >
               <Share2 size={20} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={() => toggleSaveQuote(quote.id)} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => toggleSaveQuote(quote.id)}
+            activeOpacity={0.7}
+            accessible={true}
+            accessibilityLabel="Enregistrer dans ma collection"
+            accessibilityRole="button"
+            testID={`save-button-${quote.id}`}
+          >
             <Bookmark
               fill={quote.isSaved ? colors.primary : 'transparent'}
               size={20}
@@ -143,17 +175,37 @@ export default function SocialFeedScreen() {
             <TrendingUp size={24} color="#20B8CD" />
             <Text style={styles.headerTitle}>Feed</Text>
           </View>
-          <TouchableOpacity style={styles.headerButton}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            accessible={true}
+            accessibilityLabel="Découvrir"
+            accessibilityRole="button"
+            testID="discover-button"
+          >
             <Zap size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         {/* Tabs */}
         <View style={styles.tabs}>
-          <TouchableOpacity style={styles.tabActive}>
+          <TouchableOpacity
+            style={styles.tabActive}
+            accessible={true}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: true }}
+            accessibilityLabel="Tendances"
+            testID="tab-trends"
+          >
             <Text style={styles.tabTextActive}>Tendances</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tabInactive}>
+          <TouchableOpacity
+            style={styles.tabInactive}
+            accessible={true}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: false }}
+            accessibilityLabel="Suivis"
+            testID="tab-following"
+          >
             <Text style={styles.tabTextInactive}>Suivis</Text>
           </TouchableOpacity>
         </View>
@@ -171,7 +223,13 @@ export default function SocialFeedScreen() {
       </ScrollView>
 
       {/* Floating Refresh Button */}
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity
+        style={styles.fab}
+        accessible={true}
+        accessibilityLabel="Rafraîchir"
+        accessibilityRole="button"
+        testID="refresh-feed-button"
+      >
         <TrendingUp size={24} color="#FFFFFF" />
       </TouchableOpacity>
     </SafeAreaView>

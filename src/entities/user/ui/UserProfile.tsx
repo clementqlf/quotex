@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
-  Animated
+  Animated,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera } from 'lucide-react-native';
+import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera, MoreHorizontal } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -24,6 +25,9 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { supabase } from '@/src/shared/api/supabase';
+import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
 
 interface UserRouteParam {
   id: number | string;
@@ -167,18 +171,16 @@ const decodeBase64 = (base64: string) => {
 export default function UserProfileScreen() {
   const router = useRouter();
   const { username } = useLocalSearchParams<{ username?: string }>();
-  const { getUserByUsername } = useQuote();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [profileData, setProfileData] = useState<User | null>(() => {
-    if (username && currentUser?.username === username) return currentUser;
-    if (!username) return currentUser;
-    return null;
-  });
+  const { data: profileData, isLoading: isProfileLoading, isFetching } = useUserProfile(username);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const isMe = currentUser?.username === profileData?.username;
+  const isMe = currentUser?.id === profileData?.id || 
+               (currentUser?.username && profileData?.username && 
+                currentUser.username.replace('@', '') === profileData.username.replace('@', ''));
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -187,9 +189,20 @@ export default function UserProfileScreen() {
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [userQuotes, setUserQuotes] = useState<GlobalQuote[]>([]);
-  const [userBooks, setUserBooks] = useState<any[]>([]);
+  const userQuotes = useMemo(() => {
+    if (!profileData || !(profileData as any).quotes) return [];
+    return (profileData as any).quotes.map((q: any) => ({
+      ...q,
+      user: profileData,
+      time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
+    }));
+  }, [profileData]);
+
+  const userBooks = useMemo(() => {
+    if (!profileData || !(profileData as any).library) return [];
+    return (profileData as any).library;
+  }, [profileData]);
+
   const [isFollowing, setIsFollowing] = useState(false);
 
   const groupedBooks = useMemo(() => {
@@ -199,7 +212,7 @@ export default function UserProfileScreen() {
       'TO_READ': [],
       'DROPPED': []
     };
-    userBooks.forEach(ub => {
+    userBooks.forEach((ub: any) => {
       const status = ub.status || 'TO_READ';
       if (groups[status]) {
         groups[status].push(ub.book);
@@ -211,50 +224,6 @@ export default function UserProfileScreen() {
     return groups;
   }, [userBooks]);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      // Determine if we are viewing our own profile
-      const isViewingOwnProfile = !username || (username === currentUser?.username);
-                                  
-      // Use the special 'me' route for our own profile, otherwise use the specific username
-      const usernameToFetch = isViewingOwnProfile ? 'me' : username;
-
-      if (!usernameToFetch) {
-        setIsLoading(false);
-        return;
-      }
-
-      // If we already have some data for this user, we don't necessarily need to show the big loader
-      const hasInitialData = profileData?.username === usernameToFetch || (isViewingOwnProfile && profileData === currentUser);
-      if (!hasInitialData) {
-        setIsLoading(true);
-      }
-      try {
-        const data = await getUserByUsername(usernameToFetch);
-        if (data) {
-          setProfileData(data);
-          if (data.quotes) {
-            const mapped = data.quotes.map((q: any) => ({
-              ...q,
-              user: data,
-              time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
-            }));
-            setUserQuotes(mapped);
-          }
-          if (data.library) {
-            setUserBooks(data.library);
-          }
-        }
-      } catch (e) {
-        console.error("Error loading profile", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [username, currentUser?.username]);
-
   const toggleFollow = () => {
     setIsFollowing(!isFollowing);
   };
@@ -265,6 +234,27 @@ export default function UserProfileScreen() {
     setEditedWebsite(profileData?.website || '');
     setEditedImage(profileData?.image || null);
     setIsEditing(true);
+  };
+
+  const handleProfileOptions = () => {
+    Alert.alert(
+      "Options",
+      "Que souhaitez-vous faire avec ce profil ?",
+      [
+        { 
+          text: "Bloquer cet utilisateur", 
+          style: "destructive",
+          onPress: async () => {
+            if (profileData?.id) {
+              await UGCModerationService.blockUser(profileData.id);
+              Alert.alert("Succès", "L'utilisateur a été bloqué.");
+              router.back();
+            }
+          }
+        },
+        { text: "Annuler", style: "cancel" }
+      ]
+    );
   };
 
   const pickImage = async () => {
@@ -396,14 +386,21 @@ export default function UserProfileScreen() {
       }
       // ---------------------------------------------------------
 
-      // Update local state
-      setProfileData(prev => prev ? {
-        ...prev,
-        name: editedName,
-        bio: editedBio,
-        website: editedWebsite,
-        image: imageUrl || prev.image
-      } : null);
+      // Update react query cache directly for immediate UI feedback
+      if (profileData) {
+        const updatedProfile = {
+          ...profileData,
+          name: editedName,
+          bio: editedBio,
+          website: editedWebsite,
+          image: imageUrl || profileData.image
+        };
+        
+        const isViewingOwnProfile = !username || (currentUser?.username && currentUser.username.replace('@', '') === username.replace('@', ''));
+        const profileQueryKey = isViewingOwnProfile ? `me_${currentUser?.id || 'none'}` : username;
+        
+        queryClient.setQueryData(['userProfile', profileQueryKey], updatedProfile);
+      }
 
       console.log("Profile updated successfully");
       setIsEditing(false);
@@ -421,13 +418,17 @@ export default function UserProfileScreen() {
     }
   };
 
-  if (!profileData && isLoading) {
+  if (!profileData && isProfileLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -446,6 +447,10 @@ export default function UserProfileScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -467,11 +472,28 @@ export default function UserProfileScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Retour"
+            accessibilityRole="button"
+            testID="back-button"
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || username}</Text>
-          <View style={styles.placeholder} />
+          {!isMe && profileData ? (
+            <TouchableOpacity
+              onPress={handleProfileOptions}
+              style={styles.headerAction}
+              accessible={true}
+              accessibilityLabel="Options du profil"
+              accessibilityRole="button"
+              testID="profile-options-button"
+            >
+              <MoreHorizontal size={24} color={colors.text} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -481,6 +503,10 @@ export default function UserProfileScreen() {
               style={styles.avatar}
               onPress={isEditing ? pickImage : undefined}
               disabled={!isEditing}
+              accessible={true}
+              accessibilityLabel="Photo de profil"
+              accessibilityRole="button"
+              testID="avatar-button"
             >
               {editedImage || profileData.image ? (
                 <Image
@@ -504,6 +530,9 @@ export default function UserProfileScreen() {
                 onChangeText={setEditedName}
                 placeholder="Prénom"
                 placeholderTextColor={colors.textTertiary}
+                accessible={true}
+                accessibilityLabel="Prénom"
+                testID="user-name-input"
               />
             ) : (
               <Text style={styles.userName}>{profileData.name}</Text>
@@ -517,6 +546,10 @@ export default function UserProfileScreen() {
                     style={[styles.editButton, styles.saveButton]}
                     onPress={handleSave}
                     disabled={isSaving}
+                    accessible={true}
+                    accessibilityLabel="Enregistrer les modifications du profil"
+                    accessibilityRole="button"
+                    testID="save-profile-button"
                   >
                     {isSaving ? (
                       <ActivityIndicator size="small" color="#000" />
@@ -528,6 +561,10 @@ export default function UserProfileScreen() {
                     style={[styles.editButton, styles.cancelButton]}
                     onPress={handleCancel}
                     disabled={isSaving}
+                    accessible={true}
+                    accessibilityLabel="Annuler les modifications du profil"
+                    accessibilityRole="button"
+                    testID="cancel-profile-button"
                   >
                     <Text style={styles.cancelButtonText}>Annuler</Text>
                   </TouchableOpacity>
@@ -536,6 +573,10 @@ export default function UserProfileScreen() {
                 <TouchableOpacity
                   style={styles.editButton}
                   onPress={handleEditToggle}
+                  accessible={true}
+                  accessibilityLabel="Modifier le profil"
+                  accessibilityRole="button"
+                  testID="edit-profile-button"
                 >
                   <Text style={styles.editButtonText}>Modifier le profil</Text>
                 </TouchableOpacity>
@@ -547,6 +588,10 @@ export default function UserProfileScreen() {
                   isFollowing && styles.followButtonActive
                 ]}
                 onPress={toggleFollow}
+                accessible={true}
+                accessibilityLabel={isFollowing ? "Se désabonner de l'utilisateur" : "S'abonner à l'utilisateur"}
+                accessibilityRole="button"
+                testID="follow-button"
               >
                 <Text style={[
                   styles.followButtonText,
@@ -586,6 +631,9 @@ export default function UserProfileScreen() {
                   placeholder="Décrivez-vous..."
                   placeholderTextColor={colors.textTertiary}
                   multiline
+                  accessible={true}
+                  accessibilityLabel="Description"
+                  testID="bio-input"
                 />
                 <Text style={styles.inputLabel}>Site web</Text>
                 <TextInput
@@ -595,6 +643,9 @@ export default function UserProfileScreen() {
                   placeholder="https://votre-site.com"
                   placeholderTextColor={colors.textTertiary}
                   autoCapitalize="none"
+                  accessible={true}
+                  accessibilityLabel="Site web"
+                  testID="website-input"
                 />
               </View>
             ) : (
@@ -657,7 +708,7 @@ export default function UserProfileScreen() {
                   );
                 })}
               </View>
-            ) : isLoading ? (
+            ) : (isProfileLoading || isFetching) ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
                 <BookSkeleton colors={colors} />
                 <BookSkeleton colors={colors} />
@@ -677,7 +728,7 @@ export default function UserProfileScreen() {
 
             {userQuotes.length > 0 ? (
               <View style={styles.savedQuotesList}>
-                {userQuotes.map((quote) => (
+                {userQuotes.map((quote: any) => (
                     <TouchableOpacity
                       key={quote.id}
                       style={styles.savedQuoteCard}
@@ -694,7 +745,7 @@ export default function UserProfileScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            ) : isLoading ? (
+            ) : (isProfileLoading || isFetching) ? (
               <View style={{ gap: 12 }}>
                 <QuoteSkeleton colors={colors} />
                 <QuoteSkeleton colors={colors} />
@@ -737,7 +788,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   placeholder: {
-    width: 28,
+    width: 32,
+  },
+  headerAction: {
+    padding: 4,
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loaderContainer: {
     flex: 1,

@@ -251,6 +251,8 @@ PODS:
     - React-Core
     - React-runtimescheduler
     - ReactCommon
+  - ExpoNetwork (6.0.1):
+    - ExpoModulesCore
   - ExpoRouter (55.0.16):
     - ExpoModulesCore
     - RNScreens
@@ -2716,6 +2718,7 @@ DEPENDENCIES:
   - "ExpoLogBox (from `../node_modules/@expo/log-box`)"
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-core`)
+  - ExpoNetwork (from `../node_modules/expo-network/ios`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
@@ -2894,6 +2897,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoModulesJSI:
     :path: "../node_modules/expo-modules-core"
+  ExpoNetwork:
+    :path: "../node_modules/expo-network/ios"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
   ExpoSplashScreen:
@@ -3112,6 +3117,7 @@ SPEC CHECKSUMS:
   ExpoLogBox: a678d36477ab9544fe63e0b5328a0716539b6774
   ExpoModulesCore: 5e1ad569ce7cf8d35c0737585f34cc299fc3f0ca
   ExpoModulesJSI: 964334271fc77832736f66ee1785761cdc778dbe
+  ExpoNetwork: 3406d873b73ca189fd41c51dff9a1c8625771260
   ExpoRouter: e0e2aa4b03843e7abfa3e63e0cdd6c642d74780f
   ExpoSplashScreen: 049301b226bce8284fcafb7923fcad3a43f23a9f
   ExpoSymbols: 896159288ad708e1a32dc12c92fe5f90bff01126

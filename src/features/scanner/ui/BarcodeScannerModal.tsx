@@ -73,11 +73,22 @@ export default function BarcodeScannerModal({
     const { isScanning, frameProcessor } = useIsbnScanner({
         cameraRef,
         isFocused: visible,
-        enabled: visible && !isLoading,
+        enabled: visible && !isLoading && !isPickerActive,
         onIsbnDetected: (isbn) => {
             onIsbnDetected(isbn);
         },
     });
+
+    // Cleanup quand la modale se ferme
+    useEffect(() => {
+        return () => {
+            // Arrêter la caméra explicitement
+            if (cameraRef.current) {
+              cameraRef.current.stopRecording?.();
+            }
+            setTorch('off');
+        };
+    }, []);
 
     const handlePickImage = async () => {
         try {

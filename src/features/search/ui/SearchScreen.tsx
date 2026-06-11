@@ -276,7 +276,14 @@ export default function SearchScreen() {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                    accessible={true}
+                    accessibilityLabel="Retour"
+                    accessibilityRole="button"
+                    testID="back-button"
+                >
                     <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
                 <View style={styles.searchBar}>
@@ -289,13 +296,29 @@ export default function SearchScreen() {
                         value={query}
                         onChangeText={setQuery}
                         returnKeyType="search"
+                        accessible={true}
+                        accessibilityLabel="Rechercher"
+                        testID="search-input"
                     />
                     {query.length > 0 ? (
-                        <TouchableOpacity onPress={() => { setQuery(''); inputRef.current?.focus(); }}>
+                        <TouchableOpacity
+                            onPress={() => { setQuery(''); inputRef.current?.focus(); }}
+                            accessible={true}
+                            accessibilityLabel="Effacer la recherche"
+                            accessibilityRole="button"
+                            testID="clear-search-button"
+                        >
                             <X size={18} color={colors.textSecondary} />
                         </TouchableOpacity>
                     ) : (
-                        <TouchableOpacity onPress={() => router.push('/scan')} style={{ padding: 4 }}>
+                        <TouchableOpacity
+                            onPress={() => router.push('/scan')}
+                            style={{ padding: 4 }}
+                            accessible={true}
+                            accessibilityLabel="Ouvrir le scanner"
+                            accessibilityRole="button"
+                            testID="scan-button"
+                        >
                             <Scan size={20} color={colors.primary} />
                         </TouchableOpacity>
                     )}
@@ -315,6 +338,11 @@ export default function SearchScreen() {
                             key={tab.id}
                             style={[styles.tab, activeTab === tab.id && styles.activeTab]}
                             onPress={() => setActiveTab(tab.id as any)}
+                            accessible={true}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: activeTab === tab.id }}
+                            accessibilityLabel={`Filtrer par ${tab.label}`}
+                            testID={`search-tab-${tab.id}`}
                         >
                             <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
                                 {tab.label}

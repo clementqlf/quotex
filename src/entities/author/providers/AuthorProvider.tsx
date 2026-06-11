@@ -1,186 +1,139 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, ReactNode, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Author, Book } from '@/src/shared/api/types';
-import { IAuthorRepository } from '../api/IAuthorRepository';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { SupabaseAuthorRepository } from '../api/SupabaseAuthorRepository';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
-import { useNetworkSync } from '@/src/entities/quote/lib/useNetworkSync';
 import { useRealtimeBooks, useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
+import { IAuthorRepository } from '@/src/entities/author/api/IAuthorRepository';
 
+// Type pour le contexte Author
 type AuthorContextType = {
   authors: Author[];
   books: Book[];
   isLoading: boolean;
-  refreshAuthors: () => Promise<void>;
-  refreshBooks: () => Promise<void>;
+  refreshAuthors: (reason?: string) => Promise<void>;
+  refreshBooks: (reason?: string) => Promise<void>;
   getAuthorByName: (name: string) => Promise<Author | undefined>;
   getAuthorById: (id: number) => Promise<Author | undefined>;
   getBooksByAuthor: (authorName: string, authorId?: number) => Promise<Book[]>;
   getBookByTitle: (title: string) => Promise<Book | undefined>;
   getBookById: (id: number) => Promise<Book | undefined>;
-  getBookByInventaireUri: (inventaireUri: string) => Promise<Book | undefined>;
+  getBookByInventaireUri: (uri: string) => Promise<Book | undefined>;
   toggleSaveAuthor: (id: number) => Promise<{ isSaved: boolean; followersCount: number } | null>;
   toggleSaveBook: (id: number) => Promise<void>;
-  updateBookStatus: (id: number, status: string) => Promise<void>;
-  getNotableWorks: (authorId: number) => Promise<Book[]>;
-  importBook: (bookData: any) => Promise<Book | undefined>;
+  updateBookStatus: (id: number, status: ReadingStatus) => Promise<void>;
+  getNotableWorks: (authorId: number) => Promise<any[]>;
+  importBook: (bookData: any) => Promise<any>;
 };
 
 const AuthorContext = createContext<AuthorContextType | undefined>(undefined);
 
 /**
  * Provider dédié à la gestion des Authors et Books
- * Remplace la partie Author/Book de DataProvider
+ * Maintient les souscriptions temps-réel globales
  */
 export const AuthorProvider = ({ children }: { children: ReactNode }) => {
-  const [authors, setAuthors] = useState<Author[]>([]);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Repository instance
-  const authorRepository = useMemo(() => SupabaseAuthorRepository.getInstance(), []);
+  const queryClient = useQueryClient();
+  const { authorRepository } = useRepositories();
 
-  // Charger les données depuis le cache
-  const loadCachedData = async () => {
-    try {
-      const [cachedAuthors, cachedBooks] = await Promise.all([
-        StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS),
-        StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS),
-      ]);
-      if (cachedAuthors) setAuthors(cachedAuthors);
-      if (cachedBooks) setBooks(cachedBooks);
-    } catch (error) {
-      console.error("AuthorProvider: Failed to load cached data", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: authors = [], isLoading: isLoadingAuthors, refetch: refetchAuthors } = useQuery({
+    queryKey: ['authors'],
+    queryFn: () => authorRepository.getAuthors(),
+  });
 
-  // Rafraîchir les authors
-  const refreshAuthors = useCallback(async (reason: string = 'unknown') => {
-    console.log(`AuthorProvider: refreshAuthors called (Reason: ${reason})`);
-    try {
-      const fetchedAuthors = await authorRepository.getAuthors();
-      setAuthors(fetchedAuthors);
-      await StorageService.setItem(STORAGE_KEYS.AUTHORS, fetchedAuthors);
-    } catch (error) {
-      console.error("AuthorProvider: Failed to refresh authors", error);
-    }
-  }, [authorRepository]);
+  const { data: books = [], isLoading: isLoadingBooks, refetch: refetchBooks } = useQuery({
+    queryKey: ['books'],
+    queryFn: () => authorRepository.getBooks(),
+  });
 
-  // Rafraîchir les books
-  const refreshBooks = useCallback(async (reason: string = 'unknown') => {
-    console.log(`AuthorProvider: refreshBooks called (Reason: ${reason})`);
-    try {
-      const fetchedBooks = await authorRepository.getBooks();
-      setBooks(fetchedBooks);
-      await StorageService.setItem(STORAGE_KEYS.BOOKS, fetchedBooks);
-    } catch (error) {
-      console.error("AuthorProvider: Failed to refresh books", error);
-    }
-  }, [authorRepository]);
+  const refreshAuthors = useCallback(async (reason?: string) => {
+    if (reason) console.log(`refreshAuthors: ${reason}`);
+    await refetchAuthors();
+  }, [refetchAuthors]);
 
-  // Get author by name
-  const getAuthorByName = useCallback(async (name: string) => {
-    return await authorRepository.getAuthorByName(name);
-  }, [authorRepository]);
+  const refreshBooks = useCallback(async (reason?: string) => {
+    if (reason) console.log(`refreshBooks: ${reason}`);
+    await refetchBooks();
+  }, [refetchBooks]);
 
-  // Get author by id
-  const getAuthorById = useCallback(async (id: number) => {
-    return await authorRepository.getAuthorById(id);
-  }, [authorRepository]);
+  // Mutations
+  const toggleSaveAuthorMutation = useMutation({
+    mutationFn: (id: number) => authorRepository.toggleSaveAuthor(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authors'] }),
+  });
 
-  // Get books by author
-  const getBooksByAuthor = useCallback(async (authorName: string, authorId?: number) => {
-    return await authorRepository.getBooksByAuthor(authorName, authorId);
-  }, [authorRepository]);
+  const toggleSaveBookMutation = useMutation({
+    mutationFn: (id: number) => authorRepository.toggleSaveBook(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['books'] });
+      const previousBooks = queryClient.getQueryData<Book[]>(['books']);
+      if (previousBooks) {
+        queryClient.setQueryData<Book[]>(['books'], old => {
+          if (!old) return [];
+          return old.map(b => b.id === id ? { ...b, isSaved: !b.isSaved } : b);
+        });
+      }
+      return { previousBooks };
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.previousBooks) queryClient.setQueryData(['books'], ctx.previousBooks);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['books'] }),
+  });
 
-  // Get book by title
-  const getBookByTitle = useCallback(async (title: string) => {
-    return await authorRepository.getBookByTitle(title);
-  }, [authorRepository]);
-
-  // Get book by id
-  const getBookById = useCallback(async (id: number) => {
-    return await authorRepository.getBookById(id);
-  }, [authorRepository]);
-
-  // Get book by inventaire uri
-  const getBookByInventaireUri = useCallback(async (inventaireUri: string) => {
-    return await authorRepository.getBookByInventaireUri(inventaireUri);
-  }, [authorRepository]);
-
-  // Toggle save author
-  const toggleSaveAuthor = useCallback(async (id: number) => {
-    return await authorRepository.toggleSaveAuthor(id);
-  }, [authorRepository]);
-
-  // Toggle save book
-  const toggleSaveBook = useCallback(async (id: number) => {
-    await authorRepository.toggleSaveBook(id);
-    await refreshBooks();
-  }, [authorRepository, refreshBooks]);
-
-  // Update book status
-  const updateBookStatus = useCallback(async (id: number, status: string) => {
-    await authorRepository.updateBookStatus(id, status);
-    await refreshBooks();
-  }, [authorRepository, refreshBooks]);
-
-  // Get notable works
-  const getNotableWorks = useCallback(async (authorId: number) => {
-    return await authorRepository.getNotableWorks(authorId);
-  }, [authorRepository]);
-
-  // Import book
-  const importBook = useCallback(async (bookData: any) => {
-    return await authorRepository.importBook(bookData);
-  }, [authorRepository]);
-
-  // Charger les données au montage
-  useEffect(() => {
-    loadCachedData();
-    refreshAuthors('initial load');
-    refreshBooks('initial load');
-  }, [refreshAuthors, refreshBooks]);
+  const updateBookStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: ReadingStatus }) => authorRepository.updateBookStatus(id, status),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['books'] });
+      const previousBooks = queryClient.getQueryData<Book[]>(['books']);
+      if (previousBooks) {
+        queryClient.setQueryData<Book[]>(['books'], old => {
+          if (!old) return [];
+          return old.map(b => b.id === id ? { ...b, readingStatus: status } : b);
+        });
+      }
+      return { previousBooks };
+    },
+    onError: (err, variables, ctx) => {
+      if (ctx?.previousBooks) queryClient.setQueryData(['books'], ctx.previousBooks);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['books'] }),
+  });
 
   // Realtime updates pour les entités en cours d'enrichissement
   useRealtimeBooks(books, refreshBooks);
   useRealtimeAuthors(authors, refreshAuthors);
 
+  // ✅ Memoize toutes les fonctions pour éviter les re-renders
   const contextValue = useMemo(() => ({
     authors,
     books,
-    isLoading,
+    isLoading: isLoadingAuthors || isLoadingBooks,
     refreshAuthors,
     refreshBooks,
-    getAuthorByName,
-    getAuthorById,
-    getBooksByAuthor,
-    getBookByTitle,
-    getBookById,
-    getBookByInventaireUri,
-    toggleSaveAuthor,
-    toggleSaveBook,
-    updateBookStatus,
-    getNotableWorks,
-    importBook,
+    getAuthorByName: (name: string) => authorRepository.getAuthorByName(name),
+    getAuthorById: (id: number) => authorRepository.getAuthorById(id),
+    getBooksByAuthor: (authorName: string, authorId?: number) => authorRepository.getBooksByAuthor(authorName, authorId),
+    getBookByTitle: (title: string) => authorRepository.getBookByTitle(title),
+    getBookById: (id: number) => authorRepository.getBookById(id),
+    getBookByInventaireUri: (uri: string) => authorRepository.getBookByInventaireUri(uri),
+    toggleSaveAuthor: async (id: number) => toggleSaveAuthorMutation.mutateAsync(id),
+    toggleSaveBook: async (id: number) => { await toggleSaveBookMutation.mutateAsync(id); },
+    updateBookStatus: async (id: number, status: ReadingStatus) => { await updateBookStatusMutation.mutateAsync({ id, status }); },
+    getNotableWorks: (authorId: number) => authorRepository.getNotableWorks(authorId),
+    importBook: (bookData: any) => authorRepository.importBook(bookData),
   }), [
-    authors, 
-    books, 
-    isLoading,
+    authors,
+    books,
+    isLoadingAuthors,
+    isLoadingBooks,
     refreshAuthors,
     refreshBooks,
-    getAuthorByName,
-    getAuthorById,
-    getBooksByAuthor,
-    getBookByTitle,
-    getBookById,
-    getBookByInventaireUri,
-    toggleSaveAuthor,
-    toggleSaveBook,
-    updateBookStatus,
-    getNotableWorks,
-    importBook
+    toggleSaveAuthorMutation,
+    toggleSaveBookMutation,
+    updateBookStatusMutation,
+    authorRepository
   ]);
 
   return (
@@ -190,7 +143,6 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Hook pour utiliser le AuthorContext
 export const useAuthor = () => {
   const context = useContext(AuthorContext);
   if (context === undefined) {

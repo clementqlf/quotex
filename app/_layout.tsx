@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname, useGlobalSearchParams } from 'expo-router';
+import type { RootLayoutParams } from '@/src/shared/types/router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
-import { DataProvider } from '@/src/app/providers/DataProvider';
 import { AuthProvider, useAuth } from '@/src/app/providers/AuthContext';
+import { AuthGuard } from '@/src/app/providers/AuthGuard';
+import { TabProvider } from '@/src/app/providers/TabContext';
 import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
 import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
 import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
@@ -22,27 +25,33 @@ SplashScreen.preventAutoHideAsync();
 
 // Pas d'unstable_settings pour laisser Expo Router gérer les groupes dynamiquement
 
+const queryClient = new QueryClient();
+
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <RepositoriesProvider>
-              <NavigationProvider>
-                <QuoteProvider>
-                  <AuthorProvider>
-                    <DataProvider>
-                      <RootLayoutNav />
-                    </DataProvider>
-                  </AuthorProvider>
-                </QuoteProvider>
-              </NavigationProvider>
-            </RepositoriesProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <AuthGuard>
+                <TabProvider>
+                  <RepositoriesProvider>
+                    <NavigationProvider>
+                      <QuoteProvider>
+                        <AuthorProvider>
+                          <RootLayoutNav />
+                        </AuthorProvider>
+                      </QuoteProvider>
+                    </NavigationProvider>
+                  </RepositoriesProvider>
+                </TabProvider>
+              </AuthGuard>
+            </AuthProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }
 
@@ -52,14 +61,12 @@ function RootLayoutNav() {
   }, []);
 
   const { isDark, colors: themeColors } = useTheme();
-  const { isAuthenticated, isLoading } = useAuth();
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
-  const segments = useSegments() as any;
-  const router = useRouter();
+  const { isLoading } = useAuth();
   
-  // Navigation Logger
-  const pathname = require('expo-router').usePathname();
-  const params = require('expo-router').useGlobalSearchParams();
+  // Navigation Logger avec typage
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
 
   useEffect(() => {
     console.log(`[Navigation] Opened Screen: ${pathname}`, params);
@@ -72,25 +79,15 @@ function RootLayoutNav() {
     }
   }, [isLoading]);
 
-  // Auth Redirect Logic
+  // Hide splash animation when auth is loaded
   useEffect(() => {
-    if (isLoading) return;
-
-    // Detection plus robuste du groupe d'auth
-    const inAuthGroup = segments.includes('(auth)') || segments.includes('login') || segments.includes('register');
-
-    if (!isAuthenticated && !inAuthGroup) {
-      console.log('[AuthDebug] Redirection vers /login');
-      router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      console.log('[AuthDebug] Redirection vers /');
-      router.replace('/');
+    if (!isLoading && !isSplashAnimationFinished) {
+      setIsSplashAnimationFinished(true);
     }
-  }, [isAuthenticated, segments, isLoading]);
+  }, [isLoading, isSplashAnimationFinished]);
 
-  const inAuthGroup = segments.includes('(auth)') || segments.includes('login') || segments.includes('register');
-  // We are "ready" when loading is done AND we are on the correct side of the auth wall
-  const isReady = !isLoading && ((isAuthenticated && !inAuthGroup) || (!isAuthenticated && inAuthGroup));
+  // We are "ready" when loading is done
+  const isReady = !isLoading;
 
   // If we haven't finished the splash AND we aren't ready, 
   // show only the splash (no background app yet)
@@ -135,7 +132,7 @@ function RootLayoutNav() {
         </Stack>
         <StatusBar style={isDark ? 'light' : 'dark'} />
       </NavThemeProvider>
-      {(isLoading || !isSplashAnimationFinished) && (
+      {(!isSplashAnimationFinished) && (
         <AnimatedSplashScreen 
           isDark={isDark} 
           isLoading={isLoading}

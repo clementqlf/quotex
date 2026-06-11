@@ -6,21 +6,26 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
-import { requireAuth } from '../_shared/auth.ts';
+import { requireAuth, getAuthUser } from '../_shared/auth.ts';
 
 serve(async (req: Request) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
 
   const url = new URL(req.url);
+  const path = url.pathname.replace(/^(?:\/functions\/v1)?\/reviews/, '') || '/';
+  const parts = path.split('/').filter(Boolean);
+  const idParam = parts[0] && !isNaN(Number(parts[0])) ? parseInt(parts[0]) : null;
 
   try {
     // GET /reviews?bookId=...
-    if (req.method === 'GET') {
+    if (req.method === 'GET' && !idParam) {
       const bookIdParam = url.searchParams.get('bookId');
       if (!bookIdParam) return error('Missing bookId query parameter', 400);
       const bookId = parseInt(bookIdParam);
       if (isNaN(bookId)) return error('Invalid bookId', 400);
+
+      const authUser = await getAuthUser(req);
 
       const reviews = await sql`
         SELECT r.*, row_to_json(u) as user, row_to_json(b) as book
@@ -28,31 +33,90 @@ serve(async (req: Request) => {
         LEFT JOIN "Profile" u ON u.id = r."userId"
         LEFT JOIN "Book" b ON b.id = r."bookId"
         WHERE r."bookId" = ${bookId}
+        ${authUser ? sql`
+          AND r."userId" NOT IN (SELECT "blockedId" FROM "UserBlock" WHERE "blockerId" = ${authUser.id})
+          AND r.id NOT IN (SELECT "reviewId" FROM "Report" WHERE "reporterId" = ${authUser.id})
+        ` : sql``}
         ORDER BY r."createdAt" DESC
       `;
       return json(reviews);
     }
 
     // POST /reviews
-    if (req.method === 'POST') {
+    if (req.method === 'POST' && !idParam) {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
       const { rating, comment, bookId } = await req.json();
       if (!rating || !bookId) return error('Missing required fields', 400);
 
+      const forbidden = await sql`SELECT word FROM "ForbiddenWord"`;
+      const hasForbiddenWord = forbidden.some(fw => 
+        comment && comment.toLowerCase().includes(fw.word.toLowerCase())
+      );
+      if (hasForbiddenWord) return error('Le contenu contient des termes non autorisés.', 400);
+
       const newReview = await sql`
-        INSERT INTO "Review" ("rating", "comment", "bookId", "userId", "createdAt")
-        VALUES (${rating}, ${comment ?? null}, ${bookId}, ${authUser.id}, now())
+        WITH inserted AS (
+          INSERT INTO "Review" ("rating", "comment", "bookId", "userId", "createdAt")
+          VALUES (${rating}, ${comment ?? null}, ${bookId}, ${authUser.id}, now())
+          RETURNING *
+        )
+        SELECT i.*, row_to_json(u) as user, row_to_json(b) as book
+        FROM inserted i
+        LEFT JOIN "Profile" u ON u.id = i."userId"
+        LEFT JOIN "Book" b ON b.id = i."bookId"
+      `;
+
+
+
+      return json(newReview[0]);
+    }
+
+    // PUT /reviews/:id
+    if (req.method === 'PUT' && idParam) {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      const { rating, comment } = await req.json();
+
+      const forbidden = await sql`SELECT word FROM "ForbiddenWord"`;
+      const hasForbiddenWord = forbidden.some(fw => 
+        comment && comment.toLowerCase().includes(fw.word.toLowerCase())
+      );
+      if (hasForbiddenWord) return error('Le contenu contient des termes non autorisés.', 400);
+
+      const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
+      if (!review.length) return error('Review not found', 404);
+      if (review[0].userId !== authUser.id) return error('Unauthorized', 403);
+
+      const updated = await sql`
+        UPDATE "Review"
+        SET rating = ${rating ?? review[0].rating},
+            comment = ${comment !== undefined ? comment : review[0].comment}
+        WHERE id = ${idParam}
         RETURNING *
       `;
 
-      // Recalculate average rating
-      const aggRows = await sql`SELECT AVG(rating)::float as avg FROM "Review" WHERE "bookId" = ${bookId}`;
-      const newAvg = aggRows[0]?.avg ?? rating;
-      await sql`UPDATE "Book" SET rating = ${newAvg} WHERE id = ${bookId}`;
 
-      return json(newReview[0]);
+
+      return json(updated[0]);
+    }
+
+    // DELETE /reviews/:id
+    if (req.method === 'DELETE' && idParam) {
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+
+      const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
+      if (!review.length) return error('Review not found', 404);
+      if (review[0].userId !== authUser.id) return error('Unauthorized', 403);
+
+      await sql`DELETE FROM "Review" WHERE id = ${idParam}`;
+
+
+
+      return json({ success: true });
     }
 
     return error('Method not allowed', 405);

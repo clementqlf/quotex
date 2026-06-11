@@ -8,7 +8,6 @@ jest.mock('@/src/shared/api/StorageService', () => ({
   },
   STORAGE_KEYS: {
     QUOTES: 'quotes_data',
-    PENDING_QUOTES: 'pending_quotes',
   },
 }));
 

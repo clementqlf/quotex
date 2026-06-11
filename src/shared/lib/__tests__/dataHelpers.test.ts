@@ -13,11 +13,11 @@ describe('dataHelpers', () => {
     });
 
     test('retourne le titre si l’objet Book est passé', () => {
-      expect(getBookTitle({ title: 'Le Comte de Monte-Cristo', id: 1, authors: [] })).toBe('Le Comte de Monte-Cristo');
+      expect(getBookTitle({ title: 'Le Comte de Monte-Cristo', id: 1, description: '', year: 0, pages: 0, author: '', rating: 0, genre: '', cover: '' })).toBe('Le Comte de Monte-Cristo');
     });
 
     test('retourne "Livre inconnu" si l’objet Book n’a pas de titre', () => {
-      expect(getBookTitle({ id: 1, authors: [] } as any)).toBe('Livre inconnu');
+      expect(getBookTitle({ id: 1, description: '', year: 0, pages: 0, author: '', rating: 0, genre: '', cover: '' } as any)).toBe('Livre inconnu');
     });
   });
 
@@ -33,11 +33,11 @@ describe('dataHelpers', () => {
     });
 
     test('retourne le nom si l’objet Author est passé', () => {
-      expect(getAuthorName({ name: 'Alexandre Dumas', id: 1, bio: '' })).toBe('Alexandre Dumas');
+      expect(getAuthorName({ name: 'Alexandre Dumas', id: 1, description: '', image: '', birthDate: '', nationality: '' })).toBe('Alexandre Dumas');
     });
 
     test('retourne "Auteur inconnu" si l’objet Author n’a pas de nom', () => {
-      expect(getAuthorName({ id: 1, bio: '' } as any)).toBe('Auteur inconnu');
+      expect(getAuthorName({ id: 1, description: '', image: '', birthDate: '', nationality: '' } as any)).toBe('Auteur inconnu');
     });
   });
 

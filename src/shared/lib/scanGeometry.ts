@@ -16,44 +16,53 @@ export type MLKitText = {
 
 export const PATH_SAMPLE_STEP = 1;
 
-export const calculateTextRotation = (cornerPoints: Array<{ x: number; y: number }>): number => {
-    if (!cornerPoints || cornerPoints.length < 4) return 0;
+export interface TextGeometry {
+    rotation: number;
+    width: number;
+    height: number;
+    centerX: number;
+    centerY: number;
+}
 
-    // Reliability check: narrow characters (like '!') have noisy orientation
-    const w = Math.sqrt((cornerPoints[1].x - cornerPoints[0].x) ** 2 + (cornerPoints[1].y - cornerPoints[0].y) ** 2);
-    const h = Math.sqrt((cornerPoints[2].x - cornerPoints[1].x) ** 2 + (cornerPoints[2].y - cornerPoints[1].y) ** 2);
-    if (w < h * 0.6) return 0;
+export const calculateTextGeometry = (cornerPoints: ReadonlyArray<{ x: number; y: number }>): TextGeometry | null => {
+    if (!cornerPoints || cornerPoints.length < 4) return null;
 
-    let minVerticalVariance = Infinity;
-    let bestAngle = 0;
+    const p0 = cornerPoints[0];
+    const p1 = cornerPoints[1];
+    const p2 = cornerPoints[2];
+    const p3 = cornerPoints[3];
 
-    for (let i = 0; i < 4; i += 1) {
-        const p1 = cornerPoints[i];
-        const p2 = cornerPoints[(i + 1) % 4];
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const verticalVariance = Math.abs(dy);
+    // Compute the 4 edge vectors and their lengths
+    const edges = [
+        { dx: p1.x - p0.x, dy: p1.y - p0.y }, // top edge
+        { dx: p2.x - p1.x, dy: p2.y - p1.y }, // right edge
+        { dx: p3.x - p2.x, dy: p3.y - p2.y }, // bottom edge
+        { dx: p0.x - p3.x, dy: p0.y - p3.y }, // left edge
+    ];
+    const lengths = edges.map(e => Math.sqrt(e.dx * e.dx + e.dy * e.dy));
 
-        if (verticalVariance < minVerticalVariance) {
-            minVerticalVariance = verticalVariance;
-            const angleRad = Math.atan2(dy, dx);
-            let angleDeg = (angleRad * 180) / Math.PI;
-            while (angleDeg > 180) angleDeg -= 360;
-            while (angleDeg < -180) angleDeg += 360;
-            if (Math.abs(angleDeg) > 85 && Math.abs(angleDeg) < 95) {
-                bestAngle = 0;
-            } else {
-                bestAngle = angleDeg;
-            }
-        }
+    // Width = longest edge, height = adjacent (shorter) edge
+    const isEdge0Longer = lengths[0] >= lengths[1];
+    const widthEdge = isEdge0Longer ? edges[0] : edges[1];
+    const width = isEdge0Longer ? lengths[0] : lengths[1];
+    const height = isEdge0Longer ? lengths[1] : lengths[0];
+
+    // Rotation = angle of the width edge relative to horizontal
+    let rotation = (Math.atan2(widthEdge.dy, widthEdge.dx) * 180) / Math.PI;
+
+    // Normalize to [-90, 90] to avoid flips
+    while (rotation > 90) rotation -= 180;
+    while (rotation < -90) rotation += 180;
+
+    // Suppress rotation only for chars that are genuinely taller than wide (like '!', 'l', 'i')
+    if (width < height * 0.6) {
+        rotation = 0;
     }
 
-    // Normalize to [-90, 90] to avoid 180 degree flips (upside down detection)
-    // which would mess up the global coordinate system and sorting.
-    while (bestAngle > 90) bestAngle -= 180;
-    while (bestAngle < -90) bestAngle += 180;
+    const centerX = (p0.x + p1.x + p2.x + p3.x) / 4;
+    const centerY = (p0.y + p1.y + p2.y + p3.y) / 4;
 
-    return bestAngle;
+    return { rotation, width, height, centerX, centerY };
 };
 
 export const sampleLinePoints = (from: { x: number; y: number }, to: { x: number; y: number }) => {
@@ -165,26 +174,15 @@ export const getBlockRectOnScreen = (
     let centerX = block.frame.left + block.frame.width / 2;
     let centerY = block.frame.top + block.frame.height / 2;
 
-    // Si on a les cornerPoints, on calcule la largeur et la hauteur réelles non-déformées par la rotation
+    // Si on a les cornerPoints, on calcule la largeur, la hauteur et le centre réels
     if (block.cornerPoints && block.cornerPoints.length >= 4) {
-        const p0 = block.cornerPoints[0];
-        const p1 = block.cornerPoints[1];
-        const p2 = block.cornerPoints[2];
-        const p3 = block.cornerPoints[3];
-
-        // Largeur réelle (distance euclidienne entre haut-gauche et haut-droite)
-        const trueW = Math.sqrt((p1.x - p0.x) ** 2 + (p1.y - p0.y) ** 2);
-        // Hauteur réelle (distance euclidienne entre haut-gauche et bas-gauche)
-        const trueH = Math.sqrt((p3.x - p0.x) ** 2 + (p3.y - p0.y) ** 2);
-
-        // Centre exact des 4 coins
-        const trueCenterX = (p0.x + p1.x + p2.x + p3.x) / 4;
-        const trueCenterY = (p0.y + p1.y + p2.y + p3.y) / 4;
-
-        width = trueW;
-        height = trueH;
-        centerX = trueCenterX;
-        centerY = trueCenterY;
+        const geom = calculateTextGeometry(block.cornerPoints);
+        if (geom) {
+            width = geom.width;
+            height = geom.height;
+            centerX = geom.centerX;
+            centerY = geom.centerY;
+        }
     }
 
     // Rotation du centre vers l'orientation upright

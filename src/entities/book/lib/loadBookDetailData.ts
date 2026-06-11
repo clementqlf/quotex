@@ -2,6 +2,7 @@ import { Author, Book } from '@/src/shared/api/types';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { buildBookImportPayload } from './bookImport';
 import type { BookImportPayload } from './bookImport';
+import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
 
 // Debug flag - set to false to disable most logs in production
 const DEBUG_BOOK_DETAIL = false;
@@ -13,6 +14,34 @@ const logDebug = (...args: any[]) => {
 const logWarn = (...args: any[]) => {
   // Logs disabled in production. Use console.error for actual errors.
   // if (DEBUG_BOOK_DETAIL) console.warn('[BookDetail]', ...args);
+};
+
+const buildFallbackBook = (inventaireUri: string, bookData?: string): Book => {
+  const parsedBookData = (() => {
+    if (!bookData) return null;
+    try {
+      return typeof bookData === 'string' ? JSON.parse(bookData) : bookData;
+    } catch {
+      return null;
+    }
+  })();
+
+  return {
+    id: 0,
+    title: parsedBookData?.title || parsedBookData?.label || 'Livre inconnu',
+    description: parsedBookData?.description || '',
+    year: parsedBookData?.year || 0,
+    pages: parsedBookData?.pages || 0,
+    rating: 0,
+    author: parsedBookData?.author || parsedBookData?.authors?.[0] || 'Auteur inconnu',
+    genre: parsedBookData?.genre || '',
+    cover: parsedBookData?.cover || parsedBookData?.image || '',
+    inventaireUri,
+    openLibraryId: parsedBookData?.openLibraryId,
+    googleId: parsedBookData?.googleId,
+    isbn: parsedBookData?.isbn,
+    similarBooks: [],
+  };
 };
 
 type LoadBookDetailDataArgs = {
@@ -84,7 +113,7 @@ const fetchInventaireEditions = async (workUri: string): Promise<any[]> => {
       return [];
     }
     const data = await response.json();
-    return data.editions || [];
+    return Array.isArray(data?.editions) ? data.editions : [];
   } catch (error) {
     logDebug('Failed to fetch Inventaire editions:', error);
     return [];
@@ -94,13 +123,23 @@ const fetchInventaireEditions = async (workUri: string): Promise<any[]> => {
 const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: string): Promise<Book | null> => {
   try {
     logDebug('Fetching external Inventaire book', { inventaireUri });
-    const entities = await fetchInventaireEntities([inventaireUri]);
-    const entity = resolveInventaireEntity(entities, inventaireUri);
+    
+    // First fetch the main book entity to get claims (authorUris, genreUris)
+    const initialEntities = await fetchInventaireEntities([inventaireUri]);
+    const entity = resolveInventaireEntity(initialEntities, inventaireUri);
     if (!entity) return null;
 
-    const labels = entity.labels || {};
-    const descriptions = entity.descriptions || {};
     const claims = entity.claims || {};
+    const authorUris = Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : [];
+    const genreUris = Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])])).slice(0, 10);
+    
+    // Batch all URIs in a single request
+    const allUris = [inventaireUri, ...authorUris, ...genreUris];
+    const entities = await fetchInventaireEntities(allUris);
+    
+    const mainEntity = resolveInventaireEntity(entities, inventaireUri);
+    if (!mainEntity) return null;
+
     const parsedBookData = (() => {
       if (!bookData) return null;
       try {
@@ -110,9 +149,14 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
       }
     })();
 
-    const title = labels['fr'] || labels['en'] || parsedBookData?.label || parsedBookData?.title || null;
-    const description = descriptions['fr'] || descriptions['en'] || parsedBookData?.description || null;
-    const image = getInventaireImageUrl(entity.image) || parsedBookData?.image || parsedBookData?.cover || null;
+    const title = (mainEntity.labels && typeof mainEntity.labels === 'object' && mainEntity.labels['fr'])
+      ? mainEntity.labels['fr']
+      : (mainEntity.labels?.['en'] || parsedBookData?.label || parsedBookData?.title || 'Sans titre');
+    
+    const description = (mainEntity.descriptions && typeof mainEntity.descriptions === 'object' && mainEntity.descriptions['fr'])
+      ? mainEntity.descriptions['fr']
+      : (mainEntity.descriptions?.['en'] || parsedBookData?.description || null);
+    const image = getInventaireImageUrl(mainEntity.image) || parsedBookData?.image || parsedBookData?.cover || null;
     const yearRaw = claims['wdt:P577']?.[0];
     const year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
     
@@ -142,13 +186,10 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     if (!pages) {
       pages = parsedBookData?.pages ?? null;
     }
-    
-    const authorUris = Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : [];
 
     let author: string | Author = parsedBookData?.authors?.[0] || parsedBookData?.author || 'Auteur inconnu';
     if (authorUris.length > 0) {
-      const authorEntities = await fetchInventaireEntities([authorUris[0]]);
-      const authorEntity = resolveInventaireEntity(authorEntities, authorUris[0]);
+      const authorEntity = resolveInventaireEntity(entities, authorUris[0]);
       if (authorEntity) {
         const authorLabels = authorEntity.labels || {};
         const authorDescriptions = authorEntity.descriptions || {};
@@ -163,12 +204,10 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
       }
     }
 
-    const genreUris = Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])]));
     let genre = parsedBookData?.genre || '';
     if (!genre && genreUris.length > 0) {
-      const genreEntities = await fetchInventaireEntities(genreUris.slice(0, 10));
       const genreLabels = genreUris.map(uri => {
-        const genreEntity = resolveInventaireEntity(genreEntities, uri);
+        const genreEntity = resolveInventaireEntity(entities, uri);
         if (!genreEntity?.labels) return null;
         return genreEntity.labels['fr'] || genreEntity.labels['en'] || Object.values(genreEntity.labels)[0] || null;
       }).filter(Boolean);
@@ -201,8 +240,11 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     
     return result;
   } catch (error) {
+    if (isNetworkError(error)) {
+      return buildFallbackBook(inventaireUri, bookData);
+    }
     logWarn('Failed to fetch Inventaire book details:', error);
-    return null;
+    throw error;
   }
 };
 

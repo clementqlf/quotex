@@ -12,7 +12,7 @@ interface SimilarBooksBlockProps {
     onRemove?: () => void;
 }
 
-export const SimilarBooksBlock: React.FC<SimilarBooksBlockProps> = ({ books, onBookPress, onRemove }) => {
+const SimilarBooksBlockUI: React.FC<SimilarBooksBlockProps> = ({ books, onBookPress, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -57,6 +57,18 @@ export const SimilarBooksBlock: React.FC<SimilarBooksBlockProps> = ({ books, onB
         </BlockWrapper>
     );
 };
+
+export const SimilarBooksBlock = React.memo(SimilarBooksBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.books.length === nextProps.books.length &&
+        prevProps.books.every((b, i) => {
+            const prevId = typeof b === 'string' ? b : b.id || b.title;
+            const nextB = nextProps.books[i];
+            const nextId = typeof nextB === 'string' ? nextB : nextB.id || nextB.title;
+            return prevId === nextId;
+        })
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {

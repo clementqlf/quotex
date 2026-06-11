@@ -1,5 +1,6 @@
 // @ts-ignore deno
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
+import { sql } from './db.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
@@ -45,4 +46,14 @@ export async function requireAuth(req: Request): Promise<AuthUser | Response> {
     );
   }
   return user;
+}
+
+/**
+ * Checks if a user is an administrator
+ */
+export async function checkIfAdmin(userId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT 1 FROM "Profile" WHERE id = ${userId} AND "isAdmin" = true
+  `;
+  return result.length > 0;
 }

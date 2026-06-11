@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, Mail, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { authService } from '@/src/entities/user/api/AuthService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,6 +44,20 @@ export default function LoginPasswordScreen() {
       Alert.alert('Erreur de connexion', error.message || 'Identifiants incorrects');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!userEmail) {
+      Alert.alert('Erreur', 'Veuillez entrer votre email');
+      return;
+    }
+    
+    try {
+      await authService.resetPassword(userEmail);
+      Alert.alert('Succès', 'Un email de réinitialisation a été envoyé.');
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message || 'Impossible d\'envoyer l\'email de réinitialisation');
     }
   };
 
@@ -86,6 +101,15 @@ export default function LoginPasswordScreen() {
               autoFocus
             />
           </View>
+
+          <TouchableOpacity 
+            style={styles.forgotPasswordContainer}
+            onPress={handleForgotPassword}
+          >
+            <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+              Mot de passe oublié ?
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.loginButton, { backgroundColor: colors.primary }]}
@@ -152,6 +176,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     height: '100%',
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   loginButton: {
     height: 56,

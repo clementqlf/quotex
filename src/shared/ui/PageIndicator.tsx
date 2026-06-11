@@ -1,46 +1,54 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { 
-  useAnimatedStyle, 
-  SharedValue,
-  interpolateColor
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolateColor,
+  Easing,
 } from 'react-native-reanimated';
 
 interface PageIndicatorProps {
   count: number;
   activeIndex: number;
-  position: SharedValue<number>;
 }
 
-function Dot({ index, position }: { index: number; position: SharedValue<number> }) {
-  const animatedStyle = useAnimatedStyle(() => {
-    const distance = Math.abs(position.value - index);
-    const opacity = Math.max(0.3, 1 - distance * 0.7);
-    const width = distance < 1 ? 8 + (1 - distance) * 14 : 8;
-    
-    // Smooth color diffusion
-    const backgroundColor = interpolateColor(
-      distance,
+const ACTIVE_COLOR = '#20B8CD';
+const INACTIVE_COLOR = '#6B7280';
+const ACTIVE_WIDTH = 22;
+const INACTIVE_WIDTH = 8;
+const DOT_HEIGHT = 6;
+const DURATION = 250;
+
+function Dot({ index, activeIndex }: { index: number; activeIndex: number }) {
+  const progress = useSharedValue(index === activeIndex ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(index === activeIndex ? 1 : 0, {
+      duration: DURATION,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [activeIndex]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    width: INACTIVE_WIDTH + progress.value * (ACTIVE_WIDTH - INACTIVE_WIDTH),
+    opacity: 0.3 + progress.value * 0.7,
+    backgroundColor: interpolateColor(
+      progress.value,
       [0, 1],
-      ['#20B8CD', '#6B7280']
-    );
-    
-    return {
-      opacity,
-      width,
-      backgroundColor,
-    };
-  });
+      [INACTIVE_COLOR, ACTIVE_COLOR],
+    ),
+  }));
 
   return <Animated.View style={[styles.dot, animatedStyle]} />;
 }
 
-export function PageIndicator({ count, activeIndex, position }: PageIndicatorProps) {
+export function PageIndicator({ count, activeIndex }: PageIndicatorProps) {
   return (
     <View style={styles.container} pointerEvents="none">
       <View style={styles.dotsRow}>
         {Array.from({ length: count }).map((_, i) => (
-          <Dot key={i} index={i} position={position} />
+          <Dot key={i} index={i} activeIndex={activeIndex} />
         ))}
       </View>
     </View>
@@ -62,8 +70,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dot: {
-    height: 6,
-    borderRadius: 3,
+    height: DOT_HEIGHT,
+    borderRadius: DOT_HEIGHT / 2,
     marginHorizontal: 3,
   },
 });

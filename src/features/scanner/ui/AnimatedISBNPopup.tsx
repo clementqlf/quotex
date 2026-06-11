@@ -9,14 +9,19 @@ import {
   PanResponder,
 } from 'react-native';
 import { BookOpen, ChevronRight, X } from 'lucide-react-native';
+import { ExternalBookData } from '../api/ScanService';
 
+/**
+ * Données du livre récupérées depuis un scan ISBN
+ * Importé depuis ScanService pour centraliser le type
+ */
 export type IsbnBookData = {
   title: string;
   author: string;
   cover?: string;
   bookId?: string;
   inventaireUri?: string;
-  bookData?: any;
+  bookData?: ExternalBookData;
 };
 
 type AnimatedISBNPopupProps = {

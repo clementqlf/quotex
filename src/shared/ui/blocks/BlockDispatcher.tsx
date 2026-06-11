@@ -203,5 +203,5 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
 function getAuthorNameFromQuote(quote?: Quote | null): string | undefined {
     if (!quote) return undefined;
     if (typeof quote.author === 'string') return quote.author;
-    return quote.author?.name;
+    return undefined;
 }

@@ -13,7 +13,7 @@ interface BookInfoBlockProps {
     onRemove?: () => void;
 }
 
-export const BookInfoBlock: React.FC<BookInfoBlockProps> = ({ book, onBookPress, variant = 'info', onRemove }) => {
+const BookInfoBlockUI: React.FC<BookInfoBlockProps> = ({ book, onBookPress, variant = 'info', onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -73,6 +73,14 @@ export const BookInfoBlock: React.FC<BookInfoBlockProps> = ({ book, onBookPress,
         </BlockWrapper>
     );
 };
+
+export const BookInfoBlock = React.memo(BookInfoBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.book?.id === nextProps.book?.id &&
+        prevProps.book?.title === nextProps.book?.title &&
+        prevProps.variant === nextProps.variant
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {

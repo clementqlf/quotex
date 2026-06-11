@@ -36,6 +36,7 @@ type ScanPreviewModalProps = {
     initialBook?: string;
     initialAuthor?: string;
     showConfetti?: boolean;
+    confirmButtonText?: string;
 };
 
 export default function ScanPreviewModal({
@@ -46,6 +47,7 @@ export default function ScanPreviewModal({
     initialBook = '',
     initialAuthor = '',
     showConfetti = false,
+    confirmButtonText = 'Confirmer',
 }: ScanPreviewModalProps) {
     const { quotes } = useQuote();
     const { colors } = useTheme();
@@ -74,14 +76,14 @@ export default function ScanPreviewModal({
     const [showAuthorSuggestions, setShowAuthorSuggestions] = useState(false);
     const [isLoadingAuthorSuggestions, setIsLoadingAuthorSuggestions] = useState(false);
 
-    // Initial books fro local data (quotes)
+    // Initial books from local data (quotes)
     const initialBooks = useMemo(() => {
         const bookMap = new Map<string, string>(); // title -> author
         quotes.forEach(q => {
             if (q.book) {
-                const title = typeof q.book === 'string' ? q.book : q.book.title;
+                const title = getBookTitle(q.book);
                 const author = getAuthorName(q.author);
-                if (title && !bookMap.has(title)) {
+                if (title && title !== 'Livre inconnu' && !bookMap.has(title)) {
                     bookMap.set(title, author);
                 }
             }
@@ -94,10 +96,9 @@ export default function ScanPreviewModal({
         const authors = new Set<string>();
         quotes.forEach(q => {
             if (q.author) {
-                if (typeof q.author === 'string') {
-                    authors.add(q.author);
-                } else if (q.author?.name) {
-                    authors.add(q.author.name);
+                const name = getAuthorName(q.author);
+                if (name && name !== 'Auteur inconnu') {
+                    authors.add(name);
                 }
             }
         });
@@ -371,6 +372,9 @@ export default function ScanPreviewModal({
                                             onBlur={() => setIsEditingQuote(false)}
                                             placeholderTextColor={colors.textTertiary}
                                             returnKeyType="done"
+                                            accessible={true}
+                                            accessibilityLabel="Texte de la citation"
+                                            testID="quote-input"
                                         />
                                     ) : (
                                         <TouchableOpacity
@@ -409,6 +413,9 @@ export default function ScanPreviewModal({
                                                                 setIsEditingBook(false);
                                                                 setShowSuggestions(false);
                                                             }}
+                                                            accessible={true}
+                                                            accessibilityLabel="Titre du livre"
+                                                            testID="book-input"
                                                         />
                                                         {showSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
@@ -461,11 +468,7 @@ export default function ScanPreviewModal({
                                                                             </View>
                                                                         </TouchableOpacity>
                                                                     ))}
-                                                                    {suggestions.length === 0 && !isLoadingSuggestions && (
-                                                                        <View style={styles.suggestionItem}>
-                                                                            <Text style={styles.suggestionTextMeta}>Aucun livre trouvé</Text>
-                                                                        </View>
-                                                                    )}
+
                                                                 </ScrollView>
                                                             </View>
                                                         )}
@@ -475,7 +478,7 @@ export default function ScanPreviewModal({
                                                         style={styles.bookPlaceholderButton}
                                                         onPress={() => {
                                                             setIsEditingBook(true);
-                                                            setEditedBook(''); // Clear on click as requested
+                                                            setEditedBook('');
                                                             setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
@@ -489,7 +492,7 @@ export default function ScanPreviewModal({
                                                     <TouchableOpacity
                                                         onPress={() => {
                                                             setIsEditingBook(true);
-                                                            setEditedBook(''); // Clear on click as requested
+                                                            setEditedBook(bookTitle);
                                                             setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
@@ -523,6 +526,9 @@ export default function ScanPreviewModal({
                                                                 setIsEditingAuthor(false);
                                                                 setShowAuthorSuggestions(false);
                                                             }}
+                                                            accessible={true}
+                                                            accessibilityLabel="Nom de l'auteur"
+                                                            testID="author-input"
                                                         />
                                                         {showAuthorSuggestions && (
                                                             <View style={styles.suggestionsContainer}>
@@ -544,11 +550,7 @@ export default function ScanPreviewModal({
                                                                             <Text style={styles.suggestionText} numberOfLines={1}>{item.name}</Text>
                                                                         </TouchableOpacity>
                                                                     ))}
-                                                                    {authorSuggestions.length === 0 && !isLoadingAuthorSuggestions && (
-                                                                        <View style={styles.suggestionItem}>
-                                                                            <Text style={styles.suggestionTextMeta}>Aucun auteur trouvé</Text>
-                                                                        </View>
-                                                                    )}
+
                                                                 </ScrollView>
                                                             </View>
                                                         )}
@@ -558,7 +560,7 @@ export default function ScanPreviewModal({
                                                         style={styles.authorPlaceholderButton}
                                                         onPress={() => {
                                                             setIsEditingAuthor(true);
-                                                            setEditedAuthor(''); // Clear on click as requested
+                                                            setEditedAuthor('');
                                                             setAuthorSuggestions(initialAuthors);
                                                             setShowAuthorSuggestions(true);
                                                             // Close other dropdowns
@@ -572,7 +574,7 @@ export default function ScanPreviewModal({
                                                     <TouchableOpacity
                                                         onPress={() => {
                                                             setIsEditingAuthor(true);
-                                                            setEditedAuthor(''); // Clear on click as requested
+                                                            setEditedAuthor(authorName);
                                                             setAuthorSuggestions(initialAuthors);
                                                             setShowAuthorSuggestions(true);
                                                             // Close other dropdowns
@@ -617,11 +619,15 @@ export default function ScanPreviewModal({
                                     style={[styles.previewConfirmButton, isSubmitting && { opacity: 0.7 }]}
                                     onPress={handleConfirm}
                                     disabled={isSubmitting}
+                                    accessible={true}
+                                    accessibilityLabel="Confirmer et enregistrer la citation"
+                                    accessibilityRole="button"
+                                    testID="save-button"
                                 >
                                     {isSubmitting ? (
                                         <ActivityIndicator color="#000" size="small" />
                                     ) : (
-                                        <Text style={styles.previewConfirmButtonText}>Confirmer</Text>
+                                        <Text style={styles.previewConfirmButtonText}>{confirmButtonText}</Text>
                                     )}
                                 </TouchableOpacity>
                             </View>

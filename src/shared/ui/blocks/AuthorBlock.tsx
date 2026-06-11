@@ -13,7 +13,7 @@ interface AuthorBlockProps {
     onRemove?: () => void;
 }
 
-export const AuthorBlock: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove }) => {
+const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -46,6 +46,14 @@ export const AuthorBlock: React.FC<AuthorBlockProps> = ({ author, book, authorNa
         </BlockWrapper>
     );
 };
+
+export const AuthorBlock = React.memo(AuthorBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.author?.name === nextProps.author?.name &&
+        prevProps.authorName === nextProps.authorName &&
+        prevProps.book?.title === nextProps.book?.title
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {

@@ -23,6 +23,10 @@ import { useRouter } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
+import { InteractiveTooltip, useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
 import { bookDescriptions } from '@/src/shared/api/staticData';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useTabIndex } from '@/src/app/providers/TabContext';
@@ -136,11 +140,104 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   );
 };
 
+// ListHeader component memoized pour éviter les re-renders inutiles
+interface ListHeaderMemoProps {
+  activeFilters: Array<{ type: 'author' | 'book' | 'year' | 'status'; value: string | number }>;
+  viewMode: 'quotes' | 'books' | 'authors' | 'themes';
+  selectedStatus: string;
+  colors: ThemeColors;
+  styles: any;
+  removeFilter: (filter: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }) => void;
+  resetFilters: () => void;
+  setSelectedStatus: (status: string) => void;
+}
+
+const ListHeaderMemo = React.memo(function ListHeaderMemo({
+  activeFilters,
+  viewMode,
+  selectedStatus,
+  colors,
+  styles,
+  removeFilter,
+  resetFilters,
+  setSelectedStatus,
+}: ListHeaderMemoProps) {
+  const elements: React.ReactNode[] = [];
+
+  if (activeFilters.length > 0) {
+    elements.push(
+      <View key="filters" style={styles.filterContainer}>
+        {activeFilters.map((filter, index) => (
+          <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
+            <Text style={styles.filterBadgeText}>
+              {filter.type === 'author' ? 'Auteur' :
+                filter.type === 'book' ? 'Livre' :
+                  filter.type === 'year' ? 'Année' : 'Statut'}: {
+                filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
+              }
+            </Text>
+            <X size={12} color={colors.primary} />
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}>
+          <Text style={styles.clearFilterButtonText}>Tout effacer</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (viewMode === 'books') {
+    elements.push(
+      <View key="status-pills" style={{ marginBottom: 8 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statusFilterContainer}
+          contentContainerStyle={styles.statusFilterContent}
+        >
+          <TouchableOpacity
+            onPress={() => setSelectedStatus('ALL')}
+            style={[
+              styles.statusFilterBadge,
+              selectedStatus === 'ALL' && styles.statusFilterBadgeActive
+            ]}
+          >
+            <Text style={[
+              styles.statusFilterText,
+              selectedStatus === 'ALL' && styles.statusFilterTextActive
+            ]}>Tout</Text>
+          </TouchableOpacity>
+          {STATUS_OPTIONS.map(opt => (
+            <TouchableOpacity
+              key={opt.value}
+              onPress={() => setSelectedStatus(opt.value)}
+              style={[
+                styles.statusFilterBadge,
+                selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
+              ]}
+            >
+              <Text style={[
+                styles.statusFilterText,
+                selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+              ]}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return elements.length > 0 ? <>{elements}</> : null;
+});
+
 export default function MyQuotesScreen() {
   const router = useRouter();
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { currentStepIndex } = useAppTourState();
+  const activeStepName = TOUR_STEPS[currentStepIndex];
+  const isFilterTabsStep = activeStepName === 'filterTabs';
 
   // Feature hook - découplé de DataProvider
   const {
@@ -191,6 +288,7 @@ export default function MyQuotesScreen() {
   }, [refreshMyQuotes]);
 
   const isScreenFocused = useIsFocused();
+  // useCopilot removed
 
   useEffect(() => {
     if (isScreenFocused && isFocused) {
@@ -198,6 +296,21 @@ export default function MyQuotesScreen() {
       refreshMyQuotes();
     }
   }, [isScreenFocused, isFocused, refreshMyQuotes, setTabIndex]);
+
+  useEffect(() => {
+    if (isScreenFocused) {
+      const checkResume = async () => {
+        const resumeStep = await AsyncStorage.getItem('resume_tour_step');
+        if (resumeStep) {
+          await AsyncStorage.removeItem('resume_tour_step');
+          setTimeout(() => {
+            // startTour(resumeStep).catch(err => console.log('Copilot resume error:', err));
+          }, 600);
+        }
+      };
+      checkResume();
+    }
+  }, [isScreenFocused]);
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -207,6 +320,7 @@ export default function MyQuotesScreen() {
   const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | 'status' | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
+  const [firstItemHeight, setFirstItemHeight] = useState(150);
 
   // Memoized derived data - utilisant les getters du hook feature
   const authors = useMemo(() => getAuthors(), [getAuthors]);
@@ -308,99 +422,171 @@ export default function MyQuotesScreen() {
     setExpandedSection(current => (current === section ? null : section));
   }, []);
 
+  // Wrapper stable pour toggleLikeQuote
+  const toggleLikeQuoteStable = useCallback((id: number) => {
+    return toggleLikeQuote(id);
+  }, [toggleLikeQuote]);
+
   // Render items for FlashList
-  const renderQuoteItem = useCallback(({ item }: { item: Quote }) => (
-    <QuoteCard
-      quote={item}
-      onToggleLike={toggleLikeQuote}
-      onOpenMenu={handleOpenMenu}
-    />
-  ), [toggleLikeQuote, handleOpenMenu]);
+  const renderQuoteItem = useCallback(({ item, index }: { item: Quote; index: number }) => {
+    const card = (
+      <QuoteCard
+        quote={item}
+        onToggleLike={() => toggleLikeQuoteStable(item.id)}
+        onOpenMenu={() => handleOpenMenu(item)}
+      />
+    );
 
-  const renderBookItem = useCallback(({ item }: { item: any }) => (
-    <BookCardItem book={item} />
-  ), []);
+    if (index === 0) {
+      return (
+        <InteractiveTooltip
+          stepNames={['myQuotesList', 'quoteCardDetail']}
+          texts={[
+            "Les citations enregistrées se retrouvent ici.",
+            "Quand on clique sur une citation, on accède aux détails de la citation."
+          ]}
+          placement="bottom"
+          allowChildInteraction={true}
+        >
+          <View 
+            style={{ width: '100%' }}
+            onLayout={(event) => {
+              const { height } = event.nativeEvent.layout;
+              if (height > 0) {
+                setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+              }
+            }}
+          >
+            {card}
+          </View>
+        </InteractiveTooltip>
+      );
+    }
 
-  const renderAuthorItem = useCallback(({ item }: { item: any }) => (
-    <AuthorCardItem author={item} />
-  ), []);
+    return card;
+  }, [toggleLikeQuoteStable, handleOpenMenu]);
 
-  const renderThemeItem = useCallback(({ item }: { item: any }) => (
-    <ThemeCardItem theme={item} />
-  ), []);
+  const renderBookItem = useCallback(({ item, index }: { item: any; index: number }) => {
+    const card = <BookCardItem book={item} />;
+    if (index === 0) {
+      return (
+        <View 
+          style={{ width: '100%' }}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0) {
+              setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+            }
+          }}
+        >
+          {card}
+        </View>
+      );
+    }
+    return card;
+  }, []);
+
+  const renderAuthorItem = useCallback(({ item, index }: { item: any; index: number }) => {
+    const card = <AuthorCardItem author={item} />;
+    if (index === 0) {
+      return (
+        <View 
+          style={{ width: '100%' }}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0) {
+              setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+            }
+          }}
+        >
+          {card}
+        </View>
+      );
+    }
+    return card;
+  }, []);
+
+  const renderThemeItem = useCallback(({ item, index }: { item: any; index: number }) => {
+    const card = <ThemeCardItem theme={item} />;
+    if (index === 0) {
+      return (
+        <View 
+          style={{ width: '100%' }}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            if (height > 0) {
+              setFirstItemHeight(prev => (Math.abs(prev - height) > 2 ? height : prev));
+            }
+          }}
+        >
+          {card}
+        </View>
+      );
+    }
+    return card;
+  }, []);
 
   const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
   const bookKeyExtractor = useCallback((item: any) => item.title, []);
   const authorKeyExtractor = useCallback((item: any) => item.name, []);
   const themeKeyExtractor = useCallback((item: any) => item.theme, []);
+  const statsContent = (
+    <>
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
+        onPress={() => setViewMode('quotes')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'quotes' }}
+        accessibilityLabel={`Onglet Citations, ${myQuotes.length} citations`}
+        testID="tab-quotes"
+      >
+        <Text style={styles.statValue}>{myQuotes.length}</Text>
+        <Text style={styles.statLabel}>Citations</Text>
+      </TouchableOpacity>
 
-  // Header component for FlashList (filters + status pills)
-  const ListHeader = useMemo(() => {
-    const elements: React.ReactNode[] = [];
-
-    if (activeFilters.length > 0) {
-      elements.push(
-        <View key="filters" style={styles.filterContainer}>
-          {activeFilters.map((filter, index) => (
-            <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-              <Text style={styles.filterBadgeText}>
-                {filter.type === 'author' ? 'Auteur' :
-                  filter.type === 'book' ? 'Livre' :
-                    filter.type === 'year' ? 'Année' : 'Statut'}: {
-                  filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
-                }
-              </Text>
-              <X size={12} color={colors.primary} />
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}><Text style={styles.clearFilterButtonText}>Tout effacer</Text></TouchableOpacity>
-        </View>
-      );
-    }
-
-    if (viewMode === 'books') {
-      elements.push(
-        <View key="status-pills" style={{ marginBottom: 8 }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.statusFilterContainer}
-            contentContainerStyle={styles.statusFilterContent}
-          >
-            <TouchableOpacity
-              onPress={() => setSelectedStatus('ALL')}
-              style={[
-                styles.statusFilterBadge,
-                selectedStatus === 'ALL' && styles.statusFilterBadgeActive
-              ]}
-            >
-              <Text style={[
-                styles.statusFilterText,
-                selectedStatus === 'ALL' && styles.statusFilterTextActive
-              ]}>Tout</Text>
-            </TouchableOpacity>
-            {STATUS_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.value}
-                onPress={() => setSelectedStatus(opt.value)}
-                style={[
-                  styles.statusFilterBadge,
-                  selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
-                ]}
-              >
-                <Text style={[
-                  styles.statusFilterText,
-                  selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
-                ]}>{opt.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      );
-    }
-
-    return elements.length > 0 ? <>{elements}</> : null;
-  }, [activeFilters, viewMode, selectedStatus, colors, styles, removeFilter, resetFilters]);
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
+        onPress={() => setViewMode('books')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'books' }}
+        accessibilityLabel={`Onglet Livres, ${bookCount} livres`}
+        testID="tab-books"
+      >
+        <Text style={styles.statValue}>{bookCount}</Text>
+        <Text style={styles.statLabel}>Livres</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
+        onPress={() => setViewMode('authors')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'authors' }}
+        accessibilityLabel={`Onglet Auteurs, ${authorsData.length} auteurs`}
+        testID="tab-authors"
+      >
+        <Text style={styles.statValue}>{authorsData.length}</Text>
+        <Text style={styles.statLabel}>Auteurs</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
+        onPress={() => setViewMode('themes')}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: viewMode === 'themes' }}
+        accessibilityLabel={`Onglet Thèmes, ${themes.length} thèmes`}
+        testID="tab-themes"
+      >
+        <Text style={styles.statValue}>{themes.length}</Text>
+        <Text style={styles.statLabel}>Thèmes</Text>
+      </TouchableOpacity>
+    </>
+  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
@@ -408,54 +594,75 @@ export default function MyQuotesScreen() {
       <View style={styles.header}>
         <AnimatedHeaderTitle viewMode={viewMode} colors={colors} styles={styles} />
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => setShowAddMenu(true)}>
-            <Plus size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.navigate('/search')}>
-            <Search size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton} onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}>
+          <InteractiveTooltip
+            text="Le bouton + permet de rajouter une citation manuellement."
+            stepName="addQuoteButton"
+            placement="bottom"
+          >
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setShowAddMenu(true)}
+              accessible={true}
+              accessibilityLabel="Ajouter une citation"
+              accessibilityRole="button"
+              testID="add-quote-btn"
+            >
+              <Plus size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </InteractiveTooltip>
+          <InteractiveTooltip
+            text="Vous pouvez rechercher les œuvres/auteurs de votre choix et les ajouter à votre bibliothèque."
+            stepName="searchButton"
+            placement="bottom"
+          >
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => router.navigate('/search')}
+              accessible={true}
+              accessibilityLabel="Rechercher"
+              accessibilityRole="button"
+              testID="search-btn"
+            >
+              <Search size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </InteractiveTooltip>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}
+            accessible={true}
+            accessibilityLabel="Filtrer"
+            accessibilityRole="button"
+            testID="filter-btn"
+          >
             <Filter size={20} color={activeFilters.length > 0 ? colors.primary : colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Stats */}
-      <View style={styles.stats}>
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
-          onPress={() => setViewMode('quotes')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{myQuotes.length}</Text>
-          <Text style={styles.statLabel}>Citations</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
-          onPress={() => setViewMode('books')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{bookCount}</Text>
-          <Text style={styles.statLabel}>Livres</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
-          onPress={() => setViewMode('authors')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{authorsData.length}</Text>
-          <Text style={styles.statLabel}>Auteurs</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
-          onPress={() => setViewMode('themes')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.statValue}>{themes.length}</Text>
-          <Text style={styles.statLabel}>Thèmes</Text>
-        </TouchableOpacity>
-      </View>
+      <InteractiveTooltip
+        stepName="filterTabs"
+        text="Vos citations sont regroupées par catégorie : Citations, Livres, Auteurs et Thèmes. Appuyez sur un onglet pour changer de vue."
+        placement="bottom"
+        allowChildInteraction={true}
+        verticalOffset={firstItemHeight + 20}
+      >
+        {quotesToDisplay.length === 0 ? (
+          <InteractiveTooltip
+            text="Les citations enregistrées se retrouvent ici."
+            stepName="myQuotesList"
+            placement="bottom"
+          >
+            <View style={[styles.stats, { width: '100%' }]}>
+              {statsContent}
+            </View>
+          </InteractiveTooltip>
+        ) : (
+          <View style={[styles.stats, { width: '100%' }]}>
+            {statsContent}
+          </View>
+        )}
+      </InteractiveTooltip>
 
       {/* Content — FlashList for virtualization */}
       <View style={styles.scrollView}>
@@ -464,8 +671,21 @@ export default function MyQuotesScreen() {
             data={filteredBooksByStatus}
             renderItem={renderBookItem}
             keyExtractor={bookKeyExtractor}
+            getItemType={() => 'book'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -476,8 +696,21 @@ export default function MyQuotesScreen() {
             data={authorsData}
             renderItem={renderAuthorItem}
             keyExtractor={authorKeyExtractor}
+            getItemType={() => 'author'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -488,8 +721,21 @@ export default function MyQuotesScreen() {
             data={themes}
             renderItem={renderThemeItem}
             keyExtractor={themeKeyExtractor}
+            getItemType={() => 'theme'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -501,8 +747,21 @@ export default function MyQuotesScreen() {
             data={quotesToDisplay}
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
+            getItemType={() => 'quote'}
+            removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
-            ListHeaderComponent={ListHeader}
+            ListHeaderComponent={
+              <ListHeaderMemo
+                activeFilters={activeFilters}
+                viewMode={viewMode}
+                selectedStatus={selectedStatus}
+                colors={colors}
+                styles={styles}
+                removeFilter={removeFilter}
+                resetFilters={resetFilters}
+                setSelectedStatus={setSelectedStatus}
+              />
+            }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }

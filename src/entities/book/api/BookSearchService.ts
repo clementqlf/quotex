@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { Book } from '@/src/shared/api/types';
+import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 export interface BookSearchResult {
     googleId: string;
@@ -23,6 +24,10 @@ class BookSearchService {
     async search(query: string): Promise<BookSearchResult[]> {
         if (!query.trim()) return [];
 
+        if (await isOffline()) {
+            return [];
+        }
+
         try {
             const response = await fetch(`${this.BASE_URL}/book-search/search?q=${encodeURIComponent(query)}`);
             if (response.ok) {
@@ -30,12 +35,16 @@ class BookSearchService {
             }
             return [];
         } catch (error) {
-            console.error('Error searching books:', error);
+            logFetchError('Error searching books', error);
             return [];
         }
     }
 
     async importBook(bookData: BookSearchResult): Promise<Book | null> {
+        if (await isOffline()) {
+            return null;
+        }
+
         try {
             const response = await fetch(`${this.BASE_URL}/books/import`, {
                 method: 'POST',
@@ -50,7 +59,7 @@ class BookSearchService {
             }
             return null;
         } catch (error) {
-            console.error('Error importing book:', error);
+            logFetchError('Error importing book', error);
             return null;
         }
     }

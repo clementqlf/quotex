@@ -12,7 +12,7 @@ interface SavedQuotesBlockProps {
     onRemove?: () => void;
 }
 
-export const SavedQuotesBlock: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove }) => {
+const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -49,6 +49,13 @@ export const SavedQuotesBlock: React.FC<SavedQuotesBlockProps> = ({ quotes, onQu
         </BlockWrapper>
     );
 };
+
+export const SavedQuotesBlock = React.memo(SavedQuotesBlockUI, (prevProps, nextProps) => {
+    return (
+        prevProps.quotes.length === nextProps.quotes.length &&
+        prevProps.quotes.every((q, i) => q.id === nextProps.quotes[i].id)
+    );
+});
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {

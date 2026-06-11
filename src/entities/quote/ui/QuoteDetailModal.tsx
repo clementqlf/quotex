@@ -19,6 +19,7 @@ import type { SortableGridRenderItem } from 'react-native-sortables';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import Sortable from 'react-native-sortables';
+import { InteractiveTooltip, useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
 import Animated, {
   useAnimatedRef,
   useSharedValue,
@@ -28,11 +29,15 @@ import Animated, {
   withTiming,
   Easing
 } from 'react-native-reanimated';
+
+// Removed walkthroughable components
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
 import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
 import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
-import { useData } from '@/src/app/providers/DataProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { BlockService } from '@/src/shared/api/BlockService';
 import { Quote, Book, Author } from '@/src/shared/api/types';
 import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
@@ -41,6 +46,7 @@ import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService
 import { authorService } from '@/src/entities/author/api/AuthorService';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
+import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
 import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
@@ -141,10 +147,13 @@ const RecBookSkeleton = ({ colors, styles }: { colors: ThemeColors; styles: any 
   );
 };
 
-export default function QuoteDetailModal() {
+// Composant interne : a accès au CopilotProvider local
+function QuoteDetailContent() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const router = useRouter();
+  const { currentStepIndex, nextStep } = useAppTourState();
+
 
   // Apple Intelligence glowing effect shared values
   const glow1X = useSharedValue(0);
@@ -282,7 +291,29 @@ export default function QuoteDetailModal() {
   }, []);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
-  const { quotes, books, getBlockLayout, updateBlockLayout, updateQuote, toggleLikeQuote, deleteQuote, refreshBooks } = useData();
+  
+  // Remplacement de useData() par les hooks spécifiques
+  const { quotes, updateQuote: updateQuoteMutation, toggleLikeQuote, deleteQuote: deleteQuoteMutation } = useQuote();
+  const { books, refreshBooks } = useAuthor();
+  
+  // Méthodes pour BlockService
+  const getBlockLayout = (parentId: string | number, parentType: 'quote' | 'book') => {
+    return BlockService.getLayout(parentId, parentType);
+  };
+  
+  const updateBlockLayout = (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+    return BlockService.saveLayout(parentId, parentType, layout);
+  };
+  
+  // Wrapper pour updateQuote
+  const updateQuote = async (id: number, updates: Partial<Quote>) => {
+    await updateQuoteMutation(id, updates);
+  };
+  
+  // Wrapper pour deleteQuote
+  const deleteQuote = async (id: number) => {
+    await deleteQuoteMutation(id);
+  };
 
   // 1. Prioritize lookup by ID from global store
   // 2. Fallback to parsing the stringified quote param
@@ -397,7 +428,7 @@ export default function QuoteDetailModal() {
       }
     }
 
-    const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean)));
+    const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean) as string[]));
     newPrimaryTheme = allUnique[0] || undefined;
     newAdditionalThemes = allUnique.slice(1);
 
@@ -454,9 +485,20 @@ export default function QuoteDetailModal() {
       }
     } catch (error) {
       console.error('[AI Analysis]', error);
+      // Fallback: set a default analysis
+      const authorName = getAuthorName(quote?.author);
+      const fallbackAnalysis = {
+        aiInterpretation: `Cette citation de ${authorName} invite à la réflexion littéraire.`,
+        theme: "Art & Littérature",
+        blockData: { recommendedBooks: [] }
+      };
+      setQuote({ ...quote, ...fallbackAnalysis });
+      if (updateQuote) {
+        updateQuote(quote.id, fallbackAnalysis);
+      }
       Alert.alert(
-        "Erreur",
-        "Impossible de lancer l'analyse littéraire. Assurez-vous d'avoir configuré votre Groq_API_KEY dans Supabase."
+        "Analyse indisponible",
+        "Une analyse par défaut a été appliquée. Veuillez réessayer plus tard pour une analyse IA complète."
       );
     } finally {
       setIsAnalyzing(false);
@@ -525,7 +567,7 @@ export default function QuoteDetailModal() {
   // Data helpers based on fetched state
   const aiInterpretation = quote?.aiInterpretation;
   const recommendedBooks = React.useMemo(() => {
-    const recs = quote?.blockData?.recommendedBooks || [];
+    const recs = (quote?.blockData?.recommendedBooks as any[]) || [];
     const booksMap = new Map(books.map((db: any) => [Number(db.id), db]));
     const mapped = recs.map((b: any) => {
       if (b.id) {
@@ -540,7 +582,7 @@ export default function QuoteDetailModal() {
         } else {
           return {
             ...b,
-            isEnriching: true,
+            isEnriching: !b.cover,
           };
         }
       }
@@ -551,7 +593,7 @@ export default function QuoteDetailModal() {
   }, [quote?.blockData?.recommendedBooks, books]);
   const quoteTheme = quote?.theme;
   const additionalThemes = quote?.blockData?.additionalThemes || [];
-  const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean)));
+  const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean) as string[]));
   if (allThemes.length === 0) {
     allThemes.push('Thème non renseigné');
   }
@@ -606,8 +648,22 @@ export default function QuoteDetailModal() {
     return () => clearTimeout(timer);
   }, [quote?.blockData, quote?.id, updateQuote]);
 
+  const handleRealtimeBooksUpdate = React.useCallback(() => {
+    if (quote?.id) {
+      quoteService.getQuoteById(quote.id).then((freshQuote) => {
+        if (freshQuote) {
+          lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
+          setQuote(freshQuote);
+        }
+      }).catch(err => console.log('Failed to refresh quote on realtime update:', err));
+    }
+    if (refreshBooks) {
+      refreshBooks();
+    }
+  }, [quote?.id, refreshBooks]);
+
   // Utiliser Realtime pour les livres recommandés au lieu du polling
-  useRealtimeBooks(recommendedBooks, refreshBooks);
+  useRealtimeBooks(recommendedBooks, handleRealtimeBooksUpdate);
 
   const handleUpdateBlockData = useCallback((blockId: string, data: any) => {
     setQuote((current: Quote | undefined) => {
@@ -621,9 +677,13 @@ export default function QuoteDetailModal() {
     });
   }, []);
 
-  if (!quote) return null;
-
-  const onClose = () => router.back();
+  const onClose = () => {
+    const activeStepName = TOUR_STEPS[currentStepIndex];
+    if (activeStepName === 'quoteDetailClose') {
+      nextStep();
+    }
+    router.back();
+  };
 
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = React.useState(false);
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = React.useState<string | null>(null);
@@ -655,6 +715,7 @@ export default function QuoteDetailModal() {
   }), [quote, fetchedBook, fetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor]);
 
   const handleToggleLike = () => {
+    if (!quote) return;
     setQuote((currentQuote: Quote | undefined) => {
       if (!currentQuote) return currentQuote;
       return { ...currentQuote, isLiked: !currentQuote.isLiked, likesCount: currentQuote.isLiked ? currentQuote.likesCount - 1 : currentQuote.likesCount + 1 };
@@ -663,6 +724,7 @@ export default function QuoteDetailModal() {
   };
 
   const handleShare = async () => {
+    if (!quote) return;
     try {
       const message = `"${quote.text}"\n- ${quoteAuthorName}\n(via Quotex)`;
       await Share.share({
@@ -677,6 +739,20 @@ export default function QuoteDetailModal() {
   const onBookPress = (bookTitle: string) => navigateToBook(fetchedBook?.id ?? bookTitle, fetchedBook?.inventaireUri);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
+  const aiSectionRef = React.useRef<View>(null);
+
+  // Enregistre le handler de scroll ET la ref Reanimated pour que le tooltip
+  // puisse scroller via le UI thread (scrollTo Reanimated) avant goToNext
+  React.useEffect(() => {
+    registerModalScrollHandler((y, animated = true) => {
+      scrollableRef.current?.scrollTo({ y, animated });
+    });
+    registerModalScrollRef(scrollableRef as any);
+    return () => unregisterModalScrollHandler();
+  }, [scrollableRef]);
+
+
+
   // State and helpers for "Ajouter un bloc"
   const [isAddBlockModalVisible, setAddBlockModalVisible] = React.useState(false);
   const [isWordSelectionModalVisible, setWordSelectionModalVisible] = React.useState(false);
@@ -773,8 +849,10 @@ export default function QuoteDetailModal() {
     );
   }, [blockContext, handleRemoveBlock, colors, styles]);
 
+  if (!quote) return null;
+
   return (
-    <View style={styles.container}>
+      <View style={styles.container}>
       <TouchableOpacity
         style={styles.backdrop}
         activeOpacity={1}
@@ -796,15 +874,24 @@ export default function QuoteDetailModal() {
               <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
                 <Trash2 size={20} color={colors.warning} />
               </TouchableOpacity>
+              <InteractiveTooltip
+                text="Appuyez sur cette croix pour fermer la fiche et revenir à votre liste de citations."
+                stepName="quoteDetailClose"
+                placement="bottom"
+                allowChildInteraction={true}
+              >
+                <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
+                  <X size={24} color={colors.textTertiary} />
+                </TouchableOpacity>
+              </InteractiveTooltip>
               <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
                 <Edit3 size={20} color={colors.textTertiary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <X size={24} color={colors.textTertiary} />
-              </TouchableOpacity>
             </View>
           </View>
+
           {/* Quote Section */}
+
           <View style={styles.section}>
             <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
               <Path
@@ -907,141 +994,148 @@ export default function QuoteDetailModal() {
           </View>
 
           {/* AI Interpretation */}
-          <View style={styles.aiSectionWrapper}>
-            {!isAnalyzing && (
-              <View style={styles.glowContainer}>
-                {/* Top edge glow */}
-                <GlowCircle color1="#8B5CF6" x={glow1X} y={glow1Y} scale={glow1Scale} size={200} opacity={isDark ? 0.38 : 0.22} style={{ top: -65, left: '25%' }} />
-                {/* Bottom edge glow */}
-                <GlowCircle color1="#EC4899" x={glow2X} y={glow2Y} scale={glow2Scale} size={190} opacity={isDark ? 0.38 : 0.22} style={{ bottom: -65, left: '25%' }} />
-                {/* Left edge glow */}
-                <GlowCircle color1="#06B6D4" x={glow3X} y={glow3Y} scale={glow3Scale} size={180} opacity={isDark ? 0.45 : 0.25} style={{ top: '20%', left: -60 }} />
-                {/* Right edge glow */}
-                <GlowCircle color1="#3B82F6" x={glow4X} y={glow4Y} scale={glow4Scale} size={180} opacity={isDark ? 0.45 : 0.25} style={{ top: '20%', right: -60 }} />
-              </View>
-            )}
-
-            <View
-              style={styles.aiSection}
-            >
-              {isAnalyzing ? (
-                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
-                  <ActivityIndicator color={colors.primary} size="small" style={{ marginBottom: 10 }} />
-                  <Text style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
-                    Analyse littéraire par l'IA en cours...
-                  </Text>
+          <View ref={aiSectionRef}>
+          <InteractiveTooltip
+            text="L'IA met en contexte la citation et propose des œuvres en rapport avec son thème."
+            stepName="quoteDetailIA"
+            placement="top"
+          >
+            <View style={[styles.aiSectionWrapper, { width: '100%' }]}>
+              {!isAnalyzing && (
+                <View style={styles.glowContainer}>
+                  {/* Top edge glow */}
+                  <GlowCircle color1="#8B5CF6" x={glow1X} y={glow1Y} scale={glow1Scale} size={200} opacity={isDark ? 0.38 : 0.22} style={{ top: -65, left: '25%' }} />
+                  {/* Bottom edge glow */}
+                  <GlowCircle color1="#EC4899" x={glow2X} y={glow2Y} scale={glow2Scale} size={190} opacity={isDark ? 0.38 : 0.22} style={{ bottom: -65, left: '25%' }} />
+                  {/* Left edge glow */}
+                  <GlowCircle color1="#06B6D4" x={glow3X} y={glow3Y} scale={glow3Scale} size={180} opacity={isDark ? 0.45 : 0.25} style={{ top: '20%', left: -60 }} />
+                  {/* Right edge glow */}
+                  <GlowCircle color1="#3B82F6" x={glow4X} y={glow4Y} scale={glow4Scale} size={180} opacity={isDark ? 0.45 : 0.25} style={{ top: '20%', right: -60 }} />
                 </View>
-              ) : aiInterpretation ? (
-                <>
-                  <View style={styles.aiHeader}>
-                    <Sparkles size={16} color={colors.primary} />
-                    <Text style={styles.aiTitle}>Interprétation IA</Text>
+              )}
+
+              <View
+                style={styles.aiSection}
+              >
+                {isAnalyzing ? (
+                  <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                    <ActivityIndicator color={colors.primary} size="small" style={{ marginBottom: 10 }} />
+                    <Text style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
+                      Analyse littéraire par {"l'IA"} en cours...
+                    </Text>
+                  </View>
+                ) : aiInterpretation ? (
+                  <>
+                    <View style={styles.aiHeader}>
+                      <Sparkles size={16} color={colors.primary} />
+                      <Text style={styles.aiTitle}>Interprétation IA</Text>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleTriggerAnalysis();
+                        }}
+                        style={{ marginLeft: 'auto', padding: 4 }}
+                      >
+                        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.aiText}>{aiInterpretation}</Text>
+
+                    {recommendedBooks && recommendedBooks.length > 0 && (
+                      <View style={styles.recContainer} onStartShouldSetResponder={() => true}>
+                        <Text style={styles.recHeaderTitle}>Lectures recommandées par {"l'IA"}</Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.recScrollContent}
+                          style={styles.recScrollView}
+                          keyboardShouldPersistTaps="handled"
+                        >
+                          {recommendedBooks.map((bookItem: any, idx: number) => {
+                            if (bookItem.isEnriching && !bookItem.cover) {
+                              return <RecBookSkeleton key={idx} colors={colors} styles={styles} />;
+                            }
+                            const hasCover = !!bookItem.cover;
+                            return (
+                              <TouchableOpacity
+                                key={idx}
+                                style={styles.recBookCard}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  if (bookItem.id) {
+                                    router.push({
+                                      pathname: '/book-detail',
+                                      params: { bookId: bookItem.id.toString(), bookTitle: bookItem.title }
+                                    });
+                                  } else {
+                                    router.push({
+                                      pathname: '/search',
+                                      params: { q: `${bookItem.title} ${bookItem.author}` }
+                                    });
+                                  }
+                                }}
+                              >
+                                {hasCover ? (
+                                  <Image source={{ uri: bookItem.cover }} style={styles.recBookCover} />
+                                ) : (
+                                  <View style={styles.recBookCoverFallback}>
+                                    <BookOpen size={24} color={colors.primary} />
+                                    <Text numberOfLines={3} style={styles.fallbackCoverTitle}>
+                                      {bookItem.title}
+                                    </Text>
+                                  </View>
+                                )}
+                                <Text numberOfLines={2} style={styles.recBookTitle}>
+                                  {bookItem.title}
+                                </Text>
+                                <Text numberOfLines={1} style={styles.recBookAuthor}>
+                                  {bookItem.author}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    )}
+
+
+                  </>
+                ) : (
+                  <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                    <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
+                    <Text style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par {"l'IA"}</Text>
+                    <Text style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
+                      Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
+                    </Text>
                     <TouchableOpacity
+                      style={{
+                        backgroundColor: colors.primary,
+                        paddingHorizontal: 20,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        shadowColor: colors.primary,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.15,
+                        shadowRadius: 4,
+                        elevation: 2,
+                      }}
                       onPress={(e) => {
                         e.stopPropagation();
                         handleTriggerAnalysis();
                       }}
-                      style={{ marginLeft: 'auto', padding: 4 }}
                     >
-                      <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
+                      <Sparkles size={15} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</Text>
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.aiText}>{aiInterpretation}</Text>
-
-                  {recommendedBooks && recommendedBooks.length > 0 && (
-                    <View style={styles.recContainer} onStartShouldSetResponder={() => true}>
-                      <Text style={styles.recHeaderTitle}>Lectures recommandées par l'IA</Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.recScrollContent}
-                        style={styles.recScrollView}
-                        keyboardShouldPersistTaps="handled"
-                      >
-                        {recommendedBooks.map((bookItem: any, idx: number) => {
-                          if (bookItem.isEnriching && !bookItem.cover) {
-                            return <RecBookSkeleton key={idx} colors={colors} styles={styles} />;
-                          }
-                          const hasCover = !!bookItem.cover;
-                          return (
-                            <TouchableOpacity
-                              key={idx}
-                              style={styles.recBookCard}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                if (bookItem.id) {
-                                  router.push({
-                                    pathname: '/book-detail',
-                                    params: { bookId: bookItem.id.toString(), bookTitle: bookItem.title }
-                                  });
-                                } else {
-                                  router.push({
-                                    pathname: '/search',
-                                    params: { q: `${bookItem.title} ${bookItem.author}` }
-                                  });
-                                }
-                              }}
-                            >
-                              {hasCover ? (
-                                <Image source={{ uri: bookItem.cover }} style={styles.recBookCover} />
-                              ) : (
-                                <View style={styles.recBookCoverFallback}>
-                                  <BookOpen size={24} color={colors.primary} />
-                                  <Text numberOfLines={3} style={styles.fallbackCoverTitle}>
-                                    {bookItem.title}
-                                  </Text>
-                                </View>
-                              )}
-                              <Text numberOfLines={2} style={styles.recBookTitle}>
-                                {bookItem.title}
-                              </Text>
-                              <Text numberOfLines={1} style={styles.recBookAuthor}>
-                                {bookItem.author}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-                  )}
-
-
-                </>
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
-                  <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
-                  <Text style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par l'IA</Text>
-                  <Text style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
-                    Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
-                  </Text>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: colors.primary,
-                      paddingHorizontal: 20,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 8,
-                      shadowColor: colors.primary,
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 4,
-                      elevation: 2,
-                    }}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      handleTriggerAnalysis();
-                    }}
-                  >
-                    <Sparkles size={15} color="#FFFFFF" />
-                    <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                )}
+              </View>
             </View>
-          </View>
-
+          </InteractiveTooltip>
+          </View>{/* end aiSectionRef */}
 
 
           {/* TABS */}
@@ -1254,6 +1348,11 @@ export default function QuoteDetailModal() {
       </View>
     </View>
   );
+}
+
+// QuoteDetailModal exported as the pure entity component.
+export default function QuoteDetailModal() {
+  return <QuoteDetailContent />;
 }
 
 const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.create({

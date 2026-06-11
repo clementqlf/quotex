@@ -159,6 +159,7 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
                                 data={flattenedResults}
                                 renderItem={renderItem}
                                 keyExtractor={(item, index) => `${item.type}-${item.id || index}`}
+                                removeClippedSubviews={true}
                                 ListEmptyComponent={
                                     query.length > 1 ? (
                                         <View style={styles.emptyState}>

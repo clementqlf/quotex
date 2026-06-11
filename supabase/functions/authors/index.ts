@@ -45,6 +45,17 @@ serve(async (req: Request) => {
     // GET /authors/by-name/:name
     if (req.method === 'GET' && parts[0] === 'by-name' && parts[1]) {
       const name = decodeURIComponent(parts[1]);
+      
+      // ✅ CORRECTION: Exiger authentification pour la création d'auteur
+      const authUser = await requireAuth(req);
+      if (authUser instanceof Response) return authUser;
+      
+      // ✅ CORRECTION: Valider le nom d'auteur
+      if (!name || name.length < 2 || name.length > 200) {
+        return error('Invalid author name: must be between 2 and 200 characters', 400);
+      }
+      
+      // ✅ CORRECTION: Recherche insensible à la casse et aux espaces
       let authorRows = await sql`
         SELECT a.*,
           COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
@@ -52,24 +63,53 @@ serve(async (req: Request) => {
             'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
             'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
           ) as "_count"
-        FROM "Author" a WHERE a.name = ${name} LIMIT 1
+        FROM "Author" a
+        WHERE LOWER(TRIM(a.name)) = LOWER(TRIM(${name}))
+        LIMIT 1
       `;
 
       if (!authorRows.length) {
-        const created = await sql`
-          INSERT INTO "Author" (name) VALUES (${name}) RETURNING *
+        // Activer pg_trgm si nécessaire pour la détection de similarité
+        await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`.catch(() => {});
+
+        // Recherche par similarité pour éviter les doublons
+        const similarAuthors = await sql`
+          SELECT a.*, SIMILARITY(LOWER(a.name), LOWER(${name})) as similarity
+          FROM "Author" a
+          WHERE LOWER(a.name) % LOWER(${name})
+          ORDER BY similarity DESC
+          LIMIT 3
         `;
-        const newAuthorId = created[0].id;
-        await enrichAuthorWithInventaire(newAuthorId);
-        authorRows = await sql`
-          SELECT a.*,
-            COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
-            json_build_object(
-              'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
-              'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
-            ) as "_count"
-          FROM "Author" a WHERE a.id = ${newAuthorId} LIMIT 1
-        `;
+
+        if (similarAuthors.length > 0 && similarAuthors[0].similarity > 0.8) {
+          // Utiliser l'auteur similaire existant si la similarité est élevée
+          const matchedId = similarAuthors[0].id;
+          authorRows = await sql`
+            SELECT a.*,
+              COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+              json_build_object(
+                'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+                'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+              ) as "_count"
+            FROM "Author" a WHERE a.id = ${matchedId} LIMIT 1
+          `;
+        } else {
+          // Créer un nouvel auteur avec le nom nettoyé
+          const created = await sql`
+            INSERT INTO "Author" (name) VALUES (${name.trim()}) RETURNING *
+          `;
+          const newAuthorId = created[0].id;
+          await enrichAuthorWithInventaire(newAuthorId);
+          authorRows = await sql`
+            SELECT a.*,
+              COALESCE((SELECT json_agg(ua) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+              json_build_object(
+                'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
+                'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
+              ) as "_count"
+            FROM "Author" a WHERE a.id = ${newAuthorId} LIMIT 1
+          `;
+        }
       }
 
       if (!authorRows.length) return error('Author not found', 404);

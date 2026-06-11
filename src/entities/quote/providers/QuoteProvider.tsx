@@ -1,194 +1,216 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { Quote } from '@/src/shared/api/types';
-import { IQuoteRepository } from '../api/IQuoteRepository';
-import { SupabaseQuoteRepository } from '../api/SupabaseQuoteRepository';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import React, { createContext, useContext, useMemo, ReactNode, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Quote, User } from '@/src/shared/api/types';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { useNetworkSync, SyncStatus } from '@/src/entities/quote/lib/useNetworkSync';
+import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
+import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 
 type QuoteContextType = {
   quotes: Quote[];
   isLoading: boolean;
   syncStatus: SyncStatus & { syncNow: () => void; isOnline: boolean; isOffline: boolean };
   refreshQuotes: () => Promise<void>;
-  toggleLikeQuote: (id: number) => Promise<void>;
-  toggleSaveQuote: (id: number) => Promise<void>;
+  toggleLikeQuote: (id: number) => Promise<{ isLiked: boolean; likesCount: number } | void>;
+  toggleSaveQuote: (id: number) => Promise<{ isSaved: boolean } | void>;
   deleteQuote: (id: number) => Promise<void>;
-  addQuote: (text: string, book?: string | null, author?: string | null) => Promise<void>;
-  updateQuote: (id: number, updates: Partial<Quote>) => Promise<void>;
-  getUserByUsername: (username: string) => Promise<any>;
+  addQuote: (text: string, book?: string | null, author?: string | null) => Promise<Quote>;
+  updateQuote: (id: number, updates: Partial<Quote>) => Promise<Quote | void>;
+  getUserByUsername: (username: string) => Promise<User | undefined>;
 };
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
 
-/**
- * Provider dédié à la gestion des Quotes
- * Remplace la partie Quote de DataProvider
- */
 export const QuoteProvider = ({ children }: { children: ReactNode }) => {
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Repository instance
-  const quoteRepository = useMemo(() => SupabaseQuoteRepository.getInstance(), []);
-  
-  // Network sync status
+  const queryClient = useQueryClient();
+  const { quoteRepository } = useRepositories();
   const syncStatus = useNetworkSync();
 
-  // Charger les quotes depuis le cache au démarrage
-  const loadCachedQuotes = async () => {
-    try {
-      const cachedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
-      if (cachedQuotes) {
-        setQuotes(cachedQuotes);
-      }
-    } catch (error) {
-      console.error("QuoteProvider: Failed to load cached quotes", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Query pour récupérer les quotes
+  const { data: quotes = [], isLoading, refetch } = useQuery({
+    queryKey: ['quotes'],
+    queryFn: () => quoteRepository.getQuotes(),
+  });
 
-  // Rafraîchir les quotes depuis le serveur
-  const refreshQuotes = useCallback(async (reason: string = 'unknown') => {
-    console.log(`QuoteProvider: refreshQuotes called (Reason: ${reason})`);
-    try {
-      const fetchedQuotes = await quoteRepository.getQuotes();
-      setQuotes(fetchedQuotes);
-      await StorageService.setItem(STORAGE_KEYS.QUOTES, fetchedQuotes);
-    } catch (error) {
-      console.error("QuoteProvider: Failed to refresh quotes", error);
-    }
-  }, [quoteRepository]);
+  // Refresh avec logging
+  const refreshQuotes = useCallback(async (reason?: string) => {
+    if (reason) console.log(`refreshQuotes called: ${reason}`);
+    await refetch();
+  }, [refetch]);
 
-  // Toggle like avec optimisation
-  const toggleLikeQuote = useCallback(async (id: number) => {
-    // Optimistic update
-    setQuotes(prevQuotes =>
-      prevQuotes.map(q =>
-        q.id === id
-          ? { 
-              ...q, 
-              isLiked: !q.isLiked, 
-              likesCount: q.isLiked ? q.likesCount - 1 : q.likesCount + 1 
-            }
-          : q
-      )
-    );
-
-    // Call repository
-    await quoteRepository.toggleLike(id);
-    
-    // Rafraîchir pour synchroniser avec le serveur
-    await refreshQuotes('toggleLike complete');
-  }, [quoteRepository, refreshQuotes]);
-
-  // Toggle save
-  const toggleSaveQuote = useCallback(async (id: number) => {
-    setQuotes(prev => prev.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q));
-    await quoteRepository.toggleSave(id);
-    await refreshQuotes('toggleSave complete');
-  }, [quoteRepository, refreshQuotes]);
-
-  // Delete quote
-  const deleteQuote = useCallback(async (id: number) => {
-    // Optimistic update
-    setQuotes(prev => prev.filter(q => q.id !== id));
-    await quoteRepository.deleteQuote(id);
-    await refreshQuotes('deleteQuote complete');
-  }, [quoteRepository, refreshQuotes]);
-
-  // Add quote
-  const addQuote = useCallback(async (text: string, book?: string | null, author?: string | null) => {
-    console.log('[QuoteProvider] addQuote called');
-    
-    const user = await authService.getUser();
-    
-    const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
-    const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
-    
-    const tempId = Date.now();
-    const newQuote: Quote = {
-      id: tempId,
-      text,
-      book: cleanBook,
-      author: cleanAuthor,
-      likesCount: 0,
-      isLiked: false,
-      date: new Date().toISOString(),
-      isSaved: false,
-      comments: 0,
-      blockData: {},
-      user: user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
-    };
-    
-    console.log('[QuoteProvider] Adding quote to local state, tempId:', tempId);
-    setQuotes(prev => [newQuote, ...prev]);
-    
-    console.log('[QuoteProvider] Calling repository.addQuote...');
-    await quoteRepository.createQuote(text, cleanBook, cleanAuthor);
-    console.log('[QuoteProvider] repository.addQuote completed');
-    
-    // Rafraîchir pour obtenir l'ID réel du serveur
-    await refreshQuotes('addQuote complete');
-    console.log('[QuoteProvider] addQuote completed successfully');
-  }, [quoteRepository, refreshQuotes]);
-
-  // Update quote
-  const updateQuote = useCallback(async (id: number, updates: Partial<Quote>) => {
-    // Optimistic update
-    setQuotes(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
-    
-    // Call repository
-    await quoteRepository.updateQuote(id, updates);
-    
-    // Refresh
-    await refreshQuotes('updateQuote complete');
-  }, [quoteRepository, refreshQuotes]);
-
-  // Get user by username
-  const getUserByUsername = useCallback(async (username: string) => {
-    return await quoteRepository.getUserByUsername(username);
-  }, [quoteRepository]);
-
-  // Charger les quotes au montage
-  useEffect(() => {
-    loadCachedQuotes();
-    refreshQuotes('initial load');
-  }, [refreshQuotes]);
-
-  // Rafraîchir après un sync réussi
+  // Synchronisation automatique après sync
   useEffect(() => {
     if (syncStatus.lastSyncTime && syncStatus.pendingCount === 0) {
-      // Small delay to ensure the backend has finished its background enrichments
-      const timer = setTimeout(() => {
-        refreshQuotes('sync complete');
-      }, 1000);
+      const timer = setTimeout(() => refreshQuotes('sync complete'), 1000);
       return () => clearTimeout(timer);
     }
   }, [syncStatus.lastSyncTime, syncStatus.pendingCount, refreshQuotes]);
 
+  // Mutation pour toggleLike
+  const toggleLikeMutation = useMutation({
+    mutationFn: (id: number) => quoteRepository.toggleLike(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['quotes'] });
+      const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
+      if (previousQuotes) {
+        queryClient.setQueryData<Quote[]>(['quotes'], old => {
+          if (!old) return [];
+          return old.map(q => q.id === id ? { ...q, isLiked: !q.isLiked, likesCount: q.isLiked ? q.likesCount - 1 : q.likesCount + 1 } : q);
+        });
+      }
+      return { previousQuotes };
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    }
+  });
+
+  // Mutation pour toggleSave
+  const toggleSaveMutation = useMutation({
+    mutationFn: (id: number) => quoteRepository.toggleSave(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['quotes'] });
+      const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
+      if (previousQuotes) {
+        queryClient.setQueryData<Quote[]>(['quotes'], old => {
+          if (!old) return [];
+          return old.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q);
+        });
+      }
+      return { previousQuotes };
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    }
+  });
+
+  // Mutation pour deleteQuote
+  const deleteQuoteMutation = useMutation({
+    mutationFn: (id: number) => quoteRepository.deleteQuote(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['quotes'] });
+      const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
+      if (previousQuotes) {
+        queryClient.setQueryData<Quote[]>(['quotes'], old => {
+          if (!old) return [];
+          return old.filter(q => q.id !== id);
+        });
+      }
+      return { previousQuotes };
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    }
+  });
+
+  // Mutation pour addQuote
+  const addQuoteMutation = useMutation({
+    mutationFn: async ({ text, book, author }: { text: string; book?: string | null; author?: string | null }) => {
+      const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
+      const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+      return quoteRepository.createQuote(text, cleanBook, cleanAuthor);
+    },
+    onMutate: async ({ text, book, author }) => {
+      await queryClient.cancelQueries({ queryKey: ['quotes'] });
+      const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
+      const user = await authService.getUser();
+      const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
+      const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+      
+      const newQuote: Quote = {
+        id: Date.now(),
+        text,
+        book: cleanBook,
+        author: cleanAuthor,
+        likesCount: 0,
+        isLiked: false,
+        date: new Date().toISOString(),
+        isSaved: false,
+        comments: 0,
+        blockData: {},
+        user: user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
+      };
+
+      queryClient.setQueryData<Quote[]>(['quotes'], old => {
+        if (!old) return [newQuote];
+        return [newQuote, ...old];
+      });
+
+      return { previousQuotes };
+    },
+    onError: (err, newQuote, ctx) => {
+      if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    }
+  });
+
+  // Mutation pour updateQuote
+  const updateQuoteMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: number; updates: Partial<Quote> }) => quoteRepository.updateQuote(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: ['quotes'] });
+      const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
+      if (previousQuotes) {
+        queryClient.setQueryData<Quote[]>(['quotes'], old => {
+          if (!old) return [];
+          return old.map(q => q.id === id ? { ...q, ...updates } : q);
+        });
+      }
+      return { previousQuotes };
+    },
+    onError: (err, variables, ctx) => {
+      if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+    }
+  });
+
+  // Fonction pour récupérer un utilisateur par username
+  const getUserByUsername = useCallback(async (username: string): Promise<User | undefined> => {
+    try {
+      const user = await quoteRepository.getUserByUsername(username);
+      return user as User | undefined;
+    } catch {
+      return undefined;
+    }
+  }, [quoteRepository]);
+
+  // ✅ Memoize toutes les fonctions pour éviter les re-renders
   const contextValue = useMemo(() => ({
     quotes,
     isLoading,
     syncStatus,
     refreshQuotes,
-    toggleLikeQuote,
-    toggleSaveQuote,
-    deleteQuote,
-    addQuote,
-    updateQuote,
+    toggleLikeQuote: (id: number) => toggleLikeMutation.mutateAsync(id),
+    toggleSaveQuote: (id: number) => toggleSaveMutation.mutateAsync(id),
+    deleteQuote: (id: number) => deleteQuoteMutation.mutateAsync(id),
+    addQuote: (text: string, book?: string | null, author?: string | null) => 
+      addQuoteMutation.mutateAsync({ text, book, author }),
+    updateQuote: (id: number, updates: Partial<Quote>) => 
+      updateQuoteMutation.mutateAsync({ id, updates }),
     getUserByUsername,
   }), [
     quotes, 
     isLoading, 
     syncStatus,
     refreshQuotes,
-    toggleLikeQuote,
-    toggleSaveQuote,
-    deleteQuote,
-    addQuote,
-    updateQuote,
+    toggleLikeMutation,
+    toggleSaveMutation, 
+    deleteQuoteMutation,
+    addQuoteMutation,
+    updateQuoteMutation,
     getUserByUsername
   ]);
 
@@ -199,7 +221,6 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Hook pour utiliser le QuoteContext
 export const useQuote = () => {
   const context = useContext(QuoteContext);
   if (context === undefined) {

@@ -86,6 +86,14 @@ export function useIsbnScanner({
         }
     }, [isScanningActive, scanText, onIsbnDetected]);
 
+    // Cleanup au unmount
+    useEffect(() => {
+        return () => {
+            // Reset des Shared Values
+            lastProcessed.value = 0;
+        };
+    }, [lastProcessed]);
+
     return {
         isScanning,
         frameProcessor,

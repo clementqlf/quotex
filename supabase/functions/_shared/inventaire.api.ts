@@ -1,4 +1,10 @@
 export const INVENTAIRE_BASE = 'https://inventaire.io';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+
+// ─── Cache Global ────────────────────────────────────────────────────────────
+const entityCache = new Map<string, Promise<Record<string, InventaireEntity>>>();
+const wikipediaCache = new Map<string, Promise<string | null>>();
+const searchCache = new Map<string, Promise<InventaireSearchResult[]>>();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +63,20 @@ export interface InventaireAuthorDetails {
     description: string | null;
 }
 
+// ─── Zod Schemas ─────────────────────────────────────────────────────────────
+
+const InventaireSearchResultSchema = z.object({
+  id: z.string(),
+  uri: z.string(),
+  type: z.string(),
+  label: z.string().optional(),
+  image: z.string().nullable().optional()
+});
+
+const InventaireSearchResponseSchema = z.object({
+  results: z.array(InventaireSearchResultSchema).optional().default([])
+});
+
 // ─── HTTP Client ─────────────────────────────────────────────────────────────
 
 const USER_AGENT = 'QuotexApp/1.0 (chantreau@example.com)'; // Replace with actual email later if needed
@@ -107,17 +127,7 @@ export const formatInventaireDate = (rawDate: string | null): string | null => {
     if (cleanDate.includes('-00-00')) {
         return cleanDate.split('-')[0];
     }
-    try {
-        const date = new Date(cleanDate);
-        if (isNaN(date.getTime())) return rawDate;
-        return date.toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-    } catch (e) {
-        return rawDate;
-    }
+    return cleanDate.split('T')[0];
 };
 
 export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Partial<InventaireWorkDetails> & { label?: string, authors?: string[] } => {
@@ -178,19 +188,36 @@ export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Pa
 
 export const searchInventaire = async (query: string, types: string = 'works', limit = 10): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
-    console.log(`[Inventaire API] Searching for "${query}" (types: ${types})`);
-    try {
-        const typesList = types.split(',');
-        const typesParam = typesList.map(t => `types=${encodeURIComponent(t.trim())}`).join('&');
-        const url = `${INVENTAIRE_BASE}/api/search?${typesParam}&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
-        const response = await fetchWithAgent(url);
-        if (!response.ok) {
-            console.error(`[Inventaire API] Search HTTP error: ${response.status} for query "${query}"`);
-            throw new Error(`Inventaire search error: ${response.status}`);
-        }
-        const data = await response.json();
+    
+    const cacheKey = `${query}:${types}:${limit}`;
+    
+    // Return cached promise if exists
+    if (searchCache.has(cacheKey)) {
+        return searchCache.get(cacheKey)!;
+    }
+    
+    const fetchPromise = (async () => {
+        console.log(`[Inventaire API] Searching for "${query}" (types: ${types})`);
+        try {
+            const typesList = types.split(',');
+            const typesParam = typesList.map(t => `types=${encodeURIComponent(t.trim())}`).join('&');
+            const url = `${INVENTAIRE_BASE}/api/search?${typesParam}&search=${encodeURIComponent(query)}&limit=${limit}&lang=fr`;
+            const response = await fetchWithAgent(url);
+            if (!response.ok) {
+                console.error(`[Inventaire API] Search HTTP error: ${response.status} for query "${query}"`);
+                throw new Error(`Inventaire search error: ${response.status}`);
+            }
+            const rawData = await response.json();
+            
+            // Validate response with Zod
+            const validated = InventaireSearchResponseSchema.safeParse(rawData);
+            if (!validated.success) {
+                console.error('[Inventaire API] Invalid search response format:', validated.error);
+                throw new Error('Inventaire API returned unexpected format');
+            }
+            const data = validated.data;
 
-        const basicResults: InventaireSearchResult[] = (data.results || []).map((r: any) => ({
+            const basicResults: InventaireSearchResult[] = data.results.map((r: any) => ({
             id: r.id,
             uri: r.uri,
             type: r.type,
@@ -254,6 +281,13 @@ export const searchInventaire = async (query: string, types: string = 'works', l
         console.error('[Inventaire API] Error searching:', e);
         return [];
     }
+    })();
+    
+    searchCache.set(cacheKey, fetchPromise);
+    // Clean cache after 5 minutes
+    setTimeout(() => searchCache.delete(cacheKey), 300000);
+    
+    return fetchPromise;
 };
 
 export const searchInventaireWorks = async (query: string, limit = 10): Promise<InventaireSearchResult[]> => {
@@ -553,20 +587,35 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
 
 export const getInventaireEntities = async (uris: string[]): Promise<Record<string, InventaireEntity>> => {
     if (!uris.length) return {};
-    try {
-        const uriParam = uris.join('|');
-        const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr&props=labels|descriptions|claims|sitelinks|image`;
-        const response = await fetchWithAgent(url);
-        if (!response.ok) {
-            console.error(`[Inventaire API] Entities HTTP error: ${response.status} for URIs: ${uriParam}`);
-            throw new Error(`Inventaire entities error: ${response.status}`);
-        }
-        const data = await response.json();
-        return data.entities || {};
-    } catch (e) {
-        console.error('[Inventaire API] Error fetching entities:', e);
-        return {};
+    const cacheKey = uris.sort().join('|');
+    
+    // Return cached promise if exists
+    if (entityCache.has(cacheKey)) {
+        return entityCache.get(cacheKey)!;
     }
+    
+    const fetchPromise = (async () => {
+        try {
+            const uriParam = uris.join('|');
+            const url = `${INVENTAIRE_BASE}/api/entities/by-uris?uris=${encodeURIComponent(uriParam)}&lang=fr&props=labels|descriptions|claims|sitelinks|image`;
+            const response = await fetchWithAgent(url);
+            if (!response.ok) {
+                console.error(`[Inventaire API] Entities HTTP error: ${response.status} for URIs: ${uriParam}`);
+                throw new Error(`Inventaire entities error: ${response.status}`);
+            }
+            const data = await response.json();
+            return data.entities || {};
+        } catch (e) {
+            console.error('[Inventaire API] Error fetching entities:', e);
+            return {};
+        }
+    })();
+    
+    entityCache.set(cacheKey, fetchPromise);
+    // Clean cache after 5 minutes
+    setTimeout(() => entityCache.delete(cacheKey), 300000);
+    
+    return fetchPromise;
 };
 
 export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<Record<string, { image: string | null, label: string | null }>> => {
@@ -588,8 +637,13 @@ export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<
             const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(searchQuery)}&limit=${chunk.length}&lang=fr`;
             const response = await fetchWithAgent(url);
             if (!response.ok) continue;
-            const data = await response.json();
-            (data.results || []).forEach((r: any) => {
+            const rawData = await response.json();
+            const validated = InventaireSearchResponseSchema.safeParse(rawData);
+            if (!validated.success) {
+                console.error('[Inventaire API] Invalid batch search response format:', validated.error);
+                continue;
+            }
+            validated.data.results.forEach((r: any) => {
                 if (r.uri) {
                     results[r.uri] = { image: resolveImageUrl(r.image), label: r.label || null };
                 }
@@ -646,23 +700,40 @@ export const getInventaireAuthorDetails = async (uri: string): Promise<Inventair
 
 export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr'): Promise<string | null> => {
     if (!title) return null;
-    try {
-        console.log(`[Wikipedia API] Fetching synopsis for: ${title} (${lang})`);
-        const url = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=4&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json`;
-        const response = await fetchWithAgent(url);
-        if (!response.ok) return null;
-        const data = await response.json();
-        const pages = data.query?.pages;
-        if (!pages) return null;
-        const firstPageId = Object.keys(pages)[0];
-        if (firstPageId === '-1') return null;
-        const extract = pages[firstPageId]?.extract;
-        if (!extract || extract.trim().length === 0) return null;
-        return extract.trim();
-    } catch (e) {
-        console.error('[Wikipedia API] Error fetching synopsis:', e);
-        return null;
+    
+    const cacheKey = `${lang}:${title}`;
+    
+    // Return cached promise if exists
+    if (wikipediaCache.has(cacheKey)) {
+        return wikipediaCache.get(cacheKey)!;
     }
+    
+    const fetchPromise = (async () => {
+        try {
+            console.log(`[Wikipedia API] Fetching synopsis for: ${title} (${lang})`);
+            const url = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=4&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json`;
+            // 5s timeout for Wikipedia
+            const response = await fetchWithAgent(url, {}, 5000);
+            if (!response.ok) return null;
+            const data = await response.json();
+            const pages = data.query?.pages;
+            if (!pages) return null;
+            const firstPageId = Object.keys(pages)[0];
+            if (firstPageId === '-1') return null;
+            const extract = pages[firstPageId]?.extract;
+            if (!extract || extract.trim().length === 0) return null;
+            return extract.trim();
+        } catch (e) {
+            console.error('[Wikipedia API] Error fetching synopsis:', e);
+            return null;
+        }
+    })();
+    
+    wikipediaCache.set(cacheKey, fetchPromise);
+    // Clean cache after 5 minutes
+    setTimeout(() => wikipediaCache.delete(cacheKey), 300000);
+    
+    return fetchPromise;
 };
 
 export const getBatchInventaireDetails = async (uris: string[]): Promise<Record<string, Partial<InventaireWorkDetails>>> => {

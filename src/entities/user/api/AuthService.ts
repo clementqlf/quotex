@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { supabase } from '@/src/shared/api/supabase';
+import { Session } from '@supabase/supabase-js';
 
 export interface AuthResponse {
     user: User | null;
@@ -57,6 +58,14 @@ class AuthService {
     }
 
     /**
+     * Reset password using Supabase Auth
+     */
+    async resetPassword(email: string): Promise<void> {
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw error;
+    }
+
+    /**
      * Register using Supabase Auth
      */
     async register(username: string, email: string, password: string): Promise<AuthResponse> {
@@ -95,7 +104,7 @@ class AuthService {
 
         if (error || !data) {
             // Fallback to minimal data if profile not yet created
-            return { id: userId, username: 'user' };
+            return { id: userId, username: '' };
         }
         return data as User;
     }
@@ -233,9 +242,9 @@ class AuthService {
         }
     }
 
-    async getUser(): Promise<User | null> {
+    async getUser(passedSession?: Session | null): Promise<User | null> {
         // First try the session
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = passedSession !== undefined ? passedSession : (await supabase.auth.getSession()).data.session;
         if (!session) return null;
 
         // Then try our local cache for the profile
@@ -246,6 +255,23 @@ class AuthService {
         const profile = await this.fetchProfile(session.user.id);
         await StorageService.setItem(STORAGE_KEYS.USER_DATA, profile);
         return profile;
+    }
+
+    onAuthStateChange(callback: (user: User | null, token: string | null) => Promise<void> | void): () => void {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            try {
+                if (session) {
+                    const profile = await this.getUser(session);
+                    await callback(profile, session.access_token);
+                } else {
+                    await callback(null, null);
+                }
+            } catch (error) {
+                console.error('[AuthService] Error in auth state change wrapper:', error);
+                await callback(null, null);
+            }
+        });
+        return () => subscription.unsubscribe();
     }
 }
 

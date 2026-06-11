@@ -42,6 +42,9 @@ export async function mergeBooks(sourceId: number, targetId: number) {
   console.log(`[Inventaire] Merging book ${sourceId} → ${targetId}`);
   try {
     await sql.begin(async (tx) => {
+      // ✅ CORRECTION: Configurer un timeout de transaction pour éviter les deadlocks prolongés
+      await tx`SET LOCAL statement_timeout = '30s'`;
+      
       // Lock both books in ID order to prevent deadlock
       const [lowId, highId] = sourceId < targetId ? [sourceId, targetId] : [targetId, sourceId];
       const locked = await tx`

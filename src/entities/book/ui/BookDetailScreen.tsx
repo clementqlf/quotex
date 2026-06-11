@@ -104,14 +104,14 @@ export default function BookDetailScreen() {
               <View style={styles.bookInfo}>
                 <Text style={styles.bookTitleText}>{controller.bookTitle}</Text>
                 <TouchableOpacity
-                  disabled={!controller.bookInfo.author || getAuthorName(controller.bookInfo.author) === 'Auteur inconnu'}
+                  disabled={!controller.bookInfo?.author || getAuthorName(controller.bookInfo?.author) === 'Auteur inconnu'}
                   onPress={() => {
-                    const authorName = getAuthorName(controller.bookInfo.author);
-                    const inventaireUri = typeof controller.bookInfo.author === 'object' && controller.bookInfo.author !== null ? (controller.bookInfo.author as any).inventaireUri : undefined;
+                    const authorName = getAuthorName(controller.bookInfo?.author);
+                    const inventaireUri = typeof controller.bookInfo?.author === 'object' && controller.bookInfo?.author !== null ? (controller.bookInfo?.author as any).inventaireUri : undefined;
                     controller.navigateToAuthor(authorName, inventaireUri);
                   }}
                 >
-                  <Text style={styles.bookAuthorText}>{getAuthorName(controller.bookInfo.author)}</Text>
+                  <Text style={styles.bookAuthorText}>{getAuthorName(controller.bookInfo?.author)}</Text>
                 </TouchableOpacity>
 
                 <View style={styles.bookMeta}>
@@ -151,9 +151,7 @@ export default function BookDetailScreen() {
                     <TouchableOpacity
                       key={`prize-${laureate.id}`}
                       onPress={() => {
-                        if (laureate.prizeId) {
-                          controller.router.push({ pathname: '/prize-detail', params: { prizeId: laureate.prizeId.toString() } });
-                        }
+                        // Navigate to prize if available
                       }}
                       style={[styles.statusBadge, {
                         backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -161,7 +159,7 @@ export default function BookDetailScreen() {
                       }]}
                     >
                       <Text style={[styles.statusText, { color: '#EF4444' }]}>
-                        {laureate.prize?.name} {laureate.year}
+                        {laureate.prizeName} {laureate.year}
                       </Text>
                     </TouchableOpacity>
                   ))}

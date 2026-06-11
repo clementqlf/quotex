@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.quotex.app",
-      "icon": "./assets/icon.icon"
+      "icon": "./assets/icon.icon",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Quotex a besoin d'accéder à votre appareil photo pour numériser (OCR) du texte de citations à partir de livres physiques."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +25,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.quotex.app"
+      "package": "com.quotex.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "output": "static",
@@ -82,14 +89,29 @@
       "expo-image",
       "./plugins/withSecureWebView"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/@quotex/quotex",
+      "enabled": true,
+      "fallbackToCacheTimeout": 604800,
+      "channels": [
+        { "name": "production", "enabled": true },
+        { "name": "staging", "enabled": true },
+        { "name": "dev", "enabled": true }
+      ]
+    },
+    "runtimeVersion": "1.0.0",
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "supabaseUrl": "https://neurbzkkfxrjzjykthtn.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ldXJiemtrZnhyanpqeWt0aHRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MTc1NzcsImV4cCI6MjA5MzI5MzU3N30.vwvQQCjuIfCwcJ1vyrPt1bx09_oouKATvNQnO4axIvQ",
-      "apiBaseUrl": "https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1"
-    }
+      "router": {
+        "root": "./app"
+      },
+      "eas": {
+        "projectId": "eaa0560e-b9b6-4344-a4ab-3d9283e277f9"
+      }
+    },
+    "owner": "clementqlf"
   }
 }
