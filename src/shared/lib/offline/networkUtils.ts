@@ -19,10 +19,14 @@ export async function isOffline(): Promise<boolean> {
 export function isNetworkError(error: any): boolean {
   if (!error) return false;
   const message = error.message || String(error);
+  const name = error.name || '';
   return (
     message.includes('Network request failed') ||
     message.includes('NetworkError') ||
-    message.includes('Failed to fetch')
+    message.includes('Failed to fetch') ||
+    message.includes('Aborted') ||
+    message.includes('AbortError') ||
+    name === 'AbortError'
   );
 }
 

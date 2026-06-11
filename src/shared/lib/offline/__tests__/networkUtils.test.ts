@@ -34,6 +34,10 @@ describe('networkUtils', () => {
       expect(isNetworkError(new Error('Network request failed'))).toBe(true);
       expect(isNetworkError(new Error('NetworkError when fetching'))).toBe(true);
       expect(isNetworkError(new Error('Failed to fetch'))).toBe(true);
+      expect(isNetworkError(new Error('Aborted'))).toBe(true);
+      const abortError = new Error('The user aborted a request.');
+      abortError.name = 'AbortError';
+      expect(isNetworkError(abortError)).toBe(true);
     });
 
     it('should return false for non-network errors', () => {

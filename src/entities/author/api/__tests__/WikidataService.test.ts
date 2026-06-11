@@ -18,7 +18,12 @@ describe('WikidataService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
     service = new WikidataService();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('getNotableWorks', () => {

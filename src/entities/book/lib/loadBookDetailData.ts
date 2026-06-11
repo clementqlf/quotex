@@ -2,6 +2,7 @@ import { Author, Book } from '@/src/shared/api/types';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { buildBookImportPayload } from './bookImport';
 import type { BookImportPayload } from './bookImport';
+import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
 
 // Debug flag - set to false to disable most logs in production
 const DEBUG_BOOK_DETAIL = false;
@@ -13,14 +14,6 @@ const logDebug = (...args: any[]) => {
 const logWarn = (...args: any[]) => {
   // Logs disabled in production. Use console.error for actual errors.
   // if (DEBUG_BOOK_DETAIL) console.warn('[BookDetail]', ...args);
-};
-
-const isNetworkError = (error: any): boolean => {
-  if (error instanceof TypeError && error.message.includes('Failed to fetch')) return true;
-  if (error instanceof TypeError && error.message.includes('NetworkError')) return true;
-  if (typeof error === 'object' && error?.message?.includes('network')) return true;
-  if (typeof error === 'object' && error?.message?.includes('fetch')) return true;
-  return false;
 };
 
 const buildFallbackBook = (inventaireUri: string, bookData?: string): Book => {
