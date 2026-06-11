@@ -106,13 +106,17 @@ describe('OperationQueue', () => {
   });
 
   describe('flush', () => {
+    beforeEach(() => {
+      jest.spyOn(queue, 'getBackoffDelay').mockReturnValue(0);
+    });
+
     it('devrait exécuter les opérations avec succès et vider la queue', async () => {
       const ops: PendingOperation[] = [
         { id: '1', type: 'LIKE', entityType: 'quote', entityId: 1, retryCount: 0, maxRetries: 10, createdAt: '' },
         { id: '2', type: 'SAVE', entityType: 'book', entityId: 2, retryCount: 0, maxRetries: 10, createdAt: '' }
       ];
       
-      (StorageService.getItem as jest.Mock).mockResolvedValue(ops);
+      (StorageService.getItem as jest.Mock).mockResolvedValue([...ops]);
 
       const executor = jest.fn().mockResolvedValue(undefined);
       
@@ -132,7 +136,7 @@ describe('OperationQueue', () => {
         { id: '1', type: 'LIKE', entityType: 'quote', entityId: 1, retryCount: 0, maxRetries: 10, createdAt: '' },
       ];
       
-      (StorageService.getItem as jest.Mock).mockResolvedValue(ops);
+      (StorageService.getItem as jest.Mock).mockResolvedValue([...ops]);
 
       const error = new Error('Network timeout');
       const executor = jest.fn().mockRejectedValue(error);
@@ -160,7 +164,7 @@ describe('OperationQueue', () => {
         { id: '1', type: 'LIKE', entityType: 'quote', entityId: 1, retryCount: 9, maxRetries: 10, createdAt: '' },
       ];
       
-      (StorageService.getItem as jest.Mock).mockResolvedValue(ops);
+      (StorageService.getItem as jest.Mock).mockResolvedValue([...ops]);
 
       const executor = jest.fn().mockRejectedValue(new Error('Persistent error'));
       

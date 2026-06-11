@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import { BuyLinkBlock } from '../BuyLinkBlock';
 import { useTheme } from '@/src/app/providers/ThemeContext';
@@ -42,7 +42,8 @@ describe('BuyLinkBlock Component', () => {
       },
     });
 
-    // Mock Linking.openURL
+    // Mock Linking.openURL and canOpenURL
+    jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
     jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
   });
 
@@ -73,14 +74,16 @@ describe('BuyLinkBlock Component', () => {
     expect(queryByText('Amazon')).toBeNull();
   });
 
-  it('tente d\'ouvrir l\'URL lors d\'un clic sur un lien d\'achat', () => {
+  it('tente d\'ouvrir l\'URL lors d\'un clic sur un lien d\'achat', async () => {
     const { getByText } = render(<BuyLinkBlock book={mockBook} />);
     
     // Clique sur le premier lien (Amazon généralement)
     const storeLink = getByText(/Amazon/i);
     fireEvent.press(storeLink);
     
-    expect(Linking.openURL).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(Linking.openURL).toHaveBeenCalledTimes(1);
+    });
     // Vérifie que l'URL contient le titre encodé
     expect(Linking.openURL).toHaveBeenCalledWith(expect.stringContaining('Le%20Petit%20Prince'));
   });

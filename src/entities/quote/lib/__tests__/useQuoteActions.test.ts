@@ -5,6 +5,7 @@ import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { PlatformServices } from '@/src/shared/platform';
 import { Quote } from '@/src/shared/api/types';
+import { quoteService } from '@/src/features/quote/api/QuoteService';
 
 jest.mock('@/src/entities/quote/providers/QuoteProvider');
 jest.mock('@/src/entities/author/providers/AuthorProvider');
@@ -22,11 +23,16 @@ jest.mock('@/src/entities/book/lib/loadBookDetailData', () => ({
 jest.mock('@/src/entities/user/api/AuthService', () => ({
   authService: {
     getToken: jest.fn().mockResolvedValue('token'),
+    getUser: jest.fn().mockResolvedValue({ id: '1', username: 'test', name: 'Test User' }),
+  },
+}));
+jest.mock('@/src/features/quote/api/QuoteService', () => ({
+  quoteService: {
+    createQuoteWithMatching: jest.fn(),
   },
 }));
 
 describe('useQuoteActions', () => {
-  const mockAddQuote = jest.fn();
   const mockUpdateQuote = jest.fn();
   const mockRefreshQuotes = jest.fn();
   
@@ -39,7 +45,6 @@ describe('useQuoteActions', () => {
     jest.clearAllMocks();
     
     (useQuote as jest.Mock).mockReturnValue({
-      addQuote: mockAddQuote,
       updateQuote: mockUpdateQuote,
       refreshQuotes: mockRefreshQuotes,
     });
@@ -57,10 +62,22 @@ describe('useQuoteActions', () => {
     (useTabIndex as jest.Mock).mockReturnValue({
       setTabIndex: mockSetTabIndex,
     });
+
+    (quoteService.createQuoteWithMatching as jest.Mock).mockResolvedValue({
+      id: 1,
+      text: 'Test',
+      book: 'Test Book',
+      author: 'Test Author',
+      likesCount: 0,
+      isLiked: false,
+      user: { id: '1', username: 'test', name: 'Test User' },
+      comments: 0,
+      isSaved: false,
+    });
   });
 
   it('devrait ajouter une nouvelle citation, déclencher haptic et rafraichir', async () => {
-    mockAddQuote.mockResolvedValue({ id: 1, text: 'Test' });
+    (quoteService.createQuoteWithMatching as jest.Mock).mockResolvedValue({ id: 1, text: 'Test text', book: 'Test Book', author: 'Test Author' });
 
     const { result } = renderHook(() => useQuoteActions());
 
@@ -69,7 +86,7 @@ describe('useQuoteActions', () => {
       await result.current.handleConfirmSave('Test text', 'Test Book', 'Test Author', options);
     });
 
-    expect(mockAddQuote).toHaveBeenCalledWith('Test text', 'Test Book', 'Test Author');
+    expect(quoteService.createQuoteWithMatching).toHaveBeenCalledWith('Test text', 'Test Book', 'Test Author');
     expect(PlatformServices.haptics.notificationAsync).toHaveBeenCalledWith('success');
     expect(mockRefreshQuotes).toHaveBeenCalled();
     expect(mockRefreshBooks).toHaveBeenCalled();
@@ -98,7 +115,7 @@ describe('useQuoteActions', () => {
     });
 
     expect(mockUpdateQuote).toHaveBeenCalledWith(1, { text: 'New text', book: 'New Book', author: 'New Author' });
-    expect(mockAddQuote).not.toHaveBeenCalled();
+    expect(quoteService.createQuoteWithMatching).not.toHaveBeenCalled();
   });
   
   it('devrait changer d\'onglet si isFromScanner est vrai', async () => {
@@ -106,7 +123,11 @@ describe('useQuoteActions', () => {
     const { result } = renderHook(() => useQuoteActions());
 
     await act(async () => {
-      await result.current.handleConfirmSave('Test', 'Book', 'Author', { isFromScanner: true, onReset });
+      await result.current.handleConfirmSave('Test', 'Book', 'Author', {
+        isFromScanner: true,
+        onReset,
+        setTabIndex: mockSetTabIndex,
+      });
     });
 
     expect(mockSetTabIndex).toHaveBeenCalledWith(0);

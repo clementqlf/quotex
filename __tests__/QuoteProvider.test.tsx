@@ -3,6 +3,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QuoteProvider, useQuote } from '../src/entities/quote/providers/QuoteProvider';
 import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
+import { RepositoriesProvider } from '../src/app/providers/RepositoriesProvider';
 import { Text, Button, View } from 'react-native';
 
 // Mocker le hook de réseau
@@ -19,7 +20,8 @@ jest.mock('../src/entities/quote/lib/useNetworkSync', () => ({
 jest.mock('../src/entities/quote/api/SupabaseQuoteRepository');
 jest.mock('../src/entities/user/api/AuthService', () => ({
   authService: {
-    getUser: jest.fn().mockResolvedValue({ id: 'user-123', name: 'Test User' })
+    getUser: jest.fn().mockResolvedValue({ id: 'user-123', name: 'Test User' }),
+    getToken: jest.fn().mockResolvedValue('mock-token'),
   }
 }));
 
@@ -69,9 +71,11 @@ describe('QuoteProvider Optimistic Updates', () => {
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <QuoteProvider>
-        {children}
-      </QuoteProvider>
+      <RepositoriesProvider>
+        <QuoteProvider>
+          {children}
+        </QuoteProvider>
+      </RepositoriesProvider>
     </QueryClientProvider>
   );
 

@@ -58,3 +58,57 @@ jest.mock('expo-network', () => ({
     isInternetReachable: true,
   }),
 }));
+
+// Mock WebSocket global for Supabase Realtime
+global.WebSocket = class {
+  addEventListener = jest.fn();
+  removeEventListener = jest.fn();
+  send = jest.fn();
+  close = jest.fn();
+};
+
+// Mock React Native Reanimated
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
+// Mock React Native Worklets
+jest.mock('react-native-worklets', () => ({
+  Worklets: {
+    createRunInJSFn: (fn) => fn,
+    createRunOnJS: (fn) => fn,
+  },
+  createSerializable: (x) => x,
+  isWorkletFunction: () => false,
+  RuntimeKind: { ReactNative: 'ReactNative' },
+  scheduleOnUI: (fn) => fn,
+  serializableMappingCache: new Map(),
+}));
+jest.mock('react-native-worklets-core', () => ({
+  Worklets: {
+    createRunInJSFn: (fn) => fn,
+  },
+  createSerializable: (x) => x,
+  isWorkletFunction: () => false,
+  RuntimeKind: { ReactNative: 'ReactNative' },
+  scheduleOnUI: (fn) => fn,
+  serializableMappingCache: new Map(),
+}));
+
+// Mock react-native-vision-camera
+jest.mock('react-native-vision-camera', () => ({
+  Camera: () => null,
+  useFrameProcessor: jest.fn(),
+}));
+
+// Mock react-native-vision-camera-ocr-plus
+jest.mock('react-native-vision-camera-ocr-plus', () => ({
+  useTextRecognition: jest.fn(),
+}));
+
+// Mock @react-native-community/netinfo globally
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn().mockResolvedValue({
+    isConnected: true,
+    isInternetReachable: true,
+  }),
+  addEventListener: jest.fn(() => jest.fn()),
+}));

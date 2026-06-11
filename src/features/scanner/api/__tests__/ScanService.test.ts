@@ -6,7 +6,12 @@ jest.mock('@react-native-ml-kit/text-recognition');
 jest.mock('expo-image-manipulator');
 jest.mock('expo-file-system/legacy');
 jest.mock('@/src/shared/platform');
-jest.mock('@/src/entities/user/api/AuthService');
+jest.mock('@/src/entities/user/api/AuthService', () => ({
+  authService: {
+    getToken: jest.fn().mockResolvedValue('mock-token'),
+    getUser: jest.fn().mockResolvedValue({ id: '1', username: 'test', name: 'Test User' }),
+  },
+}));
 
 describe('ScanService', () => {
   let service: ScanService;
@@ -49,7 +54,8 @@ describe('ScanService', () => {
       (searchService.search as jest.Mock).mockResolvedValue({
         inventaireWorks: [{
           label: 'Test Book',
-          inventaireUri: 'test-uri',
+          inventaireUri: undefined,
+          uri: 'test-uri',
           isbn: '9782070368976'
         }]
       });
@@ -71,7 +77,8 @@ describe('ScanService', () => {
       (searchService.search as jest.Mock).mockResolvedValue({
         inventaireWorks: [{
           label: 'Test Book',
-          inventaireUri: 'test-uri',
+          inventaireUri: undefined,
+          uri: 'test-uri',
           isbn: '9782070368976'
         }]
       });

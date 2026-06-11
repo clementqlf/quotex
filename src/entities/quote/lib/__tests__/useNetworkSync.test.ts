@@ -106,8 +106,7 @@ describe('useNetworkSync', () => {
 
     // Trigger shouldSync check and sync
     await act(async () => {
-      // Re-trigger network state or trigger sync manually since the initial load closed over 0
-      result.current.syncNow();
+      // Automatic sync is already triggered on startup
     });
 
     await act(async () => {

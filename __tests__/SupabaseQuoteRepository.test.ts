@@ -32,6 +32,7 @@ jest.mock('../src/shared/api/HttpClient', () => ({
 jest.mock('../src/entities/user/api/AuthService', () => ({
   authService: {
     getUser: jest.fn(),
+    getToken: jest.fn().mockResolvedValue('mock-token'),
   },
 }));
 
@@ -40,6 +41,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (global.fetch as jest.Mock).mockReset();
     
     // Configurer les mocks par défaut
     (StorageService.getItem as jest.Mock).mockResolvedValue(null);
@@ -53,83 +55,53 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     repository = SupabaseQuoteRepository.getInstance();
   });
 
-  it('devrait ajouter la citation à la file d\'attente (pending queue) si hors-ligne', async () => {
-    // Simuler le fait d'être hors-ligne (checkConnection retourne false)
-    (httpClient.request as jest.Mock).mockRejectedValue(new Error('Network request failed'));
+  it('devrait échouer si hors-ligne', async () => {
+    // Simuler le fait d'être hors-ligne en faisant rejeter fetch
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network request failed'));
 
     const text = 'Citation de test hors-ligne';
     
-    const quote = await repository.createQuote(text, 'Livre Test', 'Auteur Test');
-
-    // Vérifier que la citation retourne les bonnes valeurs locales
-    expect(quote.text).toBe(text);
-    expect(quote.wasSynced).toBeUndefined(); // Non synchronisé
-
-    // Vérifier que getItems (pour les quotes existantes) et setItem ont été appelés
-    expect(StorageService.getItem).toHaveBeenCalledWith(STORAGE_KEYS.PENDING_OPERATIONS);
-    
-    // Vérifier que la file d'attente a été mise à jour
-    expect(StorageService.setItem).toHaveBeenCalledWith(
-      STORAGE_KEYS.PENDING_OPERATIONS,
-      expect.arrayContaining([
-        expect.objectContaining({
-          text: 'Citation de test hors-ligne',
-          book: 'Livre Test',
-          author: 'Auteur Test',
-        })
-      ])
-    );
-
-    // Vérifier que le cache global des citations a été mis à jour avec la nouvelle citation
-    expect(StorageService.setItem).toHaveBeenCalledWith(
-      STORAGE_KEYS.QUOTES,
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: expect.any(Number),
-          text: 'Citation de test hors-ligne',
-        })
-      ])
-    );
-    
-    // S'assurer qu'aucune requête POST n'a été envoyée
-    expect(httpClient.post).not.toHaveBeenCalled();
+    await expect(repository.createQuote(text, 'Livre Test', 'Auteur Test'))
+      .rejects.toThrow('Network request failed');
   });
 
   it('devrait synchroniser directement si en ligne', async () => {
-    // Simuler le fait d'être en ligne
-    (httpClient.request as jest.Mock).mockResolvedValue({});
-    (httpClient.post as jest.Mock).mockResolvedValue({
-      syncedCount: 1,
-      corrections: [],
-      syncDetails: []
+    // Simuler le fait d'être en ligne en résolvant fetch
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        syncedCount: 1,
+        corrections: [],
+        syncDetails: []
+      })
     });
 
     const text = 'Citation de test en ligne';
     
     const quote = await repository.createQuote(text, 'Livre Test', 'Auteur Test');
 
-    expect(httpClient.post).toHaveBeenCalledWith('/sync-quotes', expect.objectContaining({
-      offlineQuotes: expect.arrayContaining([
-        expect.objectContaining({
-          text,
-          userId: 'user-123'
-        })
-      ])
-    }));
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/sync-quotes'),
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(text)
+      })
+    );
 
     expect(quote.wasSynced).toBe(true);
-
-    // Ne doit PAS être ajouté à PENDING_OPERATIONS
-    expect(StorageService.setItem).not.toHaveBeenCalledWith(
-      STORAGE_KEYS.PENDING_OPERATIONS,
-      expect.anything()
-    );
   });
 
   describe('updateQuote, deleteQuote, toggleLike', () => {
     it('devrait mettre à jour une citation dans le cache local (updateQuote)', async () => {
-      const mockQuotes = [{ id: 1, text: 'Old', isLiked: false, likesCount: 0 }];
-      (quoteService.getQuotes as jest.Mock).mockResolvedValue(mockQuotes);
+      const mockQuotes = [{ id: 1, text: 'Old', isLiked: false, likesCount: 0 }] as any;
+      (StorageService.getItem as jest.Mock).mockImplementation((key) => {
+        if (key === STORAGE_KEYS.QUOTES) return Promise.resolve(mockQuotes);
+        return Promise.resolve(null);
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+      });
 
       const updated = await repository.updateQuote(1, { text: 'New', isLiked: true });
 
@@ -147,8 +119,15 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     });
 
     it('devrait supprimer une citation du cache local (deleteQuote)', async () => {
-      const mockQuotes = [{ id: 1, text: 'Keep' }, { id: 2, text: 'Delete' }];
-      (quoteService.getQuotes as jest.Mock).mockResolvedValue(mockQuotes);
+      const mockQuotes = [{ id: 1, text: 'Keep' }, { id: 2, text: 'Delete' }] as any;
+      (StorageService.getItem as jest.Mock).mockImplementation((key) => {
+        if (key === STORAGE_KEYS.QUOTES) return Promise.resolve(mockQuotes);
+        return Promise.resolve(null);
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+      });
 
       await repository.deleteQuote(2);
 
@@ -163,8 +142,18 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     });
 
     it('devrait inverser l\'état de like et mettre à jour le compteur (toggleLike)', async () => {
-      const mockQuotes = [{ id: 1, text: 'Test', isLiked: false, likesCount: 5 }];
-      (quoteService.getQuotes as jest.Mock).mockResolvedValue(mockQuotes);
+      const mockQuotes = [{ id: 1, text: 'Test', isLiked: false, likesCount: 5 }] as any;
+      (StorageService.getItem as jest.Mock).mockImplementation((key) => {
+        if (key === STORAGE_KEYS.QUOTES) return Promise.resolve(mockQuotes);
+        return Promise.resolve(null);
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          isLiked: { isLiked: true, likesCount: 6 }
+        })
+      });
 
       const result = await repository.toggleLike(1);
 

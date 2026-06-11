@@ -303,11 +303,11 @@ export const useNetworkSync = () => {
                 console.log(`[useNetworkSync] Network state changed: ${wasConnected} -> ${isConnectedNow}`);
                 setStatus(prev => ({ ...prev, isConnected: isConnectedNow }));
 
-                if (!wasConnected && isConnectedNow) {
+                if (wasConnected === false && isConnectedNow) {
                     console.log('[useNetworkSync] Connection restored, scheduling sync...');
                     debouncedTriggerSync();
                     startPeriodicSync();
-                } else if (wasConnected && !isConnectedNow) {
+                } else if (wasConnected === true && !isConnectedNow) {
                     stopPeriodicSync();
                 }
             }

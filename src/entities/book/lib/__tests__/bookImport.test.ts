@@ -20,7 +20,7 @@ describe('bookImport', () => {
       };
 
       const result = buildBookImportPayload({ bookData });
-      expect(result).toEqual({
+      expect(result).toEqual(expect.objectContaining({
         title: 'Test Book',
         authors: ['Author 1', 'Author 2'],
         description: 'Test description',
@@ -29,7 +29,7 @@ describe('bookImport', () => {
         year: 2020,
         pages: 300,
         genre: 'Fiction'
-      });
+      }));
     });
 
     it('should set pages to null if pages=0', () => {

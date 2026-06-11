@@ -3,6 +3,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthorProvider, useAuthor } from '../src/entities/author/providers/AuthorProvider';
 import { SupabaseAuthorRepository } from '../src/entities/author/api/SupabaseAuthorRepository';
+import { RepositoriesProvider } from '../src/app/providers/RepositoriesProvider';
 import { Text, Button, View } from 'react-native';
 
 jest.mock('../src/entities/author/api/SupabaseAuthorRepository');
@@ -66,9 +67,11 @@ describe('AuthorProvider Optimistic Updates', () => {
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <AuthorProvider>
-        {children}
-      </AuthorProvider>
+      <RepositoriesProvider>
+        <AuthorProvider>
+          {children}
+        </AuthorProvider>
+      </RepositoriesProvider>
     </QueryClientProvider>
   );
 
