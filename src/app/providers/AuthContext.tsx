@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { authService } from '../../entities/user/api/AuthService';
 import { User } from '../../shared/api/types';
-import { supabase } from '../../shared/api/supabase';
 import { UGCModerationService } from '../../shared/api/UGCModerationService';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -34,46 +33,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         // Load initial state
         UGCModerationService.init().catch(console.error);
-        loadStoredAuth();
 
-        // Listen for auth state changes (Supabase)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('[AuthContext] Auth state changed:', event);
-            if (session) {
-                setToken(session.access_token);
-                const profile = await authService.getUser();
-                setUser(profile);
-                UGCModerationService.syncWithServer().catch(console.error);
-            } else {
-                setUser(null);
-                setToken(null);
-                queryClient.clear();
+        // Listen for auth state changes (decoupled)
+        const unsubscribe = authService.onAuthStateChange(async (userProfile, sessionToken) => {
+            try {
+                if (userProfile && sessionToken) {
+                    setToken(sessionToken);
+                    setUser(userProfile);
+                    UGCModerationService.syncWithServer().catch(console.error);
+                } else {
+                    setUser(null);
+                    setToken(null);
+                    queryClient.clear();
+                }
+            } catch (e) {
+                console.error('[AuthContext] Error in onAuthStateChange:', e);
+            } finally {
+                setIsLoading(false);
             }
-            setIsLoading(false);
         });
 
         return () => {
-            subscription.unsubscribe();
+            unsubscribe();
         };
     }, [queryClient]);
-
-    const loadStoredAuth = async () => {
-        try {
-            const [storedUser, storedToken] = await Promise.all([
-                authService.getUser(),
-                authService.getToken()
-            ]);
-            if (storedUser && storedToken) {
-                setUser(storedUser);
-                setToken(storedToken);
-                UGCModerationService.syncWithServer().catch(console.error);
-            }
-        } catch (e) {
-            console.error('Failed to load auth data', e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     // ⚡ Memoize les actions pour éviter leur recréation à chaque render
     const login = useCallback(async (email: string, password: string) => {
