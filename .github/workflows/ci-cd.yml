@@ -9,31 +9,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  cache-deps:
-    name: Cache Dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Upload cache
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-modules-cache
-          path: node_modules/
-          retention-days: 1
-
   test:
     name: Run Tests
-    needs: cache-deps
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,11 +20,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download cache
-        uses: actions/download-artifact@v4
+      - name: Cache node modules
+        id: cache-nodemodules
+        uses: actions/cache@v4
         with:
-          name: node-modules-cache
           path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Run Jest tests
         run: npm test -- --passWithNoTests
@@ -72,11 +54,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download cache
-        uses: actions/download-artifact@v4
+      - name: Cache node modules
+        id: cache-nodemodules
+        uses: actions/cache@v4
         with:
-          name: node-modules-cache
           path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Install Maestro
         run: curl -Ls https://mobile.dev/install | bash
@@ -110,11 +97,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download cache
-        uses: actions/download-artifact@v4
+      - name: Cache node modules
+        id: cache-nodemodules
+        uses: actions/cache@v4
         with:
-          name: node-modules-cache
           path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
@@ -145,11 +137,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Download cache
-        uses: actions/download-artifact@v4
+      - name: Cache node modules
+        id: cache-nodemodules
+        uses: actions/cache@v4
         with:
-          name: node-modules-cache
           path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-nodemodules.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
