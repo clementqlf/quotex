@@ -1,12 +1,11 @@
-import React from 'react';
-import { renderHook, act } from '@testing-library/react-native';
-import { useNetworkSync } from '../useNetworkSync';
-import NetInfo from '@react-native-community/netinfo';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService } from '@/src/shared/api/StorageService';
+import { OperationQueue, PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
+import NetInfo from '@react-native-community/netinfo';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
-import { PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
+import { act, renderHook } from '@testing-library/react-native';
+import React from 'react';
+import { useNetworkSync } from '../useNetworkSync';
 
 const flushPromises = async () => {
   for (let i = 0; i < 10; i++) {

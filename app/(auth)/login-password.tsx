@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  Dimensions
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, Mail, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ArrowLeft, ArrowRight, Lock, Mail } from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

@@ -1,33 +1,43 @@
-import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Switch,
-  Alert,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import {
-  ChevronLeft, LogOut, Bell, Shield, Moon, CircleHelp, User, Lock,
-  CheckCircle2, XCircle, Database, Trash2, FileText
-} from 'lucide-react-native';
-import { Image as ExpoImage } from 'expo-image';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { ThemeColors } from '@/src/shared/theme';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Image as ExpoImage } from 'expo-image';
+import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import {
+  Bell,
+  CheckCircle2,
+  ChevronLeft,
+  CircleHelp,
+  FileText,
+  Lock,
+  LogOut,
+  Moon,
+  Shield,
+  Trash2,
+  User,
+  XCircle
+} from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import * as Linking from 'expo-linking';
 
@@ -315,7 +325,7 @@ export default function SettingsScreen() {
               />
             </View>
             <Text style={styles.sectionFooter}>
-              Libérez de l'espace en supprimant les images, données locales et fichiers temporaires.
+              {"Libérez de l'espace en supprimant les images, données locales et fichiers temporaires."}
             </Text>
           </View>
 

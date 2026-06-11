@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { PlatformServices, IPlatformServices } from './ExpoPlatformServices';
+import { IPlatformServices, PlatformServices } from './ExpoPlatformServices';
 
 /**
  * Hook pour accéder aux PlatformServices

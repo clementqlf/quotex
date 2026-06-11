@@ -1,26 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    SectionList,
-    ActivityIndicator,
-    Keyboard
-} from 'react-native';
-import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ArrowLeft, Search, X, BookOpen, User, Hash, Quote as QuoteIcon, Award, Scan } from 'lucide-react-native';
-import { searchService, SearchResults } from '@/src/features/search/api/SearchService';
-import { PrizeService } from '@/src/shared/api/PrizeService';
-import { Quote, Book, Author } from '@/src/shared/api/types';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { SearchResults, searchService } from '@/src/features/search/api/SearchService';
+import { Author, Book, Quote } from '@/src/shared/api/types';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { Image } from 'expo-image';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  SectionList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type SearchSection =
     | { title: string; data: Quote[]; type: 'quote' }

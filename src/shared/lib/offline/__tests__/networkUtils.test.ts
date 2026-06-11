@@ -1,5 +1,5 @@
-import { isOffline, isNetworkError, logFetchError } from '../networkUtils';
 import NetInfo from '@react-native-community/netinfo';
+import { isNetworkError, isOffline, logFetchError } from '../networkUtils';
 
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(),

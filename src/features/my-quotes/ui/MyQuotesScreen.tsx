@@ -1,50 +1,47 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { InteractiveTooltip, TOUR_STEPS, useAppTourState } from '@/src/features/app-tour';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useIsFocused } from '@react-navigation/native';
+import { FlashList } from '@shopify/flash-list';
+import { useRouter } from 'expo-router';
+import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  Pressable,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSpring,
   runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
-import { FlashList } from '@shopify/flash-list';
-import { useAuth } from '@/src/app/providers/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { Search, Filter, X, ChevronDown, Trash2, Edit3, Plus, MoreVertical, Camera, Quote as QuoteIcon, Users, Hash, Book as BookIcon } from 'lucide-react-native';
-import { InteractiveTooltip, useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-import { bookDescriptions } from '@/src/shared/api/staticData';
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { useTabIndex } from '@/src/app/providers/TabContext';
+import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import { bookDescriptions } from '@/src/shared/api/staticData';
 
-import { Quote, Book } from '@/src/shared/api/types';
-import { getBookTitle, getAuthorName, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
 import { useQuoteActions } from '@/src/entities/quote/lib';
+import { Quote } from '@/src/shared/api/types';
+import { getAuthorName, getBookTitle, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { ThemeColors } from '@/src/shared/theme';
 
 // Entity components - OK to import from entities per FSD
-import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
-import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
-import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
-import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
+import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
+import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
+import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
+import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
 
 // Feature hook
 import { useMyQuotes } from '../model/useMyQuotes';

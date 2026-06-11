@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, ReactNode, useContext } from 'react';
+import { useNavigationService } from './ExpoRouterAdapter';
 import { INavigationService } from './types';
-import { ExpoRouterAdapter, useNavigationService } from './ExpoRouterAdapter';
 
 /**
  * Contexte pour le service de navigation
@@ -33,5 +33,5 @@ export const useNavigation = (): INavigationService => {
 };
 
 // Export pour compatibilité descendante
-export { INavigationService, NavigateOptions, RouteParams } from './types';
 export { ExpoRouterAdapter } from './ExpoRouterAdapter';
+export { INavigationService, NavigateOptions, RouteParams } from './types';

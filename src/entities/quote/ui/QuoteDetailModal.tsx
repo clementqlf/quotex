@@ -1,55 +1,55 @@
+import { InteractiveTooltip, TOUR_STEPS, useAppTourState } from '@/src/features/app-tour';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { Image } from 'expo-image';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { BookOpen, Calendar, CheckCircle2, Edit3, Heart, Plus, Share2, Sparkles, Trash2, User as UserIcon, X } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {
-  View,
-  Share,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Alert,
-  Modal,
-  TextInput,
   ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Image } from 'expo-image';
-import { X, Calendar, User as UserIcon, Sparkles, BookOpen, Heart, Share2, Plus, CheckCircle2, Edit3, Trash2 } from 'lucide-react-native';
-import Svg, { Path, Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
-import type { SortableGridRenderItem } from 'react-native-sortables';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import Sortable from 'react-native-sortables';
-import { InteractiveTooltip, useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
 import Animated, {
+  Easing,
   useAnimatedRef,
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withRepeat,
   withSequence,
-  withTiming,
-  Easing
+  withTiming
 } from 'react-native-reanimated';
+import type { SortableGridRenderItem } from 'react-native-sortables';
+import Sortable from 'react-native-sortables';
+import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
 // Removed walkthroughable components
-import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
-import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
-import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { BlockService } from '@/src/shared/api/BlockService';
-import { Quote, Book, Author } from '@/src/shared/api/types';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
-import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
-import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
-import { authorService } from '@/src/entities/author/api/AuthorService';
-import { quoteService } from '@/src/entities/quote/api/QuoteService';
-import { BlockDispatcher, BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
-import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
-import { QUOTE_DETAIL_BLOCK_OPTIONS, BLOCK_CONFIGS } from '@/src/shared/config/blocks';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { authorService } from '@/src/entities/author/api/AuthorService';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { quoteService } from '@/src/entities/quote/api/QuoteService';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
+import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
+import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
+import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
+import { BlockService } from '@/src/shared/api/BlockService';
+import { Author, Book, Quote } from '@/src/shared/api/types';
+import { BLOCK_CONFIGS, QUOTE_DETAIL_BLOCK_OPTIONS } from '@/src/shared/config/blocks';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
 import { ThemeColors } from '@/src/shared/theme';
+import { BlockContext, BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import AIChatModal from './AIChatModal';
 
 const STANDARD_THEMES = [

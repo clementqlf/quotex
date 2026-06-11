@@ -1,4 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { InteractiveTooltip, useAppTour } from '@/src/features/app-tour';
+import { useRouter } from 'expo-router';
+import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
+import React, { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,36 +12,33 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { BookOpen, Image as ImageIcon, ScanLine, Sparkles, Settings, User, CameraOff, RefreshCw } from 'lucide-react-native';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-import { Camera, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, CameraDevice, CameraDeviceFormat, CodeScanner } from 'react-native-vision-camera';
-import { useAppTour, InteractiveTooltip } from '@/src/features/app-tour';
+import { Camera, CameraDevice, CameraDeviceFormat, CodeScanner, PhotoFile } from 'react-native-vision-camera';
 
-import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
-import { useTabIndex, useSwipeEnabled } from '@/src/app/providers/TabContext';
-import { ThemeColors } from '@/src/shared/theme';
-import { PlatformServices } from '@/src/shared/platform';
+import { useSwipeEnabled, useTabIndex } from '@/src/app/providers/TabContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ITabController } from '@/src/features/scanner/model/useScanController';
+import { PlatformServices } from '@/src/shared/platform';
+import { ThemeColors } from '@/src/shared/theme';
 
-import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
-import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
-import AnimatedISBNPopup, { IsbnBookData } from '@/src/features/scanner/ui/AnimatedISBNPopup';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import { useScanController } from '@/src/features/scanner/model/useScanController';
+import AnimatedISBNPopup from '@/src/features/scanner/ui/AnimatedISBNPopup';
+import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
+import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 
 // Removed CopilotTouchable
 
-import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 
 interface CameraContainerProps {
   device: CameraDevice | null;
@@ -101,6 +101,8 @@ const CameraContainer = React.memo(({
     />
   );
 });
+
+CameraContainer.displayName = 'CameraContainer';
 
 // Debug flag
 const DEBUG_SCAN_AREA = false;

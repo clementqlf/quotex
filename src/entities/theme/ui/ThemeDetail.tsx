@@ -1,19 +1,19 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Quote as QuoteIcon, Heart, ChevronLeft } from 'lucide-react-native';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ChevronLeft, Heart, Quote as QuoteIcon } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ThemeDetailScreen() {
   const { colors } = useTheme();
@@ -96,7 +96,7 @@ export default function ThemeDetailScreen() {
                     activeOpacity={0.85}
                     onPress={() => openQuoteDetail(quote)}
                   >
-                    <Text style={styles.quoteText}>"{quote.text}"</Text>
+                    <Text style={styles.quoteText}>{`"${quote.text}"`}</Text>
                     <View style={styles.quoteMeta}>
                       <View style={styles.quoteMetaLeft}>
                         <Text style={styles.quoteAuthor}>{getAuthorName(quote.author)}</Text>

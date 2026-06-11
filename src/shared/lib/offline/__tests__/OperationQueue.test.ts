@@ -1,5 +1,5 @@
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { OperationQueue, PendingOperation } from '../OperationQueue';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 
 jest.mock('@/src/shared/api/StorageService', () => ({
   StorageService: {

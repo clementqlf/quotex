@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
-import { TextInput, StyleSheet } from 'react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { BlockKey } from '@/src/shared/config/blocks';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
+import React, { useMemo } from 'react';
+import { StyleSheet, TextInput } from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface NotesBlockProps {
     blockKey?: BlockKey;

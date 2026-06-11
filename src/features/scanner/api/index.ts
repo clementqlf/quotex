@@ -1,1 +1,1 @@
-export { ScanService, IsbnBookData, OcrResult, scanService } from './ScanService';
+export { IsbnBookData, OcrResult, ScanService, scanService } from './ScanService';

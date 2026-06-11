@@ -18,9 +18,7 @@ export interface GlobalSearchParams {
 // ============================================================================
 
 // Paramètres pour l'index (home)
-export interface AppIndexParams {
-    // Pas de paramètres spécifiques pour l'index
-}
+export type AppIndexParams = Record<string, never>;
 
 // Paramètres pour la page de recherche
 export interface SearchParams {
@@ -76,14 +74,10 @@ export interface UserProfileParams {
 }
 
 // Paramètres pour le scanner
-export interface ScanParams {
-    // Pas de paramètres spécifiques pour le scanner
-}
+export type ScanParams = Record<string, never>;
 
 // Paramètres pour les paramètres
-export interface SettingsParams {
-    // Pas de paramètres spécifiques pour les paramètres
-}
+export type SettingsParams = Record<string, never>;
 
 // ============================================================================
 // Paramètres pour le groupe (auth)

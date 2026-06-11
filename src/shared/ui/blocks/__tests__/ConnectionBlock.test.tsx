@@ -1,7 +1,7 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { ConnectionBlock } from '../ConnectionBlock';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { fireEvent, render } from '@testing-library/react-native';
+import React from 'react';
+import { ConnectionBlock } from '../ConnectionBlock';
 
 jest.mock('@/src/app/providers/ThemeContext', () => ({
   useTheme: jest.fn(),

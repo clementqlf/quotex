@@ -1,14 +1,13 @@
 import React, { useEffect } from 'react';
-import Svg, { Path, G, Defs, Filter, FeGaussianBlur, FeColorMatrix, RadialGradient, Stop, Rect } from 'react-native-svg';
-import Animated, { 
-  useAnimatedProps, 
-  useSharedValue, 
-  withRepeat, 
-  withTiming, 
-  withSequence,
+import Animated, {
   Easing,
-  useAnimatedStyle
+  useAnimatedProps,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
+import Svg, { Defs, G, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 
@@ -102,5 +101,7 @@ const QuotexLogo: React.FC<QuotexLogoProps> = React.memo(({
         </Svg>
     );
 });
+
+QuotexLogo.displayName = 'QuotexLogo';
 
 export default QuotexLogo;

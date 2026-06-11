@@ -1,11 +1,11 @@
+import { ThemeColors } from '@/src/shared/theme';
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { ThemeColors } from '@/src/shared/theme';
 
 type ScanFrameOverlayProps = {
   isTextDetectedLive: boolean;

@@ -1,3 +1,3 @@
 export { useAppTour } from './model/useAppTour';
-export { useAppTourState, TourStep, TOUR_STEPS } from './model/useAppTourState';
+export { TOUR_STEPS, TourStep, useAppTourState } from './model/useAppTourState';
 export { InteractiveTooltip } from './ui/InteractiveTooltip';

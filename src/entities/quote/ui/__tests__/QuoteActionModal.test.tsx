@@ -1,7 +1,7 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import QuoteActionModal from '../QuoteActionModal';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { fireEvent, render } from '@testing-library/react-native';
+import React from 'react';
+import QuoteActionModal from '../QuoteActionModal';
 
 jest.mock('@/src/app/providers/ThemeContext', () => ({
   useTheme: jest.fn(),

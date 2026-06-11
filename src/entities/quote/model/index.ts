@@ -1,7 +1,4 @@
 // Quote domain types
 export {
-  Quote,
-  CreateQuoteDto,
-  UpdateQuoteDto,
-  QuoteFactory,
+  CreateQuoteDto, Quote, QuoteFactory, UpdateQuoteDto
 } from './Quote';

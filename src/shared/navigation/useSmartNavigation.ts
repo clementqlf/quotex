@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { useNavigation } from './NavigationContext';
-import { RouteParams } from './types';
 
 /**
  * Hook pour une navigation intelligente avec typage

@@ -1,5 +1,4 @@
-import React from 'react';
-import { renderHook, act } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { useRealtimeEntity } from '../useRealtimeEntity';
 
 // Mock Supabase Realtime

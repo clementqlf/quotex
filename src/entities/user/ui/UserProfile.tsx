@@ -1,33 +1,32 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Image,
-  TextInput,
-  Animated,
-  Alert
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { ChevronLeft, Mail, Link, Quote, Library, BookOpen, Camera, MoreHorizontal } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Author, Book, User } from '@/src/shared/api/types';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
-import { ThemeColors } from '@/src/shared/theme';
-import { supabase } from '@/src/shared/api/supabase';
-import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
-import { useQueryClient } from '@tanstack/react-query';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
+import { supabase } from '@/src/shared/api/supabase';
+import { Author, Book, User } from '@/src/shared/api/types';
+import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { ThemeColors } from '@/src/shared/theme';
+import { useQueryClient } from '@tanstack/react-query';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { BookOpen, Camera, ChevronLeft, Library, Link, MoreHorizontal, Quote } from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface UserRouteParam {
   id: number | string;
@@ -715,7 +714,7 @@ export default function UserProfileScreen() {
                 <BookSkeleton colors={colors} />
               </ScrollView>
             ) : (
-              <Text style={styles.placeholderText}>Cet utilisateur n'a pas encore de livres dans sa bibliothèque.</Text>
+              <Text style={styles.placeholderText}>{"Cet utilisateur n'a pas encore de livres dans sa bibliothèque."}</Text>
             )}
           </View>
 
@@ -734,7 +733,7 @@ export default function UserProfileScreen() {
                       style={styles.savedQuoteCard}
                       onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
                     >
-                    <Text style={styles.savedQuoteText} numberOfLines={3}>"{quote.text}"</Text>
+                    <Text style={styles.savedQuoteText} numberOfLines={3}>{`"${quote.text}"`}</Text>
                     <View style={styles.savedQuoteMeta}>
                       <View>
                         <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
@@ -751,7 +750,7 @@ export default function UserProfileScreen() {
                 <QuoteSkeleton colors={colors} />
               </View>
             ) : (
-              <Text style={styles.placeholderText}>Cet utilisateur n'a pas encore partagé de citations.</Text>
+              <Text style={styles.placeholderText}>{"Cet utilisateur n'a pas encore partagé de citations."}</Text>
             )}
           </View>
         </ScrollView>

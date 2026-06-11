@@ -1,26 +1,23 @@
+import { useRouter } from 'expo-router';
+import { ArrowRight, Mail } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  Dimensions
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mail, ArrowRight } from 'lucide-react-native';
 // Removing @expo/vector-icons import to reduce bundle size
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

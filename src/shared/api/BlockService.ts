@@ -3,7 +3,7 @@
  * Currently uses in-memory storage, but can be easily swapped for AsyncStorage or a backend.
  */
 
-import { StorageService, STORAGE_KEYS } from './StorageService';
+import { STORAGE_KEYS, StorageService } from './StorageService';
 
 /**
  * Service to manage persistent block layouts for Quotes and Books.

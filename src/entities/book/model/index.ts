@@ -1,7 +1,4 @@
 // Book domain types
 export {
-  Book,
-  CreateBookDto,
-  BookImportPayload,
-  BookFactory,
+  Book, BookFactory, BookImportPayload, CreateBookDto
 } from './Book';

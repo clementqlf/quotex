@@ -1,5 +1,5 @@
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { Book } from '@/src/shared/api/types';
+import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 export interface BookSearchResult {

@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { Calendar, BookOpen, Star } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { Book } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
+import { BookOpen, Calendar, Star } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface BookInfoBlockProps {
     book: Book | null;

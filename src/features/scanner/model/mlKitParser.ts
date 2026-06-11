@@ -1,4 +1,4 @@
-import TextRecognition, { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
+import TextRecognition, { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 /**

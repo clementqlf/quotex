@@ -1,8 +1,4 @@
 // Author domain types
 export {
-  Author,
-  ReadingStatus,
-  Laureate,
-  CreateAuthorDto,
-  AuthorFactory,
+  Author, AuthorFactory, CreateAuthorDto, Laureate, ReadingStatus
 } from './Author';

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
-import { useSharedValue, SharedValue } from 'react-native-reanimated';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import PagerView from 'react-native-pager-view';
+import { SharedValue, useSharedValue } from 'react-native-reanimated';
 
 // Types précis pour les événements
 interface PageScrollEvent {

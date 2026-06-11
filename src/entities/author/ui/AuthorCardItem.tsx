@@ -1,16 +1,16 @@
-import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { ThemeColors } from '@/src/shared/theme';
+import { TypingText } from '@/src/shared/ui/TypingText';
 import { Image } from 'expo-image';
 import { ChevronDown } from 'lucide-react-native';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { TypingText } from '@/src/shared/ui/TypingText';
+import React, { useMemo } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 interface AuthorCardData {
   name: string;

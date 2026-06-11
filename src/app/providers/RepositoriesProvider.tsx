@@ -1,8 +1,8 @@
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
-import { SupabaseQuoteRepository } from '@/src/entities/quote/api/SupabaseQuoteRepository';
 import { IAuthorRepository } from '@/src/entities/author/api/IAuthorRepository';
 import { SupabaseAuthorRepository } from '@/src/entities/author/api/SupabaseAuthorRepository';
+import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
+import { SupabaseQuoteRepository } from '@/src/entities/quote/api/SupabaseQuoteRepository';
+import React, { createContext, ReactNode, useContext, useMemo } from 'react';
 
 /**
  * Type pour le contexte des repositories

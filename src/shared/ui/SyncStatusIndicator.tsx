@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 /**
  * Component to display offline/online sync status

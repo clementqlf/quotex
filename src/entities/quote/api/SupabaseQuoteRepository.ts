@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Quote, User } from '@/src/shared/api/types';
+import { z } from 'zod';
 import { IQuoteRepository } from './IQuoteRepository';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
 
-import { httpClient } from '@/src/shared/api/HttpClient';
 import { authService } from '@/src/entities/user/api/AuthService';
-import { localQuotesDB, globalQuotesDB } from '@/src/shared/api/staticData';
+import { httpClient } from '@/src/shared/api/HttpClient';
+import { globalQuotesDB, localQuotesDB } from '@/src/shared/api/staticData';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 
 // Simulate API delay

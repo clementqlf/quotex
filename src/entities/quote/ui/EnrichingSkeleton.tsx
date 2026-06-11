@@ -1,13 +1,13 @@
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
-  withTiming,
+  useSharedValue,
   withRepeat,
   withSequence,
+  withTiming,
 } from 'react-native-reanimated';
-import { useTheme } from '@/src/app/providers/ThemeContext';
 
 interface EnrichingSkeletonProps {
   width?: number;

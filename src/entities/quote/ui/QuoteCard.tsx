@@ -1,32 +1,24 @@
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { TOUR_STEPS, useAppTourState } from '@/src/features/app-tour';
+import { Quote } from '@/src/shared/api/types';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { ThemeColors } from '@/src/shared/theme';
+import { TypingText } from '@/src/shared/ui/TypingText';
+import { useRouter } from 'expo-router';
+import { Heart, MoreVertical, Share2 } from 'lucide-react-native';
+import React, { useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
   Pressable,
   Share,
   StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Heart, Share2, MoreVertical, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useRouter } from 'expo-router';
-import { Quote } from '@/src/shared/api/types';
-import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
 import EnrichingSkeleton from './EnrichingSkeleton';
-import { useBookRealtime, useAuthorRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
-import { supabase } from '@/src/shared/api/supabase';
-import { TypingText } from '@/src/shared/ui/TypingText';
 
 interface QuoteCardProps {
   quote: Quote;

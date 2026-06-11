@@ -1,6 +1,6 @@
-import { SupabaseAuthorRepository } from '../src/entities/author/api/SupabaseAuthorRepository';
-import { StorageService, STORAGE_KEYS } from '../src/shared/api/StorageService';
 import { authorService } from '../src/entities/author/api/AuthorService';
+import { SupabaseAuthorRepository } from '../src/entities/author/api/SupabaseAuthorRepository';
+import { STORAGE_KEYS, StorageService } from '../src/shared/api/StorageService';
 
 jest.mock('../src/shared/api/StorageService', () => ({
   StorageService: {

@@ -1,13 +1,5 @@
-import React from 'react';
 import { Stack } from 'expo-router';
-import type { 
-  AuthorDetailParams, 
-  BookDetailParams,
-  QuoteDetailParams,
-  ThemeDetailParams,
-  UserProfileParams,
-  SearchParams 
-} from '@/src/shared/types/router';
+import React from 'react';
 
 export default function AppLayout() {
   return (

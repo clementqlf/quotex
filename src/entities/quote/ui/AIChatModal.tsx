@@ -1,34 +1,34 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-  ActivityIndicator,
-  Dimensions,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Sparkles, Send, BookOpen, User as UserIcon } from 'lucide-react-native';
-import Svg, { Defs, RadialGradient, Stop, Circle } from 'react-native-svg';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withSequence, 
-  withTiming, 
-  Easing 
-} from 'react-native-reanimated';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { Quote, Book, Author } from '@/src/shared/api/types';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { Author, Book, Quote } from '@/src/shared/api/types';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { BookOpen, Send, Sparkles, User as UserIcon, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
+} from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 interface AIChatModalProps {
   visible: boolean;
@@ -554,7 +554,7 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
                 <View style={[styles.bubble, styles.bubbleModel, styles.typingBubble]}>
                   <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={[styles.bubbleTextModel, { fontSize: 13, fontStyle: 'italic' }]}>
-                    L'IA réfléchit...
+                    {"L'IA réfléchit..."}
                   </Text>
                 </View>
               </View>

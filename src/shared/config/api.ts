@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Retrieve the base URL dynamically from environment variables or expo configuration extra field
 const SUPABASE_FUNCTIONS_URL = process.env.EXPO_PUBLIC_API_BASE_URL || Constants.expoConfig?.extra?.apiBaseUrl || 'https://neurbzkkfxrjzjykthtn.supabase.co/functions/v1';

@@ -1,25 +1,12 @@
 // Platform Services
 export {
-  PlatformServices,
+  PlatformServices
 } from './ExpoPlatformServices';
 
 export type {
-  IClipboardService,
-  IShareService,
-  IHapticService,
-  IFileSystemService,
-  ILinkingService,
-  ICameraService,
-  IPlatformServices,
-  HapticFeedbackType,
+  HapticFeedbackType, ICameraService, IClipboardService, IFileSystemService, IHapticService, ILinkingService, IPlatformServices, IShareService
 } from './services';
 
 export {
-  usePlatformServices,
-  useClipboard,
-  useShare,
-  useHaptics,
-  useFileSystem,
-  useLinking,
-  useCamera,
+  useCamera, useClipboard, useFileSystem, useHaptics, useLinking, usePlatformServices, useShare
 } from './usePlatformServices';

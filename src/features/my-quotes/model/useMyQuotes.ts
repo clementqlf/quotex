@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from 'react';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useAuth } from '@/src/app/providers/AuthContext';
-import { Quote, Book, Author } from '@/src/shared/api/types';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { Book } from '@/src/shared/api/types';
+import { useCallback, useMemo } from 'react';
 
 /**
  * Hook feature pour la gestion des citations de l'utilisateur

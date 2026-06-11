@@ -1,8 +1,8 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import { AuthorBlock } from '../AuthorBlock';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Author } from '@/src/shared/api/types';
+import { fireEvent, render } from '@testing-library/react-native';
+import React from 'react';
+import { AuthorBlock } from '../AuthorBlock';
 
 jest.mock('@/src/app/providers/ThemeContext', () => ({
   useTheme: jest.fn(),

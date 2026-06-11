@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
+import { useCallback, useMemo, useState } from 'react';
 import { PhotoFile } from 'react-native-vision-camera';
-import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { WordData, ImageDisplayInfo, OcrProcessor } from './ocrProcessor';
+import { ImageDisplayInfo, OcrProcessor, WordData } from './ocrProcessor';
 
 // Re-export types for convenience
-export { WordData, ImageDisplayInfo };
+export { ImageDisplayInfo, WordData };
 
 /**
  * Props pour le hook useScanState

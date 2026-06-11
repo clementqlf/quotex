@@ -4,9 +4,9 @@
  * Découplé de l'implémentation technique (Supabase, etc.)
  */
 
-import { User } from '@/src/entities/user/model/User';
-import { Book } from '@/src/entities/book/model/Book';
 import { Author } from '@/src/entities/author/model/Author';
+import { Book } from '@/src/entities/book/model/Book';
+import { User } from '@/src/entities/user/model/User';
 
 // Type pour un like sur une citation
 export interface QuoteLike {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/src/shared/api/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import React, { useEffect, useMemo, useState } from 'react';
 
 // Type pour les payloads de changes Supabase
 interface SupabaseRealtimePayload<T> {
@@ -171,8 +171,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
   return data;
 }
 
-import { Book } from '@/src/shared/api/types';
-import { Author } from '@/src/shared/api/types';
+import { Author, Book } from '@/src/shared/api/types';
 
 /**
  * Hook spécialisé pour les livres

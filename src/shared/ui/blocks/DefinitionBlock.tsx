@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { BookOpen, X } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { BlockKey } from '@/src/shared/config/blocks';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
+import { BookOpen, X } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface Definition {
     term: string;
@@ -37,6 +37,19 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
+    // Group definitions by term to show them in separate sections
+    const groupedDefinitions = useMemo(() => {
+        if (!definitions) return [];
+        const groups: Record<string, Definition[]> = {};
+        definitions.forEach(def => {
+            if (!groups[def.term]) {
+                groups[def.term] = [];
+            }
+            groups[def.term].push(def);
+        });
+        return Object.entries(groups);
+    }, [definitions]);
+
     const hasDefinitions = definitions && definitions.length > 0;
 
     if (!hasDefinitions) {
@@ -65,18 +78,6 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
             );
         }
     }
-
-    // Group definitions by term to show them in separate sections
-    const groupedDefinitions = useMemo(() => {
-        const groups: Record<string, Definition[]> = {};
-        definitions.forEach(def => {
-            if (!groups[def.term]) {
-                groups[def.term] = [];
-            }
-            groups[def.term].push(def);
-        });
-        return Object.entries(groups);
-    }, [definitions]);
 
     return (
         <BlockWrapper blockKey={blockKey} onRemove={onRemove}>

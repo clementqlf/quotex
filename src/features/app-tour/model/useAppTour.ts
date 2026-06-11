@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabIndex } from '@/src/app/providers/TabContext';
-import { useAppTourState, TourStep, TOUR_STEPS } from './useAppTourState';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useRef } from 'react';
+import { TOUR_STEPS, useAppTourState } from './useAppTourState';
 
 /**
  * Hook useAppTour

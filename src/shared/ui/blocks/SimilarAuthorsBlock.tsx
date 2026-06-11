@@ -1,10 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet } from 'react-native';
-import { User } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { Author } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { Author } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
+import React, { useMemo } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface SimilarAuthorsBlockProps {
     authors: Author[];

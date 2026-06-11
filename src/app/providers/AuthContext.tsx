@@ -1,8 +1,8 @@
-import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '../../entities/user/api/AuthService';
 import { User } from '../../shared/api/types';
 import { UGCModerationService } from '../../shared/api/UGCModerationService';
-import { useQueryClient } from '@tanstack/react-query';
 
 // Séparer les types de state pour éviter les re-renders inutiles
 interface AuthState {

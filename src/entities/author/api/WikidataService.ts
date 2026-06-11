@@ -1,7 +1,7 @@
-import { z } from 'zod';
 import { Book } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { z } from 'zod';
 
 const SparqlResultSchema = z.object({
   results: z.object({

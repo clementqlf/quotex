@@ -1,8 +1,8 @@
-import { Quote, CreateQuoteDto, User } from '@/src/shared/api/types';
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
-import { OperationQueue, PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { Quote, User } from '@/src/shared/api/types';
+import { OperationQueue, PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
 import NetInfo from '@react-native-community/netinfo';
 
 const MAX_RETRIES = 10;

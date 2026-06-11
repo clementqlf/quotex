@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { quoteService } from '@/src/entities/quote/api/QuoteService';
+import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { Quote } from '@/src/shared/api/types';
 import NetInfo from '@react-native-community/netinfo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { quoteService } from '@/src/entities/quote/api/QuoteService';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
-import { Quote } from '@/src/shared/api/types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Custom hook to handle automatic synchronization of offline data when network is restored

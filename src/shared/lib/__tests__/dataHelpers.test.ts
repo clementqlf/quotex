@@ -1,4 +1,4 @@
-import { getBookTitle, getAuthorName, getStatusLabel, getStatusColor } from '../dataHelpers';
+import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel } from '../dataHelpers';
 
 describe('dataHelpers', () => {
   describe('getBookTitle', () => {

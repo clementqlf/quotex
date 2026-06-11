@@ -1,7 +1,5 @@
 // User domain types
 export {
-  User,
   CreateUserDto,
-  UpdateUserDto,
-  UserFactory,
+  UpdateUserDto, User, UserFactory
 } from './User';

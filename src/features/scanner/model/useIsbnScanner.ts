@@ -1,7 +1,7 @@
-import { useRef, useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
 import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
 type UseIsbnScannerProps = {
     cameraRef?: React.RefObject<Camera | null>; // Kept for backward compatibility

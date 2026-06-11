@@ -1,34 +1,33 @@
-import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-  ActivityIndicator,
-  Share,
-  Alert,
-} from 'react-native';
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { Author, Book } from '@/src/shared/api/types';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ChevronLeft, BookOpen, User, Calendar, Globe, Heart, X, Bookmark, Share as ShareIcon, UserPlus, UserCheck } from 'lucide-react-native';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { authorService } from '@/src/entities/author/api/AuthorService';
-import { getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { Author, Book } from '@/src/shared/api/types';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { useAuth } from '@/src/app/providers/AuthContext';
-import { ThemeColors } from '@/src/shared/theme';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Heart, Share as ShareIcon, User, UserCheck, UserPlus, X } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
   const opacity = useSharedValue(0.3);
@@ -443,7 +442,7 @@ export default function AuthorDetailScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <User size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>À propos de l'auteur</Text>
+              <Text style={styles.sectionTitle}>{"À propos de l'auteur"}</Text>
             </View>
             <Text style={styles.authorDesc}>{authorDesc}</Text>
           </View>
@@ -538,7 +537,7 @@ export default function AuthorDetailScreen() {
                       activeOpacity={0.85}
                       onPress={() => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
                     >
-                      <Text style={styles.quoteText}>"{quote.text}"</Text>
+                      <Text style={styles.quoteText}>{`"${quote.text}"`}</Text>
                       <View style={styles.quoteMeta}>
                         <View style={styles.quoteMetaLeft}>
                           <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>

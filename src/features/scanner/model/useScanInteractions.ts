@@ -1,6 +1,6 @@
-import { useRef, useMemo, useEffect } from 'react';
-import { PanResponder, PanResponderInstance, View } from 'react-native';
-import { WordData, ImageDisplayInfo } from './ocrProcessor';
+import { useEffect, useRef } from 'react';
+import { PanResponder, PanResponderInstance } from 'react-native';
+import { ImageDisplayInfo, WordData } from './ocrProcessor';
 import { SelectionRange } from './useScanState';
 
 /**

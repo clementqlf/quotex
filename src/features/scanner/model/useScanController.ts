@@ -1,19 +1,16 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
-import { Alert, Platform } from 'react-native';
-import { PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner, useCameraFormat } from 'react-native-vision-camera';
-import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { useRouter } from 'expo-router';
-import { Camera } from 'react-native-vision-camera';
-import * as ExpoImagePicker from 'expo-image-picker';
+import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ExpoImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
+import { Camera, PhotoFile, useCameraDevice, useCameraFormat, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 
-import { scanService, IsbnBookData } from '../api/ScanService';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { quoteService } from '@/src/features/quote/api/QuoteService';
 import { Quote, User } from '@/src/shared/api/types';
-import { useAuth } from '@/src/app/providers/AuthContext';
 import { PlatformServices } from '@/src/shared/platform';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { OcrResult } from '../api/ScanService';
+import { IsbnBookData, scanService } from '../api/ScanService';
 
 // Interface pour l'injection de dépendances de navigation
 export interface ITabController {

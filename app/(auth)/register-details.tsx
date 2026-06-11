@@ -1,22 +1,22 @@
+import { useAuth } from '@/src/app/providers/AuthContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ArrowLeft, ArrowRight, CheckCircle2, Lock, User as UserIcon, XCircle } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  Dimensions
+  View
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User as UserIcon, Lock, ArrowRight, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react-native';
-import { useAuth } from '@/src/app/providers/AuthContext';
-import { useTheme } from '@/src/app/providers/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

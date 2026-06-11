@@ -1,8 +1,7 @@
-import React from 'react';
-import { render } from '@testing-library/react-native';
-import { BlockDispatcher } from '../BlockDispatcher';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { View } from 'react-native';
+import { render } from '@testing-library/react-native';
+import React from 'react';
+import { BlockDispatcher } from '../BlockDispatcher';
 
 // Mocks des hooks
 jest.mock('@/src/app/providers/ThemeContext', () => ({

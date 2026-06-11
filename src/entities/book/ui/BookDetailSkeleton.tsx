@@ -1,7 +1,7 @@
+import { ThemeColors } from '@/src/shared/theme';
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
-import { ThemeColors } from '@/src/shared/theme';
 
 export const BookDetailSkeleton = ({ colors }: { colors: ThemeColors }) => {
   const opacity = useSharedValue(0.3);

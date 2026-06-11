@@ -1,58 +1,47 @@
 // Scanner types and interfaces
 export {
-  IScanner,
-  CaptureResult,
-  ScannerOptions,
-  ScannerState,
-  OnCodeScannedCallback,
-  OnTextRecognizedCallback,
+  CaptureResult, IScanner, OnCodeScannedCallback,
+  OnTextRecognizedCallback, ScannerOptions,
+  ScannerState
 } from './IScanner';
 
 // Scanner implementations
 export {
   VisionCameraScanner,
-  useVisionCameraScanner,
+  useVisionCameraScanner
 } from './VisionCameraScanner';
 
 // Mock scanner for testing
 export {
   MockScanner,
-  createMockScanner,
+  createMockScanner
 } from './MockScanner';
 
 // Other scanner utilities
-export { useLiveOCR } from './useLiveOCR';
-export { extractIsbn } from './useIsbnScanner';
 export { recognizeText } from './mlKitParser';
 export * from './textReconstructor';
+export { extractIsbn } from './useIsbnScanner';
+export { useLiveOCR } from './useLiveOCR';
 
 // OCR Processor (logique métier)
 export {
-  OcrProcessor,
-  WordData,
-  ImageDisplayInfo,
+  ImageDisplayInfo, OcrProcessor,
+  WordData
 } from './ocrProcessor';
 
 // Scan State Management
 export {
-  useScanState,
-  UseScanStateProps,
   ScanStateResult,
-  SelectionRange,
+  SelectionRange, UseScanStateProps, useScanState
 } from './useScanState';
 
 // Scan Interactions (UI)
 export {
-  useScanInteractions,
-  UseScanInteractionsProps,
-  ScanInteractionsResult,
+  ScanInteractionsResult, UseScanInteractionsProps, useScanInteractions
 } from './useScanInteractions';
 
 // Scan Controller (Main hook for ScanScreen)
 export {
-  useScanController,
-  UseScanControllerProps,
-  ScanControllerState,
   ScanControllerActions,
-  ScanControllerResult,
+  ScanControllerResult, ScanControllerState, UseScanControllerProps, useScanController
 } from './useScanController';

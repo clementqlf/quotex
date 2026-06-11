@@ -1,12 +1,12 @@
-import React, { ReactElement, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle, Platform, Dimensions, useWindowDimensions } from 'react-native';
-import Tooltip from 'react-native-walkthrough-tooltip';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppTourState, TourStep, TOUR_STEPS } from '../model/useAppTourState';
-import { useRouter } from 'expo-router';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useTabIndex } from '@/src/app/providers/TabContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { useRouter } from 'expo-router';
+import React, { ReactElement, useEffect, useState } from 'react';
+import { Dimensions, Platform, StyleProp, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Tooltip from 'react-native-walkthrough-tooltip';
+import { TOUR_STEPS, TourStep, useAppTourState } from '../model/useAppTourState';
 
 interface Props {
   stepName?: TourStep;

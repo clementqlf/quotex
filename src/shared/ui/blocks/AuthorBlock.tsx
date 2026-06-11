@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { Author, Book } from '@/src/shared/api/types';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { Author, Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 
 interface AuthorBlockProps {
     author: Author | null;
@@ -28,7 +28,7 @@ const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: n
         return (
             <BlockWrapper blockKey="author" onRemove={onRemove}>
                 <Text style={styles.fallbackText}>
-                    Informations sur l'auteur non disponibles.
+                    {"Informations sur l'auteur non disponibles."}
                 </Text>
             </BlockWrapper>
         );

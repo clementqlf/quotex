@@ -1,11 +1,9 @@
-import React, { createContext, useContext, useMemo, ReactNode, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Author, Book } from '@/src/shared/api/types';
-import { ReadingStatus } from '@/src/entities/author/model/Author';
-import { SupabaseAuthorRepository } from '../api/SupabaseAuthorRepository';
-import { useRealtimeBooks, useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
-import { IAuthorRepository } from '@/src/entities/author/api/IAuthorRepository';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
+import { Author, Book } from '@/src/shared/api/types';
+import { useRealtimeAuthors, useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { createContext, ReactNode, useCallback, useContext, useMemo } from 'react';
 
 // Type pour le contexte Author
 type AuthorContextType = {

@@ -1,4 +1,4 @@
-import { Share2, MessageSquare, BookOpen, ShoppingCart, Sparkles, User, Quote, Book as BookIcon, Library, Link } from 'lucide-react-native';
+import { Book as BookIcon, BookOpen, Library, Link, MessageSquare, Quote, ShoppingCart, Sparkles, User } from 'lucide-react-native';
 
 export type BlockKey =
     | 'reviews'

@@ -1,9 +1,9 @@
 import {
   calculateTextGeometry,
-  getPhotoOrientation,
-  rotateFrameToUpright,
   getBlockRectOnScreen,
+  getPhotoOrientation,
   isPointInBlock,
+  rotateFrameToUpright,
 } from '../scanGeometry';
 
 describe('scanGeometry', () => {

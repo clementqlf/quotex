@@ -1,10 +1,9 @@
-import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import ReviewBlock from '../ReviewBlock';
-import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ReviewService } from '@/src/shared/api/ReviewService';
-import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
+import { render, waitFor } from '@testing-library/react-native';
+import React from 'react';
+import ReviewBlock from '../ReviewBlock';
 
 jest.mock('@/src/app/providers/ThemeContext', () => ({
   useTheme: jest.fn(),

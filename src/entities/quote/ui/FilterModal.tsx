@@ -1,17 +1,17 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import { useTheme } from '@/src/app/providers/ThemeContext';
+import { STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { ThemeColors } from '@/src/shared/theme';
+import { ChevronDown } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
-  View,
-  Text,
-  TouchableOpacity,
   Pressable,
   ScrollView,
   StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
-import { STATUS_OPTIONS, getStatusLabel } from '@/src/shared/lib/dataHelpers';
 
 export type FilterType = { type: 'author' | 'book' | 'year' | 'status'; value: string | number };
 

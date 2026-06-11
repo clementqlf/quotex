@@ -1,7 +1,7 @@
-import { Review } from './types';
-import { API_BASE_URL } from '../config/api';
-import { authService } from '../../entities/user/api/AuthService';
 import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { authService } from '../../entities/user/api/AuthService';
+import { API_BASE_URL } from '../config/api';
+import { Review } from './types';
 
 export const ReviewService = {
     async getReviewsByBookId(bookId: number): Promise<Review[]> {

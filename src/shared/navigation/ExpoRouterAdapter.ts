@@ -1,4 +1,4 @@
-import { useRouter, usePathname } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { INavigationService, NavigateOptions, RouteParams } from './types';
 
 /**

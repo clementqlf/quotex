@@ -1,27 +1,27 @@
-import React, { useRef, useState, useEffect } from 'react';
-import {
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    ActivityIndicator,
-    Dimensions,
-} from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { X, Camera as CameraIcon, Zap, Image as ImageIcon } from 'lucide-react-native';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withRepeat,
-    withTiming,
-    withSequence,
-} from 'react-native-reanimated';
-import * as ExpoImagePicker from 'expo-image-picker';
+import { useTheme } from '@/src/app/providers/ThemeContext';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { useIsbnScanner, extractIsbn } from '../model/useIsbnScanner';
+import * as ExpoImagePicker from 'expo-image-picker';
+import { Camera as CameraIcon, Image as ImageIcon, X, Zap } from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { extractIsbn, useIsbnScanner } from '../model/useIsbnScanner';
 
 type BarcodeScannerModalProps = {
     visible: boolean;
@@ -169,13 +169,13 @@ export default function BarcodeScannerModal({
                     <View style={styles.permissionContainer}>
                         <CameraIcon size={48} color={colors.primary} style={{ marginBottom: 16 }} />
                         <Text style={[styles.permissionText, { color: colors.text }]}>
-                            Quotex a besoin de l'accès à la caméra pour scanner les codes-barres.
+                            {"Quotex a besoin de l'accès à la caméra pour scanner les codes-barres."}
                         </Text>
                         <TouchableOpacity
                             style={[styles.permissionButton, { backgroundColor: colors.primary }]}
                             onPress={requestPermission}
                         >
-                            <Text style={styles.permissionButtonText}>Autoriser l'accès</Text>
+                            <Text style={styles.permissionButtonText}>{"Autoriser l'accès"}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                             <X size={24} color={colors.textSecondary} />
@@ -184,7 +184,7 @@ export default function BarcodeScannerModal({
                 ) : !device ? (
                     <View style={styles.permissionContainer}>
                         <Text style={[styles.permissionText, { color: colors.text }]}>
-                            Aucun appareil photo n'a été détecté sur votre appareil.
+                            {"Aucun appareil photo n'a été détecté sur votre appareil."}
                         </Text>
                         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                             <X size={24} color={colors.textSecondary} />

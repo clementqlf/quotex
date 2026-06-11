@@ -1,14 +1,14 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  runOnJS,
+import React, { useEffect } from 'react';
+import { StyleSheet } from 'react-native';
+import Animated, {
   Easing,
+  Extrapolation,
   interpolate,
-  Extrapolation
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
 } from 'react-native-reanimated';
 
 interface Props {

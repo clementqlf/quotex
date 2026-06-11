@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { X } from 'lucide-react-native';
-import { BLOCK_CONFIGS, BlockKey } from '@/src/shared/config/blocks';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { BLOCK_CONFIGS, BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
+import { X } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface BlockWrapperProps {
     blockKey: BlockKey;

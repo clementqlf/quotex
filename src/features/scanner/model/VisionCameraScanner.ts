@@ -1,7 +1,6 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Camera, CameraDevice, PhotoFile, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
-import { TextBlock } from '@react-native-ml-kit/text-recognition';
-import { IScanner, CaptureResult, ScannerState, ScannerOptions, OnCodeScannedCallback, OnTextRecognizedCallback } from './IScanner';
+import { CaptureResult, IScanner, OnCodeScannedCallback, OnTextRecognizedCallback, ScannerOptions, ScannerState } from './IScanner';
 import { useLiveOCR } from './useLiveOCR';
 
 /**
