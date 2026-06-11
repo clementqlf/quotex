@@ -1,0 +1,19 @@
+appId: com.quotex.app
+---
+- launchApp
+- tapOn:
+    id: "scan-tab"
+- tapOn:
+    id: "camera-permission-allow"
+    optional: true
+- tapOn:
+    id: "camera-capture-button"
+- assertVisible:
+    id: "isbn-detected-modal"
+    timeout: 10000
+- assertVisible:
+    id: "book-title-from-isbn"
+- tapOn:
+    id: "confirm-book-button"
+- assertVisible:
+    id: "quote-create-screen"

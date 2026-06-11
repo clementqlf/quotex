@@ -1,19 +1,28 @@
 appId: com.quotex.app
 ---
 - launchApp
-- assertVisible: "MyQuotes" # Vérifier qu'on est sur le bon onglet
-- tapOn: "Scan" # Nom du tab ou bouton d'ajout (à ajuster selon les IDs)
+- assertVisible:
+    id: "my-quotes-tab"
+    timeout: 10000
 - tapOn:
-    id: "manual-entry-button" # Si un bouton spécifique existe pour l'entrée manuelle
-    optional: true
-- tapOn:
+    id: "add-quote-button"
+- inputText:
     id: "quote-input"
-- inputText: "Maestro test quote - offline first architecture."
-- tapOn:
+    text: "Maestro test quote - offline first architecture."
+- inputText:
     id: "book-input"
-- inputText: "Automated Book"
-- tapOn: "Enregistrer" # Le texte du bouton de validation
-- assertVisible: "MyQuotes"
+    text: "Automated Book"
+- inputText:
+    id: "author-input"
+    text: "Test Author"
+- tapOn:
+    id: "save-button"
+- assertVisible:
+    id: "my-quotes-tab"
 - scrollUntilVisible:
-    element: "Maestro test quote - offline first architecture."
+    element:
+      id: "quote-card-Maestro test quote"
     direction: DOWN
+    timeout: 5000
+- assertVisible:
+    id: "quote-card-Maestro test quote"

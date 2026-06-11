@@ -1,0 +1,22 @@
+appId: com.quotex.app
+---
+- launchApp
+- assertVisible:
+    id: "home-screen"
+    timeout: 10000
+- tapOn:
+    id: "scan-tab"
+- tapOn:
+    id: "camera-permission-allow"
+    optional: true
+- tapOn:
+    id: "camera-capture-button"
+- assertVisible:
+    id: "ocr-processing-indicator"
+    timeout: 15000
+- assertVisible:
+    id: "quote-preview"
+- tapOn:
+    id: "save-quote-button"
+- assertVisible:
+    id: "quote-saved-toast"

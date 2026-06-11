@@ -851,7 +851,7 @@ describe('bookImport', () => {
         "track": "production"
       },
       "ios": {
-        "ascAppId": "@@ASC_APP_ID@@"
+        "ascAppId": "@@ASC_APP_ID@"
       }
     }
   }
@@ -1017,7 +1017,7 @@ npx expo install expo-updates
     },
     "extra": {
       "eas": {
-        "projectId": "@@EAS_PROJECT_ID@@"
+        "projectId": "@@EAS_PROJECT_ID@"
       }
     }
   }
