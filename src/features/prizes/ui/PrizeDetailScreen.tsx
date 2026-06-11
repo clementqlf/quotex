@@ -162,7 +162,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
             return { inceptionYear, founder };
         } catch (e) {
             clearTimeout(timeoutId);
-            if (e.name !== 'AbortError') {
+            if (e instanceof Error && e.name !== 'AbortError') {
                 console.error('[PrizeDetail] Failed to fetch external prize details:', e);
             }
             return null;

@@ -6,8 +6,8 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Run Tests
+  cache-deps:
+    name: Cache Dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +20,26 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Upload cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-modules-cache
+          path: node_modules/
+          retention-days: 1
+
+  test:
+    name: Run Tests
+    needs: cache-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download cache
+        uses: actions/download-artifact@v4
+        with:
+          name: node-modules-cache
+          path: .
 
       - name: Run Jest tests
         run: npm test -- --passWithNoTests
@@ -31,22 +51,52 @@ jobs:
           name: test-results
           path: coverage/
 
-  build-dev:
-    name: Build Development
+  maestro-e2e:
+    name: Run Maestro E2E Tests
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/tags/v*'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Download cache
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: npm
+          name: node-modules-cache
+          path: .
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Maestro
+        run: curl -Ls https://mobile.dev/install | bash
+
+      - name: Start Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          profile: pixel_6_pro
+          ndk: 23.2.8568313
+
+      - name: Build Android app
+        run: npx eas build --profile development --platform android --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run Maestro tests
+        run: npx maestro test .maestro/
+
+  build-dev:
+    name: Build Development
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download cache
+        uses: actions/download-artifact@v4
+        with:
+          name: node-modules-cache
+          path: .
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
@@ -72,14 +122,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Download cache
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
+          name: node-modules-cache
+          path: .
 
       - name: Install EAS CLI
         run: npm install -g eas-cli

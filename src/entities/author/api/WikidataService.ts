@@ -9,7 +9,7 @@ const SparqlResultSchema = z.object({
   })
 });
 
-class WikidataService {
+export class WikidataService {
     private enrichmentCache = new Map<string, Promise<Record<string, any>>>();
 
     private async runSPARQL(query: string): Promise<any[]> {
@@ -42,7 +42,7 @@ class WikidataService {
             }
         } catch (error) {
             clearTimeout(timeoutId);
-            if (error.name !== 'AbortError') {
+            if (error instanceof Error && error.name !== 'AbortError') {
                 logFetchError('[WikidataService] SPARQL Error', error);
             }
             return [];

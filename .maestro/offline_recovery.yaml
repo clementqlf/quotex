@@ -1,0 +1,12 @@
+appId: com.quotex.app
+---
+- launchApp
+- tapOn: { id: "toggle-offline-mode" }
+- tapOn: { id: "add-quote-button" }
+- inputText: { id: "quote-input", text: "Recover me" }
+- tapOn: { id: "save-button" }
+- assertVisible: { id: "sync-pending-badge" }
+- tapOn: { id: "toggle-offline-mode" }
+- assertVisible: { id: "sync-started-indicator", timeout: 5000 }
+- assertVisible: { id: "sync-complete-toast", timeout: 20000 }
+- assertNotVisible: { id: "sync-pending-badge" }

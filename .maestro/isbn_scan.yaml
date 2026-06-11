@@ -6,6 +6,9 @@ appId: com.quotex.app
 - tapOn:
     id: "camera-permission-allow"
     optional: true
+- assertVisible:
+    id: "camera-preview"
+    timeout: 5000
 - tapOn:
     id: "camera-capture-button"
 - assertVisible:

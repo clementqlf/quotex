@@ -1,5 +1,5 @@
 import { QuoteUseCases } from '../QuoteUseCases';
-import { IQuoteRepository } from '../../api/IQuoteRepository';
+import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 
 const mockRepository: jest.Mocked<IQuoteRepository> = {
   getQuoteById: jest.fn(),
@@ -9,7 +9,6 @@ const mockRepository: jest.Mocked<IQuoteRepository> = {
   deleteQuote: jest.fn(),
   toggleLike: jest.fn(),
   toggleSave: jest.fn(),
-  getUser: jest.fn(),
 } as any;
 
 const mockQueue = {
@@ -20,6 +19,11 @@ const mockQueue = {
 
 jest.mock('@/src/shared/lib/offline/OperationQueue', () => ({
   OperationQueue: { getInstance: () => mockQueue },
+}));
+
+const mockGetUser = jest.fn();
+jest.mock('@/src/entities/user/api/AuthService', () => ({
+  authService: { getUser: () => mockGetUser() },
 }));
 
 describe('QuoteUseCases', () => {
@@ -82,7 +86,7 @@ describe('QuoteUseCases', () => {
 
   describe('createQuoteWithMatching', () => {
     it('should create quote with temp ID and add to queue', async () => {
-      mockRepository.getUser.mockResolvedValue({ id: '1', name: 'Test' });
+      mockGetUser.mockResolvedValue({ id: '1', name: 'Test' });
 
       const result = await useCases.createQuoteWithMatching(
         'Test quote',
@@ -106,7 +110,7 @@ describe('QuoteUseCases', () => {
     });
 
     it('should clean empty fields', async () => {
-      mockRepository.getUser.mockResolvedValue({ id: '1', name: 'Test' });
+      mockGetUser.mockResolvedValue({ id: '1', name: 'Test' });
 
       const result = await useCases.createQuoteWithMatching(
         'Test quote',

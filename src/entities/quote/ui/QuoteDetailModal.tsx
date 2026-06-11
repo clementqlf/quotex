@@ -486,7 +486,7 @@ function QuoteDetailContent() {
     } catch (error) {
       console.error('[AI Analysis]', error);
       // Fallback: set a default analysis
-      const authorName = getAuthorName(quote);
+      const authorName = getAuthorName(quote?.author);
       const fallbackAnalysis = {
         aiInterpretation: `Cette citation de ${authorName} invite à la réflexion littéraire.`,
         theme: "Art & Littérature",

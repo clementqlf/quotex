@@ -5,6 +5,8 @@ import NetInfo from '@react-native-community/netinfo';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService } from '@/src/shared/api/StorageService';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
+import { PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
 
 const flushPromises = async () => {
   for (let i = 0; i < 10; i++) {
@@ -180,5 +182,35 @@ describe('useNetworkSync', () => {
     });
 
     expect(quoteService.syncPendingQuotes).toHaveBeenCalled();
+  });
+
+  describe('Backoff Exponentiel', () => {
+    it('devrait appliquer un délai de backoff exponentiel avant de retry', async () => {
+      jest.useRealTimers();
+      const ops: PendingOperation[] = [
+        { id: '1', type: 'LIKE', entityType: 'quote', entityId: 1, retryCount: 2, maxRetries: 10, createdAt: '' },
+      ];
+
+      (StorageService.getItem as jest.Mock).mockResolvedValue([...ops]);
+
+      let executorCallTime = 0;
+      const executor = jest.fn().mockImplementation(async () => {
+        executorCallTime = Date.now();
+        throw new Error('Network timeout');
+      });
+
+      // Spy on getBackoffDelay to return a known value
+      const queue = OperationQueue.getInstance();
+      jest.spyOn(queue, 'getBackoffDelay').mockReturnValue(100); // 100ms pour un test rapide
+
+      const startTime = Date.now();
+      await queue.flush(executor);
+      const endTime = Date.now();
+
+      // Le délai devrait être d'au moins 100ms
+      expect(endTime - startTime).toBeGreaterThanOrEqual(90);
+      expect(executor).toHaveBeenCalled();
+      expect(queue.getBackoffDelay).toHaveBeenCalledWith(2);
+    });
   });
 });

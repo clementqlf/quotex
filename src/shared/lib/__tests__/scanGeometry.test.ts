@@ -1,7 +1,9 @@
 import {
   calculateTextGeometry,
   getPhotoOrientation,
-  rotateFrameToUpright
+  rotateFrameToUpright,
+  getBlockRectOnScreen,
+  isPointInBlock,
 } from '../scanGeometry';
 
 describe('scanGeometry', () => {
@@ -78,5 +80,85 @@ describe('scanGeometry', () => {
         height: 100
       });
     });
+  });
+});
+
+describe('getBlockRectOnScreen', () => {
+  it('should calculate screen position correctly with normalized coordinates', () => {
+    const block = {
+      text: 'mock',
+      frame: { left: 0.4, top: 0.4, width: 0.2, height: 0.1 },
+      cornerPoints: [
+        { x: 0.4, y: 0.4 },
+        { x: 0.6, y: 0.4 },
+        { x: 0.6, y: 0.5 },
+        { x: 0.4, y: 0.5 }
+      ]
+    };
+    const imageSize = { width: 800, height: 600, offsetX: 0, offsetY: 0 };
+    const photoDimensions = { width: 800, height: 600 };
+    
+    const result = getBlockRectOnScreen(block, imageSize, photoDimensions, 0);
+    expect(result).toBeDefined();
+    expect(result!.left).toBeCloseTo(320, 0.1);
+    expect(result!.top).toBeCloseTo(240, 0.1);
+    expect(result!.width).toBeCloseTo(160, 0.1);
+    expect(result!.height).toBeCloseTo(60, 0.1);
+  });
+
+  it('should return null if block frame is missing', () => {
+    const block = { text: 'mock', cornerPoints: [] } as any;
+    const imageSize = { width: 800, height: 600, offsetX: 0, offsetY: 0 };
+    const photoDimensions = { width: 800, height: 600 };
+    
+    const result = getBlockRectOnScreen(block, imageSize, photoDimensions, 0);
+    expect(result).toBeNull();
+  });
+
+  it('should handle rotation=90 correctly', () => {
+    const block = {
+      text: 'mock',
+      frame: { left: 0.5, top: 0.5, width: 0.2, height: 0.1 },
+    } as any;
+    const imageSize = { width: 600, height: 800, offsetX: 0, offsetY: 0 };
+    const photoDimensions = { width: 800, height: 600 };
+    
+    const result = getBlockRectOnScreen(block, imageSize, photoDimensions, 90);
+    expect(result).toBeDefined();
+  });
+});
+
+describe('isPointInBlock', () => {
+  it('should return true if point is inside block', () => {
+    const block = {
+      frame: { left: 100, top: 100, width: 100, height: 50 }
+    } as any;
+    const imageSize = { width: 800, height: 600, offsetX: 0, offsetY: 0 };
+    const photoDimensions = { width: 800, height: 600 };
+    
+    const result = isPointInBlock(150, 125, block, imageSize, photoDimensions, 0);
+    expect(result).toBe(true);
+  });
+
+  it('should return false if point is outside block', () => {
+    const block = {
+      frame: { left: 100, top: 100, width: 100, height: 50 }
+    } as any;
+    const imageSize = { width: 800, height: 600, offsetX: 0, offsetY: 0 };
+    const photoDimensions = { width: 800, height: 600 };
+    
+    const result = isPointInBlock(50, 50, block, imageSize, photoDimensions, 0);
+    expect(result).toBe(false);
+  });
+
+  it('should return true with padding', () => {
+    const block = {
+      frame: { left: 100, top: 100, width: 100, height: 50 }
+    } as any;
+    const imageSize = { width: 800, height: 600, offsetX: 0, offsetY: 0 };
+    const photoDimensions = { width: 800, height: 600 };
+    
+    const result = isPointInBlock(95, 95, block, imageSize, photoDimensions, 0, 5);
+    expect(result).toBe(true);
   });
 });

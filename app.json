@@ -92,10 +92,19 @@
     "updates": {
       "url": "https://u.expo.dev/@quotex/quotex",
       "enabled": true,
-      "fallbackToCacheTimeout": 86400
+      "fallbackToCacheTimeout": 604800,
+      "channels": [
+        { "name": "production", "enabled": true },
+        { "name": "staging", "enabled": true },
+        { "name": "dev", "enabled": true }
+      ]
     },
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "appVersion",
+      "appVersion": {
+        "minNativeVersion": "1.0.0",
+        "maxNativeVersion": "1.9.9"
+      }
     },
     "experiments": {
       "typedRoutes": true,
