@@ -1,7 +1,7 @@
 name: Quotex CI/CD
 on:
   push:
-    branches: [main, scope4_v2, scope5]
+    branches: [main, scope4_v2, scope5, scope6]
   pull_request:
     branches: [main]
 
