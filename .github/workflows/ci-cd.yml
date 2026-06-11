@@ -5,6 +5,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   cache-deps:
     name: Cache Dependencies
@@ -35,11 +38,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Download cache
         uses: actions/download-artifact@v4
         with:
           name: node-modules-cache
-          path: .
+          path: node_modules
 
       - name: Run Jest tests
         run: npm test -- --passWithNoTests
@@ -59,11 +67,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Download cache
         uses: actions/download-artifact@v4
         with:
           name: node-modules-cache
-          path: .
+          path: node_modules
 
       - name: Install Maestro
         run: curl -Ls https://mobile.dev/install | bash
@@ -92,11 +105,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Download cache
         uses: actions/download-artifact@v4
         with:
           name: node-modules-cache
-          path: .
+          path: node_modules
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
@@ -122,11 +140,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Download cache
         uses: actions/download-artifact@v4
         with:
           name: node-modules-cache
-          path: .
+          path: node_modules
 
       - name: Install EAS CLI
         run: npm install -g eas-cli

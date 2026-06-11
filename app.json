@@ -99,13 +99,7 @@
         { "name": "dev", "enabled": true }
       ]
     },
-    "runtimeVersion": {
-      "policy": "appVersion",
-      "appVersion": {
-        "minNativeVersion": "1.0.0",
-        "maxNativeVersion": "1.9.9"
-      }
-    },
+    "runtimeVersion": "1.0.0",
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
