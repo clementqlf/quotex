@@ -285,10 +285,12 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
     const quoteIndex = quotes.findIndex(q => q.id === id);
     
-    if (quoteIndex > -1) {
-        quotes[quoteIndex] = { ...quotes[quoteIndex], ...updates };
-        await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+    if (quoteIndex === -1) {
+        throw new Error(`Quote with id ${id} not found`);
     }
+
+    quotes[quoteIndex] = { ...quotes[quoteIndex], ...updates };
+    await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
 
     // Prefer names for author and book in the payload to match backend "find or create" logic
     const payload: any = { ...updates };
@@ -308,11 +310,12 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             body: JSON.stringify(payload),
         });
 
-        if (response.ok) {
+        if (response && response.ok) {
             console.log('Quote updated on server successfully');
         } else {
-            console.error('Failed to update quote on server:', await response.text());
-            throw new Error(`Server returned ${response.status}`);
+            const errorText = response ? await response.text() : 'No response';
+            console.error('Failed to update quote on server:', errorText);
+            throw new Error(`Server returned ${response ? response.status : 'no response'}`);
         }
     } catch (error) {
         console.error('Network error updating quote:', error);

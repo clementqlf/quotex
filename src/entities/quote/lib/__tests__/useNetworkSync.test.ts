@@ -6,6 +6,12 @@ import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { StorageService } from '@/src/shared/api/StorageService';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+const flushPromises = async () => {
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+};
+
 // Mock dependencies
 let networkCallback: (state: any) => void;
 const mockUnsubscribe = jest.fn();
@@ -65,7 +71,7 @@ describe('useNetworkSync', () => {
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 
@@ -74,7 +80,7 @@ describe('useNetworkSync', () => {
 
     await act(async () => {
       jest.runOnlyPendingTimers();
-      await Promise.resolve(); // Flush promises in useEffect
+      await flushPromises(); // Flush promises in useEffect
     });
 
     expect(result.current.isConnected).toBe(true);
@@ -98,7 +104,7 @@ describe('useNetworkSync', () => {
     // Let React Query fetch the pending count (from 0 to 3)
     await act(async () => {
       jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await flushPromises();
     });
 
     // We expect the pendingCount state of the hook to be 3 now
@@ -106,12 +112,8 @@ describe('useNetworkSync', () => {
 
     // Trigger shouldSync check and sync
     await act(async () => {
-      // Automatic sync is already triggered on startup
-    });
-
-    await act(async () => {
       jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await flushPromises();
     });
 
     expect(quoteService.syncPendingQuotes).toHaveBeenCalledTimes(1);
@@ -123,7 +125,7 @@ describe('useNetworkSync', () => {
 
     await act(async () => {
       jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await flushPromises();
     });
 
     // Simuler perte de connexion via l'écouteur d'événements
@@ -134,7 +136,7 @@ describe('useNetworkSync', () => {
           isInternetReachable: false,
         });
       }
-      await Promise.resolve();
+      await flushPromises();
     });
 
     expect(result.current.isConnected).toBe(false);
@@ -157,7 +159,7 @@ describe('useNetworkSync', () => {
           isInternetReachable: true,
         });
       }
-      await Promise.resolve();
+      await flushPromises();
     });
 
     expect(result.current.isConnected).toBe(true);
@@ -165,7 +167,7 @@ describe('useNetworkSync', () => {
     // Let React Query load the new pending count
     await act(async () => {
       jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await flushPromises();
     });
 
     expect(result.current.pendingCount).toBe(1);
@@ -173,12 +175,8 @@ describe('useNetworkSync', () => {
     // Tester la synchronisation
     await act(async () => {
       result.current.syncNow();
-    });
-
-    // Flush promises
-    await act(async () => {
       jest.runOnlyPendingTimers();
-      await Promise.resolve();
+      await flushPromises();
     });
 
     expect(quoteService.syncPendingQuotes).toHaveBeenCalled();

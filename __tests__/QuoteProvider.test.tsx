@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { QuoteProvider, useQuote } from '../src/entities/quote/providers/QuoteProvider';
 import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
@@ -85,9 +85,22 @@ describe('QuoteProvider Optimistic Updates', () => {
       resolveCreateQuote = resolve;
     });
 
+    const createdQuote = {
+      id: 999,
+      text: 'Nouvelle citation de test',
+      book: 'Livre Test',
+      likesCount: 0,
+      isLiked: false,
+      date: new Date().toISOString(),
+      isSaved: false,
+      comments: 0,
+    };
+
     const mockRepo = SupabaseQuoteRepository.getInstance as jest.Mock;
     mockRepo.mockReturnValue({
-      getQuotes: jest.fn().mockResolvedValue([]),
+      getQuotes: jest.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([createdQuote]),
       createQuote: jest.fn().mockReturnValue(createQuotePromise),
     });
 
@@ -109,7 +122,7 @@ describe('QuoteProvider Optimistic Updates', () => {
     });
 
     // Résoudre la promesse pour terminer l'action sans laisser d'open handles
-    await waitFor(async () => {
+    await act(async () => {
       resolveCreateQuote({
         id: 999,
         text: 'Nouvelle citation de test',
@@ -165,7 +178,7 @@ describe('QuoteProvider Optimistic Updates', () => {
     });
 
     // Rejeter la promesse
-    await waitFor(async () => {
+    await act(async () => {
       rejectToggleLike(new Error('Network error'));
     });
 
@@ -211,7 +224,7 @@ describe('QuoteProvider Optimistic Updates', () => {
       expect(getByTestId('quote-count')).toHaveTextContent('0');
     });
 
-    await waitFor(async () => {
+    await act(async () => {
       resolveDeleteQuote();
     });
   });
@@ -250,7 +263,7 @@ describe('QuoteProvider Optimistic Updates', () => {
       expect(getByTestId('quote-text-1')).toHaveTextContent('Updated text');
     });
 
-    await waitFor(async () => {
+    await act(async () => {
       resolveUpdateQuote({ ...initialQuotes[0], text: 'Updated text' });
     });
   });

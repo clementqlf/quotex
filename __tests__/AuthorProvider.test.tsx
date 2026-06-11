@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthorProvider, useAuthor } from '../src/entities/author/providers/AuthorProvider';
 import { SupabaseAuthorRepository } from '../src/entities/author/api/SupabaseAuthorRepository';
@@ -122,7 +123,7 @@ describe('AuthorProvider Optimistic Updates', () => {
       expect(getByTestId('book-saved-1')).toHaveTextContent('saved');
     });
 
-    await waitFor(async () => {
+    await act(async () => {
       resolveToggleSaveBook();
     });
   });
@@ -157,7 +158,7 @@ describe('AuthorProvider Optimistic Updates', () => {
       expect(getByTestId('book-status-1')).toHaveTextContent('read');
     });
 
-    await waitFor(async () => {
+    await act(async () => {
       resolveUpdateBookStatus();
     });
   });
@@ -192,7 +193,7 @@ describe('AuthorProvider Optimistic Updates', () => {
       expect(getByTestId('book-saved-1')).toHaveTextContent('saved');
     });
 
-    await waitFor(async () => {
+    await act(async () => {
       rejectToggleSaveBook(new Error('API Error'));
     });
 

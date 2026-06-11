@@ -1,3 +1,5 @@
+global.IS_REACT_ACT_ENVIRONMENT = true;
+
 // Mock d'AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
@@ -112,3 +114,13 @@ jest.mock('@react-native-community/netinfo', () => ({
   }),
   addEventListener: jest.fn(() => jest.fn()),
 }));
+
+// Configure React Query notifyManager for testing: execute updates synchronously to avoid act() warnings
+const { notifyManager } = require('@tanstack/react-query');
+notifyManager.setScheduler((fn) => fn());
+
+
+
+
+
+

@@ -45,8 +45,8 @@ describe('networkUtils', () => {
   });
 
   describe('logFetchError', () => {
-    const consoleWarnSpy = jest.spyOn(console, 'warn');
-    const consoleErrorSpy = jest.spyOn(console, 'error');
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     afterEach(() => {
       consoleWarnSpy.mockClear();
