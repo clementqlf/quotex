@@ -6,6 +6,12 @@ import { useRealtimeEntity } from '../useRealtimeEntity';
 const mockSubscribe = jest.fn().mockReturnThis();
 const mockUnsubscribe = jest.fn();
 const mockOn = jest.fn().mockReturnThis();
+const mockRemoveChannel = jest.fn().mockImplementation((channel) => {
+  if (channel && typeof channel.unsubscribe === 'function') {
+    channel.unsubscribe();
+  }
+  return Promise.resolve({ error: null });
+});
 
 jest.mock('@/src/shared/api/supabase', () => ({
   supabase: {
@@ -14,6 +20,7 @@ jest.mock('@/src/shared/api/supabase', () => ({
       subscribe: mockSubscribe,
       unsubscribe: mockUnsubscribe,
     })),
+    removeChannel: jest.fn().mockImplementation((channel) => mockRemoveChannel(channel)),
     from: jest.fn(() => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({

@@ -98,7 +98,9 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
               
               // Si l'enrichissement est terminé, on se désabonne
               if (payload.new?.[enrichingField as keyof T] === false) {
-                channel?.unsubscribe();
+                if (channel) {
+                  supabase.removeChannel(channel);
+                }
                 console.log(`[Realtime] ${table} ${id} enrichment complete, unsubscribed`);
               }
             }
@@ -158,7 +160,9 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
 
     return () => {
       console.log(`[Cleanup] Unsubscribing from ${table} ${id}`);
-      channel?.unsubscribe();
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
       if (interval) clearInterval(interval);
       fallbackTriggeredRef.current = false; // Reset pour la prochaine fois
     };
@@ -212,8 +216,9 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
 
     console.log(`[Realtime] Subscribing to ${enrichingBookIds.length} enriching books with single channel`);
 
+    const uniqueId = Math.random().toString(36).substring(2, 9);
     const channel = supabase
-      .channel(`books_enrichment_batch`)
+      .channel(`books_enrichment_batch_${uniqueId}`)
       .on(
         'postgres_changes' as any,
         {
@@ -232,7 +237,7 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
 
     return () => {
       console.log(`[Cleanup] Unsubscribing from books batch channel`);
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [enrichingBookIds, refreshCallback]);
 }
@@ -254,8 +259,9 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
 
     console.log(`[Realtime] Subscribing to ${enrichingAuthorIds.length} enriching authors with single channel`);
 
+    const uniqueId = Math.random().toString(36).substring(2, 9);
     const channel = supabase
-      .channel(`authors_enrichment_batch`)
+      .channel(`authors_enrichment_batch_${uniqueId}`)
       .on(
         'postgres_changes' as any,
         {
@@ -273,7 +279,7 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
 
     return () => {
       console.log(`[Cleanup] Unsubscribing from authors batch channel`);
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [enrichingAuthorIds, refreshCallback]);
 }
