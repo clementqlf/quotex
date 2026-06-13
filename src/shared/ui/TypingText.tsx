@@ -46,20 +46,21 @@ export const TypingText: React.FC<TypingTextProps> = ({
 
     // Blinking cursor effect
     useEffect(() => {
+        const timers = timersRef.current;
         if (showCursor) {
             setCursorVisible(true);
-            timersRef.current.blinkInterval = setInterval(() => {
+            timers.blinkInterval = setInterval(() => {
                 setCursorVisible(v => !v);
             }, 400); // Blink every 400ms
         } else {
             setCursorVisible(false);
-            if (timersRef.current.blinkInterval) {
-                clearInterval(timersRef.current.blinkInterval);
+            if (timers.blinkInterval) {
+                clearInterval(timers.blinkInterval);
             }
         }
         return () => {
-            if (timersRef.current.blinkInterval) {
-                clearInterval(timersRef.current.blinkInterval);
+            if (timers.blinkInterval) {
+                clearInterval(timers.blinkInterval);
             }
         };
     }, [showCursor]);

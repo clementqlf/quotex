@@ -57,10 +57,6 @@ type LoadBookDetailDataArgs = {
   getAuthorByName: (name: string) => Promise<Author | undefined>;
 };
 
-const isBookEnriched = (book: Book | null | undefined): boolean => {
-  return !!(book && book.description && book.description.length >= 50);
-};
-
 const shouldRefreshFromInventaire = (book: Book | null | undefined): boolean => {
   if (!book) return false;
   // Don't refresh if book was just imported (we already have server data)
@@ -267,7 +263,6 @@ export const loadBookDetailData = async ({
     hasBookData: !!bookData,
   });
 
-  const normalizedInventaireUri = normalizeInventaireUri(inventaireUri);
   let book: Book | undefined;
   let resolutionSource: 'id' | 'title' | 'inventaireUri' | 'externalInventaire' | 'importedRefresh' | 'none' = 'none';
 

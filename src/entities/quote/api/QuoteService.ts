@@ -4,9 +4,6 @@ import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 import { QuoteUseCases } from '@/src/features/quote/model/QuoteUseCases';
 import { SupabaseQuoteRepository } from './SupabaseQuoteRepository';
 
-// Simulate API delay
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
-
 
 /**
  * Service de façade pour les Quotes

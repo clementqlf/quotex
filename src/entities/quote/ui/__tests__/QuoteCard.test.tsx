@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Quote } from '@/src/shared/api/types';
 import { fireEvent, render } from '@testing-library/react-native';

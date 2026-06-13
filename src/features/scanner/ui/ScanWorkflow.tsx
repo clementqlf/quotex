@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,7 +13,6 @@ import {
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { PhotoFile } from 'react-native-vision-camera';
 
-import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { PlatformServices } from '@/src/shared/platform';
 import { useScanInteractions } from '../model/useScanInteractions';
 import { SelectionRange, useScanState } from '../model/useScanState';
@@ -63,7 +63,6 @@ const useScanWorkflowLogic = (
     selectedText,
     imageDisplayInfo,
     setSelectionRange,
-    setExcludedIndices,
     setIsEraserMode: setEraserModeState,
     clearSelection,
     clearExclusions,
@@ -225,7 +224,6 @@ const useScanWorkflowLogic = (
   }, [words.length, setSelectionRange]);
 
   // Handler pour la confirmation de sauvegarde
-  const { refreshBooks } = useAuthor();
 
   const handleConfirmSaveFromScanner = useCallback(
     async (text: string, book: string, author: string) => {
@@ -241,7 +239,7 @@ const useScanWorkflowLogic = (
             Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
           }
           return;
-        } catch (error) {
+        } catch {
           Alert.alert('Erreur', 'Une erreur est survenue lors de l\'enregistrement.');
           return;
         }
@@ -272,7 +270,6 @@ const useScanWorkflowLogic = (
     isEraserMode,
     setIsEraserMode: handleSetIsEraserMode,
     excludedIndices,
-    needsRotation: false,
     
     // Handlers
     imagePanResponder,
@@ -289,8 +286,6 @@ const useScanWorkflowLogic = (
   };
 };
 
-// Import PanResponder from react-native
-import { PanResponder } from 'react-native';
 
 const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
   const {
@@ -308,7 +303,6 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     isEraserMode,
     setIsEraserMode,
     excludedIndices,
-    needsRotation,
     imagePanResponder,
     startPinResponder,
     endPinResponder,

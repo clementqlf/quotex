@@ -80,7 +80,7 @@ export function useIsbnScanner({
                     }
                 }
                 runOnJS(setIsScanning)(false);
-            } catch (err) {
+            } catch {
                 runOnJS(setIsScanning)(false);
             }
         }

@@ -168,7 +168,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             // But wait, the context interface is above. Let's add it.
             // Actually, let's cast context for now or add it to interface.
 
-            const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (context as any); // extend context later
+            // const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (context as any); // extend context later
 
             // Filter logic
             // Ideally the parent component does the filtering logic (ViewModel pattern) and passes 'visibleDefinitions' to us.

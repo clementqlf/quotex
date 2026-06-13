@@ -107,7 +107,7 @@ const RecBookSkeleton = ({ colors, styles }: { colors: ThemeColors; styles: any 
       -1,
       true
     );
-  }, []);
+  }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -288,7 +288,7 @@ function QuoteDetailContent() {
       -1,
       true
     );
-  }, []);
+  }, [glow1X, glow1Y, glow1Scale, glow2X, glow2Y, glow2Scale, glow3X, glow3Y, glow3Scale, glow4X, glow4Y, glow4Scale]);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
   
@@ -297,23 +297,23 @@ function QuoteDetailContent() {
   const { books, refreshBooks } = useAuthor();
   
   // Méthodes pour BlockService
-  const getBlockLayout = (parentId: string | number, parentType: 'quote' | 'book') => {
+  const getBlockLayout = useCallback((parentId: string | number, parentType: "quote" | "book") => {
     return BlockService.getLayout(parentId, parentType);
-  };
+  }, []);
   
-  const updateBlockLayout = (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+  const updateBlockLayout = useCallback((parentId: string | number, parentType: "quote" | "book", layout: string[]) => {
     return BlockService.saveLayout(parentId, parentType, layout);
-  };
+  }, []);
   
   // Wrapper pour updateQuote
-  const updateQuote = async (id: number, updates: Partial<Quote>) => {
+  const updateQuote = useCallback(async (id: number, updates: Partial<Quote>) => {
     await updateQuoteMutation(id, updates);
-  };
+  }, [updateQuoteMutation]);
   
   // Wrapper pour deleteQuote
-  const deleteQuote = async (id: number) => {
+  const deleteQuote = useCallback(async (id: number) => {
     await deleteQuoteMutation(id);
-  };
+  }, [deleteQuoteMutation]);
 
   // 1. Prioritize lookup by ID from global store
   // 2. Fallback to parsing the stringified quote param
@@ -343,7 +343,7 @@ function QuoteDetailContent() {
   const [fetchedBook, setFetchedBook] = React.useState<Book | null>(null);
   const [fetchedAuthor, setFetchedAuthor] = React.useState<Author | null>(null);
   const [gridData, setGridData] = React.useState<string[]>([]);
-  const [isLoadingLayout, setIsLoadingLayout] = React.useState(true);
+  const [, setIsLoadingLayout] = React.useState(true);
   const [isAIChatVisible, setAIChatVisible] = React.useState(false);
   const [isThemeSelectorVisible, setThemeSelectorVisible] = React.useState(false);
   const [themeToModify, setThemeToModify] = React.useState<string | null>(null);
@@ -557,7 +557,7 @@ function QuoteDetailContent() {
       }
     };
     loadData();
-  }, [quote?.id, quote?.user]); // Add quote.user to dependency to verify transition
+  }, [quote?.id, quote?.user, quote?.book, quote?.author]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const quoteAuthorName = quote ? getAuthorName(quote.author) : '';
   const quoteBookTitle = quote ? getBookTitle(quote.book) : '';
@@ -611,7 +611,7 @@ function QuoteDetailContent() {
   }));
 
   const isBlockInTab = (blockKey: string, tab: TabType) => {
-    if (blockKey === 'addBlock') return true;
+    if (blockKey === "addBlock") return true;
     const base = blockKey.split('#')[0];
     if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
     if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
@@ -626,12 +626,12 @@ function QuoteDetailContent() {
 
   React.useEffect(() => {
     if (quote?.id) {
-      getBlockLayout(quote.id, 'quote').then(layout => {
+      getBlockLayout(quote.id, "quote").then(layout => {
         setGridData(layout);
         setIsLoadingLayout(false);
       });
     }
-  }, [quote?.id]);
+  }, [quote?.id, getBlockLayout]);
 
   // Autosave notes/blockData effect
 
@@ -786,9 +786,9 @@ function QuoteDetailContent() {
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
 
   const handleAddBlock = (blockKey: string) => {
-    const newLayout = [...gridData.filter(x => x !== 'addBlock'), `${blockKey}#${Date.now()}`, 'addBlock'];
+    const newLayout = [...gridData.filter(x => x !== "addBlock"), `${blockKey}#${Date.now()}`, "addBlock"];
     setGridData(newLayout);
-    if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
+    if (quote?.id) updateBlockLayout(quote.id, "quote", newLayout);
     closeAddBlockModal();
   };
 
@@ -811,13 +811,13 @@ function QuoteDetailContent() {
     );
   };
 
-  const handleRemoveBlock = (itemToRemove: string) => {
-    if (itemToRemove === 'addBlock') return;
+  const handleRemoveBlock = useCallback((itemToRemove: string) => {
+    if (itemToRemove === "addBlock") return;
 
     // 1. Update Layout
     const newLayout = gridData.filter(x => x !== itemToRemove);
     setGridData(newLayout);
-    if (quote?.id) updateBlockLayout(quote.id, 'quote', newLayout);
+    if (quote?.id) updateBlockLayout(quote.id, "quote", newLayout);
 
     // 2. Cleanup blockData
     setQuote((current: Quote | undefined) => {
@@ -828,10 +828,10 @@ function QuoteDetailContent() {
       const updates: Partial<Quote> = { blockData: newBlockData };
       return { ...current, ...updates };
     });
-  };
+  }, [gridData, quote?.id, updateBlockLayout]);
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
-    if (item === 'addBlock') {
+    if (item === "addBlock") {
       return (
         <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
           <Plus size={20} color={colors.textTertiary} style={styles.placeholderIcon} />
@@ -1203,7 +1203,7 @@ function QuoteDetailContent() {
                     }
 
                     setGridData(newMasterList);
-                    if (quote?.id) updateBlockLayout(quote.id, 'quote', newMasterList);
+                    if (quote?.id) updateBlockLayout(quote.id, "quote", newMasterList);
                   }}
                 />
                 <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />

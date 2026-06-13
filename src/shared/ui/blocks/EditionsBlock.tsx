@@ -59,12 +59,10 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
 
     const [editions, setEditions] = useState<Edition[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [fetched, setFetched] = useState(false);
 
     useEffect(() => {
         if (!book?.id) {
             setEditions([]);
-            setFetched(false);
             return;
         }
 
@@ -80,7 +78,6 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
                 console.error('[EditionsBlock] Fetch error:', e);
             } finally {
                 setIsLoading(false);
-                setFetched(true);
             }
         };
 
@@ -89,7 +86,6 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
         // Cleanup: reset states when book changes
         return () => {
             setEditions([]);
-            setFetched(false);
             setIsLoading(false);
         };
     }, [book?.id]);

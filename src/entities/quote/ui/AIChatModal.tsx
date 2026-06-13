@@ -262,7 +262,7 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
         true
       );
     }
-  }, [visible, quote]);
+  }, [visible, quote, glow1X, glow1Y, glow1Scale, glow2X, glow2Y, glow2Scale, glow3X, glow3Y, glow3Scale, glow4X, glow4Y, glow4Scale]);
 
   // Scroll to bottom when message list or typing state changes
   useEffect(() => {

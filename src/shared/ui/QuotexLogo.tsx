@@ -35,7 +35,7 @@ const QuotexLogo: React.FC<QuotexLogoProps> = React.memo(({
             -1,
             true
         );
-    }, []);
+    }, [pulseValue]);
 
     const animatedGlowProps = useAnimatedProps(() => {
         return {

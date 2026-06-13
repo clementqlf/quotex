@@ -61,7 +61,7 @@ export default function SettingsScreen() {
       console.warn("Failed to open with WebBrowser, trying Linking fallback:", error);
       try {
         await Linking.openURL(url);
-      } catch (linkError) {
+      } catch {
         Alert.alert("Erreur", "Impossible d'ouvrir le lien dans le navigateur.");
       }
     }

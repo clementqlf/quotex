@@ -41,7 +41,8 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
       -1,
       true
     );
-  }, []);
+  }, [opacity]);
+
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -49,18 +50,18 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
     <View style={{ flex: 1, padding: 16 }}>
       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
         <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-        <Animated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+        <Animated.View style={[{ width: "50%", height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
       </View>
 
-      <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-      <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+      <Animated.View style={[{ width: "100%", height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
+      <Animated.View style={[{ width: "100%", height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
 
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
         <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
         <Animated.View style={[{ flex: 1, height: 80, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
       </View>
 
-      <Animated.View style={[{ width: '40%', height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
+      <Animated.View style={[{ width: "40%", height: 20, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
       <Animated.View style={[{ width: '100%', height: 110, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
     </View>
@@ -120,7 +121,7 @@ export default function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
+  const { navigateToBook } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
   const paramInventaireUri = params.inventaireUri;
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
@@ -442,7 +443,7 @@ export default function AuthorDetailScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <User size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>{"À propos de l'auteur"}</Text>
+              <Text style={styles.sectionTitle}>À propos de l&apos;auteur</Text>
             </View>
             <Text style={styles.authorDesc}>{authorDesc}</Text>
           </View>

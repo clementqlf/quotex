@@ -126,15 +126,13 @@ export interface ScanControllerResult extends ScanControllerState, ScanControlle
 export const useScanController = (
   props: UseScanControllerProps
 ): ScanControllerResult => {
-  const { isFocused, containerSize, scanFrameLayout, scanAreaY, tabController, quotes: quotesProp, currentUser: currentUserProp } = props;
+  const { isFocused, containerSize, scanFrameLayout, scanAreaY, quotes: quotesProp, currentUser: currentUserProp } = props;
   const { user: currentUserFromAuth } = useAuth();
   const router = useRouter();
 
   // Utiliser les dépendances injectées ou les valeurs par défaut
   const currentUser = currentUserProp ?? currentUserFromAuth;
-  const quotes = quotesProp ?? [];
-  const setTabIndex = tabController?.setTabIndex ?? (() => {});
-  const setSwipeEnabled = tabController?.setSwipeEnabled ?? (() => {});
+  const quotes = useMemo(() => quotesProp ?? [], [quotesProp]);
 
   // ========== CAMERA STATE ==========
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -295,7 +293,7 @@ export const useScanController = (
       } else {
         Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
     }
   }, [quotes, currentUser?.id]);

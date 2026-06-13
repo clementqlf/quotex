@@ -27,7 +27,7 @@ const EnrichingSkeleton = React.memo(({ width = 120, height = 14 }: EnrichingSke
       -1,
       true
     );
-  }, []);
+  }, [pulseAnim]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     opacity: pulseAnim.value,

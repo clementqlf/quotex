@@ -80,7 +80,7 @@ export const reconstructTextFromBlocks = (
     const medianHeight = heights.length ? heights[Math.floor(heights.length / 2)] : 0;
     const LINE_TOLERANCE = Math.max(6, medianHeight * 0.5);
 
-    const lines: Array<{ centerY: number; words: PositionedBlock[] }> = [];
+    const lines: { centerY: number; words: PositionedBlock[] }[] = [];
     oriented.forEach(item => {
         const centerY = item.alignedY;
         let line = lines.find(l => Math.abs(l.centerY - centerY) < LINE_TOLERANCE);
@@ -142,7 +142,7 @@ export const reconstructTextFromBlocks = (
 };
 
 export const reconstructTextFromWords = (
-    selectedWords: Array<{ text: string; lineIndex: number }>
+    selectedWords: { text: string; lineIndex: number }[]
 ): string => {
     if (selectedWords.length === 0) return '';
 

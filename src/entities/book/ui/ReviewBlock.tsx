@@ -6,7 +6,7 @@ import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { MoreHorizontal, Send, Star, Trash2, User, X } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface ReviewBlockProps {
@@ -23,7 +23,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [, setIsLoading] = useState(false);
     const { user } = useAuth();
     const { navigateToUserProfile } = useSmartNavigation();
 
@@ -40,13 +40,9 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     useEffect(() => {
         setRating(myReview?.rating || 0);
         setComment(myReview?.comment || '');
-    }, [myReview?.id]);
+    }, [myReview?.id, myReview?.comment, myReview?.rating]);
 
-    useEffect(() => {
-        loadReviews();
-    }, [bookId]);
-
-    const loadReviews = async () => {
+    const loadReviews = useCallback(async () => {
         setIsLoading(true);
         console.log(`[ReviewBlock] Fetching reviews for bookId: ${bookId}`);
         try {
@@ -71,7 +67,12 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [bookId]);
+
+    useEffect(() => {
+        loadReviews();
+    }, [loadReviews]);
+
 
     const handleReportReview = (reviewId: string | number) => {
         Alert.alert(

@@ -1,0 +1,93 @@
+
+/Users/chantreau/quotex/src/features/scanner/model/useScanController.ts
+  129:65  warning  'tabController' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/features/scanner/ui/BarcodeScannerModal.tsx
+  32:38  warning  'SCREEN_HEIGHT' is assigned a value but never used                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  66:8   warning  React Hook useEffect has a missing dependency: 'scanLineY'. Either include it or remove the dependency array                                                                                                                                                       react-hooks/exhaustive-deps
+  73:13  warning  'isScanning' is assigned a value but never used                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  87:25  warning  The ref value 'cameraRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'cameraRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/features/scanner/ui/ScanFrameOverlay.tsx
+  30:6  warning  React Hook useEffect has a missing dependency: 'anim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/features/scanner/ui/ScanPreviewModal.tsx
+  252:8  warning  React Hook useEffect has a missing dependency: 'initialBooks'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+  310:8  warning  React Hook useEffect has a missing dependency: 'initialAuthors'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/features/scanner/ui/ScanScreen.tsx
+   27:32  warning  '/Users/chantreau/quotex/src/features/scanner/model/useScanController.ts' imported multiple times                  import/no-duplicates
+   32:35  warning  '/Users/chantreau/quotex/src/features/scanner/model/useScanController.ts' imported multiple times                  import/no-duplicates
+  116:34  warning  'setPage' is assigned a value but never used                                                                       @typescript-eslint/no-unused-vars
+  199:6   warning  React Hook React.useEffect has a missing dependency: 'fadeAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/features/scanner/ui/ScanWorkflow.tsx
+   11:8   warning  '/Users/chantreau/quotex/node_modules/react-native/index.js' imported multiple times  import/no-duplicates
+   66:5   warning  'setExcludedIndices' is assigned a value but never used                               @typescript-eslint/no-unused-vars
+  228:11  warning  'refreshBooks' is assigned a value but never used                                     @typescript-eslint/no-unused-vars
+  244:18  warning  'error' is defined but never used                                                     @typescript-eslint/no-unused-vars
+  293:1   warning  Import in body of module; reorder to top                                              import/first
+  293:30  warning  '/Users/chantreau/quotex/node_modules/react-native/index.js' imported multiple times  import/no-duplicates
+  311:5   warning  'needsRotation' is assigned a value but never used                                    @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/features/social/ui/SocialFeedScreen.tsx
+  35:6  warning  React Hook useEffect has a missing dependency: 'refreshQuotes'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/features/user-settings/ui/SettingsScreen.tsx
+  64:16  warning  'linkError' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/shared/api/HttpClient.ts
+  107:18  warning  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/shared/api/staticData.ts
+    7:44   warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+   98:174  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  194:44   warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/Users/chantreau/quotex/src/shared/lib/hooks/useRealtimeEntity.ts
+  174:1  warning  Import in body of module; reorder to top  import/first
+
+/Users/chantreau/quotex/src/shared/lib/offline/networkUtils.ts
+  10:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/shared/lib/scanGeometry.ts
+   6:20  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead                   @typescript-eslint/array-type
+  27:53  warning  Array type using 'ReadonlyArray<T>' is forbidden. Use 'readonly T[]' instead  @typescript-eslint/array-type
+
+/Users/chantreau/quotex/src/shared/types/api-contracts.ts
+   9:18  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+  21:12  warning  Array type using 'Array<T>' is forbidden. Use 'T[]' instead  @typescript-eslint/array-type
+
+/Users/chantreau/quotex/src/shared/ui/AnimatedSplashScreen.tsx
+  47:6  warning  React Hook useEffect has missing dependencies: 'logoOpacity' and 'logoScale'. Either include them or remove the dependency array      react-hooks/exhaustive-deps
+  61:6  warning  React Hook useEffect has missing dependencies: 'onAnimationFinish' and 'opacity'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/shared/ui/PageIndicator.tsx
+  31:6  warning  React Hook useEffect has missing dependencies: 'index' and 'progress'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/shared/ui/QuotexLogo.tsx
+  38:8  warning  React Hook useEffect has a missing dependency: 'pulseValue'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/shared/ui/TypingText.tsx
+  62:41  warning  The ref value 'timersRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'timersRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/Users/chantreau/quotex/src/shared/ui/blocks/BlockDispatcher.tsx
+  171:21  warning  'aggregatedDefinitions' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  171:44  warning  'hiddenTerms' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  171:57  warning  'manualDefinitions' is assigned a value but never used      @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/shared/ui/blocks/EditionsBlock.tsx
+  62:12  warning  'fetched' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/chantreau/quotex/src/shared/ui/blocks/__tests__/BlockDispatcher.test.tsx
+  13:17  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  14:20  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  21:17  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+  22:20  warning  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/chantreau/quotex/src/shared/ui/blocks/__tests__/BuyLinkBlock.test.tsx
+  93:24  warning  'queryByText' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 45 problems (0 errors, 45 warnings)
+  0 errors and 10 warnings potentially fixable with the `--fix` option.
+

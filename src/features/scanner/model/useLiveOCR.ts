@@ -50,7 +50,7 @@ export function useLiveOCR({
             consecutiveNegative.value = 0;
             isCurrentlyDetected.value = false;
         }
-    }, [isScanningActive]);
+    }, [isScanningActive, consecutiveNegative, consecutivePositive, isCurrentlyDetected, isScanningActiveSV]);
 
     const notifyDetected = useCallback(() => {
         onTextDetectedChange?.(true);
@@ -94,7 +94,7 @@ export function useLiveOCR({
                     notifyGoneJS();
                 }
             }
-        } catch (err: any) {
+        } catch {
             // Fail silently in native context
         }
     }, [scanText, notifyDetectedJS, notifyGoneJS, scanInterval, positiveThreshold, negativeThreshold]);

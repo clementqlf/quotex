@@ -90,7 +90,7 @@ describe('BuyLinkBlock Component', () => {
 
   it('affiche le bouton "Voir toutes les options" si plus de 2 liens existent et gère la modale', () => {
     // Le fallback par défaut génère plusieurs liens (> 2) depuis BUY_STORES
-    const { getByText, queryByText } = render(<BuyLinkBlock book={mockBook} />);
+    const { getByText } = render(<BuyLinkBlock book={mockBook} />);
     
     const seeMoreButton = getByText(/Voir toutes les options/i);
     expect(seeMoreButton).toBeTruthy();

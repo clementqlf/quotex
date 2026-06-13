@@ -32,7 +32,7 @@ export const PrizeSkeleton = ({ colors }: { colors: ThemeColors }) => {
       -1,
       true
     );
-  }, []);
+  }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -58,6 +58,78 @@ interface PrizeDetailScreenProps {
     prizeData?: string;
 }
 
+const fetchExternalPrizeDetails = async (inventaireUri: string) => {
+    if (!inventaireUri.startsWith('wd:')) return null;
+    const qid = inventaireUri.substring(3);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    try {
+        const sparql = `
+        SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
+          OPTIONAL { wd:${qid} wdt:P571 ?inception . }
+          OPTIONAL {
+            wd:${qid} wdt:P1027 ?conferredBy .
+            OPTIONAL { ?conferredBy rdfs:label ?lblFr. FILTER(LANG(?lblFr) = "fr") }
+            OPTIONAL { ?conferredBy rdfs:label ?lblEn. FILTER(LANG(?lblEn) = "en") }
+            BIND(COALESCE(?lblFr, ?lblEn) AS ?conferredByLabel)
+          }
+          OPTIONAL {
+            wd:${qid} wdt:P112 ?founder .
+            OPTIONAL { ?founder rdfs:label ?lblFounderFr. FILTER(LANG(?lblFounderFr) = "fr") }
+            OPTIONAL { ?founder rdfs:label ?lblFounderEn. FILTER(LANG(?lblFounderEn) = "en") }
+            BIND(COALESCE(?lblFounderFr, ?lblFounderEn) AS ?founderLabel)
+          }
+        } LIMIT 1
+        `;
+        const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+        const res = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
+                'Accept': 'application/sparql-results+json'
+            }
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) {
+            console.warn(`[PrizeDetail] Wikidata error: ${res.status}`);
+            return null;
+        }
+        const data = await res.json();
+        const binding = data.results?.bindings?.[0];
+        if (!binding) return null;
+
+        const inceptionRaw = binding.inception?.value;
+        const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
+        const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
+
+        return { inceptionYear, founder };
+    } catch (e) {
+        clearTimeout(timeoutId);
+        if (e instanceof Error && e.name !== 'AbortError') {
+            console.error('[PrizeDetail] Failed to fetch external prize details:', e);
+        }
+        return null;
+    }
+};
+
+const fetchWikipediaDescription = async (title: string): Promise<string | null> => {
+    try {
+        const url = `https://fr.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=6&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const pages = data.query?.pages;
+        if (!pages) return null;
+        const pageId = Object.keys(pages)[0];
+        if (pageId === '-1') return null;
+        const extract = pages[pageId]?.extract;
+        return extract && extract.trim().length > 0 ? extract.trim() : null;
+    } catch (e) {
+        console.warn('[PrizeDetail] Failed to fetch Wikipedia description:', e);
+        return null;
+    }
+};
+
 export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScreenProps) {
     const router = useRouter();
     const { colors } = useTheme();
@@ -77,7 +149,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
      * Each successful response patches the local prize state immediately
      * without any reload or loading indicator.
      */
-    const enrichMissingCovers = async (laureates: LiteraryPrizeLaureate[]) => {
+    const enrichMissingCovers = React.useCallback(async (laureates: LiteraryPrizeLaureate[]) => {
         const token = await authService.getToken().catch(() => null);
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -112,81 +184,9 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                 .catch(e => console.warn(`[PrizeDetail] Enrich failed for book ${bookId}:`, e))
                 .finally(() => enrichingBookIds.current.delete(bookId));
         }
-    };
+    }, []);
 
-    const fetchExternalPrizeDetails = async (inventaireUri: string) => {
-        if (!inventaireUri.startsWith('wd:')) return null;
-        const qid = inventaireUri.substring(3);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
-        try {
-            const sparql = `
-            SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
-              OPTIONAL { wd:${qid} wdt:P571 ?inception . }
-              OPTIONAL {
-                wd:${qid} wdt:P1027 ?conferredBy .
-                OPTIONAL { ?conferredBy rdfs:label ?lblFr. FILTER(LANG(?lblFr) = "fr") }
-                OPTIONAL { ?conferredBy rdfs:label ?lblEn. FILTER(LANG(?lblEn) = "en") }
-                BIND(COALESCE(?lblFr, ?lblEn) AS ?conferredByLabel)
-              }
-              OPTIONAL {
-                wd:${qid} wdt:P112 ?founder .
-                OPTIONAL { ?founder rdfs:label ?lblFounderFr. FILTER(LANG(?lblFounderFr) = "fr") }
-                OPTIONAL { ?founder rdfs:label ?lblFounderEn. FILTER(LANG(?lblFounderEn) = "en") }
-                BIND(COALESCE(?lblFounderFr, ?lblFounderEn) AS ?founderLabel)
-              }
-            } LIMIT 1
-            `;
-            const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-            const res = await fetch(url, {
-                signal: controller.signal,
-                headers: {
-                    'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
-                    'Accept': 'application/sparql-results+json'
-                }
-            });
-            clearTimeout(timeoutId);
-            if (!res.ok) {
-                console.warn(`[PrizeDetail] Wikidata error: ${res.status}`);
-                return null;
-            }
-            const data = await res.json();
-            const binding = data.results?.bindings?.[0];
-            if (!binding) return null;
-
-            const inceptionRaw = binding.inception?.value;
-            const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
-            const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
-
-            return { inceptionYear, founder };
-        } catch (e) {
-            clearTimeout(timeoutId);
-            if (e instanceof Error && e.name !== 'AbortError') {
-                console.error('[PrizeDetail] Failed to fetch external prize details:', e);
-            }
-            return null;
-        }
-    };
-
-    const fetchWikipediaDescription = async (title: string): Promise<string | null> => {
-        try {
-            const url = `https://fr.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=6&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
-            const res = await fetch(url);
-            if (!res.ok) return null;
-            const data = await res.json();
-            const pages = data.query?.pages;
-            if (!pages) return null;
-            const pageId = Object.keys(pages)[0];
-            if (pageId === '-1') return null;
-            const extract = pages[pageId]?.extract;
-            return extract && extract.trim().length > 0 ? extract.trim() : null;
-        } catch (e) {
-            console.warn('[PrizeDetail] Failed to fetch Wikipedia description:', e);
-            return null;
-        }
-    };
-
-    const fetchPrizeDetails = async () => {
+    const fetchPrizeDetails = React.useCallback(async () => {
         try {
             let currentPrizeId = prizeId;
             if (!currentPrizeId && prizeData) {
@@ -243,7 +243,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [prizeId, prizeData, enrichMissingCovers]);
 
     const loadNextBatch = async () => {
         if (isFetchingMore || !hasMore || !prize?.inventaireUri) return;
@@ -286,7 +286,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     useFocusEffect(
         React.useCallback(() => {
             fetchPrizeDetails();
-        }, [prizeId, prizeData])
+        }, [fetchPrizeDetails])
     );
 
     if (isLoading) {

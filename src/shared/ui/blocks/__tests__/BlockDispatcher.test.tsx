@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { render } from '@testing-library/react-native';
 import React from 'react';

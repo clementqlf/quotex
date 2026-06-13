@@ -12,8 +12,6 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-// Removing @expo/vector-icons import to reduce bundle size
-import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
@@ -24,7 +22,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function LoginScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
-  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);

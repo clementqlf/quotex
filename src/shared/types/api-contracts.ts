@@ -6,24 +6,24 @@
 
 // Payload pour la fonction `sync-quotes`
 export interface SyncQuotesPayload {
-  offlineQuotes: Array<{
+  offlineQuotes: {
     text: string;
     book?: string | null;
     author?: string | null;
     theme?: string;
     offlineId?: string; // Utilisé par le client pour réconcilier après succès
     date?: string;
-  }>;
+  }[];
 }
 
 export interface SyncQuotesResponse {
   syncedCount: number;
-  results: Array<{
+  results: {
     success: boolean;
     quoteId?: number;
     offlineId?: string;
     error?: string;
-  }>;
+  }[];
 }
 
 // Payload pour la fonction `books/import`

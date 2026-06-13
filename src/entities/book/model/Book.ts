@@ -16,7 +16,7 @@ export interface Book {
   rating: number; // Note
   genre: string; // Genre littéraire
   cover: string; // URL de la couverture
-  buyLinks?: Array<{ store: string; url: string; price: string }>; // Liens d'achat
+  buyLinks?: { store: string; url: string; price: string }[]; // Liens d'achat
   similarBooks?: Book[]; // Livres similaires
   isSaved?: boolean; // Est-ce que l'utilisateur a sauvegardé ce livre
   isEnriching?: boolean; // En cours d'enrichissement des données
@@ -45,9 +45,8 @@ export interface CreateBookDto {
   inventaireUri?: string;
 }
 
-// DTO pour importer un livre (avec données complètes)
 export interface BookImportPayload extends CreateBookDto {
-  buyLinks?: Array<{ store: string; url: string; price: string }>;
+  buyLinks?: { store: string; url: string; price: string }[];
   similarBooks?: Book[];
   readingStatus?: ReadingStatus | null;
 }

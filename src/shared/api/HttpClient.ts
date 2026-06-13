@@ -104,7 +104,7 @@ export class HttpClient {
           if (errorBody) {
             errorMessage += ` - ${errorBody}`;
           }
-        } catch (e) {
+        } catch {
           // Ignorer l'erreur de parsing
         }
         throw new Error(errorMessage);

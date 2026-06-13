@@ -249,7 +249,7 @@ export default function ScanPreviewModal({
         }, 500); // 500ms debounce
 
         return () => clearTimeout(timer);
-    }, [editedBook, isEditingBook]);
+    }, [editedBook, isEditingBook, initialBooks]);
 
     const handleAuthorChange = (text: string) => {
         setEditedAuthor(text);
@@ -307,7 +307,7 @@ export default function ScanPreviewModal({
         }, 500); // 500ms debounce
 
         return () => clearTimeout(timer);
-    }, [editedAuthor, isEditingAuthor]);
+    }, [editedAuthor, isEditingAuthor, initialAuthors]);
 
     const bookTitle = resolveBookTitle();
     const authorName = resolveAuthorName();

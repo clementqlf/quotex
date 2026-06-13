@@ -3,7 +3,7 @@ import { PhotoFile } from 'react-native-vision-camera';
 export type MLKitText = {
     text: string;
     frame?: { left: number; top: number; width: number; height: number };
-    cornerPoints?: Array<{ x: number; y: number }>;
+    cornerPoints?: { x: number; y: number }[];
     rotation?: number;
     blockId?: string;
     parentBlockFrame?: { left: number; top: number; width: number; height: number };
@@ -24,7 +24,7 @@ export interface TextGeometry {
     centerY: number;
 }
 
-export const calculateTextGeometry = (cornerPoints: ReadonlyArray<{ x: number; y: number }>): TextGeometry | null => {
+export const calculateTextGeometry = (cornerPoints: readonly { x: number; y: number }[]): TextGeometry | null => {
     if (!cornerPoints || cornerPoints.length < 4) return null;
 
     const p0 = cornerPoints[0];

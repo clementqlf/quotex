@@ -192,9 +192,7 @@ describe('useNetworkSync', () => {
 
       (StorageService.getItem as jest.Mock).mockResolvedValue([...ops]);
 
-      let executorCallTime = 0;
       const executor = jest.fn().mockImplementation(async () => {
-        executorCallTime = Date.now();
         throw new Error('Network timeout');
       });
 

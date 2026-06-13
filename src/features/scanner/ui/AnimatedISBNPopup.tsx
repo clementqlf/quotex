@@ -56,7 +56,7 @@ export default function AnimatedISBNPopup({
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [translateY, opacity]);
 
   const dismiss = () => {
     if (isDismissing.current) return;

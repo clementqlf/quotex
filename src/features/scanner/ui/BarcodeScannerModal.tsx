@@ -29,7 +29,7 @@ type BarcodeScannerModalProps = {
     onIsbnDetected: (isbn: string) => void;
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SCAN_WIDTH = SCREEN_WIDTH * 0.85;
 const SCAN_HEIGHT = 160;
 
@@ -63,14 +63,14 @@ export default function BarcodeScannerModal({
             scanLineY.value = 0;
             setTorch('off');
         }
-    }, [visible]);
+    }, [visible, scanLineY]);
 
     const animatedScanLineStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: scanLineY.value }],
     }));
 
     // Start scanner hook
-    const { isScanning, frameProcessor } = useIsbnScanner({
+    const { frameProcessor } = useIsbnScanner({
         cameraRef,
         isFocused: visible,
         enabled: visible && !isLoading && !isPickerActive,
@@ -81,10 +81,11 @@ export default function BarcodeScannerModal({
 
     // Cleanup quand la modale se ferme
     useEffect(() => {
+        const camera = cameraRef.current;
         return () => {
             // Arrêter la caméra explicitement
-            if (cameraRef.current) {
-              cameraRef.current.stopRecording?.();
+            if (camera) {
+              camera.stopRecording?.();
             }
             setTorch('off');
         };

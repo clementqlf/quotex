@@ -65,7 +65,7 @@ describe('ScanService', () => {
         json: () => Promise.resolve({ id: 1, title: 'Imported Book' })
       });
 
-      const result = await service.checkAndHandleIsbn('9782070368976');
+      await service.checkAndHandleIsbn('9782070368976');
       expect(fetch).toHaveBeenCalled();
       const fetchCall = (fetch as jest.Mock).mock.calls[0];
       const body = JSON.parse(fetchCall[1]?.body as string);

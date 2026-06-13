@@ -44,7 +44,7 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [logoOpacity, logoScale]);
 
   useEffect(() => {
     // Only start fade out if both animation timer finished AND auth is not loading anymore
@@ -58,7 +58,7 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
         }
       });
     }
-  }, [minTimePassed, isLoading]);
+  }, [minTimePassed, isLoading, onAnimationFinish, opacity]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

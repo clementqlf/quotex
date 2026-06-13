@@ -73,7 +73,7 @@ export const useScanState = ({
       normalizedSize ?? null,
       photo
     );
-  }, [viewportSize, normalizedSize, photo.width, photo.height]);
+  }, [viewportSize, normalizedSize, photo]);
 
   const words = useMemo(() => {
     return OcrProcessor.processOcrElements(

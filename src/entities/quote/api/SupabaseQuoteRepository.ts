@@ -32,8 +32,6 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     return SupabaseQuoteRepository.instance;
   }
 
-  constructor() {}
-
   private readonly API_URL = `${httpClient['buildUrl']('')}/quotes`;
 
   private async getHeaders(extraHeaders: Record<string, string> = {}) {

@@ -2,7 +2,6 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
 import { supabase } from '@/src/shared/api/supabase';
-import { Author, Book, User } from '@/src/shared/api/types';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
@@ -28,28 +27,7 @@ import {
 import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface UserRouteParam {
-  id: number | string;
-  name: string;
-  username: string;
-}
 
-// Type pour une citation de la base de données globale
-interface GlobalQuote {
-  id: number;
-  user: { id: string; name: string; username: string; };
-  text: string;
-  book: string | Book;
-  author: string | Author;
-  time?: string;
-  date?: string;
-  likes: number;
-  comments: number;
-  isLiked: boolean;
-  isSaved: boolean;
-}
-
-type UserProfileScreenRouteProp = { user: User };
 
 const BookSkeleton = ({ colors }: { colors: ThemeColors }) => {
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
@@ -129,7 +107,7 @@ export const UserProfileSkeleton = ({ colors }: { colors: ThemeColors }) => {
       -1,
       true
     );
-  }, []);
+  }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -714,7 +692,7 @@ export default function UserProfileScreen() {
                 <BookSkeleton colors={colors} />
               </ScrollView>
             ) : (
-              <Text style={styles.placeholderText}>{"Cet utilisateur n'a pas encore de livres dans sa bibliothèque."}</Text>
+              <Text style={styles.placeholderText}>Cet utilisateur n&apos;a pas encore de livres dans sa bibliothèque.</Text>
             )}
           </View>
 
@@ -733,7 +711,7 @@ export default function UserProfileScreen() {
                       style={styles.savedQuoteCard}
                       onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
                     >
-                    <Text style={styles.savedQuoteText} numberOfLines={3}>{`"${quote.text}"`}</Text>
+                    <Text style={styles.savedQuoteText} numberOfLines={3}>&quot;{quote.text}&quot;</Text>
                     <View style={styles.savedQuoteMeta}>
                       <View>
                         <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
@@ -750,7 +728,7 @@ export default function UserProfileScreen() {
                 <QuoteSkeleton colors={colors} />
               </View>
             ) : (
-              <Text style={styles.placeholderText}>{"Cet utilisateur n'a pas encore partagé de citations."}</Text>
+              <Text style={styles.placeholderText}>Cet utilisateur n&apos;a pas encore partagé de citations.</Text>
             )}
           </View>
         </ScrollView>
