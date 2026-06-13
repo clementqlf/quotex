@@ -1,18 +1,18 @@
 {
   "name": "RCTTypeSafety",
-  "version": "0.75.4",
+  "version": "0.83.6",
   "summary": "-",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
   "authors": "Meta Platforms, Inc. and its affiliates",
   "platforms": {
-    "ios": "13.4"
+    "ios": "15.1"
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.75.4"
+    "tag": "v0.83.6"
   },
-  "source_files": "**/*.{c,h,m,mm,cpp}",
+  "source_files": "**/*.h",
   "header_dir": "RCTTypeSafety",
   "pod_target_xcconfig": {
     "USE_HEADERMAP": "YES",
@@ -21,13 +21,13 @@
   },
   "dependencies": {
     "FBLazyVector": [
-      "0.75.4"
+      "0.83.6"
     ],
     "RCTRequired": [
-      "0.75.4"
+      "0.83.6"
     ],
     "React-Core": [
-      "0.75.4"
+      "0.83.6"
     ]
   }
 }

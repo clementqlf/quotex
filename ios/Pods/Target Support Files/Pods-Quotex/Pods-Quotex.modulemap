@@ -1,4 +1,4 @@
-framework module Pods_Quotex {
+module Pods_Quotex {
   umbrella header "Pods-Quotex-umbrella.h"
 
   export *
