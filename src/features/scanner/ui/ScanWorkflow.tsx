@@ -356,7 +356,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             <Svg
               width={imageDisplayInfo.width}
               height={imageDisplayInfo.height}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
               pointerEvents="none"
             >
               <Defs>
@@ -398,11 +398,11 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           {/* 1. Gesture overlay covers exactly the displayed image area to receive background touches */}
           <View
             {...imagePanResponder.current.panHandlers}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
 
           {/* 2. Highlights and boxes (pointerEvents="none" to not block touches) */}
-          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {/* Dev Mode: All words bounding boxes & reading order */}
             {isDevMode && words.map((w) => (
               <View

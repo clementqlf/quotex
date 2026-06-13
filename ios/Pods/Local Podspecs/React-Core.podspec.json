@@ -1,6 +1,6 @@
 {
   "name": "React-Core",
-  "version": "0.83.6",
+  "version": "0.85.3",
   "summary": "The core of React Native.",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
@@ -10,7 +10,7 @@
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.83.6"
+    "tag": "v0.85.3"
   },
   "resource_bundles": {
     "React-Core_privacy": "React/Resources/PrivacyInfo.xcprivacy"
@@ -23,7 +23,10 @@
     "DEFINES_MODULE": "YES",
     "GCC_PREPROCESSOR_DEFINITIONS": "RCT_METRO_PORT=${RCT_METRO_PORT}",
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
-    "FRAMEWORK_SEARCH_PATHS": "\"$(PODS_CONFIGURATION_BUILD_DIR)/React-hermes\""
+    "FRAMEWORK_SEARCH_PATHS": "\"$(PODS_CONFIGURATION_BUILD_DIR)/React-hermes\"",
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "user_target_xcconfig": {
     "HEADER_SEARCH_PATHS": "\"$(PODS_ROOT)/Headers/Private/React-Core\""
@@ -72,10 +75,10 @@
       ],
       "dependencies": {
         "React-Core/Default": [
-          "0.83.6"
+          "0.85.3"
         ],
         "React-Core/RCTWebSocket": [
-          "0.83.6"
+          "0.85.3"
         ]
       },
       "private_header_files": "React/Inspector/RCTCxx*.h"
@@ -85,7 +88,7 @@
       "source_files": "Libraries/WebSocket/*.h",
       "dependencies": {
         "React-Core/Default": [
-          "0.83.6"
+          "0.85.3"
         ]
       }
     },

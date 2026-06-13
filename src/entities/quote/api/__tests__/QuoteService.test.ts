@@ -35,14 +35,14 @@ describe('QuoteService', () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockQuotes,
       });
 
       const quotes = await quoteService.getQuotes();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/quotes'),
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -67,7 +67,7 @@ describe('QuoteService', () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+      (globalThis.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
       (StorageService.getItem as jest.Mock)
         .mockResolvedValueOnce(mockCachedQuotes) // Appel 1 : seedDataIfNeeded
         .mockResolvedValueOnce(mockCachedQuotes); // Appel 2 : fallback getQuotes
@@ -89,7 +89,7 @@ describe('QuoteService', () => {
         author: 'Antoine de Saint-Exupéry',
       };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockQuote,
       });
@@ -97,7 +97,7 @@ describe('QuoteService', () => {
 
       const quote = await quoteService.getQuoteById(42);
 
-      expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/quotes/42'), expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/quotes/42'), expect.any(Object));
       expect(quote).toBeDefined();
       expect(quote?.text).toBe(mockQuote.text);
       expect(StorageService.setItem).toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe('QuoteService', () => {
 
   describe('deleteQuote', () => {
     test('envoie une requête DELETE au serveur et effectue une suppression optimiste en local', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
       });
       (StorageService.getItem as jest.Mock).mockResolvedValueOnce([
@@ -116,7 +116,7 @@ describe('QuoteService', () => {
 
       await quoteService.deleteQuote(42);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/quotes/42'),
         expect.objectContaining({
           method: 'DELETE',

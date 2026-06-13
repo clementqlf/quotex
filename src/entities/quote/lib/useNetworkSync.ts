@@ -53,9 +53,9 @@ export const useNetworkSync = () => {
 
 
     // Timer pour debounced sync
-    const syncTimer = useRef<NodeJS.Timeout | null>(null);
+    const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     // Timer pour periodic sync
-    const periodicTimer = useRef<NodeJS.Timeout | null>(null);
+    const periodicTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // ✅ Utiliser React Query pour le pending count (meilleure optimisation)
     const { data: pendingCount = 0 } = useQuery({

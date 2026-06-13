@@ -1,6 +1,6 @@
 {
   "name": "React-jsi",
-  "version": "0.83.6",
+  "version": "0.85.3",
   "summary": "JavaScript Interface layer for React Native",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
@@ -10,7 +10,7 @@
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.83.6"
+    "tag": "v0.85.3"
   },
   "header_dir": "jsi",
   "pod_target_xcconfig": {
@@ -18,7 +18,10 @@
     "DEFINES_MODULE": "YES",
     "HEADER_SEARCH_PATHS": [
       "$(PODS_ROOT)/ReactNativeDependencies"
-    ]
+    ],
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "source_files": "**/*.h",
   "dependencies": {

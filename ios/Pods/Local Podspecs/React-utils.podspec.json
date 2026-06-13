@@ -1,6 +1,6 @@
 {
   "name": "React-utils",
-  "version": "0.83.6",
+  "version": "0.85.3",
   "summary": "-",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
@@ -10,7 +10,7 @@
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.83.6"
+    "tag": "v0.85.3"
   },
   "source_files": [
     "*.h",
@@ -22,11 +22,14 @@
     "USE_HEADERMAP": "NO",
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
     "HEADER_SEARCH_PATHS": "\"$(PODS_TARGET_SRCROOT)/../../\" \"${PODS_ROOT}/React-debug\"",
-    "DEFINES_MODULE": "YES"
+    "DEFINES_MODULE": "YES",
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "dependencies": {
     "React-jsi": [
-      "0.83.6"
+      "0.85.3"
     ],
     "hermes-engine": [],
     "ReactNativeDependencies": [],

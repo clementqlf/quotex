@@ -6,8 +6,6 @@
     "orientation": "portrait",
     "scheme": "quotex",
     "userInterfaceStyle": "automatic",
-    "jsEngine": "hermes",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.quotex.app",
@@ -23,7 +21,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.quotex.app",
       "permissions": [
@@ -73,7 +70,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.5"
+            "deploymentTarget": "16.4"
           }
         }
       ],
@@ -92,12 +89,7 @@
     "updates": {
       "url": "https://u.expo.dev/@quotex/quotex",
       "enabled": true,
-      "fallbackToCacheTimeout": 604800,
-      "channels": [
-        { "name": "production", "enabled": true },
-        { "name": "staging", "enabled": true },
-        { "name": "dev", "enabled": true }
-      ]
+      "fallbackToCacheTimeout": 300000
     },
     "runtimeVersion": "1.0.0",
     "experiments": {

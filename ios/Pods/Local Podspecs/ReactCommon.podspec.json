@@ -1,7 +1,7 @@
 {
   "name": "ReactCommon",
   "module_name": "ReactCommon",
-  "version": "0.83.6",
+  "version": "0.85.3",
   "summary": "-",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
@@ -11,7 +11,7 @@
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.83.6"
+    "tag": "v0.85.3"
   },
   "header_dir": "ReactCommon",
   "pod_target_xcconfig": {
@@ -19,7 +19,10 @@
     "USE_HEADERMAP": "YES",
     "DEFINES_MODULE": "YES",
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
-    "GCC_WARN_PEDANTIC": "YES"
+    "GCC_WARN_PEDANTIC": "YES",
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "dependencies": {
     "ReactNativeDependencies": [],
@@ -30,19 +33,19 @@
       "name": "turbomodule",
       "dependencies": {
         "React-callinvoker": [
-          "0.83.6"
+          "0.85.3"
         ],
         "React-perflogger": [
-          "0.83.6"
+          "0.85.3"
         ],
         "React-cxxreact": [
-          "0.83.6"
+          "0.85.3"
         ],
         "React-jsi": [
-          "0.83.6"
+          "0.85.3"
         ],
         "React-logger": [
-          "0.83.6"
+          "0.85.3"
         ],
         "hermes-engine": []
       },
@@ -51,7 +54,7 @@
           "name": "bridging",
           "dependencies": {
             "React-jsi": [
-              "0.83.6"
+              "0.85.3"
             ],
             "hermes-engine": []
           },
@@ -70,13 +73,13 @@
           },
           "dependencies": {
             "React-debug": [
-              "0.83.6"
+              "0.85.3"
             ],
             "React-featureflags": [
-              "0.83.6"
+              "0.85.3"
             ],
             "React-utils": [
-              "0.83.6"
+              "0.85.3"
             ]
           }
         }

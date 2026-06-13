@@ -1,9 +1,9 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { SupabaseQuoteRepository } from '../SupabaseQuoteRepository';
 
-// Mock global.fetch
+// Mock globalThis.fetch
 const mockFetch = jest.fn();
-global.fetch = mockFetch as jest.Mock;
+globalThis.fetch = mockFetch as jest.Mock;
 
 // Mock dependencies
 jest.mock('@/src/shared/api/StorageService', () => ({

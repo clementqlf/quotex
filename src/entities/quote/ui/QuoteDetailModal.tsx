@@ -1361,7 +1361,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     justifyContent: 'flex-end'
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
   },
   modalView: {
@@ -1589,7 +1589,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     overflow: 'visible',
   },
   glowContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'visible',
   },
   aiSection: {

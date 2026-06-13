@@ -6,7 +6,7 @@ import { ThemeProvider, useTheme } from '@/src/app/providers/ThemeContext';
 import { AuthorProvider } from '@/src/entities/author/providers/AuthorProvider';
 import { QuoteProvider } from '@/src/entities/quote/providers/QuoteProvider';
 import { NavigationProvider } from '@/src/shared/navigation/NavigationContext';
-import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from 'expo-router/react-navigation';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

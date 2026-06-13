@@ -1,6 +1,6 @@
 {
   "name": "React-Fabric",
-  "version": "0.83.6",
+  "version": "0.85.3",
   "summary": "Fabric for React Native.",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
@@ -10,14 +10,17 @@
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.83.6"
+    "tag": "v0.85.3"
   },
   "source_files": "",
   "pod_target_xcconfig": {
     "USE_HEADERMAP": "YES",
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
     "DEFINES_MODULE": "YES",
-    "HEADER_SEARCH_PATHS": "\"${PODS_ROOT}/React-runtimeexecutor\" \"${PODS_ROOT}/React-runtimeexecutor/platform/ios\" \"${PODS_ROOT}/React-rendererdebug\" \"${PODS_ROOT}/React-graphics\" \"${PODS_ROOT}/React-graphics/react/renderer/graphics/platform/ios\" \"${PODS_ROOT}/React-utils\" \"${PODS_ROOT}/React-utils/react/utils/platform/ios\""
+    "HEADER_SEARCH_PATHS": "\"${PODS_ROOT}/React-runtimeexecutor\" \"${PODS_ROOT}/React-runtimeexecutor/platform/ios\" \"${PODS_ROOT}/React-rendererdebug\" \"${PODS_ROOT}/React-graphics\" \"${PODS_ROOT}/React-graphics/react/renderer/graphics/platform/ios\" \"${PODS_ROOT}/React-utils\" \"${PODS_ROOT}/React-utils/react/utils/platform/ios\"",
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "dependencies": {
     "React-jsiexecutor": [],
@@ -42,9 +45,13 @@
   "subspecs": [
     {
       "name": "animated",
+      "dependencies": {
+        "React-Fabric/animationbackend": []
+      },
       "source_files": "react/renderer/animated/**/*.{h}",
       "exclude_files": "react/renderer/animated/tests",
-      "header_dir": "react/renderer/animated"
+      "header_dir": "react/renderer/animated",
+      "header_mappings_dir": "react/renderer/animated"
     },
     {
       "name": "animations",
@@ -140,6 +147,7 @@
       "source_files": "react/renderer/scheduler/**/*.h",
       "header_dir": "react/renderer/scheduler",
       "dependencies": {
+        "React-Fabric/animationbackend": [],
         "React-performancecdpmetrics": [],
         "React-performancetimeline": [],
         "React-Fabric/observers/events": []
@@ -170,14 +178,14 @@
           "source_files": "react/renderer/observers/intersection/**/*.h",
           "exclude_files": "react/renderer/observers/intersection/tests",
           "header_dir": "react/renderer/observers/intersection"
+        },
+        {
+          "name": "mutation",
+          "source_files": "react/renderer/observers/mutation/**/*.h",
+          "exclude_files": "react/renderer/observers/mutation/tests",
+          "header_dir": "react/renderer/observers/mutation"
         }
       ]
-    },
-    {
-      "name": "templateprocessor",
-      "source_files": "react/renderer/templateprocessor/**/*.h",
-      "exclude_files": "react/renderer/templateprocessor/tests",
-      "header_dir": "react/renderer/templateprocessor"
     },
     {
       "name": "telemetry",

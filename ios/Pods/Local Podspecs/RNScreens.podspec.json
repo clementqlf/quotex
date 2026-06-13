@@ -1,6 +1,6 @@
 {
   "name": "RNScreens",
-  "version": "4.23.0",
+  "version": "4.25.2",
   "summary": "Native navigation primitives for your React Native app.",
   "description": "RNScreens - first incomplete navigation solution for your React Native app",
   "homepage": "https://github.com/software-mansion/react-native-screens",
@@ -15,7 +15,7 @@
   },
   "source": {
     "git": "https://github.com/software-mansion/react-native-screens.git",
-    "tag": "4.23.0"
+    "tag": "4.25.2"
   },
   "source_files": [
     "ios/**/*.{h,m,mm,cpp,swift}"
@@ -24,11 +24,12 @@
   "requires_arc": true,
   "exclude_files": "ios/stubs/**/*.{h,m,mm,cpp,swift}",
   "pod_target_xcconfig": {
-    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -DRNS_GAMMA_ENABLED=1 -DRCT_NEW_ARCH_ENABLED=1 ",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -DRNS_GAMMA_ENABLED=1 -DRCT_NEW_ARCH_ENABLED=1  -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited)  -DRCT_NEW_ARCH_ENABLED -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
     "DEFINES_MODULE": "YES",
     "HEADER_SEARCH_PATHS": "\"$(PODS_ROOT)/Headers/Private/Yoga\"",
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
-    "OTHER_SWIFT_FLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED"
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "compiler_flags": "-DRCT_NEW_ARCH_ENABLED=1",
   "dependencies": {

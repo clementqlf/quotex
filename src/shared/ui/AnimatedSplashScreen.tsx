@@ -92,7 +92,7 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,

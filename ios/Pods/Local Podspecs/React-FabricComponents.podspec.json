@@ -1,6 +1,6 @@
 {
   "name": "React-FabricComponents",
-  "version": "0.83.6",
+  "version": "0.85.3",
   "summary": "Fabric Components for React Native.",
   "homepage": "https://reactnative.dev/",
   "license": "MIT",
@@ -10,13 +10,16 @@
   },
   "source": {
     "git": "https://github.com/facebook/react-native.git",
-    "tag": "v0.83.6"
+    "tag": "v0.85.3"
   },
   "source_files": "",
   "pod_target_xcconfig": {
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
     "DEFINES_MODULE": "YES",
-    "HEADER_SEARCH_PATHS": "\"$(PODS_TARGET_SRCROOT)/ReactCommon\" \"$(PODS_ROOT)/Headers/Private/Yoga\" \"$(PODS_TARGET_SRCROOT)\" \"${PODS_ROOT}/React-RCTFBReactNativeSpec\" \"${PODS_ROOT}/React-rendererdebug\" \"${PODS_ROOT}/React-graphics\" \"${PODS_ROOT}/React-graphics/react/renderer/graphics/platform/ios\" \"${PODS_ROOT}/React-Fabric\" \"${PODS_ROOT}/React-Fabric/react/renderer/components/scrollview/platform/cxx\" \"${PODS_ROOT}/React-Fabric/react/renderer/components/view/platform/cxx\" \"${PODS_ROOT}/React-Fabric/react/renderer/imagemanager/platform/ios\""
+    "HEADER_SEARCH_PATHS": "\"$(PODS_TARGET_SRCROOT)/ReactCommon\" \"$(PODS_ROOT)/Headers/Private/Yoga\" \"$(PODS_TARGET_SRCROOT)\" \"${PODS_ROOT}/React-RCTFBReactNativeSpec\" \"${PODS_ROOT}/React-rendererdebug\" \"${PODS_ROOT}/React-graphics\" \"${PODS_ROOT}/React-graphics/react/renderer/graphics/platform/ios\" \"${PODS_ROOT}/React-Fabric\" \"${PODS_ROOT}/React-Fabric/react/renderer/components/scrollview/platform/cxx\" \"${PODS_ROOT}/React-Fabric/react/renderer/components/scrollview/platform/ios\" \"${PODS_ROOT}/React-Fabric/react/renderer/components/view/platform/cxx\" \"${PODS_ROOT}/React-Fabric/react/renderer/imagemanager/platform/ios\"",
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   },
   "dependencies": {
     "React-jsiexecutor": [],
@@ -66,7 +69,8 @@
           "name": "scrollview",
           "source_files": [
             "react/renderer/components/scrollview/*.h",
-            "react/renderer/components/scrollview/platform/cxx/**/*.h"
+            "react/renderer/components/scrollview/platform/cxx/**/*.h",
+            "react/renderer/components/scrollview/platform/ios/**/*.h"
           ],
           "exclude_files": "react/renderer/components/scrollview/tests",
           "header_dir": "react/renderer/components/scrollview"
@@ -111,12 +115,6 @@
           "source_files": "react/renderer/components/virtualview/**/*.{m,mm,cpp,h}",
           "exclude_files": "react/renderer/components/virtualview/tests",
           "header_dir": "react/renderer/components/virtualview"
-        },
-        {
-          "name": "virtualviewexperimental",
-          "source_files": "react/renderer/components/virtualviewexperimental/**/*.{m,mm,cpp,h}",
-          "exclude_files": "react/renderer/components/virtualviewexperimental/tests",
-          "header_dir": "react/renderer/components/virtualviewexperimental"
         },
         {
           "name": "rncore",

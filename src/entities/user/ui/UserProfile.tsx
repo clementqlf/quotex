@@ -805,7 +805,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: '100%',
   },
   avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',

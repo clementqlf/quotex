@@ -1,6 +1,6 @@
 import { InteractiveTooltip } from '@/src/features/app-tour';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';

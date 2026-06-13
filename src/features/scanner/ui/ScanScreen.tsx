@@ -681,7 +681,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     overflow: 'visible',
   },
   darkOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
     pointerEvents: 'none',
   },
@@ -765,7 +765,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: 'bold',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.backdrop,
     justifyContent: 'center',
     alignItems: 'center',

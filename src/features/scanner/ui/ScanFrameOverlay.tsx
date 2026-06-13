@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   fullBorder: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: 2,
     borderRadius: 24,
     shadowOffset: { width: 0, height: 0 },

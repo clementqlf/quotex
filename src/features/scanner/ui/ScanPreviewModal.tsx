@@ -634,7 +634,7 @@ export default function ScanPreviewModal({
                     </Pressable>
                 </KeyboardAvoidingView>
                 {showConfetti && visible && (
-                    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                    <View style={StyleSheet.absoluteFill} pointerEvents="none">
                         <CannonConfetti
                             ref={cannonConfettiRef}
                             autoplay={false}
@@ -642,7 +642,7 @@ export default function ScanPreviewModal({
                             infinite={false}
                             colors={['#20B8CD', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6']}
                             onAnimationEnd={() => cannonConfettiRef.current?.reset()}
-                            containerStyle={StyleSheet.absoluteFillObject}
+                            containerStyle={StyleSheet.absoluteFill}
                         >
                             <CannonConfetti.Origin
                                 position="bottom-left"

@@ -40,7 +40,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockReset();
+    (globalThis.fetch as jest.Mock).mockReset();
     
     // Configurer les mocks par défaut
     (StorageService.getItem as jest.Mock).mockResolvedValue(null);
@@ -56,7 +56,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
 
   it('devrait échouer si hors-ligne', async () => {
     // Simuler le fait d'être hors-ligne en faisant rejeter fetch
-    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network request failed'));
+    (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('Network request failed'));
 
     const text = 'Citation de test hors-ligne';
     
@@ -66,7 +66,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
 
   it('devrait synchroniser directement si en ligne', async () => {
     // Simuler le fait d'être en ligne en résolvant fetch
-    (global.fetch as jest.Mock).mockResolvedValue({
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({
         syncedCount: 1,
@@ -79,7 +79,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     
     const quote = await repository.createQuote(text, 'Livre Test', 'Auteur Test');
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/sync-quotes'),
       expect.objectContaining({
         method: 'POST',
@@ -98,7 +98,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         return Promise.resolve(null);
       });
 
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (globalThis.fetch as jest.Mock).mockResolvedValue({
         ok: true,
       });
 
@@ -124,7 +124,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         return Promise.resolve(null);
       });
 
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (globalThis.fetch as jest.Mock).mockResolvedValue({
         ok: true,
       });
 
@@ -147,7 +147,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         return Promise.resolve(null);
       });
 
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (globalThis.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: jest.fn().mockResolvedValue({
           isLiked: { isLiked: true, likesCount: 6 }

@@ -1,6 +1,6 @@
 {
   "name": "react-native-pager-view",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "summary": "React Native wrapper for Android and iOS ViewPager",
   "homepage": "https://github.com/callstack/react-native-pager-view#readme",
   "license": "MIT",
@@ -11,7 +11,7 @@
   },
   "source": {
     "git": "https://github.com/callstack/react-native-pager-view.git",
-    "tag": "8.0.0"
+    "tag": "8.0.1"
   },
   "source_files": "ios/**/*.{h,m,mm,swift}",
   "dependencies": {
@@ -44,7 +44,8 @@
   "pod_target_xcconfig": {
     "HEADER_SEARCH_PATHS": "\"$(PODS_ROOT)/Headers/Private/Yoga\"",
     "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
-    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED=1 ",
-    "OTHER_SWIFT_FLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED"
+    "OTHER_CPLUSPLUSFLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED=1  -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_SWIFT_FLAGS": "$(inherited) -DRCT_NEW_ARCH_ENABLED -Xcc -ivfsoverlay -Xcc $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml",
+    "OTHER_CFLAGS": "$(inherited) -ivfsoverlay $(PODS_ROOT)/React-Core-prebuilt/React-VFS.yaml"
   }
 }

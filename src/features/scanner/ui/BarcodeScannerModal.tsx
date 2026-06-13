@@ -196,7 +196,7 @@ export default function BarcodeScannerModal({
                         {!isPickerActive && (
                             <Camera
                                 ref={cameraRef}
-                                style={StyleSheet.absoluteFillObject}
+                                style={StyleSheet.absoluteFill}
                                 device={device}
                                 isActive={visible}
                                 photo={true}
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     loadingContainer: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(0, 0, 0, 0.7)',
         alignItems: 'center',
         justifyContent: 'center',
