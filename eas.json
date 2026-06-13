@@ -3,10 +3,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "cache": {
-        "npm": true
-      },
-      "runtimeVersion": "1.0.0-dev",
       "android": {
         "buildType": "apk"
       },
@@ -19,10 +15,6 @@
     },
     "staging": {
       "distribution": "internal",
-      "cache": {
-        "npm": true
-      },
-      "runtimeVersion": "1.0.0-staging",
       "android": {
         "buildType": "app-bundle"
       },
@@ -35,10 +27,6 @@
     },
     "production": {
       "distribution": "store",
-      "cache": {
-        "npm": true
-      },
-      "runtimeVersion": "1.0.0",
       "android": {
         "buildType": "app-bundle"
       },
