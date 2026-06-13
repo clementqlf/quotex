@@ -47,6 +47,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -74,6 +81,7 @@ jobs:
           api-level: 33
           arch: x86_64
           profile: pixel_6_pro
+          disk-size: 4096M
           ndk: 23.2.8568313
           script: ./scripts/run-e2e.sh
         env:
