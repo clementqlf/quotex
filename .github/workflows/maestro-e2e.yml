@@ -46,6 +46,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_DEV_KEY }}
           EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_DEV_URL }}/functions/v1
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: x86_64
 
       - name: Enable KVM group perms
         run: |
