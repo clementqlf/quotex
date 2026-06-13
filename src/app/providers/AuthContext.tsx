@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { authService } from '../../entities/user/api/AuthService';
+import { authService, AuthResponse } from '../../entities/user/api/AuthService';
 import { User } from '../../shared/api/types';
 import { UGCModerationService } from '../../shared/api/UGCModerationService';
 
@@ -14,7 +14,7 @@ interface AuthState {
 
 interface AuthActions {
     login: (email: string, password: string) => Promise<void>;
-    register: (username: string, email: string, password: string) => Promise<void>;
+    register: (username: string, email: string, password: string) => Promise<AuthResponse>;
     logout: () => Promise<void>;
     deleteAccount: () => Promise<void>;
     updateProfile: (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => Promise<void>;
@@ -69,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await authService.register(username, email, password);
         setUser(data.user);
         setToken(data.token);
+        return data;
     }, []);
 
     const logout = useCallback(async () => {

@@ -50,8 +50,24 @@ export default function RegisterDetailsScreen() {
 
     setIsLoading(true);
     try {
-      await register(username, email!, password);
-      // Navigation handled by auth redirect in layout
+      const response = await register(username, email!, password);
+      
+      if (response && response.token) {
+        // Automatically signed in
+        router.replace('/');
+      } else {
+        // Email confirmation is required, or no session returned
+        Alert.alert(
+          "Compte créé !",
+          "Votre compte a été créé avec succès. Un e-mail de confirmation vous a été envoyé. Veuillez confirmer votre adresse e-mail avant de vous connecter.",
+          [
+            { 
+              text: "Se connecter", 
+              onPress: () => router.replace('/login')
+            }
+          ]
+        );
+      }
     } catch (error: any) {
       Alert.alert("Erreur lors de l'inscription", error.message || "Impossible de créer le compte");
     } finally {
