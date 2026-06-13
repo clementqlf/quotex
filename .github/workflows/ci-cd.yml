@@ -63,7 +63,7 @@ jobs:
           java-version: '17'
 
       - name: Install Maestro
-        run: curl -Ls https://mobile.dev/install | bash
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
 
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
@@ -75,10 +75,7 @@ jobs:
           arch: x86_64
           profile: pixel_6_pro
           ndk: 23.2.8568313
-          script: |
-            npx eas build --profile development --platform android --local --non-interactive --output=app.apk
-            adb install app.apk
-            npx maestro test .maestro/
+          script: ./scripts/run-e2e.sh
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
