@@ -26,7 +26,7 @@ export default function BookDetailScreen() {
       context={controller.blockContext}
       onRemove={() => controller.handleRemoveBlock(item)}
     />
-  ), [controller.blockContext, controller.handleRemoveBlock]);
+  ), [controller]);
 
   if (controller.isLoadingMetadata) {
     return (
@@ -72,7 +72,7 @@ export default function BookDetailScreen() {
     );
   }
 
-  const averageRating = controller.bookInfo.rating ? controller.bookInfo.rating.toFixed(1) : 'N/A';
+  const averageRating = controller.bookInfo.rating ? controller.bookInfo.rating.toFixed(1) : "N/A";
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -104,7 +104,7 @@ export default function BookDetailScreen() {
               <View style={styles.bookInfo}>
                 <Text style={styles.bookTitleText}>{controller.bookTitle}</Text>
                 <TouchableOpacity
-                  disabled={!controller.bookInfo?.author || getAuthorName(controller.bookInfo?.author) === 'Auteur inconnu'}
+                  disabled={!controller.bookInfo?.author || getAuthorName(controller.bookInfo?.author) === "Auteur inconnu"}
                   onPress={() => {
                     const authorName = getAuthorName(controller.bookInfo?.author);
                     const inventaireUri = typeof controller.bookInfo?.author === 'object' && controller.bookInfo?.author !== null ? (controller.bookInfo?.author as any).inventaireUri : undefined;
@@ -170,26 +170,26 @@ export default function BookDetailScreen() {
 
           <View style={styles.tabContainer}>
             <TouchableOpacity
-              style={[styles.tabButton, controller.activeTab === 'description' && styles.activeTabButton]}
-              onPress={() => controller.setActiveTab('description')}
+              style={[styles.tabButton, controller.activeTab === "description" && styles.activeTabButton]}
+              onPress={() => controller.setActiveTab("description")}
             >
-              <Text style={[styles.tabText, controller.activeTab === 'description' && styles.activeTabText]}>Description</Text>
+              <Text style={[styles.tabText, controller.activeTab === "description" && styles.activeTabText]}>Description</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tabButton, controller.activeTab === 'my_sheet' && styles.activeTabButton]}
-              onPress={() => controller.setActiveTab('my_sheet')}
+              style={[styles.tabButton, controller.activeTab === "my_sheet" && styles.activeTabButton]}
+              onPress={() => controller.setActiveTab("my_sheet")}
             >
-              <Text style={[styles.tabText, controller.activeTab === 'my_sheet' && styles.activeTabText]}>Ma fiche</Text>
+              <Text style={[styles.tabText, controller.activeTab === "my_sheet" && styles.activeTabText]}>Ma fiche</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.gridSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
-                {controller.activeTab === 'description' ? 'Détails du livre' : 'Mon espace personnel'}
+                {controller.activeTab === "description" ? "Détails du livre" : "Mon espace personnel"}
               </Text>
             </View>
-            {controller.activeTab === 'description' ? (
+            {controller.activeTab === "description" ? (
               <View style={{ gap: 10 }}>
                 {controller.DESCRIPTION_BLOCKS.map(blockKey => (
                   <BlockDispatcher

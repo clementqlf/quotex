@@ -32,7 +32,7 @@ export default function SocialFeedScreen() {
     if (isFocused) {
       refreshQuotes();
     }
-  }, [isFocused]);
+  }, [isFocused, refreshQuotes]);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('');

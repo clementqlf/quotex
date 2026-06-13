@@ -16,8 +16,6 @@ export class SupabaseAuthorRepository implements IAuthorRepository {
     return SupabaseAuthorRepository.instance;
   }
 
-  constructor() {}
-
   async getAuthors(): Promise<Author[]> {
     return await authorService.getAuthors();
   }

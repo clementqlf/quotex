@@ -27,7 +27,7 @@ export default function ScanFrameOverlay({
 
   useEffect(() => {
     anim.value = withTiming(isTextDetectedLive ? 1 : 0, { duration: 300 });
-  }, [isTextDetectedLive]);
+  }, [isTextDetectedLive, anim]);
 
   // Animated style for the full-frame active border (snapping & fading in)
   const fullBorderAnimatedStyle = useAnimatedStyle(() => {

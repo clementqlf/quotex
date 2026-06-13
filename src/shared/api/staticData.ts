@@ -4,7 +4,7 @@ export const aiInterpretations: { [key: string]: string } = {
   "It is our choices that show what we truly are, far more than our abilities.": "J.K. Rowling nous rappelle que notre identité n'est pas définie par nos talents innés, mais par nos décisions. Le caractère se révèle dans nos actions quotidiennes.",
 };
 
-export const definitions: { [key: string]: Array<{ term: string; genre: string; definition: string; example: string }> } = {
+export const definitions: { [key: string]: { term: string; genre: string; definition: string; example: string }[] } = {
   "The only way to do great work is to love what you do.": [
     {
       term: "Passion",
@@ -95,7 +95,7 @@ export const authorDetails: { [key: string]: { description: string, image: strin
 };
 // J'ai supprimé authorDescriptions qui est maintenant remplacé par authorDetails
 
-export const bookDescriptions: { [key: string]: { description: string; author: string; year: number; pages: number; rating: number; genre: string; cover: string; buyLinks?: Array<{ store: string; url: string; price: string }> } } = {
+export const bookDescriptions: { [key: string]: { description: string; author: string; year: number; pages: number; rating: number; genre: string; cover: string; buyLinks?: { store: string; url: string; price: string }[] } } = {
   "Steve Jobs": {
     description: "La biographie définitive de Steve Jobs révèle l'homme derrière le mythe : un perfectionniste obsessionnel qui a révolutionné six industries.",
     year: 2011,
@@ -191,7 +191,7 @@ export const similarAuthors: { [key: string]: string[] } = {
   "George Eliot": ["J.K. Rowling"],
 };
 
-export const mockReviews: { [key: string]: Array<{ id: string; user: { name: string; image?: string }; rating: number; comment: string; date: string }> } = {
+export const mockReviews: { [key: string]: { id: string; user: { name: string; image?: string }; rating: number; comment: string; date: string }[] } = {
   "Steve Jobs": [
     { id: "1", user: { name: "Sophie Martin", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop" }, rating: 5, comment: "Une source d'inspiration incroyable.", date: "Il y a 2 jours" },
     { id: "2", user: { name: "Lucas Bernard" }, rating: 4, comment: "Très complet mais parfois un peu long.", date: "Il y a 1 semaine" },

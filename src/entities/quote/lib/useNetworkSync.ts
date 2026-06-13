@@ -23,7 +23,6 @@ export interface SyncStatus {
 }
 
 // Configuration des timers
-const NETWORK_CHECK_INTERVAL_MS = 60000; // 1 minute (optimisé)
 const SYNC_DEBOUNCE_MS = 2000; // 2 secondes
 const SYNC_INTERVAL_MS = 300000; // 5 minutes - periodic sync when online
 
@@ -51,8 +50,7 @@ export const useNetworkSync = () => {
     // Track if we've initialized the network listener
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Track the last successful sync timestamp
-    const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string | null>(null);
+
 
     // Timer pour debounced sync
     const syncTimer = useRef<NodeJS.Timeout | null>(null);
@@ -105,7 +103,7 @@ export const useNetworkSync = () => {
         }
 
         return true;
-    }, [status.isSyncing, status.isConnected]);
+    }, [status.isSyncing]);
 
     // Track if sync is already in progress
     const syncLock = useRef(false);
@@ -140,7 +138,6 @@ export const useNetworkSync = () => {
                     `Failed to sync ${result.errors.length} quotes` : null,
             }));
 
-            setLastSyncTimestamp(new Date().toISOString());
             await StorageService.setItem(STORAGE_KEYS.LAST_SYNC_TIME, new Date().toISOString());
 
             // If there were errors, we might want to retry with exponential backoff
@@ -173,7 +170,7 @@ export const useNetworkSync = () => {
             }));
             syncLock.current = false;
         }
-    }, [shouldSync]);
+    }, [shouldSync, queryClient]);
 
     // Debounced sync trigger
     const debouncedTriggerSync = useCallback(() => {
@@ -256,7 +253,6 @@ export const useNetworkSync = () => {
                     lastSyncError: null,
                 });
 
-                setLastSyncTimestamp(lastSync || null);
                 setIsInitialized(true);
 
                 // If connected and has pending quotes, sync immediately

@@ -7,7 +7,7 @@ export async function isOffline(): Promise<boolean> {
   try {
     const state = await NetInfo.fetch();
     return state.isConnected === false;
-  } catch (error) {
+  } catch {
     // If NetInfo fails, assume online to let requests try and fail naturally
     return false;
   }

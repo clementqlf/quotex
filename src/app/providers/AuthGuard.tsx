@@ -1,4 +1,4 @@
-import { Redirect, useRouter, useSegments } from 'expo-router';
+import { Redirect, useSegments } from 'expo-router';
 import React from 'react';
 import { useAuth } from './AuthContext';
 
@@ -29,7 +29,6 @@ export const isInAuthGroup = (segments: string[]): boolean => {
 export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isAuthenticated, isLoading } = useAuth();
     const segments = useSegments();
-    const router = useRouter();
 
     // Vérifier si nous sommes dans un groupe d'authentification
     const inAuthGroup = isInAuthGroup(segments);

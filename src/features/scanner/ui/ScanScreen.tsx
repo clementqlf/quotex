@@ -24,12 +24,11 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useSwipeEnabled, useTabIndex } from '@/src/app/providers/TabContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { ITabController } from '@/src/features/scanner/model/useScanController';
+import { ITabController, useScanController } from '@/src/features/scanner/model/useScanController';
 import { PlatformServices } from '@/src/shared/platform';
 import { ThemeColors } from '@/src/shared/theme';
 
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
-import { useScanController } from '@/src/features/scanner/model/useScanController';
 import AnimatedISBNPopup from '@/src/features/scanner/ui/AnimatedISBNPopup';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
@@ -113,7 +112,7 @@ export default function ScanScreen() {
   const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
-  const { tabIndex, setTabIndex, setPage } = useTabIndex();
+  const { tabIndex, setTabIndex } = useTabIndex();
   const { resetTour } = useAppTour();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
@@ -196,7 +195,7 @@ export default function ScanScreen() {
 
   React.useEffect(() => {
     fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
-  }, [isTextDetectedLive]);
+  }, [isTextDetectedLive, fadeAnim]);
 
   const fadeStyle = useAnimatedStyle(() => ({
     opacity: fadeAnim.value,

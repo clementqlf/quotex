@@ -74,14 +74,14 @@ export interface ExternalBookData {
  * Résultat de recherche pour un livre via ISBN
  */
 export interface IsbnSearchResult {
-    books?: Array<{
+    books?: {
         id?: number | string;
         title: string;
         author: string;
         cover?: string;
         inventaireUri?: string;
-    }>;
-    inventaireWorks?: Array<ExternalBookData>;
+    }[];
+    inventaireWorks?: ExternalBookData[];
 }
 
 /**

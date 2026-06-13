@@ -35,10 +35,9 @@ export interface BlockData {
   theme?: string;
   tags?: string[];
   additionalThemes?: string[];
-  // Champs pour l'historique de chat
-  chatHistory?: Array<{ role: 'user' | 'model'; content: string }>;
+  chatHistory?: { role: 'user' | 'model'; content: string }[];
   // Autres champs personnalisés
-  [key: string]: string | number | boolean | string[] | Array<{ role: string; content: string }> | Record<string, unknown> | undefined;
+  [key: string]: string | number | boolean | string[] | { role: string; content: string }[] | Record<string, unknown> | undefined;
 }
 
 // Type de base pour une citation

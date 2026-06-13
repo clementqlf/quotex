@@ -15,7 +15,7 @@ export const BookDetailSkeleton = ({ colors }: { colors: ThemeColors }) => {
       -1,
       true
     );
-  }, []);
+  }, [opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 

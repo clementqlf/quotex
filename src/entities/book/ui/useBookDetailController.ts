@@ -52,22 +52,22 @@ export const useBookDetailController = () => {
   } = useAuthor();
   
   // Méthodes pour BlockService
-  const getBlockLayout = (parentId: string | number, parentType: 'quote' | 'book') => {
+  const getBlockLayout = useCallback((parentId: string | number, parentType: 'quote' | 'book') => {
     return BlockService.getLayout(parentId, parentType);
-  };
+  }, []);
   
-  const updateBlockLayout = (parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
+  const updateBlockLayout = useCallback((parentId: string | number, parentType: 'quote' | 'book', layout: string[]) => {
     return BlockService.saveLayout(parentId, parentType, layout);
-  };
+  }, []);
   
   // Méthodes pour BookData
-  const getBookData = (bookTitle: string) => {
+  const getBookData = useCallback((bookTitle: string) => {
     return BlockService.getBlockData(bookTitle, 'book');
-  };
+  }, []);
   
-  const updateBookData = (bookTitle: string, data: Record<string, any>) => {
+  const updateBookData = useCallback((bookTitle: string, data: Record<string, any>) => {
     return BlockService.saveBlockData(bookTitle, 'book', data);
-  };
+  }, []);
 
   const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
@@ -186,7 +186,7 @@ export const useBookDetailController = () => {
       setBookInfo(prev => prev ? { ...prev, readingStatus: status as any, isSaved: true } : null);
       try {
         await updateBookStatus(id, status as ReadingStatus);
-      } catch (error) {
+      } catch {
         setBookInfo(prevBookInfo);
         Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
       }
@@ -197,7 +197,7 @@ export const useBookDetailController = () => {
       setBookInfo(prev => prev ? { ...prev, isSaved: false, readingStatus: null } : null);
       try {
         await toggleSaveBook(id);
-      } catch (error) {
+      } catch {
         setBookInfo(prevBookInfo);
         Alert.alert('Erreur', 'Impossible de retirer le livre de la bibliothèque.');
       }
@@ -345,7 +345,7 @@ export const useBookDetailController = () => {
   }, [currentConnectionBlockId, handleUpdateBlockData]);
 
   const blockContext = useMemo((): BlockContext => {
-    const aggregatedDefinitions: Array<{ term: string, genre: string, definition: string, example: string }> = [];
+    const aggregatedDefinitions: { term: string, genre: string, definition: string, example: string }[] = [];
     const seenTerms = new Set<string>();
 
     savedQuotes.forEach(q => {
@@ -354,7 +354,7 @@ export const useBookDetailController = () => {
           if (key.startsWith('definition')) {
             const manualDefs = q.blockData![key] as unknown;
             if (Array.isArray(manualDefs)) {
-              (manualDefs as Array<{ term: string; genre: string; definition: string; example: string }>).forEach(d => {
+              (manualDefs as { term: string; genre: string; definition: string; example: string }[]).forEach(d => {
                 if (d && d.term && !seenTerms.has(d.term.toLowerCase())) {
                   seenTerms.add(d.term.toLowerCase());
                   aggregatedDefinitions.push(d);

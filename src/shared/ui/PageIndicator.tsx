@@ -28,7 +28,7 @@ function Dot({ index, activeIndex }: { index: number; activeIndex: number }) {
       duration: DURATION,
       easing: Easing.out(Easing.cubic),
     });
-  }, [activeIndex]);
+  }, [activeIndex, index, progress]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: INACTIVE_WIDTH + progress.value * (ACTIVE_WIDTH - INACTIVE_WIDTH),

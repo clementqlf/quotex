@@ -1,6 +1,4 @@
-import { useAuth } from '@/src/app/providers/AuthContext';
-import { InteractiveTooltip, TOUR_STEPS, useAppTourState } from '@/src/features/app-tour';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import { InteractiveTooltip } from '@/src/features/app-tour';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
@@ -86,7 +84,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
-  }, [viewMode]);
+  }, [viewMode, currentMode, direction, enterProgress, exitProgress]);
 
   const enterStyle = useAnimatedStyle(() => {
     return {
@@ -139,7 +137,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
 
 // ListHeader component memoized pour éviter les re-renders inutiles
 interface ListHeaderMemoProps {
-  activeFilters: Array<{ type: 'author' | 'book' | 'year' | 'status'; value: string | number }>;
+  activeFilters: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }[];
   viewMode: 'quotes' | 'books' | 'authors' | 'themes';
   selectedStatus: string;
   colors: ThemeColors;
@@ -225,21 +223,15 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
   }
 
   return elements.length > 0 ? <>{elements}</> : null;
-});
-
+})
 export default function MyQuotesScreen() {
   const router = useRouter();
-  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { currentStepIndex } = useAppTourState();
-  const activeStepName = TOUR_STEPS[currentStepIndex];
-  const isFilterTabsStep = activeStepName === 'filterTabs';
 
   // Feature hook - découplé de DataProvider
   const {
     myQuotes,
-    allAuthors,
     allBooks,
     refreshMyQuotes,
     toggleLike: toggleLikeQuote,
@@ -253,8 +245,6 @@ export default function MyQuotesScreen() {
 
   const { handleConfirmSave } = useQuoteActions();
   const { tabIndex, setTabIndex } = useTabIndex();
-
-  const { user: currentUser } = useAuth();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
   const quotesListRef = useRef<any>(null);
@@ -314,7 +304,6 @@ export default function MyQuotesScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
-  const [expandedSection, setExpandedSection] = useState<'author' | 'book' | 'year' | 'status' | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
   const [firstItemHeight, setFirstItemHeight] = useState(150);
@@ -391,7 +380,6 @@ export default function MyQuotesScreen() {
   const applyFilters = useCallback(() => {
     setActiveFilters([...tempFilters]);
     setFilterModalVisible(false);
-    setExpandedSection(null);
   }, [tempFilters]);
 
   const removeFilter = useCallback((filterToRemove: FilterType) => {
@@ -407,7 +395,6 @@ export default function MyQuotesScreen() {
     setTempFilters([]);
     if (filterModalVisible) {
       setFilterModalVisible(false);
-      setExpandedSection(null);
     }
   }, [filterModalVisible]);
 
@@ -415,9 +402,7 @@ export default function MyQuotesScreen() {
     setActionMenuQuote(quote);
   }, []);
 
-  const toggleSection = useCallback((section: 'author' | 'book' | 'year' | 'status' | null) => {
-    setExpandedSection(current => (current === section ? null : section));
-  }, []);
+
 
   // Wrapper stable pour toggleLikeQuote
   const toggleLikeQuoteStable = useCallback((id: number) => {

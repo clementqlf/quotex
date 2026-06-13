@@ -5,7 +5,6 @@ import { Quote, User } from '@/src/shared/api/types';
 import { OperationQueue, PendingOperation } from '@/src/shared/lib/offline/OperationQueue';
 import NetInfo from '@react-native-community/netinfo';
 
-const MAX_RETRIES = 10;
 
 /**
  * Use Cases pour les Quotes
@@ -40,7 +39,7 @@ export class QuoteUseCases {
                 likesCount: newLikesCount
             });
             return { isLiked: newIsLiked, likesCount: newLikesCount };
-        } catch (error) {
+        } catch {
             // 4. Si échec (hors-ligne), ajouter à la queue
             await this.queue.enqueue({
                 type: newIsLiked ? 'LIKE' : 'UNLIKE',
@@ -67,7 +66,7 @@ export class QuoteUseCases {
         try {
             await this.quoteRepository.updateQuote(id, { isSaved: newIsSaved });
             return { isSaved: newIsSaved };
-        } catch (error) {
+        } catch {
             // Si échec (hors-ligne), ajouter à la queue
             await this.queue.enqueue({
                 type: newIsSaved ? 'SAVE' : 'UNSAVE',
@@ -157,7 +156,7 @@ export class QuoteUseCases {
             if (isOnline) {
                 await this.syncPendingQuotes();
             }
-        } catch (error) {
+        } catch {
             console.log('[QuoteUseCases] Network check failed, will sync later');
         }
 
@@ -244,8 +243,8 @@ export class QuoteUseCases {
     async syncPendingQuotes(): Promise<{
         syncedCount: number;
         total: number;
-        errors: Array<{ quote?: any; operation?: PendingOperation; error: string }>;
-        corrections: Array<{ quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }>;
+        errors: { quote?: any; operation?: PendingOperation; error: string }[];
+        corrections: { quoteId: string; originalAuthor?: string; matchedAuthor?: string; originalBook?: string; matchedBook?: string }[];
     }> {
         if (this.isSyncing) {
             console.log('[QuoteUseCases] Sync already in progress, skipping');
