@@ -22,6 +22,8 @@ node_modules/
 .expo/
 .expo-shared/
 .DS_Store
+ios/
+android/
 
 # Android caches and build dirs
 android/.gradle/
