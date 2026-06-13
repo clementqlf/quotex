@@ -63,7 +63,7 @@ jobs:
           java-version: '17'
 
       - name: Install Maestro
-        run: curl -Ls https://mobile.dev/install | bash
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
 
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3

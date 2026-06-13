@@ -526,7 +526,7 @@ Ajouter après le job `test`:
         run: npm ci
       
       - name: Install Maestro
-        run: curl -Ls https://mobile.dev/install | bash
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
       
       - name: Start Android emulator
         uses: reactivecircus/android-emulator-runner@v2
