@@ -18,6 +18,8 @@ import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react
 import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 import MaskedView from '@react-native-masked-view/masked-view';
+import * as SystemUI from 'expo-system-ui';
+
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -58,6 +60,12 @@ function RootLayoutNav() {
   }, []);
 
   const { isDark, colors: themeColors } = useTheme();
+
+  // Met à jour la couleur de fond native de la fenêtre (UIWindow) pour éviter le fond blanc derrière les modals iOS
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(themeColors.background);
+  }, [themeColors.background]);
+
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const { isLoading } = useAuth();
