@@ -30,7 +30,7 @@ async function fetchBook(bookId: number, userId: string | number | null) {
   // ✅ CORRECTION: Utiliser des CTEs pour éviter les sous-requêtes coûteuses
   const rows = await sql`
     WITH book_users AS (
-      SELECT json_agg(ub) as users
+      SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) as users
       FROM "UserBook" ub
       WHERE ub."bookId" = ${bookId} AND ub."userId" = ${userId}::uuid
     ),
@@ -129,7 +129,7 @@ serve(async (req: Request) => {
             SELECT b.*, 
               (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
               row_to_json(a) as author,
-              COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
+              COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
               COALESCE((
                 SELECT json_agg(json_build_object(
                   'id', l.id,
@@ -149,7 +149,7 @@ serve(async (req: Request) => {
             SELECT b.*, 
               (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
               row_to_json(a) as author,
-              COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
+              COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
               COALESCE((
                 SELECT json_agg(json_build_object(
                   'id', l.id,

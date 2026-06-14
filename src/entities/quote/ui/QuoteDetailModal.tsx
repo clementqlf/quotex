@@ -46,7 +46,7 @@ import { BlockService } from '@/src/shared/api/BlockService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { BLOCK_CONFIGS, QUOTE_DETAIL_BLOCK_OPTIONS } from '@/src/shared/config/blocks';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { formatAbsoluteDate, formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
 import { ThemeColors } from '@/src/shared/theme';
@@ -291,7 +291,7 @@ function QuoteDetailContent() {
     );
   }, [glow1X, glow1Y, glow1Scale, glow2X, glow2Y, glow2Scale, glow3X, glow3Y, glow3Scale, glow4X, glow4Y, glow4Scale]);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
-  const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
+  const { quote: quoteParam, quoteId, showSavedDate } = useLocalSearchParams<{ quote?: string; quoteId?: string; showSavedDate?: string }>();
   
   // Remplacement de useData() par les hooks spécifiques
   const { quotes, updateQuote: updateQuoteMutation, toggleLikeQuote, deleteQuote: deleteQuoteMutation } = useQuote();
@@ -936,10 +936,10 @@ function QuoteDetailContent() {
                   </TouchableOpacity>
                 )}
 
-                {quote.date && (
+                {(quote.date || quote.savedAt) && (
                   <View style={styles.metaRow}>
                     <Calendar size={16} color={colors.textTertiary} />
-                    <Text style={styles.metaTextDate}>{formatRelativeDate(quote.date)}</Text>
+                    <Text style={styles.metaTextDate}>{formatAbsoluteDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</Text>
                   </View>
                 )}
               </View>

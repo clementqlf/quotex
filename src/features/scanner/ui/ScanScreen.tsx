@@ -473,19 +473,17 @@ export default function ScanScreen() {
               onConfirm={async (text, book, author) => {
                 try {
                   console.log('[ScanScreen] onConfirm called for random quote');
-                  console.log('[ScanScreen] text:', text);
-                  console.log('[ScanScreen] book:', book);
-                  console.log('[ScanScreen] author:', author);
 
-                  const result = await saveRandomQuoteToCollection(randomQuote.id);
+                  // Fire and forget the save operation. The hook's implementation
+                  // now handles the optimistic updates (both RAM cache and persistent storage).
+                  saveRandomQuoteToCollection(randomQuote.id).catch(e => {
+                    console.error('[ScanScreen] Background save failed:', e);
+                  });
 
-                  if (result.success) {
-                    PlatformServices.haptics.notificationAsync("success");
-                    setShowRandomQuoteModal(false);
-                    navigateToMyQuotesTop();
-                  } else {
-                    Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
-                  }
+                  // Instant UI feedback and navigation
+                  PlatformServices.haptics.notificationAsync("success");
+                  setShowRandomQuoteModal(false);
+                  navigateToMyQuotesTop();
                 } catch (e) {
                   console.error('[ScanScreen] Failed to save random quote:', e);
                   Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');

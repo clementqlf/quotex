@@ -35,7 +35,7 @@ export interface IQuoteRepository {
    * Ajoute explicitement une citation à la collection de l'utilisateur courant.
    * Cette opération est idempotente: si la citation est déjà sauvegardée, elle ne la retire pas.
    */
-  saveQuote(id: number): Promise<{ isSaved: boolean }>;
+  saveQuote(id: number, quote?: Quote): Promise<{ isSaved: boolean; savedAt?: string | null }>;
 
   /**
    * Met à jour une citation existante.
@@ -62,7 +62,7 @@ export interface IQuoteRepository {
    * Bascule l'état 'Sauvegardé' (Favori) d'une citation.
    * @param id {number} L'ID de la citation.
    */
-  toggleSave(id: number): Promise<{ isSaved: boolean }>;
+  toggleSave(id: number): Promise<{ isSaved: boolean; savedAt?: string | null }>;
   
   // Recherche
   /**

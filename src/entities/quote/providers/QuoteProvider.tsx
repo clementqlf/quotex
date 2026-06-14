@@ -11,7 +11,7 @@ type QuoteContextType = {
   syncStatus: SyncStatus & { syncNow: () => void; isOnline: boolean; isOffline: boolean };
   refreshQuotes: () => Promise<void>;
   toggleLikeQuote: (id: number) => Promise<{ isLiked: boolean; likesCount: number } | void>;
-  toggleSaveQuote: (id: number) => Promise<{ isSaved: boolean } | void>;
+  toggleSaveQuote: (id: number, quote?: Quote) => Promise<{ isSaved: boolean; savedAt?: string | null } | void>;
   deleteQuote: (id: number) => Promise<void>;
   addQuote: (text: string, book?: string | null, author?: string | null) => Promise<Quote>;
   updateQuote: (id: number, updates: Partial<Quote>) => Promise<Quote | void>;
@@ -67,21 +67,33 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     }
   });
 
-  // Mutation pour toggleSave
+  // Mutation pour toggleSave / saveQuote
   const toggleSaveMutation = useMutation({
-    mutationFn: (id: number) => quoteRepository.toggleSave(id),
-    onMutate: async (id) => {
+    mutationFn: ({ id, quote }: { id: number; quote?: Quote }) => 
+      quote ? quoteRepository.saveQuote(id, quote) : quoteRepository.toggleSave(id),
+    onMutate: async ({ id, quote }) => {
       await queryClient.cancelQueries({ queryKey: ['quotes'] });
       const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
       if (previousQuotes) {
         queryClient.setQueryData<Quote[]>(['quotes'], old => {
           if (!old) return [];
-          return old.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q);
+          const exists = old.some(q => q.id === id);
+          if (exists) {
+            return old.map(q => q.id === id ? { 
+              ...q, 
+              isSaved: quote ? true : !q.isSaved,
+              // Ajouter savedAt avec la date actuelle quand on sauvegarde
+              savedAt: (quote || !q.isSaved) ? new Date().toISOString() : null
+            } : q);
+          } else if (quote) {
+            return [{ ...quote, isSaved: true, savedAt: new Date().toISOString() }, ...old];
+          }
+          return old;
         });
       }
       return { previousQuotes };
     },
-    onError: (err, id, ctx) => {
+    onError: (err, variables, ctx) => {
       if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
     },
     onSettled: () => {
@@ -193,7 +205,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     syncStatus,
     refreshQuotes,
     toggleLikeQuote: (id: number) => toggleLikeMutation.mutateAsync(id),
-    toggleSaveQuote: (id: number) => toggleSaveMutation.mutateAsync(id),
+    toggleSaveQuote: (id: number, quote?: Quote) => toggleSaveMutation.mutateAsync({ id, quote }),
     deleteQuote: (id: number) => deleteQuoteMutation.mutateAsync(id),
     addQuote: (text: string, book?: string | null, author?: string | null) => 
       addQuoteMutation.mutateAsync({ text, book, author }),

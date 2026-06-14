@@ -137,7 +137,7 @@ serve(async (req: Request) => {
           row_to_json(bk) as book,
           (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount",
           COALESCE((SELECT json_agg(l) FROM "Like" l WHERE l."quoteId" = q.id AND l."userId" = ${authUserId}::uuid), '[]'::json) as likes,
-          COALESCE((SELECT json_agg(s) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${authUserId}::uuid), '[]'::json) as "savedBy"
+          COALESCE((SELECT json_agg(json_build_object('userId', s."userId", 'quoteId', s."quoteId", 'addedAt', s."addedAt")) FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${authUserId}::uuid), '[]'::json) as "savedBy"
         FROM "Quote" q
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" bk ON bk.id = q."bookId"

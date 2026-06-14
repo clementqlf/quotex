@@ -47,7 +47,8 @@ export interface Quote {
   book?: string | Book | null; // Livre associé (peut être une string ou un objet Book)
   author?: string | Author | null; // Auteur (peut être une string ou un objet Author)
   theme?: string; // Thème de la citation
-  date?: string; // Date de création
+  date?: string; // Date de création de la quote
+  savedAt?: string | null; // Date où l'utilisateur a sauvegardé la quote (userquote.AddedAt)
   likesCount: number; // Nombre de likes
   likes?: QuoteLike[]; // Tableau de relations (pour Supabase)
   isLiked: boolean; // Est-ce que l'utilisateur courant a liké

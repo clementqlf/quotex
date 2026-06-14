@@ -423,6 +423,7 @@ export default function MyQuotesScreen() {
         quote={item}
         onToggleLike={() => toggleLikeQuoteStable(item.id)}
         onOpenMenu={() => handleOpenMenu(item)}
+        showSavedDate
       />
     );
 

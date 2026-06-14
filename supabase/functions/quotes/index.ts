@@ -33,16 +33,25 @@ async function fetchQuotes(userId: string | null, quoteId?: number) {
         WHERE l."quoteId" = q.id AND l."userId" = ${userId}::uuid
       ), '[]'::json) as "likes",
       COALESCE((
-        SELECT json_agg(s) 
+        SELECT json_agg(json_build_object('userId', s."userId", 'quoteId', s."quoteId", 'addedAt', s."addedAt")) 
         FROM "UserQuote" s 
         WHERE s."quoteId" = q.id AND s."userId" = ${userId}::uuid
-      ), '[]'::json) as "savedBy"
+      ), '[]'::json) as "savedBy",
+      COALESCE((
+        SELECT s."addedAt" 
+        FROM "UserQuote" s 
+        WHERE s."quoteId" = q.id AND s."userId" = ${userId}::uuid
+        LIMIT 1
+      ), NULL) as "savedAt"
     FROM "Quote" q
     LEFT JOIN "Profile" u ON u.id = q."userId"
     LEFT JOIN "Author" a ON a."id" = q."authorId"
     LEFT JOIN "Book" b ON b."id" = q."bookId"
     WHERE (q."isPublic" = true OR q."userId" = ${userId}::uuid) ${where}
-    ORDER BY q."date" DESC
+    ORDER BY COALESCE(
+      (SELECT s."addedAt" FROM "UserQuote" s WHERE s."quoteId" = q.id AND s."userId" = ${userId}::uuid LIMIT 1),
+      q."date"
+    ) DESC
   `;
 
   // ✅ CORRECTION: Pour les UserBook, faire une requête séparée batch si userId existe
@@ -54,7 +63,7 @@ async function fetchQuotes(userId: string | null, quoteId?: number) {
     
     if (bookIds.length > 0) {
       const userBooks = await sql`
-        SELECT "bookId", json_agg(ub) as users
+        SELECT "bookId", json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) as users
         FROM "UserBook" ub
         WHERE ub."bookId" = ANY(${bookIds})
           AND ub."userId" = ${userId}::uuid
@@ -594,14 +603,14 @@ serve(async (req: Request) => {
       if (authUser instanceof Response) return authUser;
 
       const existing = await sql`
-        SELECT 1 FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam} LIMIT 1
+        SELECT 1, "addedAt" FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam} LIMIT 1
       `;
       if (existing.length) {
-        await sql`DELETE FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam}`;
-        return json({ isSaved: false });
+        const deleted = await sql`DELETE FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam} RETURNING "addedAt"`;
+        return json({ isSaved: false, savedAt: deleted[0]?.addedAt || null });
       } else {
-        await sql`INSERT INTO "UserQuote" ("userId", "quoteId", "addedAt") VALUES (${authUser.id}, ${idParam}, now())`;
-        return json({ isSaved: true });
+        const inserted = await sql`INSERT INTO "UserQuote" ("userId", "quoteId", "addedAt") VALUES (${authUser.id}, ${idParam}, now()) RETURNING "addedAt"`;
+        return json({ isSaved: true, savedAt: inserted[0].addedAt });
       }
     }
 
@@ -877,35 +886,55 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      // Get the quote details before deleting to check if we need to clean up the book
+      // Get the quote details to check ownership and associated book
       const quoteRows = await sql`
-        SELECT "bookId" FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id} LIMIT 1
+        SELECT "userId", "bookId" FROM "Quote" WHERE id = ${idParam} LIMIT 1
       `;
-      if (quoteRows.length > 0) {
-        const quoteBookId = quoteRows[0].bookId;
+      if (quoteRows.length === 0) {
+        return error('Quote not found', 404);
+      }
 
-        await sql`DELETE FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id}`;
+      const quoteOwnerId = quoteRows[0].userId;
+      const quoteBookId = quoteRows[0].bookId;
 
-        if (quoteBookId) {
-          // Check if there are other quotes referencing this book
-          const otherQuotes = await sql`
-            SELECT 1 FROM "Quote"
+      if (quoteOwnerId === authUser.id) {
+        // User is the owner: delete the quote itself (cascades to UserQuote & Like)
+        await sql`DELETE FROM "Quote" WHERE id = ${idParam}`;
+      } else {
+        // User is not the owner: check if they have it saved and delete the link
+        const savedRows = await sql`
+          SELECT 1 FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam} LIMIT 1
+        `;
+        if (savedRows.length === 0) {
+          return error('Unauthorized or quote not saved', 403);
+        }
+        await sql`DELETE FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam}`;
+      }
+
+      // Cleanup associated book from library if added via quote and no other quotes reference it
+      if (quoteBookId) {
+        const otherQuotes = await sql`
+          SELECT 1 FROM "Quote" q
+          WHERE q."bookId" = ${quoteBookId}
+            AND q.id != ${idParam}
+            AND (
+              q."userId" = ${authUser.id}
+              OR EXISTS (
+                SELECT 1 FROM "UserQuote" uq
+                WHERE uq."quoteId" = q.id
+                  AND uq."userId" = ${authUser.id}
+              )
+            )
+          LIMIT 1
+        `;
+        if (otherQuotes.length === 0) {
+          await sql`
+            DELETE FROM "UserBook"
             WHERE "userId" = ${authUser.id}
               AND "bookId" = ${quoteBookId}
-            LIMIT 1
+              AND "addedViaQuote" = true
           `;
-          if (otherQuotes.length === 0) {
-            // Delete from UserBook if added via quote
-            await sql`
-              DELETE FROM "UserBook"
-              WHERE "userId" = ${authUser.id}
-                AND "bookId" = ${quoteBookId}
-                AND "addedViaQuote" = true
-            `;
-          }
         }
-      } else {
-        await sql`DELETE FROM "Quote" WHERE id = ${idParam} AND "userId" = ${authUser.id}`;
       }
 
       return json({ success: true });

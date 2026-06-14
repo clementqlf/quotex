@@ -775,7 +775,7 @@ export default function UserProfileScreen() {
                         <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
                         <Text style={styles.savedQuoteBook}>{getBookTitle(quote.book)}</Text>
                       </View>
-                      <Text style={styles.savedQuoteDate}>{quote.time}</Text>
+                      <Text style={styles.savedQuoteDate}>{quote.savedAt ? new Date(quote.savedAt).toLocaleDateString() : quote.time}</Text>
                     </View>
                   </TouchableOpacity>
                 ))}

@@ -88,7 +88,7 @@ export interface ScanControllerActions {
   
   // Quote saving
   saveScannedQuote: (text: string, book?: string | null, author?: string | null) => Promise<{ success: boolean; quote?: Quote; error?: string }>;
-  saveRandomQuoteToCollection: (quoteId: number) => Promise<{ success: boolean; isSaved?: boolean; error?: string }>;
+  saveRandomQuoteToCollection: (quoteId: number) => Promise<{ success: boolean; isSaved?: boolean; savedAt?: string | null; error?: string }>;
   
   // ISBN actions
   checkAndHandleIsbn: (text: string) => Promise<boolean>;

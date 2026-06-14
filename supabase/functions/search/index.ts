@@ -41,7 +41,7 @@ serve(async (req: Request) => {
         // 1. Search in Edition table (ISBN belongs to an edition, not a work)
         const editionMatch = await sql`
           SELECT b.*, e.isbn as isbn, row_to_json(a) as author,
-            COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
+            COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
             COALESCE((
               SELECT json_agg(json_build_object(
                 'id', l.id,
@@ -204,7 +204,7 @@ serve(async (req: Request) => {
       const authorIds = localAuthorsRaw.map((a: any) => a.id).filter(Boolean);
       if (authorIds.length > 0) {
         const userAuthors = await sql`
-          SELECT "authorId", json_agg(ua) as users
+          SELECT "authorId", json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) as users
           FROM "UserAuthor" ua
           WHERE ua."authorId" = ANY(${authorIds}) AND ua."userId" = ${authUserId}::uuid
           GROUP BY "authorId"
@@ -219,7 +219,7 @@ serve(async (req: Request) => {
       const bookIds = localBooksRaw.map((b: any) => b.id).filter(Boolean);
       if (bookIds.length > 0) {
         const userBooks = await sql`
-          SELECT "bookId", json_agg(ub) as users
+          SELECT "bookId", json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) as users
           FROM "UserBook" ub
           WHERE ub."bookId" = ANY(${bookIds}) AND ub."userId" = ${authUserId}::uuid
           GROUP BY "bookId"
@@ -260,7 +260,7 @@ serve(async (req: Request) => {
         const likesMap = new Map(likes.map((l: any) => [l.quoteId, l.likes || []]));
         
         const savedBy = await sql`
-          SELECT "quoteId", json_agg(s) as savedBy
+          SELECT "quoteId", json_agg(json_build_object('userId', s."userId", 'quoteId', s."quoteId", 'addedAt', s."addedAt")) as savedBy
           FROM "UserQuote" s
           WHERE s."quoteId" = ANY(${quoteIds}) AND s."userId" = ${authUserId}::uuid
           GROUP BY "quoteId"
