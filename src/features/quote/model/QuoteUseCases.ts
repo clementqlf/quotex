@@ -80,6 +80,24 @@ export class QuoteUseCases {
     }
 
     /**
+     * Sauvegarde explicitement une citation dans la collection de l'utilisateur.
+     * Cette action est idempotente: elle ne retire jamais la citation.
+     */
+    async saveQuoteToCollection(id: number): Promise<{ isSaved: boolean }> {
+        try {
+            return await this.quoteRepository.saveQuote(id);
+        } catch {
+            await this.queue.enqueue({
+                type: 'SAVE',
+                entityType: 'quote',
+                entityId: id,
+            });
+
+            return { isSaved: true };
+        }
+    }
+
+    /**
      * Supprime une citation
      */
     async deleteQuote(id: number): Promise<void> {

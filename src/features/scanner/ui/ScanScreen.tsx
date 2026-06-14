@@ -112,11 +112,16 @@ export default function ScanScreen() {
   const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
-  const { tabIndex, setTabIndex } = useTabIndex();
+  const { tabIndex, setTabIndex, setPage } = useTabIndex();
   const { resetTour } = useAppTour();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
   const { quotes, toggleSaveQuote } = useQuote();
+
+  const navigateToMyQuotesTop = React.useCallback(() => {
+    setTabIndex(0);
+    setPage?.(0);
+  }, [setPage, setTabIndex]);
 
   // ========== SCAN CONTROLLER ==========
   // Gère toute la logique de scan via un hook centralisé
@@ -187,6 +192,7 @@ export default function ScanScreen() {
     handleResetCapture,
     handlePickImage,
     saveScannedQuote,
+    saveRandomQuoteToCollection,
     cleanup,
   } = scanController;
 
@@ -340,7 +346,13 @@ export default function ScanScreen() {
             onReset={handleResetCapture}
             isGallery={isFromGallery}
             normalizedSize={ocrNormalizedSize}
-            onSave={saveScannedQuote}
+            onSave={async (text, book, author) => {
+              const result = await saveScannedQuote(text, book, author);
+              if (result.success) {
+                navigateToMyQuotesTop();
+              }
+              return result;
+            }}
           />
         )}
       </Modal>
@@ -465,17 +477,14 @@ export default function ScanScreen() {
                   console.log('[ScanScreen] book:', book);
                   console.log('[ScanScreen] author:', author);
 
-                  // Le bouton "Enregistrer" doit uniquement associer la citation à la collection de l'utilisateur.
-                  if (randomQuote.isSaved) {
-                    setShowRandomQuoteModal(false);
-                    return;
-                  }
+                  const result = await saveRandomQuoteToCollection(randomQuote.id);
 
-                  await toggleSaveQuote(randomQuote.id);
-                  
-                  if (randomQuote.id) {
+                  if (result.success) {
                     PlatformServices.haptics.notificationAsync("success");
                     setShowRandomQuoteModal(false);
+                    navigateToMyQuotesTop();
+                  } else {
+                    Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
                   }
                 } catch (e) {
                   console.error('[ScanScreen] Failed to save random quote:', e);

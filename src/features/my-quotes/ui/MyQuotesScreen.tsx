@@ -249,6 +249,13 @@ export default function MyQuotesScreen() {
   // Ref pour scroller vers le haut après un ajout via le scanner
   const quotesListRef = useRef<any>(null);
 
+  const scrollToQuotesTop = useCallback(() => {
+    setViewMode('quotes');
+    setTimeout(() => {
+      quotesListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, 50);
+  }, []);
+
   const isFocused = tabIndex === 0;
 
   // Scroll vers le haut quand on revient à l'onglet "Mes Citations" (tabIndex = 0)
@@ -776,6 +783,7 @@ export default function MyQuotesScreen() {
             setEditingQuote,
             isFromScanner: false,
           });
+          scrollToQuotesTop();
         }}
         scannedText={editingQuote ? editingQuote.text : ""}
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}

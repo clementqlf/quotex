@@ -32,6 +32,12 @@ export interface IQuoteRepository {
   createQuote(text: string, book?: string | null, author?: string | null): Promise<Quote>;
 
   /**
+   * Ajoute explicitement une citation à la collection de l'utilisateur courant.
+   * Cette opération est idempotente: si la citation est déjà sauvegardée, elle ne la retire pas.
+   */
+  saveQuote(id: number): Promise<{ isSaved: boolean }>;
+
+  /**
    * Met à jour une citation existante.
    * @param id {number} L'ID de la citation.
    * @param updates {Partial<Quote>} Les modifications à apporter.

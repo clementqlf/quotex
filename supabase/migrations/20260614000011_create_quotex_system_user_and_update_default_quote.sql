@@ -11,8 +11,7 @@ DECLARE
   v_book_id INTEGER;
   v_quote_id INTEGER;
   v_quotex_uuid UUID := '00000000-0000-0000-0000-000000000000';
-  v_quotex_image TEXT := 'https://raw.githubusercontent.com/clementqlf/quotex/feat%2Fexpo-56-upgrade/assets/images/quotex_logo.png';
-  r RECORD;
+  v_quotex_image TEXT := 'https://neurbzkkfxrjzjykthtn.supabase.co/storage/v1/object/public/avatars/00000000-0000-0000-0000-000000000000/Icon-iOS-Default-1024x1024@1x.png'
 BEGIN
   UPDATE public."Profile"
   SET image = COALESCE(image, v_quotex_image)
@@ -86,9 +85,9 @@ BEGIN
   -- 1. Création du profil utilisateur dans Profile
   INSERT INTO public."Profile" (id, username, name, image)
   VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)), 
-    new.raw_user_meta_data->>'name', 
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    new.raw_user_meta_data->>'name',
     CASE WHEN new.id = v_quotex_uuid THEN v_quotex_image ELSE new.raw_user_meta_data->>'image' END
   )
   ON CONFLICT (id) DO NOTHING;
@@ -111,10 +110,10 @@ BEGIN
 
   IF new.id = v_quotex_uuid THEN
     -- Si c'est le compte système Quotex, on crée la citation modèle globale
-    SELECT id INTO v_quotex_quote_id FROM public."Quote" 
+    SELECT id INTO v_quotex_quote_id FROM public."Quote"
     WHERE text = 'Pesons le gain et la perte, en prenant croix que Dieu est. Estimons ces deux cas : si vous gagnez, vous gagnez tout; si vous perdez, vous ne perdez rien. Gagez donc qu''il est, sans hésiter.'
       AND "userId" = v_quotex_uuid LIMIT 1;
-      
+
     IF v_quotex_quote_id IS NULL THEN
       INSERT INTO public."Quote" (text, "userId", "authorId", "bookId", "likesCount", theme, "isPublic")
       VALUES (
@@ -132,8 +131,8 @@ BEGIN
     PERFORM public.seed_quotex_static_content();
   ELSE
     -- Pour tout autre utilisateur, on trouve la citation modèle globale possédée par Quotex
-    SELECT id INTO v_quotex_quote_id FROM public."Quote" 
-    WHERE "userId" = v_quotex_uuid 
+    SELECT id INTO v_quotex_quote_id FROM public."Quote"
+    WHERE "userId" = v_quotex_uuid
       AND text = 'Pesons le gain et la perte, en prenant croix que Dieu est. Estimons ces deux cas : si vous gagnez, vous gagnez tout; si vous perdez, vous ne perdez rien. Gagez donc qu''il est, sans hésiter.'
     LIMIT 1;
 

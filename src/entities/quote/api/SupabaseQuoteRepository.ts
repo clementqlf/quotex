@@ -278,6 +278,19 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     };
   }
 
+    async saveQuote(id: number): Promise<{ isSaved: boolean }> {
+        const currentQuote = await this.getQuoteById(id);
+        if (!currentQuote) {
+                throw new Error(`Quote with id ${id} not found`);
+        }
+
+        if (currentQuote.isSaved) {
+                return { isSaved: true };
+        }
+
+        return this.toggleSave(id);
+    }
+
   async updateQuote(id: number, updates: Partial<Quote>): Promise<Quote> {
     // Maintain local cache update for offline/responsiveness
     const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
