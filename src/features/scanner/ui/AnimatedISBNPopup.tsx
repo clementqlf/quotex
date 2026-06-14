@@ -1,5 +1,6 @@
+/* eslint-disable react-hooks/refs */
 import { BookOpen, ChevronRight, X } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -35,9 +36,9 @@ export default function AnimatedISBNPopup({
   onPress,
   onDismiss,
 }: AnimatedISBNPopupProps) {
-  const translateY = useRef(new Animated.Value(120)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  const dragY = useRef(new Animated.Value(0)).current;
+  const [translateY] = useState(() => new Animated.Value(120));
+  const [opacity] = useState(() => new Animated.Value(0));
+  const [dragY] = useState(() => new Animated.Value(0));
   const isDismissing = useRef(false);
 
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function AnimatedISBNPopup({
     ]).start();
   }, [translateY, opacity]);
 
-  const dismiss = () => {
+  const dismiss = useCallback(() => {
     if (isDismissing.current) return;
     isDismissing.current = true;
     Animated.parallel([
@@ -73,35 +74,37 @@ export default function AnimatedISBNPopup({
         useNativeDriver: true,
       }),
     ]).start(() => onDismiss());
-  };
+  }, [translateY, opacity, onDismiss]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        gestureState.dy > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
-      onPanResponderGrant: () => {
-        dragY.setValue(0);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          dragY.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 60) {
-          dismiss();
-        } else {
-          Animated.spring(dragY, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 20,
-            stiffness: 300,
-          }).start();
-        }
-      },
-    })
-  ).current;
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          gestureState.dy > 8 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onPanResponderGrant: () => {
+          dragY.setValue(0);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy > 0) {
+            dragY.setValue(gestureState.dy);
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 60) {
+            dismiss();
+          } else {
+            Animated.spring(dragY, {
+              toValue: 0,
+              useNativeDriver: true,
+              damping: 20,
+              stiffness: 300,
+            }).start();
+          }
+        },
+      }),
+    [dragY, dismiss]
+  );
 
   const combinedTranslate = Animated.add(translateY, dragY);
 

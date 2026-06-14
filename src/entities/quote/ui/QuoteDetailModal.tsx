@@ -46,7 +46,7 @@ import { BlockService } from '@/src/shared/api/BlockService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { BLOCK_CONFIGS, QUOTE_DETAIL_BLOCK_OPTIONS } from '@/src/shared/config/blocks';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { formatAbsoluteDate, formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
 import { ThemeColors } from '@/src/shared/theme';
@@ -507,7 +507,9 @@ function QuoteDetailContent() {
   };
 
 
-  React.useEffect(() => {
+  const [prevQuoteIdState, setPrevQuoteIdState] = React.useState<string | undefined>(undefined);
+  if (quoteId !== prevQuoteIdState) {
+    setPrevQuoteIdState(quoteId);
     if (quoteId) {
       const globalQuote = quotes.find(q => q.id === parseInt(quoteId));
       if (globalQuote) {
@@ -515,7 +517,7 @@ function QuoteDetailContent() {
         setQuote(globalQuote);
       }
     }
-  }, [quoteId, quotes]);
+  }
 
   React.useEffect(() => {
     if (quoteId) {

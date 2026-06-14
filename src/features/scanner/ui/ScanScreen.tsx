@@ -117,7 +117,7 @@ export default function ScanScreen() {
   const { resetTour } = useAppTour();
   const isFocused = tabIndex === 1 || pathname === '/scan';
   const { setSwipeEnabled } = useSwipeEnabled();
-  const { quotes, toggleSaveQuote } = useQuote();
+  const { quotes } = useQuote();
 
   const navigateToMyQuotesTop = React.useCallback(() => {
     setTabIndex(0);

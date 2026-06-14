@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs */
 import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
 import { Bug, Eraser, Trash2 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -116,8 +117,8 @@ const useScanWorkflowLogic = (
     selectionRangeRef.current = selectionRange;
   }, [words, selectionRange]);
 
-  const startPinResponder = useRef(
-    PanResponder.create({
+  const startPinResponder = useMemo(
+    () => PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt, gestureState) => {
         PlatformServices.haptics.impactAsync("light");
@@ -152,11 +153,12 @@ const useScanWorkflowLogic = (
           });
         }
       },
-    })
-  ).current;
+    }),
+    [findWordAtPosition, setSelectionRange]
+  );
 
-  const endPinResponder = useRef(
-    PanResponder.create({
+  const endPinResponder = useMemo(
+    () => PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt, gestureState) => {
         PlatformServices.haptics.impactAsync("light");
@@ -190,8 +192,9 @@ const useScanWorkflowLogic = (
           });
         }
       },
-    })
-  ).current;
+    }),
+    [findWordAtPosition, setSelectionRange]
+  );
 
   // Actions pour les boutons
   const handleCopy = async () => {

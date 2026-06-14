@@ -49,6 +49,14 @@ export default function BarcodeScannerModal({
     // Scan line animation
     const scanLineY = useSharedValue(0);
 
+    const [prevVisible, setPrevVisible] = useState(false);
+    if (visible !== prevVisible) {
+        setPrevVisible(visible);
+        if (!visible) {
+            setTorch('off');
+        }
+    }
+
     useEffect(() => {
         if (visible) {
             scanLineY.value = withRepeat(
@@ -61,7 +69,6 @@ export default function BarcodeScannerModal({
             );
         } else {
             scanLineY.value = 0;
-            setTorch('off');
         }
     }, [visible, scanLineY]);
 

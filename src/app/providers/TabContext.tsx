@@ -82,6 +82,7 @@ export const useTabController = (): TabControllerResult => {
   // Handler pour le scroll des pages
   const onPageScroll = useCallback((event: PageScrollEvent) => {
     'worklet';
+    // eslint-disable-next-line react-hooks/immutability
     position.value = event.position + event.offset;
   }, [position]);
 
@@ -94,6 +95,7 @@ export const useTabController = (): TabControllerResult => {
   const setPage = useCallback((idx: number) => {
     if (idx !== index) {
       setIndex(idx);
+      // eslint-disable-next-line react-hooks/immutability
       position.value = idx;
       pagerRef.current?.setPage(idx);
     }

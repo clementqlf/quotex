@@ -18,25 +18,60 @@ import { useBookDetailController } from './useBookDetailController';
 export default function BookDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const controller = useBookDetailController();
+  
+  const {
+    router,
+    navigateToAuthor,
+    bookTitle,
+    bookInfo,
+    isLoadingMetadata,
+    activeTab,
+    setActiveTab,
+    currentTabBlocks,
+    scrollableRef,
+    isSaved,
+    handleHeaderSavePress,
+    handleShare,
+    handleRemoveBlock,
+    handleOrderChange,
+    openAddBlockModal,
+    isAddBlockModalVisible,
+    closeAddBlockModal,
+    handleAddBlock,
+    filteredBlockOptions,
+    isDictionaryModalVisible,
+    setDictionaryModalVisible,
+    aggregatedDefinitions,
+    hiddenTerms,
+    manualDefinitions,
+    handleUpdateBlockData,
+    isResourceSearchModalVisible,
+    setResourceSearchModalVisible,
+    setCurrentConnectionBlockId,
+    handleResourceSelected,
+    blockContext,
+    getStatusColor,
+    getStatusLabel,
+    DESCRIPTION_BLOCKS,
+  } = useBookDetailController();
 
   const renderGridItem = useCallback(({ item }: { item: string }) => (
     <BlockDispatcher
       blockId={item}
-      context={controller.blockContext}
-      onRemove={() => controller.handleRemoveBlock(item)}
+      context={blockContext}
+      onRemove={() => handleRemoveBlock(item)}
     />
-  ), [controller]);
+  ), [blockContext, handleRemoveBlock]);
 
-  if (controller.isLoadingMetadata) {
+  if (isLoadingMetadata) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => controller.router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>{controller.bookTitle || "Chargement..."}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle || "Chargement..."}</Text>
             <View style={styles.saveButton} />
           </View>
           <BookDetailSkeleton colors={colors} />
@@ -45,7 +80,7 @@ export default function BookDetailScreen() {
     );
   }
 
-  if (!controller.bookTitle) {
+  if (!bookTitle) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
@@ -55,15 +90,15 @@ export default function BookDetailScreen() {
     );
   }
 
-  if (!controller.bookInfo) {
+  if (!bookInfo) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => controller.router.back()}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{controller.bookTitle}</Text>
+            <Text style={styles.headerTitle}>{bookTitle}</Text>
             <View style={styles.saveButton} />
           </View>
           <Text style={styles.errorText}>Livre non trouvé sur le serveur.</Text>
@@ -72,56 +107,56 @@ export default function BookDetailScreen() {
     );
   }
 
-  const averageRating = controller.bookInfo.rating ? controller.bookInfo.rating.toFixed(1) : "N/A";
+  const averageRating = bookInfo.rating ? bookInfo.rating.toFixed(1) : "N/A";
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => controller.router.back()}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{controller.bookTitle}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
           <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerButton} onPress={controller.handleShare}>
+            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
               <ShareIcon size={22} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} onPress={controller.handleHeaderSavePress}>
-              {controller.isSaved ? <Check size={24} color={colors.primary} /> : <Plus size={24} color={colors.text} />}
+            <TouchableOpacity style={styles.headerButton} onPress={handleHeaderSavePress}>
+              {isSaved ? <Check size={24} color={colors.primary} /> : <Plus size={24} color={colors.text} />}
             </TouchableOpacity>
           </View>
         </View>
 
         <Animated.ScrollView
-          ref={controller.scrollableRef}
+          ref={scrollableRef}
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.section}>
             <View style={styles.bookContainer}>
-              <Image source={{ uri: controller.bookInfo.cover }} style={styles.bookCoverImage} />
+              <Image source={{ uri: bookInfo.cover }} style={styles.bookCoverImage} />
               <View style={styles.bookInfo}>
-                <Text style={styles.bookTitleText}>{controller.bookTitle}</Text>
+                <Text style={styles.bookTitleText}>{bookTitle}</Text>
                 <TouchableOpacity
-                  disabled={!controller.bookInfo?.author || getAuthorName(controller.bookInfo?.author) === "Auteur inconnu"}
+                  disabled={!bookInfo?.author || getAuthorName(bookInfo?.author) === "Auteur inconnu"}
                   onPress={() => {
-                    const authorName = getAuthorName(controller.bookInfo?.author);
-                    const inventaireUri = typeof controller.bookInfo?.author === 'object' && controller.bookInfo?.author !== null ? (controller.bookInfo?.author as any).inventaireUri : undefined;
-                    controller.navigateToAuthor(authorName, inventaireUri);
+                    const authorName = getAuthorName(bookInfo?.author);
+                    const inventaireUri = typeof bookInfo?.author === 'object' && bookInfo?.author !== null ? (bookInfo?.author as any).inventaireUri : undefined;
+                    navigateToAuthor(authorName, inventaireUri);
                   }}
                 >
-                  <Text style={styles.bookAuthorText}>{getAuthorName(controller.bookInfo?.author)}</Text>
+                  <Text style={styles.bookAuthorText}>{getAuthorName(bookInfo?.author)}</Text>
                 </TouchableOpacity>
 
                 <View style={styles.bookMeta}>
                   <View style={styles.metaItem}>
                     <Calendar size={14} color={colors.textTertiary} />
-                    <Text style={styles.metaText}>{controller.bookInfo.year}</Text>
+                    <Text style={styles.metaText}>{bookInfo.year}</Text>
                   </View>
                   <View style={styles.metaItem}>
                     <BookOpen size={14} color={colors.textTertiary} />
-                    <Text style={styles.metaText}>{controller.bookInfo.pages} p.</Text>
+                    <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
                   </View>
                   <View style={styles.metaItem}>
                     <Star size={14} color={colors.primary} fill={colors.primary} />
@@ -130,24 +165,24 @@ export default function BookDetailScreen() {
                 </View>
 
                 <View style={styles.badgeContainer}>
-                  {controller.bookInfo.genre && controller.bookInfo.genre !== 'Unknown' && controller.bookInfo.genre !== '' && (
+                  {bookInfo.genre && bookInfo.genre !== 'Unknown' && bookInfo.genre !== '' && (
                     <View style={styles.genreBadge}>
-                      <Text style={styles.genreText}>{controller.bookInfo.genre}</Text>
+                      <Text style={styles.genreText}>{bookInfo.genre}</Text>
                     </View>
                   )}
 
-                  {controller.bookInfo.readingStatus && (
+                  {bookInfo.readingStatus && (
                     <View style={[styles.statusBadge, {
-                      backgroundColor: controller.getStatusColor(controller.bookInfo.readingStatus) + '15',
-                      borderColor: controller.getStatusColor(controller.bookInfo.readingStatus) + '40'
+                      backgroundColor: getStatusColor(bookInfo.readingStatus) + '15',
+                      borderColor: getStatusColor(bookInfo.readingStatus) + '40'
                     }]}>
-                      <Text style={[styles.statusText, { color: controller.getStatusColor(controller.bookInfo.readingStatus) }]}>
-                        {controller.getStatusLabel(controller.bookInfo.readingStatus)}
+                      <Text style={[styles.statusText, { color: getStatusColor(bookInfo.readingStatus) }]}>
+                        {getStatusLabel(bookInfo.readingStatus)}
                       </Text>
                     </View>
                   )}
 
-                  {controller.bookInfo.laureates?.map(laureate => (
+                  {bookInfo.laureates?.map(laureate => (
                     <TouchableOpacity
                       key={`prize-${laureate.id}`}
                       onPress={() => {
@@ -170,32 +205,32 @@ export default function BookDetailScreen() {
 
           <View style={styles.tabContainer}>
             <TouchableOpacity
-              style={[styles.tabButton, controller.activeTab === "description" && styles.activeTabButton]}
-              onPress={() => controller.setActiveTab("description")}
+              style={[styles.tabButton, activeTab === "description" && styles.activeTabButton]}
+              onPress={() => setActiveTab("description")}
             >
-              <Text style={[styles.tabText, controller.activeTab === "description" && styles.activeTabText]}>Description</Text>
+              <Text style={[styles.tabText, activeTab === "description" && styles.activeTabText]}>Description</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tabButton, controller.activeTab === "my_sheet" && styles.activeTabButton]}
-              onPress={() => controller.setActiveTab("my_sheet")}
+              style={[styles.tabButton, activeTab === "my_sheet" && styles.activeTabButton]}
+              onPress={() => setActiveTab("my_sheet")}
             >
-              <Text style={[styles.tabText, controller.activeTab === "my_sheet" && styles.activeTabText]}>Ma fiche</Text>
+              <Text style={[styles.tabText, activeTab === "my_sheet" && styles.activeTabText]}>Ma fiche</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.gridSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
-                {controller.activeTab === "description" ? "Détails du livre" : "Mon espace personnel"}
+                {activeTab === "description" ? "Détails du livre" : "Mon espace personnel"}
               </Text>
             </View>
-            {controller.activeTab === "description" ? (
+            {activeTab === "description" ? (
               <View style={{ gap: 10 }}>
-                {controller.DESCRIPTION_BLOCKS.map(blockKey => (
+                {DESCRIPTION_BLOCKS.map(blockKey => (
                   <BlockDispatcher
                     key={blockKey}
                     blockId={blockKey}
-                    context={controller.blockContext}
+                    context={blockContext}
                   />
                 ))}
               </View>
@@ -203,27 +238,27 @@ export default function BookDetailScreen() {
               <>
                 <Sortable.Grid
                   columns={1}
-                  data={controller.currentTabBlocks}
+                  data={currentTabBlocks}
                   renderItem={renderGridItem as any}
                   rowGap={10}
                   columnGap={10}
-                  scrollableRef={controller.scrollableRef}
+                  scrollableRef={scrollableRef}
                   autoScrollEnabled={true}
                   autoScrollActivationOffset={75}
                   onOrderChange={(params) => {
                     const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                    controller.handleOrderChange(fromIndex, toIndex);
+                    handleOrderChange(fromIndex, toIndex);
                   }}
                 />
-                <TouchableOpacity style={styles.placeholderSection} onPress={controller.openAddBlockModal}>
+                <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
                   <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
                   <Text style={styles.placeholderText}>Ajouter un bloc</Text>
                 </TouchableOpacity>
                 <AddBlockModal
-                  visible={controller.isAddBlockModalVisible}
-                  onClose={controller.closeAddBlockModal}
-                  onSelect={controller.handleAddBlock}
-                  options={controller.filteredBlockOptions as any}
+                  visible={isAddBlockModalVisible}
+                  onClose={closeAddBlockModal}
+                  onSelect={handleAddBlock}
+                  options={filteredBlockOptions as any}
                 />
               </>
             )}
@@ -231,23 +266,23 @@ export default function BookDetailScreen() {
         </Animated.ScrollView>
 
         <BookDictionaryModal
-          visible={controller.isDictionaryModalVisible}
-          onClose={() => controller.setDictionaryModalVisible(false)}
-          availableDefinitions={controller.aggregatedDefinitions || []}
-          hiddenTerms={(controller.hiddenTerms || []) as string[]}
-          currentManualDefinitions={controller.manualDefinitions || []}
+          visible={isDictionaryModalVisible}
+          onClose={() => setDictionaryModalVisible(false)}
+          availableDefinitions={aggregatedDefinitions || []}
+          hiddenTerms={(hiddenTerms || []) as string[]}
+          currentManualDefinitions={manualDefinitions || []}
           onUpdate={(newManuals, newHidden) => {
-            controller.handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
+            handleUpdateBlockData('dictionary', { manualDefinitions: newManuals, hiddenTerms: newHidden });
           }}
         />
 
         <ResourceSearchModal
-          visible={controller.isResourceSearchModalVisible}
+          visible={isResourceSearchModalVisible}
           onClose={() => {
-            controller.setResourceSearchModalVisible(false);
-            controller.setCurrentConnectionBlockId(null);
+            setResourceSearchModalVisible(false);
+            setCurrentConnectionBlockId(null);
           }}
-          onSelect={controller.handleResourceSelected}
+          onSelect={handleResourceSelected}
         />
       </View>
     </SafeAreaView>

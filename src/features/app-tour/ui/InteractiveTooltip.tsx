@@ -85,22 +85,23 @@ export function InteractiveTooltip({
   const shouldReactNativeModal = useReactNativeModal ?? true;
   const tooltipBgColor = 'rgba(0,0,0,0.6)';
 
+  const targetTab = activeStepName ? STEP_TAB_MAP[activeStepName] : null;
+  const isTabCorrect = targetTab === null || targetTab === undefined || tabIndex === targetTab;
+  const shouldBeVisible = isStepActive && isTabCorrect;
+
+  if (!shouldBeVisible && localVisible) {
+    setLocalVisible(false);
+  }
+
   useEffect(() => {
-    if (!activeStepName) return;
-
-    const targetTab = STEP_TAB_MAP[activeStepName];
-    const isTabCorrect = targetTab === null || targetTab === undefined || tabIndex === targetTab;
-
-    if (isStepActive && isTabCorrect) {
-      const delay = STEP_DELAYS[activeStepName] || 50;
+    if (shouldBeVisible) {
+      const delay = (activeStepName && STEP_DELAYS[activeStepName]) || 50;
       const timer = setTimeout(() => {
         setLocalVisible(true);
       }, delay);
       return () => clearTimeout(timer);
-    } else {
-      setLocalVisible(false);
     }
-  }, [isActive, currentStepIndex, isStepActive, tabIndex, activeStepName]);
+  }, [shouldBeVisible, activeStepName]);
 
   const handleNext = async () => {
     if (activeStepName === 'quoteCardDetail') {

@@ -244,7 +244,14 @@ export default function AuthorDetailScreen() {
 
   React.useEffect(() => {
     const controller = new AbortController();
-    loadAuthorData(controller.signal);
+    
+    // Defer the call using a microtask to avoid synchronous setState inside the effect body
+    Promise.resolve().then(() => {
+      if (!controller.signal.aborted) {
+        loadAuthorData(controller.signal);
+      }
+    });
+
     return () => {
       controller.abort();
     };

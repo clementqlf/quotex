@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { Check, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface WordSelectionModalProps {
@@ -16,21 +16,21 @@ export default function WordSelectionModal({ visible, onClose, onConfirm, quoteT
     const styles = React.useMemo(() => createStyles(colors), [colors]);
     const [words, setWords] = useState<{ id: number; text: string; selected: boolean }[]>([]);
 
-    useEffect(() => {
+    const [prevQuoteText, setPrevQuoteText] = useState('');
+
+    if (quoteText !== prevQuoteText) {
+        setPrevQuoteText(quoteText);
         if (quoteText) {
-            // Split by spaces but keep punctuation attached to words for display, 
-            // though for now we might want to just split by whitespace and strip punctuation for the actual "word" value if needed.
-            // A simple split by space is a good start. 
-            // To make it cleaner, we can split by regex to separate punctuation, but let's stick to simple space splitting 
-            // and maybe strip punctuation when selecting.
             const wordArray = quoteText.split(/\s+/).map((word, index) => ({
                 id: index,
                 text: word,
                 selected: false,
             }));
             setWords(wordArray);
+        } else {
+            setWords([]);
         }
-    }, [quoteText]);
+    }
 
     const toggleWord = (id: number) => {
         setWords(currentWords =>

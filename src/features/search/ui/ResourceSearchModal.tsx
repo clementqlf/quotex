@@ -31,18 +31,25 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
     const [results, setResults] = useState<SearchResults | null>(null);
     const inputRef = useRef<TextInput>(null);
 
+    // Ajuster l'état de recherche pendant la phase de rendu
+    const [prevVisible, setPrevVisible] = useState(visible);
+    if (visible !== prevVisible) {
+        setPrevVisible(visible);
+        if (!visible) {
+            setQuery('');
+        }
+    }
+
+    const displayResults = query.trim().length < 2 ? null : results;
+
     useEffect(() => {
         if (visible) {
             setTimeout(() => inputRef.current?.focus(), 100);
-        } else {
-            setQuery('');
-            setResults(null);
         }
     }, [visible]);
 
     useEffect(() => {
         if (query.trim().length < 2) {
-            setResults(null);
             return;
         }
 
@@ -62,31 +69,31 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
     }, [query]);
 
     const flattenedResults = useMemo(() => {
-        if (!results) return [];
+        if (!displayResults) return [];
         const items: any[] = [];
         
         // Add Local Books
-        results.books.forEach(b => items.push({ ...b, type: 'book', label: b.title, subLabel: getAuthorName(b.author) }));
+        displayResults.books.forEach(b => items.push({ ...b, type: 'book', label: b.title, subLabel: getAuthorName(b.author) }));
         
         // Add Local Authors
-        results.authors.forEach(a => items.push({ ...a, type: 'author', label: a.name, subLabel: 'Auteur' }));
+        displayResults.authors.forEach(a => items.push({ ...a, type: 'author', label: a.name, subLabel: 'Auteur' }));
         
         // Add Inventaire Works (if not already in local)
-        results.inventaireWorks?.forEach(w => {
-            if (!results.books.some(b => b.inventaireUri === w.uri)) {
+        displayResults.inventaireWorks?.forEach(w => {
+            if (!displayResults.books.some(b => b.inventaireUri === w.uri)) {
                 items.push({ ...w, type: 'book', id: w.uri, label: w.label, subLabel: w.authors?.join(', ') || 'Inventaire' });
             }
         });
 
         // Add Inventaire Authors
-        results.inventaireAuthors?.forEach(a => {
-            if (!results.authors.some(auth => auth.inventaireUri === a.uri)) {
+        displayResults.inventaireAuthors?.forEach(a => {
+            if (!displayResults.authors.some(auth => auth.inventaireUri === a.uri)) {
                 items.push({ ...a, type: 'author', id: a.uri, label: a.label, subLabel: 'Inventaire' });
             }
         });
 
         return items;
-    }, [results]);
+    }, [displayResults]);
 
     const renderItem = ({ item }: { item: any }) => {
         const isBook = item.type === 'book';

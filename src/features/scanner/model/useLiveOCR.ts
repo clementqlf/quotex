@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useSharedValue } from 'react-native-reanimated';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
 import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
@@ -42,15 +42,21 @@ export function useLiveOCR({
     const consecutiveNegative = useSharedValue(0);
     const isCurrentlyDetected = useSharedValue(false); // current "published" state
 
+    const isScanningActiveSVRef = useRef(isScanningActiveSV);
+    const lastProcessedRef = useRef(lastProcessed);
+    const consecutivePositiveRef = useRef(consecutivePositive);
+    const consecutiveNegativeRef = useRef(consecutiveNegative);
+    const isCurrentlyDetectedRef = useRef(isCurrentlyDetected);
+
     useEffect(() => {
-        isScanningActiveSV.value = isScanningActive;
+        isScanningActiveSVRef.current.value = isScanningActive;
         if (!isScanningActive) {
             // Force-reset worklet counters when scanning stops
-            consecutivePositive.value = 0;
-            consecutiveNegative.value = 0;
-            isCurrentlyDetected.value = false;
+            consecutivePositiveRef.current.value = 0;
+            consecutiveNegativeRef.current.value = 0;
+            isCurrentlyDetectedRef.current.value = false;
         }
-    }, [isScanningActive, consecutiveNegative, consecutivePositive, isCurrentlyDetected, isScanningActiveSV]);
+    }, [isScanningActive]);
 
     const notifyDetected = useCallback(() => {
         onTextDetectedChange?.(true);
@@ -68,29 +74,29 @@ export function useLiveOCR({
         'worklet';
 
         const now = Date.now();
-        if (now - lastProcessed.value < scanInterval) return;
-        lastProcessed.value = now;
+        if (now - lastProcessedRef.current.value < scanInterval) return;
+        lastProcessedRef.current.value = now;
 
-        if (!isScanningActiveSV.value) return;
+        if (!isScanningActiveSVRef.current.value) return;
 
         try {
             const result = scanText(frame);
             const hasBlocks = !!(result && result.blocks && result.blocks.length > 0);
 
             if (hasBlocks) {
-                consecutivePositive.value += 1;
-                consecutiveNegative.value = 0;
+                consecutivePositiveRef.current.value += 1;
+                consecutiveNegativeRef.current.value = 0;
 
-                if (!isCurrentlyDetected.value && consecutivePositive.value >= positiveThreshold) {
-                    isCurrentlyDetected.value = true;
+                if (!isCurrentlyDetectedRef.current.value && consecutivePositiveRef.current.value >= positiveThreshold) {
+                    isCurrentlyDetectedRef.current.value = true;
                     notifyDetectedJS();
                 }
             } else {
-                consecutiveNegative.value += 1;
-                consecutivePositive.value = 0;
+                consecutiveNegativeRef.current.value += 1;
+                consecutivePositiveRef.current.value = 0;
 
-                if (isCurrentlyDetected.value && consecutiveNegative.value >= negativeThreshold) {
-                    isCurrentlyDetected.value = false;
+                if (isCurrentlyDetectedRef.current.value && consecutiveNegativeRef.current.value >= negativeThreshold) {
+                    isCurrentlyDetectedRef.current.value = false;
                     notifyGoneJS();
                 }
             }
@@ -108,17 +114,22 @@ export function useLiveOCR({
 
     // Cleanup complet au unmount
     useEffect(() => {
+        const consecutivePositiveRefCurrent = consecutivePositiveRef.current;
+        const consecutiveNegativeRefCurrent = consecutiveNegativeRef.current;
+        const isCurrentlyDetectedRefCurrent = isCurrentlyDetectedRef.current;
+        const lastProcessedRefCurrent = lastProcessedRef.current;
+
         return () => {
             // Reset des Shared Values pour éviter les fuites
-            consecutivePositive.value = 0;
-            consecutiveNegative.value = 0;
-            isCurrentlyDetected.value = false;
-            lastProcessed.value = 0;
+            consecutivePositiveRefCurrent.value = 0;
+            consecutiveNegativeRefCurrent.value = 0;
+            isCurrentlyDetectedRefCurrent.value = false;
+            lastProcessedRefCurrent.value = 0;
             
             // Notifier que le scanning est arrêté
             onTextDetectedChange?.(false);
         };
-    }, [onTextDetectedChange, consecutivePositive, consecutiveNegative, isCurrentlyDetected, lastProcessed]);
+    }, [onTextDetectedChange]);
 
     return {
         frameProcessor,

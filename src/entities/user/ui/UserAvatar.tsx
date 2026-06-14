@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { StyleSheet, Text, View, StyleProp, TextStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { User } from '@/src/shared/api/types';

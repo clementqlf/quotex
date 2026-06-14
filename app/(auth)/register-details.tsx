@@ -33,21 +33,33 @@ export default function RegisterDetailsScreen() {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
 
-  useEffect(() => {
+  const [prevUsername, setPrevUsername] = useState<string>('');
+  if (username !== prevUsername) {
+    setPrevUsername(username);
     if (!username) {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
+    } else {
+      const clean = username.startsWith('@') ? username.slice(1) : username;
+      if (clean.length < 3) {
+        setUsernameAvailable(false);
+        setIsCheckingUsername(false);
+      } else {
+        setIsCheckingUsername(true);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!username) {
       return;
     }
 
     const clean = username.startsWith('@') ? username.slice(1) : username;
     if (clean.length < 3) {
-      setUsernameAvailable(false);
-      setIsCheckingUsername(false);
       return;
     }
 
-    setIsCheckingUsername(true);
     const timer = setTimeout(async () => {
       try {
         const exists = await authService.checkUsernameExists(clean);
