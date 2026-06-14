@@ -14,6 +14,8 @@ interface BlockWrapperProps {
     rightElement?: React.ReactNode;
 }
 
+const FallbackIcon = () => null;
+
 export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     blockKey,
     onRemove,
@@ -25,7 +27,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const config = BLOCK_CONFIGS[blockKey];
-    const Icon = config?.icon || (() => null);
+    const Icon = config?.icon || FallbackIcon;
     const displayTitle = title || config?.label || 'Block';
 
     return (

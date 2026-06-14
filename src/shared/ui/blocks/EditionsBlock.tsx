@@ -60,9 +60,15 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
     const [editions, setEditions] = useState<Edition[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Ajuster l'état pendant le rendu quand le livre change
+    const [prevBookId, setPrevBookId] = useState<number | undefined>(book?.id);
+    if (book?.id !== prevBookId) {
+        setPrevBookId(book?.id);
+        setEditions([]);
+    }
+
     useEffect(() => {
         if (!book?.id) {
-            setEditions([]);
             return;
         }
 

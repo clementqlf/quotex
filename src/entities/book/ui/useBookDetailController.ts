@@ -85,20 +85,30 @@ export const useBookDetailController = () => {
 
   const bookTitle = bookInfo?.title || bookTitleParam || (bookId ? allBooks.find(b => b.id === bookId)?.title : undefined);
 
-  useEffect(() => {
-    let mounted = true;
-
+  const [prevBookKey, setPrevBookKey] = useState<string>('');
+  const currentBookKey = `${bookId}_${bookTitleParam}_${inventaireUriParam}`;
+  if (currentBookKey !== prevBookKey) {
+    setPrevBookKey(currentBookKey);
     setBookInfo(null);
     setAuthorInfo(null);
     setGridData([]);
     setBlockData({});
+    // eslint-disable-next-line react-hooks/refs
     lastSavedBookBlockData.current = '{}';
     setIsLoadingLayout(true);
     setIsLoadingMetadata(true);
     setActiveTab('description');
+  }
+
+  useEffect(() => {
+    let mounted = true;
 
     if (!bookId && !bookTitleParam) {
-      if (mounted) setIsLoadingMetadata(false);
+      if (mounted) {
+        Promise.resolve().then(() => {
+          setIsLoadingMetadata(false);
+        });
+      }
       return;
     }
 

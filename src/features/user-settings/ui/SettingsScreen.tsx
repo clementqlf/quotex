@@ -41,6 +41,43 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import * as Linking from 'expo-linking';
 
+const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: any) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <TouchableOpacity
+      style={styles.settingItem}
+      onPress={onPress}
+      disabled={type === 'switch'}
+      accessible={true}
+      accessibilityLabel={title}
+      accessibilityRole={type === 'switch' ? 'none' : 'button'}
+      testID={`setting-item-${title.toLowerCase().replace(/\s+/g, '-')}`}
+    >
+      <View style={styles.settingItemLeft}>
+        <View style={styles.iconContainer}>
+          <Icon size={20} color={colors.primary} />
+        </View>
+        <Text style={styles.settingItemTitle}>{title}</Text>
+      </View>
+
+      {type === 'chevron' && <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />}
+      {type === 'switch' && (
+        <Switch
+          value={value}
+          onValueChange={onPress}
+          trackColor={{ false: '#767577', true: colors.primary }}
+          thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
+          accessible={true}
+          accessibilityLabel={title}
+          accessibilityRole="switch"
+        />
+      )}
+    </TouchableOpacity>
+  );
+};
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
@@ -215,38 +252,6 @@ export default function SettingsScreen() {
       ]
     );
   };
-
-  const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: any) => (
-    <TouchableOpacity
-      style={styles.settingItem}
-      onPress={onPress}
-      disabled={type === 'switch'}
-      accessible={true}
-      accessibilityLabel={title}
-      accessibilityRole={type === 'switch' ? 'none' : 'button'}
-      testID={`setting-item-${title.toLowerCase().replace(/\s+/g, '-')}`}
-    >
-      <View style={styles.settingItemLeft}>
-        <View style={styles.iconContainer}>
-          <Icon size={20} color={colors.primary} />
-        </View>
-        <Text style={styles.settingItemTitle}>{title}</Text>
-      </View>
-
-      {type === 'chevron' && <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />}
-      {type === 'switch' && (
-        <Switch
-          value={value}
-          onValueChange={onPress}
-          trackColor={{ false: '#767577', true: colors.primary }}
-          thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
-          accessible={true}
-          accessibilityLabel={title}
-          accessibilityRole="switch"
-        />
-      )}
-    </TouchableOpacity>
-  );
 
   return (
     <SafeAreaView style={styles.safeArea}>

@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
-import { quoteService } from '@/src/features/quote/api/QuoteService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { scanService } from '@/src/features/scanner/api/ScanService';
 import { PlatformServices } from '@/src/shared/platform';
@@ -91,7 +90,7 @@ export const useRandomQuoteFlow = (
     } catch {
       Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
     }
-  }, [quotes, currentUser?.id]);
+  }, [quotes, currentUser]);
 
   return {
     // State

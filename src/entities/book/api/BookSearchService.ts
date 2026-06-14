@@ -30,7 +30,7 @@ class BookSearchService {
 
         try {
             const response = await fetch(`${this.BASE_URL}/book-search/search?q=${encodeURIComponent(query)}`);
-            if (response.ok) {
+            if (response && response.ok) {
                 return await response.json();
             }
             return [];
@@ -54,7 +54,7 @@ class BookSearchService {
                 body: JSON.stringify(bookData),
             });
 
-            if (response.ok) {
+            if (response && response.ok) {
                 return await response.json();
             }
             return null;

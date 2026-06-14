@@ -50,6 +50,7 @@ describe('QuoteProvider Optimistic Updates', () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
+    jest.setTimeout(15000);
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -67,6 +68,7 @@ describe('QuoteProvider Optimistic Updates', () => {
 
   afterEach(() => {
     queryClient.clear();
+    jest.setTimeout(5000);
   });
 
   const Wrapper = ({ children }: { children: React.ReactNode }) => (

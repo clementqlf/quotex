@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
 import { ThemeColors } from '@/src/shared/theme';
 import { Check, Plus, Search, Trash2, X } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export interface DefinitionItem {
@@ -45,12 +45,20 @@ export default function BookDictionaryModal({
     const [isSearching, setIsSearching] = useState(false);
     const [searchResult, setSearchResult] = useState<DefinitionItem | null>(null);
 
-    useEffect(() => {
+    const [prevVisible, setPrevVisible] = useState(false);
+    const [prevHiddenTerms, setPrevHiddenTerms] = useState<string[]>([]);
+    const [prevManualDefs, setPrevManualDefs] = useState<DefinitionItem[]>([]);
+
+    if (visible !== prevVisible || hiddenTerms !== prevHiddenTerms || currentManualDefinitions !== prevManualDefs) {
+        setPrevVisible(visible);
+        setPrevHiddenTerms(hiddenTerms);
+        setPrevManualDefs(currentManualDefinitions);
+        
         setLocalHiddenTerms(new Set(hiddenTerms));
         setLocalManualDefinitions(currentManualDefinitions);
         setSearchQuery('');
         setSearchResult(null);
-    }, [visible, hiddenTerms, currentManualDefinitions]);
+    }
 
     const toggleVisibility = (term: string) => {
         const newSet = new Set(localHiddenTerms);

@@ -65,18 +65,23 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
+  const [prevViewMode, setPrevViewMode] = useState(viewMode);
+
+  if (viewMode !== prevViewMode) {
+    setPrevViewMode(viewMode);
+    const currentIdx = TAB_INDEXES[currentMode];
+    const newIdx = TAB_INDEXES[viewMode];
+    direction.value = newIdx >= currentIdx ? 1 : -1;
+
+    setPrevMode(currentMode);
+    setCurrentMode(viewMode);
+
+    enterProgress.value = 0;
+    exitProgress.value = 0;
+  }
+
   useEffect(() => {
-    if (viewMode !== currentMode) {
-      const currentIdx = TAB_INDEXES[currentMode];
-      const newIdx = TAB_INDEXES[viewMode];
-      direction.value = newIdx >= currentIdx ? 1 : -1;
-
-      setPrevMode(currentMode);
-      setCurrentMode(viewMode);
-
-      enterProgress.value = 0;
-      exitProgress.value = 0;
-
+    if (enterProgress.value === 0) {
       enterProgress.value = withTiming(1, { duration: 300 });
       exitProgress.value = withTiming(1, { duration: 300 }, (finished) => {
         if (finished) {
@@ -84,7 +89,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
-  }, [viewMode, currentMode, direction, enterProgress, exitProgress]);
+  }, [currentMode, enterProgress, exitProgress]);
 
   const enterStyle = useAnimatedStyle(() => {
     return {
@@ -229,6 +234,15 @@ export default function MyQuotesScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
+  const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
+  const [firstItemHeight, setFirstItemHeight] = useState(150);
+
   // Feature hook - découplé de DataProvider
   const {
     myQuotes,
@@ -306,14 +320,7 @@ export default function MyQuotesScreen() {
     }
   }, [isScreenFocused]);
 
-  const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
-  const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
-  const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
-  const [firstItemHeight, setFirstItemHeight] = useState(150);
+
 
   // Memoized derived data - utilisant les getters du hook feature
   const authors = useMemo(() => getAuthors(), [getAuthors]);
@@ -368,10 +375,11 @@ export default function MyQuotesScreen() {
     return books.filter(b => b.readingStatus === selectedStatus);
   }, [books, selectedStatus]);
 
-  // Sync temp filters when active filters change
-  useEffect(() => {
+  const [prevActiveFilters, setPrevActiveFilters] = useState<FilterType[]>([]);
+  if (activeFilters !== prevActiveFilters) {
+    setPrevActiveFilters(activeFilters);
     setTempFilters([...activeFilters]);
-  }, [activeFilters]);
+  }
 
   const toggleTempFilter = useCallback((type: 'author' | 'book' | 'year' | 'status', value: string | number) => {
     setTempFilters(currentFilters => {

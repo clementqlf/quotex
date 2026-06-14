@@ -50,18 +50,6 @@ export default function SearchScreen() {
         }, 100);
     }, []);
 
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(async () => {
-            if (query.trim().length > 2) { // Search after 3 chars
-                performSearch(query);
-            } else {
-                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
-            }
-        }, 500); // 500ms debounce to reduce server load
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [query]);
-
     const performSearch = async (text: string) => {
         setIsLoading(true);
         try {
@@ -73,6 +61,18 @@ export default function SearchScreen() {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (query.trim().length > 2) { // Search after 3 chars
+                performSearch(query);
+            } else {
+                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
+            }
+        }, 500); // 500ms debounce to reduce server load
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [query]);
 
     const handleImportBook = (item: any) => {
         router.push({

@@ -101,19 +101,23 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
   const glow4Y = useSharedValue(0);
   const glow4Scale = useSharedValue(1);
 
-  // Initialize conversation
-  useEffect(() => {
+  const [prevQuoteId, setPrevQuoteId] = useState<number | undefined>(undefined);
+  const [prevVisible, setPrevVisible] = useState<boolean>(false);
+
+  if (visible !== prevVisible || (visible && quote?.id !== prevQuoteId)) {
+    setPrevVisible(visible);
+    setPrevQuoteId(quote?.id);
+
     if (visible && quote) {
       const initialMessages: ChatMessage[] = [
         {
           id: 'card-msg',
           role: 'card',
           content: '',
-          timestamp: new Date(),
+          timestamp: new Date(0),
         },
       ];
 
-      // Check if there is already a saved chat history in blockData
       if (
         quote.blockData &&
         quote.blockData.chatHistory &&
@@ -121,10 +125,10 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
         quote.blockData.chatHistory.length > 0
       ) {
         const historyMessages: ChatMessage[] = quote.blockData.chatHistory.map((m: any, idx: number) => ({
-          id: `saved-${idx}-${Date.now()}`,
+          id: `saved-${idx}-${quote.id}`,
           role: m.role,
           content: m.content,
-          timestamp: new Date(),
+          timestamp: new Date(0),
         }));
         setMessages([initialMessages[0], ...historyMessages]);
       } else {
@@ -133,19 +137,26 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
             id: 'analysis-msg',
             role: 'model',
             content: quote.aiInterpretation,
-            timestamp: new Date(),
+            timestamp: new Date(0),
           });
         } else {
           initialMessages.push({
             id: 'no-analysis-msg',
             role: 'model',
             content: "Bonjour ! Je suis votre assistant littéraire IA. Je n'ai pas encore analysé cette citation. Posez-moi une question ci-dessous ou demandez-moi de faire l'analyse initiale !",
-            timestamp: new Date(),
+            timestamp: new Date(0),
           });
         }
         setMessages(initialMessages);
       }
+    } else if (!visible) {
+      setMessages([]);
+    }
+  }
 
+  // Initialize conversation animations
+  useEffect(() => {
+    if (visible && quote) {
       // Glow 1: Top Edge Slider (Indigo)
       glow1X.value = withRepeat(
         withSequence(

@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Bookmark, Heart, MessageCircle, Share2, Sparkles, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -40,9 +39,7 @@ export default function SocialFeedScreen() {
     }
   }, [isFocused, refreshQuotes]);
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('');
-  };
+
 
   const FeedQuoteCard = ({ quote }: { quote: any }) => {
     return (
@@ -239,7 +236,7 @@ export default function SocialFeedScreen() {
                 </View>
                 <Text style={styles.overlayTitle}>Bientôt disponible</Text>
                 <Text style={styles.overlaySubtitle}>
-                  Le flux social de Quotex arrive bientôt. Vous pourrez partager vos citations favorites, suivre d'autres lecteurs et échanger autour de vos lectures.
+                  {"Le flux social de Quotex arrive bientôt. Vous pourrez partager vos citations favorites, suivre d'autres lecteurs et échanger autour de vos lectures."}
                 </Text>
               </View>
             </View>

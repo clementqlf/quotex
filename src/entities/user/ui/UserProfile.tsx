@@ -12,8 +12,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BookOpen, Camera, ChevronLeft, Library, Link, MoreHorizontal, Quote, X } from 'lucide-react-native';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, Camera, ChevronLeft, Library, MoreHorizontal, Quote, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -33,7 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 const BookSkeleton = ({ colors }: { colors: ThemeColors }) => {
-  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(0.3));
 
   useEffect(() => {
     Animated.loop(
@@ -66,7 +66,7 @@ const BookSkeleton = ({ colors }: { colors: ThemeColors }) => {
 };
 
 const QuoteSkeleton = ({ colors }: { colors: ThemeColors }) => {
-  const pulseAnim = useRef(new Animated.Value(0.3)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(0.3));
 
   useEffect(() => {
     Animated.loop(
@@ -184,12 +184,11 @@ export default function UserProfileScreen() {
   }, [profileData]);
 
   const [isFollowing, setIsFollowing] = useState(false);
-
-  useEffect(() => {
-    if (profileData) {
-      setIsFollowing(!!(profileData as any).isFollowing);
-    }
-  }, [profileData]);
+  const [prevProfileData, setPrevProfileData] = useState<any>(null);
+  if (profileData !== prevProfileData) {
+    setPrevProfileData(profileData);
+    setIsFollowing(!!(profileData as any)?.isFollowing);
+  }
 
   // Follow modal states
   const [isFollowModalVisible, setIsFollowModalVisible] = useState(false);

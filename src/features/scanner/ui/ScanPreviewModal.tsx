@@ -65,15 +65,40 @@ export default function ScanPreviewModal({
 
     // State for Book Suggestions
     type SuggestionItem = { type: 'local' | 'inventaire' | 'database'; title: string; author?: string; data?: any };
-    const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+    const [searchSuggestions, setSearchSuggestions] = useState<SuggestionItem[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
     // State for Author Suggestions
     type AuthorSuggestionItem = { type: 'local' | 'database' | 'inventaire'; name: string; data?: any };
-    const [authorSuggestions, setAuthorSuggestions] = useState<AuthorSuggestionItem[]>([]);
+    const [searchAuthorSuggestions, setSearchAuthorSuggestions] = useState<AuthorSuggestionItem[]>([]);
     const [showAuthorSuggestions, setShowAuthorSuggestions] = useState(false);
     const [isLoadingAuthorSuggestions, setIsLoadingAuthorSuggestions] = useState(false);
+
+    // Sync state during render when modal opens or props change
+    const [prevVisible, setPrevVisible] = useState(visible);
+    const [prevScannedText, setPrevScannedText] = useState(scannedText);
+    const [prevInitialBook, setPrevInitialBook] = useState(initialBook);
+    const [prevInitialAuthor, setPrevInitialAuthor] = useState(initialAuthor);
+
+    if (visible !== prevVisible || scannedText !== prevScannedText || initialBook !== prevInitialBook || initialAuthor !== prevInitialAuthor) {
+        setPrevVisible(visible);
+        setPrevScannedText(scannedText);
+        setPrevInitialBook(initialBook);
+        setPrevInitialAuthor(initialAuthor);
+
+        if (visible) {
+            setIsSubmitting(false);
+            setEditedQuote('');
+            setEditedBook(initialBook);
+            setEditedAuthor(initialAuthor);
+            setIsEditingBook(false);
+            setIsEditingAuthor(false);
+            setIsEditingQuote(!scannedText);
+            setShowSuggestions(false);
+            setShowAuthorSuggestions(false);
+        }
+    }
 
     // Initial books from local data (quotes)
     const initialBooks = useMemo(() => {
@@ -104,30 +129,34 @@ export default function ScanPreviewModal({
         return Array.from(authors).map(name => ({ type: 'local' as const, name }));
     }, [quotes]);
 
-    // Reset state when modal opens or scannedText changes
-    useEffect(() => {
-        if (visible) {
-            setIsSubmitting(false);
-            setEditedQuote(''); // We'll let defaultValue handle it unless explicitly editing
-            setEditedBook(initialBook);
-            setEditedAuthor(initialAuthor);
-            setIsEditingBook(false);
-            setIsEditingAuthor(false);
-            // If we have initial valus, we might not want to start in edit mode for quote? 
-            // Actually existing logic checks scannedText.
-            // If it's an edit (initialBook provided), we probably want to treat it slightly differently?
-            // Existing logic: setIsEditingQuote(!scannedText);
-            // Let's keep it simple. If we are editing, we usually pass scannedText as the existing quote text.
-            setIsEditingQuote(!scannedText);
-            setShowSuggestions(false);
-            setShowAuthorSuggestions(false);
-            
-            // Redémarre les confettis avec les cannons quand le modal s'ouvre
-            if (showConfetti) {
-                cannonConfettiRef.current?.restart();
-            }
+    // Derived suggestions based on current inputs
+    const displaySuggestions = useMemo(() => {
+        if (!editedBook.trim()) {
+            return initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author }));
         }
-    }, [visible, scannedText, initialBook, initialAuthor, showConfetti]);
+        if (editedBook.trim().length < 3) {
+            return initialBooks
+                .filter(b => b.title.toLowerCase().includes(editedBook.toLowerCase()))
+                .map(b => ({ type: 'local' as const, title: b.title, author: b.author }));
+        }
+        return searchSuggestions;
+    }, [editedBook, searchSuggestions, initialBooks]);
+
+    const displayAuthorSuggestions = useMemo(() => {
+        if (!editedAuthor.trim()) {
+            return initialAuthors;
+        }
+        if (editedAuthor.trim().length < 3) {
+            return initialAuthors.filter(a => a.name.toLowerCase().includes(editedAuthor.toLowerCase()));
+        }
+        return searchAuthorSuggestions;
+    }, [editedAuthor, searchAuthorSuggestions, initialAuthors]);
+
+    useEffect(() => {
+        if (visible && showConfetti) {
+            cannonConfettiRef.current?.restart();
+        }
+    }, [visible, showConfetti]);
 
     const resolveBookTitle = () => {
         if (editedBook.trim()) return editedBook.trim();
@@ -191,7 +220,6 @@ export default function ScanPreviewModal({
     const handleBookChange = (text: string) => {
         setEditedBook(text);
         if (!text.trim()) {
-            setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
             setShowSuggestions(true);
         }
     };
@@ -199,9 +227,6 @@ export default function ScanPreviewModal({
     // Debounced Book Search
     useEffect(() => {
         if (!isEditingBook || !editedBook.trim() || editedBook.trim().length < 3) {
-            if (editedBook.trim().length === 0) {
-                setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
-            }
             return;
         }
 
@@ -240,7 +265,7 @@ export default function ScanPreviewModal({
                     }
                 });
 
-                setSuggestions(combined);
+                setSearchSuggestions(combined);
             } catch (error) {
                 console.error("Error searching books", error);
             } finally {
@@ -254,7 +279,6 @@ export default function ScanPreviewModal({
     const handleAuthorChange = (text: string) => {
         setEditedAuthor(text);
         if (!text.trim()) {
-            setAuthorSuggestions(initialAuthors);
             setShowAuthorSuggestions(true);
         }
     };
@@ -262,9 +286,6 @@ export default function ScanPreviewModal({
     // Debounced Author Search
     useEffect(() => {
         if (!isEditingAuthor || !editedAuthor.trim() || editedAuthor.trim().length < 3) {
-            if (editedAuthor.trim().length === 0) {
-                setAuthorSuggestions(initialAuthors);
-            }
             return;
         }
 
@@ -298,7 +319,7 @@ export default function ScanPreviewModal({
                     }
                 });
 
-                setAuthorSuggestions(combined);
+                setSearchAuthorSuggestions(combined);
             } catch (error) {
                 console.error("Error searching authors", error);
             } finally {
@@ -422,7 +443,7 @@ export default function ScanPreviewModal({
                                                                     {isLoadingSuggestions && (
                                                                         <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
                                                                     )}
-                                                                    {suggestions.map((item, index) => (
+                                                                    {displaySuggestions.map((item, index) => (
                                                                         <TouchableOpacity
                                                                             key={`${item.title}-${index}`}
                                                                             style={styles.suggestionItem}
@@ -478,7 +499,6 @@ export default function ScanPreviewModal({
                                                         onPress={() => {
                                                             setIsEditingBook(true);
                                                             setEditedBook('');
-                                                            setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
                                                             setIsEditingAuthor(false);
@@ -492,7 +512,6 @@ export default function ScanPreviewModal({
                                                         onPress={() => {
                                                             setIsEditingBook(true);
                                                             setEditedBook(bookTitle);
-                                                            setSuggestions(initialBooks.map(b => ({ type: 'local' as const, title: b.title, author: b.author })));
                                                             setShowSuggestions(true);
                                                             // Close other dropdowns
                                                             setIsEditingAuthor(false);
@@ -535,7 +554,7 @@ export default function ScanPreviewModal({
                                                                     {isLoadingAuthorSuggestions && (
                                                                         <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
                                                                     )}
-                                                                    {authorSuggestions.map((item, index) => (
+                                                                    {displayAuthorSuggestions.map((item, index) => (
                                                                         <TouchableOpacity
                                                                             key={`${item.name}-${index}`}
                                                                             style={styles.suggestionItem}
@@ -560,7 +579,6 @@ export default function ScanPreviewModal({
                                                         onPress={() => {
                                                             setIsEditingAuthor(true);
                                                             setEditedAuthor('');
-                                                            setAuthorSuggestions(initialAuthors);
                                                             setShowAuthorSuggestions(true);
                                                             // Close other dropdowns
                                                             setIsEditingBook(false);
@@ -574,7 +592,6 @@ export default function ScanPreviewModal({
                                                         onPress={() => {
                                                             setIsEditingAuthor(true);
                                                             setEditedAuthor(authorName);
-                                                            setAuthorSuggestions(initialAuthors);
                                                             setShowAuthorSuggestions(true);
                                                             // Close other dropdowns
                                                             setIsEditingBook(false);

@@ -48,24 +48,27 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
   const [useFallback, setUseFallback] = useState(false);
   const fallbackTriggeredRef = React.useRef(false);
 
-  useEffect(() => {
-    // 1. Synchroniser le state local avec les nouvelles props (initialData)
-    // Cela permet d'afficher les corrections du serveur immédiatement (ex: majuscules)
-    // même si l'entité est encore en cours d'enrichissement.
-    setData((currentData) => {
-      const currentIsEnriching = currentData && typeof currentData === 'object' && currentData[enrichingField];
-      const initialIsEnriching = initialData && typeof initialData === 'object' && initialData[enrichingField];
-      
-      // On évite d'écraser des données fraîches (enrichissement terminé) par des props périmées
-      const isStale = currentData && initialData && 
-                      typeof currentData === 'object' && typeof initialData === 'object' &&
-                      currentData['id'] === initialData['id'] && 
-                      currentIsEnriching === false && 
-                      initialIsEnriching === true;
-                      
-      return isStale ? currentData : initialData;
-    });
+  // Synchroniser le state local avec les nouvelles props (initialData) pendant le rendu
+  // Cela permet d'afficher les corrections du serveur immédiatement (ex: majuscules)
+  // même si l'entité est encore en cours d'enrichissement.
+  const [prevInitialData, setPrevInitialData] = useState<T | null | undefined>(initialData);
+  if (initialData !== prevInitialData) {
+    setPrevInitialData(initialData);
+    const currentIsEnriching = data && typeof data === 'object' && data[enrichingField];
+    const initialIsEnriching = initialData && typeof initialData === 'object' && initialData[enrichingField];
+    
+    const isStale = data && initialData && 
+                    typeof data === 'object' && typeof initialData === 'object' &&
+                    data['id'] === initialData['id'] && 
+                    currentIsEnriching === false && 
+                    initialIsEnriching === true;
+                    
+    if (!isStale) {
+      setData(initialData);
+    }
+  }
 
+  useEffect(() => {
     // 2. Décider si on doit souscrire aux mises à jour Realtime
     const isEnriching = initialData && typeof initialData === 'object' && 
       initialData[enrichingField];

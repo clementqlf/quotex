@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { colors, ThemeColors } from '../../shared/theme';
 
@@ -12,11 +12,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const systemColorScheme = useColorScheme();
-    const [theme, setTheme] = useState<'light' | 'dark'>(systemColorScheme === 'dark' ? 'dark' : 'light');
-
-    useEffect(() => {
-        setTheme(systemColorScheme === 'dark' ? 'dark' : 'light');
-    }, [systemColorScheme]);
+    const theme = useMemo<'light' | 'dark'>(() => systemColorScheme === 'dark' ? 'dark' : 'light', [systemColorScheme]);
 
     // ✅ Memoization de themeColors pour éviter les recalculs inutiles
     const themeColors = useMemo(() => 

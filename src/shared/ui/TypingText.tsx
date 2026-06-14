@@ -48,12 +48,10 @@ export const TypingText: React.FC<TypingTextProps> = ({
     useEffect(() => {
         const timers = timersRef.current;
         if (showCursor) {
-            setCursorVisible(true);
             timers.blinkInterval = setInterval(() => {
                 setCursorVisible(v => !v);
             }, 400); // Blink every 400ms
         } else {
-            setCursorVisible(false);
             if (timers.blinkInterval) {
                 clearInterval(timers.blinkInterval);
             }
@@ -85,12 +83,14 @@ export const TypingText: React.FC<TypingTextProps> = ({
         if (!shouldAnimate || !original) {
             setDisplayText(text);
             setShowCursor(false);
+            setCursorVisible(false);
             return;
         }
 
         // Initialize animation state
         setDisplayText(original);
         setShowCursor(true);
+        setCursorVisible(true);
         clearAllTimers();
 
         // 1. Initial pause: show original text with blinking cursor briefly
@@ -122,6 +122,7 @@ export const TypingText: React.FC<TypingTextProps> = ({
                                 // 5. Final pause: keep cursor blinking for a moment, then hide it
                                 timersRef.current.timeout = setTimeout(() => {
                                     setShowCursor(false);
+                                    setCursorVisible(false);
                                 }, 800);
                             }
                         }, 50); // Typing speed: 50ms per character
