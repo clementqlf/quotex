@@ -32,19 +32,17 @@ export default function RootLayout() {
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <ThemeProvider>
             <AuthProvider>
-              <AuthGuard>
-                <TabProvider>
-                  <RepositoriesProvider>
-                    <NavigationProvider>
-                      <QuoteProvider>
-                        <AuthorProvider>
-                          <RootLayoutNav />
-                        </AuthorProvider>
-                      </QuoteProvider>
-                    </NavigationProvider>
-                  </RepositoriesProvider>
-                </TabProvider>
-              </AuthGuard>
+              <TabProvider>
+                <RepositoriesProvider>
+                  <NavigationProvider>
+                    <QuoteProvider>
+                      <AuthorProvider>
+                        <RootLayoutNav />
+                      </AuthorProvider>
+                    </QuoteProvider>
+                  </NavigationProvider>
+                </RepositoriesProvider>
+              </TabProvider>
             </AuthProvider>
           </ThemeProvider>
         </SafeAreaProvider>
@@ -99,29 +97,6 @@ function RootLayoutNav() {
     }
   }, [isLoading, isLayoutReady, isSafeAreaReady]);
 
-  // Hide splash animation when auth is loaded
-  useEffect(() => {
-    if (!isLoading && !isSplashAnimationFinished) {
-      const handle = requestAnimationFrame(() => setIsSplashAnimationFinished(true));
-      return () => cancelAnimationFrame(handle);
-    }
-  }, [isLoading, isSplashAnimationFinished]);
-
-  // We are "ready" when loading is done
-  const isReady = !isLoading;
-
-  // If we haven't finished the splash AND we aren't ready, 
-  // show only the splash (no background app yet)
-  if (!isSplashAnimationFinished && !isReady) {
-    return (
-      <AnimatedSplashScreen 
-        isDark={isDark} 
-        isLoading={true} 
-        onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
-      />
-    );
-  }
-
   const baseTheme = isDark ? DarkTheme : DefaultTheme;
 
   const navigationTheme = {
@@ -146,13 +121,15 @@ function RootLayoutNav() {
 
   return (
     <View style={{ flex: 1 }} onLayout={() => setIsLayoutReady(true)}>
-      <NavThemeProvider value={navigationTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(app)" options={{ animation: 'none' }} />
-          <Stack.Screen name="(auth)" />
-        </Stack>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-      </NavThemeProvider>
+      <AuthGuard>
+        <NavThemeProvider value={navigationTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(app)" options={{ animation: 'none' }} />
+            <Stack.Screen name="(auth)" />
+          </Stack>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+        </NavThemeProvider>
+      </AuthGuard>
       {(!isSplashAnimationFinished) && (
         <AnimatedSplashScreen 
           isDark={isDark} 

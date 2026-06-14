@@ -7,8 +7,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  withSpring,
   withSequence,
+  withDelay,
 } from 'react-native-reanimated';
 
 interface Props {
@@ -21,31 +21,21 @@ interface Props {
 const LOGO_SOURCE = require('@/assets/images/quotex_logo.png');
 
 export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoading }: Props) {
+  "use no memo";
   const opacity = useSharedValue(1);
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.3); // Commence plus petit pour l'effet de surgissement
+  const logoOpacity = useSharedValue(1);
+  const logoScale = useSharedValue(1); // Commence à 1 pour la transition seamless
   const [minTimePassed, setMinTimePassed] = React.useState(false);
+  const [isImageLoaded, setIsImageLoaded] = React.useState(false);
 
   useEffect(() => {
-    // 1. Entrée du logo avec un effet rebond (spring) très fluide
-    logoOpacity.value = withTiming(1, { 
-      duration: 500,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1)
-    });
-    
-    logoScale.value = withSpring(1, { 
-      damping: 10,     // Amortissement pour contrôler les rebonds (plus bas = plus de rebonds)
-      stiffness: 80,   // Rigidité du ressort
-      mass: 0.8,       // Masse du logo (plus bas = plus rapide)
-    });
-
     // Temps d'affichage minimal pour valoriser la marque
     const timer = setTimeout(() => {
       setMinTimePassed(true);
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [logoOpacity, logoScale]);
+  }, []);
 
   useEffect(() => {
     // Ne déclencher la sortie que si le temps minimal est écoulé ET que le chargement (auth, etc.) est terminé
@@ -74,17 +64,18 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
         })
       );
 
-      // Fondu de l'écran de fond noir/blanc
-      opacity.value = withTiming(0, { 
-        duration: 800,
+      // Fondu de l'écran de fond noir/blanc (retardé de 250ms pour se déclencher quand le logo avance)
+      opacity.value = withDelay(400, withTiming(0, { 
+        duration: 550,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1)
       }, (finished) => {
         if (finished) {
           runOnJS(onAnimationFinish)();
         }
-      });
+      }));
     }
-  }, [minTimePassed, isLoading, onAnimationFinish, opacity, logoScale, logoOpacity]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minTimePassed, isLoading, onAnimationFinish]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -98,15 +89,20 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
   return (
     <Animated.View style={[
       styles.container, 
-      { backgroundColor: isDark ? '#000000' : '#FFFFFF' },
+      { backgroundColor: isImageLoaded ? (isDark ? '#000000' : '#FFFFFF') : 'transparent' },
       containerStyle
     ]}>
-      <Animated.View style={[styles.logoContainer, logoStyle]}>
+      <Animated.View style={[
+        styles.logoContainer, 
+        logoStyle,
+        { opacity: isImageLoaded ? 1 : 0 }
+      ]}>
         <Image 
           source={LOGO_SOURCE}
           style={styles.logo}
           contentFit="contain"
           transition={0}
+          onLoad={() => setIsImageLoaded(true)}
         />
       </Animated.View>
     </Animated.View>
