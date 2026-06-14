@@ -11,7 +11,8 @@ DECLARE
   v_book_id INTEGER;
   v_quote_id INTEGER;
   v_quotex_uuid UUID := '00000000-0000-0000-0000-000000000000';
-  v_quotex_image TEXT := 'https://neurbzkkfxrjzjykthtn.supabase.co/storage/v1/object/public/avatars/00000000-0000-0000-0000-000000000000/Icon-iOS-Default-1024x1024@1x.png'
+  v_quotex_image TEXT := 'https://neurbzkkfxrjzjykthtn.supabase.co/storage/v1/object/public/avatars/00000000-0000-0000-0000-000000000000/Icon-iOS-Default-1024x1024@1x.png';
+  r RECORD;
 BEGIN
   UPDATE public."Profile"
   SET image = COALESCE(image, v_quotex_image)
@@ -20,31 +21,35 @@ BEGIN
   FOR r IN
     SELECT *
     FROM (VALUES
-      ('The only way to do great work is to love what you do.', 'Steve Jobs', 'Steve Jobs', 2011, 'Passion et excellence'),
-      ('In the middle of difficulty lies opportunity.', 'Albert Einstein', 'Einstein: His Life and Universe', 2007, 'Résilience et opportunité'),
-      ('It is our choices that show what we truly are, far more than our abilities.', 'J.K. Rowling', 'Harry Potter and the Chamber of Secrets', 1998, 'Choix et identité'),
-      ('The only impossible journey is the one you never begin.', 'Paulo Coelho', 'The Alchemist', 1988, 'Motivation et voyage'),
-      ('It is never too late to be what you might have been.', 'George Eliot', 'Middlemarch', 1871, 'Potentiel et temps'),
-      ('The man who does not read has no advantage over the man who cannot read.', 'Ryan Holiday', 'The Obstacle Is the Way', 2014, 'Lecture et discipline'),
-      ('Two things are infinite: the universe and human stupidity; and I''m not sure about the universe.', 'Albert Einstein', 'Einstein: His Life and Universe', 2007, 'Humour et science')
-    ) AS seed(text, author_name, book_title, book_year, theme)
+      ('The only way to do great work is to love what you do.', 'Steve Jobs', 'Steve Jobs', 2011, 'Passion et excellence', 'wd:Q19837', 'wd:Q480332'),
+      ('In the middle of difficulty lies opportunity.', 'Albert Einstein', 'Einstein: His Life and Universe', 2007, 'Résilience et opportunité', 'wd:Q937', 'wd:Q5349791'),
+      ('It is our choices that show what we truly are, far more than our abilities.', 'J.K. Rowling', 'Harry Potter and the Chamber of Secrets', 1998, 'Choix et identité', 'wd:Q34660', 'wd:Q172784'),
+      ('The only impossible journey is the one you never begin.', 'Paulo Coelho', 'The Alchemist', 1988, 'Motivation et voyage', 'wd:Q128560', 'wd:Q178825'),
+      ('It is never too late to be what you might have been.', 'George Eliot', 'Middlemarch', 1871, 'Potentiel et temps', 'wd:Q191228', 'wd:Q692882'),
+      ('The man who does not read has no advantage over the man who cannot read.', 'Ryan Holiday', 'The Obstacle Is the Way', 2014, 'Lecture et discipline', 'wd:Q7384160', 'wd:Q17515437'),
+      ('Two things are infinite: the universe and human stupidity; and I''m not sure about the universe.', 'Albert Einstein', 'Einstein: His Life and Universe', 2007, 'Humour et science', 'wd:Q937', 'wd:Q5349791')
+    ) AS seed(text, author_name, book_title, book_year, theme, author_uri, book_uri)
   LOOP
     v_author_id := NULL;
     v_book_id := NULL;
     v_quote_id := NULL;
 
-    SELECT id INTO v_author_id FROM public."Author" WHERE name = r.author_name LIMIT 1;
+    SELECT id INTO v_author_id FROM public."Author" WHERE name = r.author_name OR "inventaireUri" = r.author_uri LIMIT 1;
     IF v_author_id IS NULL THEN
-      INSERT INTO public."Author" (name)
-      VALUES (r.author_name)
+      INSERT INTO public."Author" (name, "inventaireUri")
+      VALUES (r.author_name, r.author_uri)
       RETURNING id INTO v_author_id;
+    ELSE
+      UPDATE public."Author" SET "inventaireUri" = r.author_uri WHERE id = v_author_id AND "inventaireUri" IS NULL;
     END IF;
 
-    SELECT id INTO v_book_id FROM public."Book" WHERE title = r.book_title AND "authorId" = v_author_id LIMIT 1;
+    SELECT id INTO v_book_id FROM public."Book" WHERE (title = r.book_title AND "authorId" = v_author_id) OR "inventaireUri" = r.book_uri LIMIT 1;
     IF v_book_id IS NULL THEN
-      INSERT INTO public."Book" (title, "authorId", year)
-      VALUES (r.book_title, v_author_id, r.book_year)
+      INSERT INTO public."Book" (title, "authorId", year, "inventaireUri")
+      VALUES (r.book_title, v_author_id, r.book_year, r.book_uri)
       RETURNING id INTO v_book_id;
+    ELSE
+      UPDATE public."Book" SET "inventaireUri" = r.book_uri WHERE id = v_book_id AND "inventaireUri" IS NULL;
     END IF;
 
     SELECT id INTO v_quote_id FROM public."Quote"
@@ -93,19 +98,23 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- 2. Recherche ou création de l'auteur "Blaise Pascal"
-  SELECT id INTO v_author_id FROM public."Author" WHERE name = 'Blaise Pascal' LIMIT 1;
+  SELECT id INTO v_author_id FROM public."Author" WHERE name = 'Blaise Pascal' OR "inventaireUri" = 'wd:Q1290' LIMIT 1;
   IF v_author_id IS NULL THEN
-    INSERT INTO public."Author" (name)
-    VALUES ('Blaise Pascal')
+    INSERT INTO public."Author" (name, "inventaireUri")
+    VALUES ('Blaise Pascal', 'wd:Q1290')
     RETURNING id INTO v_author_id;
+  ELSE
+    UPDATE public."Author" SET "inventaireUri" = 'wd:Q1290' WHERE id = v_author_id AND "inventaireUri" IS NULL;
   END IF;
 
   -- 3. Recherche ou création du livre "Pensées"
-  SELECT id INTO v_book_id FROM public."Book" WHERE title = 'Pensées' AND "authorId" = v_author_id LIMIT 1;
+  SELECT id INTO v_book_id FROM public."Book" WHERE (title = 'Pensées' AND "authorId" = v_author_id) OR "inventaireUri" = 'wd:Q17360856' LIMIT 1;
   IF v_book_id IS NULL THEN
-    INSERT INTO public."Book" (title, "authorId", year)
-    VALUES ('Pensées', v_author_id, 1670)
+    INSERT INTO public."Book" (title, "authorId", year, "inventaireUri")
+    VALUES ('Pensées', v_author_id, 1670, 'wd:Q17360856')
     RETURNING id INTO v_book_id;
+  ELSE
+    UPDATE public."Book" SET "inventaireUri" = 'wd:Q17360856' WHERE id = v_book_id AND "inventaireUri" IS NULL;
   END IF;
 
   IF new.id = v_quotex_uuid THEN
