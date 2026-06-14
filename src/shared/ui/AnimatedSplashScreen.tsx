@@ -3,87 +3,135 @@ import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
-  Extrapolation,
-  interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withTiming
+  withTiming,
+  withSequence,
+  withDelay,
 } from 'react-native-reanimated';
 
 interface Props {
   onAnimationFinish: () => void;
   isDark: boolean;
   isLoading: boolean;
+  onAnimationStart?: () => void;
+  isAnimating?: boolean;
+  isMask?: boolean;
 }
 
 // Logo PNG pour une performance maximale (60 FPS)
 const LOGO_SOURCE = require('@/assets/images/quotex_logo.png');
 
-export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoading }: Props) {
-  const opacity = useSharedValue(1);
-  const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.8);
+export default function AnimatedSplashScreen({ 
+  onAnimationFinish, 
+  isDark, 
+  isLoading,
+  onAnimationStart,
+  isAnimating = false,
+  isMask = false
+}: Props) {
+  "use no memo";
+  const logoScale = useSharedValue(1); // Commence à 1 pour la transition seamless
+  const logoOpacity = useSharedValue(1);
+  const containerOpacity = useSharedValue(1);
   const [minTimePassed, setMinTimePassed] = React.useState(false);
+  const [isImageLoaded, setIsImageLoaded] = React.useState(false);
 
+  // 1. Gestion du temps d'affichage minimal pour l'overlay statique
   useEffect(() => {
-    // Entrée du logo
-    logoOpacity.value = withTiming(1, { 
-      duration: 600,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1)
-    });
-    
-    logoScale.value = withTiming(1, { 
-      duration: 800, 
-      easing: Easing.out(Easing.back(1.2)) 
-    });
-
-    // Minimum display time for branding
-    const timer = setTimeout(() => {
-      setMinTimePassed(true);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [logoOpacity, logoScale]);
-
-  useEffect(() => {
-    // Only start fade out if both animation timer finished AND auth is not loading anymore
-    if (minTimePassed && !isLoading) {
-      opacity.value = withTiming(0, { 
-        duration: 500,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1)
-      }, (finished) => {
-        if (finished) {
-          runOnJS(onAnimationFinish)();
-        }
-      });
+    if (!isMask) {
+      const timer = setTimeout(() => {
+        setMinTimePassed(true);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [minTimePassed, isLoading, onAnimationFinish, opacity]);
+  }, [isMask]);
+
+  // 2. Déclenchement du début de l'animation de zoom (passage à l'état de masque)
+  useEffect(() => {
+    if (!isMask && minTimePassed && !isLoading) {
+      if (onAnimationStart) {
+        onAnimationStart();
+      }
+    }
+  }, [isMask, minTimePassed, isLoading, onAnimationStart]);
+
+  // 3. Animation de zoom du masque et de fondu de l'overlay
+  useEffect(() => {
+    if (isAnimating) {
+      // Zoom du logo (commun au masque et à l'overlay pour rester synchronisé)
+      logoScale.value = withSequence(
+        // Recul léger (anticipation)
+        withTiming(0.85, { 
+          duration: 250, 
+          easing: Easing.bezier(0.25, 1, 0.5, 1) 
+        }),
+        // Propulsion/Zoom massif (55x pour recouvrir tout l'écran)
+        withTiming(55, { 
+          duration: 650, 
+          easing: Easing.bezier(0.6, -0.05, 0.9, 0.1) // Accélération forte
+        }, (finished) => {
+          if (finished) {
+            // Seul le masque signale la fin finale pour éviter les doubles déclenchements
+            if (isMask && onAnimationFinish) {
+              runOnJS(onAnimationFinish)();
+            }
+          }
+        })
+      );
+
+      // Animations de fondu spécifiques à l'overlay (pour éviter une disparition brutale du logo blanc)
+      if (!isMask) {
+        // Estomper le logo blanc en fondu pendant le zoom
+        logoOpacity.value = withSequence(
+          withTiming(1, { duration: 250 }), // Reste visible pendant l'anticipation
+          withTiming(0, { 
+            duration: 550, 
+            easing: Easing.out(Easing.ease) 
+          })
+        );
+
+        // Fondu du fond de l'overlay après l'anticipation
+        containerOpacity.value = withDelay(250, withTiming(0, { 
+          duration: 450,
+          easing: Easing.bezier(0.25, 0.1, 0.25, 1)
+        }));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMask, isAnimating, onAnimationFinish]);
 
   const containerStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { scale: interpolate(opacity.value, [0, 1], [1.1, 1], Extrapolation.CLAMP) }
-    ]
+    opacity: isMask ? 1 : containerOpacity.value,
   }));
 
   const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
+    opacity: isMask ? 1 : (!isImageLoaded ? 0 : logoOpacity.value),
     transform: [{ scale: logoScale.value }],
   }));
+
+  // Couleur de fond : transparente pour le masque, solide pour l'overlay (après chargement de l'image)
+  const backgroundColor = isMask 
+    ? 'transparent' 
+    : (isImageLoaded ? (isDark ? '#000000' : '#FFFFFF') : 'transparent');
 
   return (
     <Animated.View style={[
       styles.container, 
-      { backgroundColor: isDark ? '#000000' : '#FFFFFF' },
+      { backgroundColor },
       containerStyle
     ]}>
-      <Animated.View style={[styles.logoContainer, logoStyle]}>
+      <Animated.View style={[
+        styles.logoContainer, 
+        logoStyle
+      ]}>
         <Image 
           source={LOGO_SOURCE}
           style={styles.logo}
           contentFit="contain"
           transition={0}
+          onLoad={() => setIsImageLoaded(true)}
         />
       </Animated.View>
     </Animated.View>
@@ -92,14 +140,14 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
   },
   logoContainer: {
-    width: 250,
-    height: 100,
+    width: 200,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
   },

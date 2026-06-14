@@ -24,6 +24,7 @@ interface QuoteCardProps {
   quote: Quote;
   onToggleLike: (id: number) => void;
   onOpenMenu: (quote: Quote) => void;
+  showSavedDate?: boolean; // Afficher savedAt au lieu de date (pour les quotes sauvegardées)
 }
 
 const isEnriching = (item: any): boolean => {
@@ -31,7 +32,7 @@ const isEnriching = (item: any): boolean => {
   return false;
 };
 
-const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProps) => {
+const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }: QuoteCardProps) => {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -85,15 +86,15 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
         <Pressable
           onPress={() => {
             const activeStepName = TOUR_STEPS[currentStepIndex];
+            const params: any = { quoteId: quote.id.toString() };
+            if (showSavedDate) {
+              params.showSavedDate = 'true';
+            }
             if (activeStepName === 'quoteCardDetail') {
               nextStep();
-              router.navigate({
-                pathname: '/quote-detail',
-                params: { quoteId: quote.id.toString(), fromTour: 'true' }
-              });
-            } else {
-              router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } });
+              params.fromTour = 'true';
             }
+            router.navigate({ pathname: '/quote-detail', params });
           }}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
         >
@@ -134,7 +135,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
                 />
               )}
             </View>
-            <Text style={styles.dateText}>{formatRelativeDate(quote.date)}</Text>
+            <Text style={styles.dateText}>{formatRelativeDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</Text>
           </View>
         </Pressable>
 

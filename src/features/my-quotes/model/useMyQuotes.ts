@@ -25,9 +25,15 @@ export const useMyQuotes = () => {
   
   const { user: currentUser } = useAuth();
 
-  // Filtre les quotes de l'utilisateur courant
+  // Filtre les quotes de l'utilisateur courant (créées ou sauvegardées) et les trie par date d'ajout
   const myQuotes = useMemo(() => {
-    return allQuotes.filter(q => q.user?.id === currentUser?.id);
+    return allQuotes
+      .filter(q => q.user?.id === currentUser?.id || q.isSaved)
+      .sort((a, b) => {
+        const dateA = new Date(a.savedAt || a.date || 0).getTime();
+        const dateB = new Date(b.savedAt || b.date || 0).getTime();
+        return dateB - dateA;
+      });
   }, [allQuotes, currentUser]);
 
   // Rafraîchissement des données

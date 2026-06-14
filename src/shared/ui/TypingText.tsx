@@ -33,9 +33,9 @@ export const TypingText: React.FC<TypingTextProps> = ({
 
     const prevTextRef = useRef<string>(text);
     const timersRef = useRef<{
-        timeout?: NodeJS.Timeout;
-        interval?: NodeJS.Timeout;
-        blinkInterval?: NodeJS.Timeout;
+        timeout?: ReturnType<typeof setTimeout>;
+        interval?: ReturnType<typeof setInterval>;
+        blinkInterval?: ReturnType<typeof setInterval>;
     }>({});
 
     const clearAllTimers = () => {

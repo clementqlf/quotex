@@ -7,9 +7,8 @@ import { Alert } from 'react-native';
 import { Camera, PhotoFile, useCameraDevice, useCameraFormat, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 
 import { useAuth } from '@/src/app/providers/AuthContext';
-import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { useAddQuoteFlow, useRandomQuoteFlow } from '@/src/features/quote/model';
 import { Quote, User } from '@/src/shared/api/types';
-import { PlatformServices } from '@/src/shared/platform';
 import { IsbnBookData, scanService } from '../api/ScanService';
 
 // Interface pour l'injection de dépendances de navigation
@@ -63,7 +62,7 @@ export interface ScanControllerState {
   isSearchingIsbn: boolean;
   
   // Random quote state
-  randomQuote: any | null;
+  randomQuote: Quote | null;
   showRandomQuoteModal: boolean;
   setShowRandomQuoteModal: (value: boolean) => void;
   
@@ -89,6 +88,7 @@ export interface ScanControllerActions {
   
   // Quote saving
   saveScannedQuote: (text: string, book?: string | null, author?: string | null) => Promise<{ success: boolean; quote?: Quote; error?: string }>;
+  saveRandomQuoteToCollection: (quoteId: number) => Promise<{ success: boolean; isSaved?: boolean; savedAt?: string | null; error?: string }>;
   
   // ISBN actions
   checkAndHandleIsbn: (text: string) => Promise<boolean>;
@@ -159,39 +159,26 @@ export const useScanController = (
   const isSearchingIsbnRef = useRef(false);
   const showIsbnPopupRef = useRef(false);
 
-  // ========== RANDOM QUOTE STATE ==========
-  const [randomQuote, setRandomQuote] = useState<any | null>(null);
-  const [showRandomQuoteModal, setShowRandomQuoteModal] = useState(false);
-
-  // ========== OCR LIVE STATE ==========
-  const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
-
   // ========== LOCK REFS ==========
   const scanLockRef = useRef(false);
 
-  // ========== QUOTE SAVING ==========
-  /**
-   * Sauvegarde une citation scannée via QuoteUseCases
-   */
-  const saveScannedQuote = useCallback(async (
-    text: string,
-    book?: string | null,
-    author?: string | null
-  ): Promise<{ success: boolean; quote?: Quote; error?: string }> => {
-    try {
-      console.log('[ScanController] Saving quote via QuoteUseCases');
-      const newQuote = await quoteService.createQuoteWithMatching(text, book, author);
-      console.log('[ScanController] Quote saved successfully:', newQuote);
-      return { success: true, quote: newQuote, error: undefined };
-    } catch (error) {
-      console.error('[ScanController] Failed to save quote:', error);
-      return {
-        success: false,
-        quote: undefined,
-        error: error instanceof Error ? error.message : String(error)
-      };
-    }
-  }, []);
+  // ========== FLOW HOOKS ==========
+  // Utiliser les hooks dédiés pour séparer les responsabilités
+  const { saveScannedQuote } = useAddQuoteFlow();
+  
+  const { 
+    randomQuote, 
+    showRandomQuoteModal, 
+    setShowRandomQuoteModal,
+    handleRandomQuotePress,
+    saveRandomQuoteToCollection 
+  } = useRandomQuoteFlow({ 
+    quotes, 
+    currentUser 
+  });
+
+  // ========== OCR LIVE STATE ==========
+  const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
 
   // ========== ISBN HANDLERS ==========
   const checkAndHandleIsbn = useCallback(async (text: string): Promise<boolean> => {
@@ -280,23 +267,6 @@ export const useScanController = (
     scanLockRef.current = false;
     setIsSearchingIsbn(false);
   }, []);
-
-  // ========== RANDOM QUOTE HANDLERS ==========
-  const handleRandomQuotePress = useCallback(async () => {
-    try {
-      const result = await scanService.getRandomQuoteFromOtherUsers(quotes, currentUser?.id);
-      
-      if (result.success && result.quote) {
-        PlatformServices.haptics.impactAsync("light");
-        setRandomQuote(result.quote);
-        setShowRandomQuoteModal(true);
-      } else {
-        Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
-      }
-    } catch {
-      Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
-    }
-  }, [quotes, currentUser?.id]);
 
   const handleTextDetectedChange = useCallback((detected: boolean) => {
     setIsTextDetectedLive(detected);
@@ -617,6 +587,7 @@ export const useScanController = (
     
     // Quote saving
     saveScannedQuote,
+    saveRandomQuoteToCollection,
     
     // ISBN actions
     checkAndHandleIsbn,

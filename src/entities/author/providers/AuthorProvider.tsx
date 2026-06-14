@@ -46,22 +46,32 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const refreshAuthors = useCallback(async (reason?: string) => {
+    if (queryClient.isMutating({ mutationKey: ['authors'] })) {
+      console.log(`refreshAuthors skipped: author mutation in progress (reason: ${reason || 'none'})`);
+      return;
+    }
     if (reason) console.log(`refreshAuthors: ${reason}`);
     await refetchAuthors();
-  }, [refetchAuthors]);
+  }, [refetchAuthors, queryClient]);
 
   const refreshBooks = useCallback(async (reason?: string) => {
+    if (queryClient.isMutating({ mutationKey: ['books'] })) {
+      console.log(`refreshBooks skipped: book mutation in progress (reason: ${reason || 'none'})`);
+      return;
+    }
     if (reason) console.log(`refreshBooks: ${reason}`);
     await refetchBooks();
-  }, [refetchBooks]);
+  }, [refetchBooks, queryClient]);
 
   // Mutations
   const toggleSaveAuthorMutation = useMutation({
+    mutationKey: ['authors', 'toggleSave'],
     mutationFn: (id: number) => authorRepository.toggleSaveAuthor(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authors'] }),
   });
 
   const toggleSaveBookMutation = useMutation({
+    mutationKey: ['books', 'toggleSave'],
     mutationFn: (id: number) => authorRepository.toggleSaveBook(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['books'] });
@@ -81,6 +91,7 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const updateBookStatusMutation = useMutation({
+    mutationKey: ['books', 'updateStatus'],
     mutationFn: ({ id, status }: { id: number; status: ReadingStatus }) => authorRepository.updateBookStatus(id, status),
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: ['books'] });

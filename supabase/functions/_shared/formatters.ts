@@ -41,6 +41,7 @@ export const formatQuote = (quote: any, userId: string | number | null = 0) => {
     ...quote,
     book: quote.book ? formatBook(quote.book, userId) : null,
     isSaved,
+    savedAt: quote.savedAt || null,
     isLiked: quote.likes ? quote.likes.some((l: any) => l.userId === userId) : false,
     likesCount: quote._count?.likes ?? quote.likesCount ?? 0,
   };

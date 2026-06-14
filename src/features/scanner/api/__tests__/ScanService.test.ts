@@ -60,7 +60,7 @@ describe('ScanService', () => {
         }]
       });
 
-      global.fetch = jest.fn().mockResolvedValue({
+      globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ id: 1, title: 'Imported Book' })
       });
@@ -84,7 +84,7 @@ describe('ScanService', () => {
       });
 
       let attempt = 0;
-      global.fetch = jest.fn().mockImplementation(() => {
+      globalThis.fetch = jest.fn().mockImplementation(() => {
         attempt++;
         if (attempt < 3) {
           return Promise.reject(new Error('Temporary error'));

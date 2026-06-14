@@ -41,7 +41,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
                         <Text style={styles.savedQuoteText}>{quote.text}</Text>
                         <View style={styles.savedQuoteMeta}>
                             <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
-                            <Text style={styles.savedQuoteDate}>{quote.date}</Text>
+                            <Text style={styles.savedQuoteDate}>{quote.savedAt || quote.date}</Text>
                         </View>
                     </TouchableOpacity>
                 ))}

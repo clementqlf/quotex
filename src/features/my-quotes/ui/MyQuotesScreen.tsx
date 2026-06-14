@@ -1,6 +1,6 @@
 import { InteractiveTooltip } from '@/src/features/app-tour';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
@@ -244,10 +244,17 @@ export default function MyQuotesScreen() {
   } = useMyQuotes();
 
   const { handleConfirmSave } = useQuoteActions();
-  const { tabIndex, setTabIndex } = useTabIndex();
+  const { tabIndex, setTabIndex, setPage } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
   const quotesListRef = useRef<any>(null);
+
+  const scrollToQuotesTop = useCallback(() => {
+    setViewMode('quotes');
+    setTimeout(() => {
+      quotesListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, 50);
+  }, []);
 
   const isFocused = tabIndex === 0;
 
@@ -416,6 +423,7 @@ export default function MyQuotesScreen() {
         quote={item}
         onToggleLike={() => toggleLikeQuoteStable(item.id)}
         onOpenMenu={() => handleOpenMenu(item)}
+        showSavedDate
       />
     );
 
@@ -656,6 +664,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'book'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -681,6 +690,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'author'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -706,6 +716,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'theme'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -732,6 +743,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'quote'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -743,6 +755,13 @@ export default function MyQuotesScreen() {
                 resetFilters={resetFilters}
                 setSelectedStatus={setSelectedStatus}
               />
+            }
+            ListEmptyComponent={
+              <Text style={styles.emptyStateText}>
+                {myQuotes.length === 0
+                  ? "Ajoute une citation pour la voir ici."
+                  : "Aucune citation à afficher avec ces filtres."}
+              </Text>
             }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -776,6 +795,7 @@ export default function MyQuotesScreen() {
             setEditingQuote,
             isFromScanner: false,
           });
+          scrollToQuotesTop();
         }}
         scannedText={editingQuote ? editingQuote.text : ""}
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}
@@ -801,7 +821,13 @@ export default function MyQuotesScreen() {
       <AddQuoteMenu
         visible={showAddMenu}
         onClose={() => setShowAddMenu(false)}
-        onScanPress={() => router.navigate('/scan')}
+        onScanPress={() => {
+          if (setPage) {
+            setPage(1);
+          } else {
+            router.navigate('/scan');
+          }
+        }}
         onManualAddPress={() => {
           setEditingQuote(null);
           setShowManualQuoteModal(true);
@@ -892,6 +918,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
+    flexGrow: 1,
   },
   filterContainer: {
     flexDirection: 'row',

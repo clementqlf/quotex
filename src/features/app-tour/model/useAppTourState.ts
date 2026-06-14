@@ -18,6 +18,8 @@ export type TourStep = typeof TOUR_STEPS[number];
 interface AppTourState {
   isActive: boolean;
   currentStepIndex: number;
+  userId: string | null;
+  setUserId: (userId: string | null) => void;
   startTour: (stepName?: TourStep) => void;
   stopTour: () => Promise<void>;
   nextStep: () => void;
@@ -29,6 +31,9 @@ interface AppTourState {
 export const useAppTourState = create<AppTourState>((set, get) => ({
   isActive: false,
   currentStepIndex: 0,
+  userId: null,
+
+  setUserId: (userId: string | null) => set({ userId }),
 
   startTour: (stepName?: TourStep) => {
     let startIndex = 0;
@@ -40,8 +45,10 @@ export const useAppTourState = create<AppTourState>((set, get) => ({
   },
 
   stopTour: async () => {
+    const { userId } = get();
     set({ isActive: false });
-    await AsyncStorage.setItem('has_seen_tour', 'true');
+    const key = userId ? `has_seen_tour_${userId}` : 'has_seen_tour';
+    await AsyncStorage.setItem(key, 'true');
     await AsyncStorage.removeItem('resume_tour_step');
   },
 
@@ -69,8 +76,10 @@ export const useAppTourState = create<AppTourState>((set, get) => ({
   },
 
   resetTour: async () => {
+    const { userId } = get();
     set({ isActive: false, currentStepIndex: 0 });
-    await AsyncStorage.removeItem('has_seen_tour');
+    const key = userId ? `has_seen_tour_${userId}` : 'has_seen_tour';
+    await AsyncStorage.removeItem(key);
     await AsyncStorage.removeItem('resume_tour_step');
   }
 }));

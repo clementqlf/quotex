@@ -11,7 +11,7 @@ type QuoteContextType = {
   syncStatus: SyncStatus & { syncNow: () => void; isOnline: boolean; isOffline: boolean };
   refreshQuotes: () => Promise<void>;
   toggleLikeQuote: (id: number) => Promise<{ isLiked: boolean; likesCount: number } | void>;
-  toggleSaveQuote: (id: number) => Promise<{ isSaved: boolean } | void>;
+  toggleSaveQuote: (id: number, quote?: Quote) => Promise<{ isSaved: boolean; savedAt?: string | null } | void>;
   deleteQuote: (id: number) => Promise<void>;
   addQuote: (text: string, book?: string | null, author?: string | null) => Promise<Quote>;
   updateQuote: (id: number, updates: Partial<Quote>) => Promise<Quote | void>;
@@ -33,9 +33,13 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
 
   // Refresh avec logging
   const refreshQuotes = useCallback(async (reason?: string) => {
+    if (queryClient.isMutating({ mutationKey: ['quotes'] })) {
+      console.log(`refreshQuotes skipped: quote mutation in progress (reason: ${reason || 'none'})`);
+      return;
+    }
     if (reason) console.log(`refreshQuotes called: ${reason}`);
     await refetch();
-  }, [refetch]);
+  }, [refetch, queryClient]);
 
   // Synchronisation automatique après sync
   useEffect(() => {
@@ -47,6 +51,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
 
   // Mutation pour toggleLike
   const toggleLikeMutation = useMutation({
+    mutationKey: ['quotes', 'toggleLike'],
     mutationFn: (id: number) => quoteRepository.toggleLike(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['quotes'] });
@@ -67,21 +72,34 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     }
   });
 
-  // Mutation pour toggleSave
+  // Mutation pour toggleSave / saveQuote
   const toggleSaveMutation = useMutation({
-    mutationFn: (id: number) => quoteRepository.toggleSave(id),
-    onMutate: async (id) => {
+    mutationKey: ['quotes', 'toggleSave'],
+    mutationFn: ({ id, quote }: { id: number; quote?: Quote }) => 
+      quote ? quoteRepository.saveQuote(id, quote) : quoteRepository.toggleSave(id),
+    onMutate: async ({ id, quote }) => {
       await queryClient.cancelQueries({ queryKey: ['quotes'] });
       const previousQuotes = queryClient.getQueryData<Quote[]>(['quotes']);
       if (previousQuotes) {
         queryClient.setQueryData<Quote[]>(['quotes'], old => {
           if (!old) return [];
-          return old.map(q => q.id === id ? { ...q, isSaved: !q.isSaved } : q);
+          const exists = old.some(q => q.id === id);
+          if (exists) {
+            return old.map(q => q.id === id ? { 
+              ...q, 
+              isSaved: quote ? true : !q.isSaved,
+              // Ajouter savedAt avec la date actuelle quand on sauvegarde
+              savedAt: (quote || !q.isSaved) ? new Date().toISOString() : null
+            } : q);
+          } else if (quote) {
+            return [{ ...quote, isSaved: true, savedAt: new Date().toISOString() }, ...old];
+          }
+          return old;
         });
       }
       return { previousQuotes };
     },
-    onError: (err, id, ctx) => {
+    onError: (err, variables, ctx) => {
       if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
     },
     onSettled: () => {
@@ -91,6 +109,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
 
   // Mutation pour deleteQuote
   const deleteQuoteMutation = useMutation({
+    mutationKey: ['quotes', 'deleteQuote'],
     mutationFn: (id: number) => quoteRepository.deleteQuote(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['quotes'] });
@@ -113,6 +132,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
 
   // Mutation pour addQuote
   const addQuoteMutation = useMutation({
+    mutationKey: ['quotes', 'addQuote'],
     mutationFn: async ({ text, book, author }: { text: string; book?: string | null; author?: string | null }) => {
       const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
       const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
@@ -156,6 +176,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
 
   // Mutation pour updateQuote
   const updateQuoteMutation = useMutation({
+    mutationKey: ['quotes', 'updateQuote'],
     mutationFn: ({ id, updates }: { id: number; updates: Partial<Quote> }) => quoteRepository.updateQuote(id, updates),
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: ['quotes'] });
@@ -193,7 +214,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     syncStatus,
     refreshQuotes,
     toggleLikeQuote: (id: number) => toggleLikeMutation.mutateAsync(id),
-    toggleSaveQuote: (id: number) => toggleSaveMutation.mutateAsync(id),
+    toggleSaveQuote: (id: number, quote?: Quote) => toggleSaveMutation.mutateAsync({ id, quote }),
     deleteQuote: (id: number) => deleteQuoteMutation.mutateAsync(id),
     addQuote: (text: string, book?: string | null, author?: string | null) => 
       addQuoteMutation.mutateAsync({ text, book, author }),

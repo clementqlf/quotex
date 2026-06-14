@@ -1,7 +1,7 @@
 import { WikidataService } from '../WikidataService';
 
-// Mock global.fetch
-global.fetch = jest.fn();
+// Mock globalThis.fetch
+globalThis.fetch = jest.fn();
 
 // Mock offline detection
 jest.mock('@/src/shared/lib/offline/networkUtils', () => ({
@@ -37,7 +37,7 @@ describe('WikidataService', () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           results: {
@@ -48,7 +48,7 @@ describe('WikidataService', () => {
 
       const books = await service.getNotableWorks('Victor Hugo');
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('query.wikidata.org/sparql'),
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -62,7 +62,7 @@ describe('WikidataService', () => {
     });
 
     it('devrait gérer les erreurs réseau', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+      (globalThis.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
       const books = await service.getNotableWorks('Victor Hugo');
 
@@ -70,7 +70,7 @@ describe('WikidataService', () => {
     });
 
     it('devrait gérer les réponses non-OK du serveur', async () => {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
       });
@@ -90,14 +90,14 @@ describe('WikidataService', () => {
         },
       };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockEnrichment,
       });
 
       const result = await service['fetchEnrichment'](['Q123']);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/inventaire/entities?uris=')
       );
       expect(result).toEqual(mockEnrichment);
@@ -108,7 +108,7 @@ describe('WikidataService', () => {
     it('devrait mettre en cache les résultats d\'enrichissement', async () => {
       const mockEnrichment = { Q123: { name: 'Test' } };
 
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => mockEnrichment,
       });
@@ -118,7 +118,7 @@ describe('WikidataService', () => {
       // Deuxième appel avec les mêmes URIs devrait utiliser le cache
       const result2 = await service['fetchEnrichment'](['Q123']);
 
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
       expect(result1).toEqual(mockEnrichment);
       expect(result2).toEqual(mockEnrichment);
     });

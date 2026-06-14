@@ -661,7 +661,7 @@ const createStyles = (colors: any, isDark?: boolean) =>
       overflow: 'visible',
     },
     glowContainer: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       overflow: 'visible',
     },
     cardBubble: {

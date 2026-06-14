@@ -62,6 +62,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
         user: q.user,
         aiInterpretation: q.aiInterpretation,
+        savedAt: q.savedAt || q.AddedAt || null, // Date de sauvegarde depuis userquote.AddedAt
     };
   }
 
@@ -77,7 +78,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             likesCount: (q as any).likesCount || ((q as any).likes && typeof (q as any).likes === 'number' ? (q as any).likes : 0),
             likes: [],
             isLiked: q.isLiked,
-            user: (q as any).user || { id: "1", name: "Clément QLF", username: "@clementqlf" },
+            user: (q as any).user || { id: "00000000-0000-0000-0000-000000000000", name: "Quotex", username: "quotex" },
             date: (q as any).date || (q as any).time,
             isSaved: (q as any).isSaved,
             comments: (q as any).comments,
@@ -129,7 +130,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     // Ensure all legacy quotes have a user
     const safeQuotes = (quotes || []).map(q => ({
         ...q,
-        user: q.user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
+        user: q.user || { id: "00000000-0000-0000-0000-000000000000", name: "Quotex", username: "quotex" }
     }));
 
     return safeQuotes;
@@ -278,6 +279,31 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     };
   }
 
+    async saveQuote(id: number, quote?: Quote): Promise<{ isSaved: boolean; savedAt?: string | null }> {
+        let currentQuote = await this.getQuoteById(id);
+        
+        if (!currentQuote && quote) {
+            currentQuote = quote;
+        }
+
+        if (!currentQuote) {
+            throw new Error(`Quote with id ${id} not found`);
+        }
+
+        if (currentQuote.isSaved) {
+            return { isSaved: true, savedAt: currentQuote.savedAt || null };
+        }
+
+        // If the quote is not in local storage, add it first so toggleSave can find it and update it
+        const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        if (!quotes.some(q => q.id === id)) {
+            quotes.unshift(currentQuote);
+            await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+        }
+
+        return this.toggleSave(id);
+    }
+
   async updateQuote(id: number, updates: Partial<Quote>): Promise<Quote> {
     // Maintain local cache update for offline/responsiveness
     const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
@@ -404,7 +430,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     }
   }
 
-  async toggleSave(id: number): Promise<{ isSaved: boolean }> {
+  async toggleSave(id: number): Promise<{ isSaved: boolean; savedAt?: string | null }> {
     const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
     const quoteIndex = quotes.findIndex(q => q.id === id);
     const quote = quotes[quoteIndex];
@@ -412,6 +438,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
     if (quote) {
         quote.isSaved = newIsSaved;
+        quote.savedAt = newIsSaved ? new Date().toISOString() : null;
         quotes[quoteIndex] = quote;
         await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
     }
@@ -424,7 +451,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         });
         if (response.ok) {
             const data = await response.json();
-            return { isSaved: data.isSaved };
+            return { isSaved: data.isSaved, savedAt: data.savedAt || null };
         }
         throw new Error(`Server returned ${response.status}`);
     } catch (e) {
@@ -434,7 +461,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             entityType: 'quote',
             entityId: id,
         });
-        return { isSaved: newIsSaved };
+        return { isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null };
     }
   }
 

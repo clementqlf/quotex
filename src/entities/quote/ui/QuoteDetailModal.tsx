@@ -36,6 +36,7 @@ import { authorService } from '@/src/entities/author/api/AuthorService';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
 import WordSelectionModal from '@/src/features/dictionary/ui/WordSelectionModal';
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
@@ -45,7 +46,7 @@ import { BlockService } from '@/src/shared/api/BlockService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { BLOCK_CONFIGS, QUOTE_DETAIL_BLOCK_OPTIONS } from '@/src/shared/config/blocks';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { formatAbsoluteDate, formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
 import { ThemeColors } from '@/src/shared/theme';
@@ -290,7 +291,7 @@ function QuoteDetailContent() {
     );
   }, [glow1X, glow1Y, glow1Scale, glow2X, glow2Y, glow2Scale, glow3X, glow3Y, glow3Scale, glow4X, glow4Y, glow4Scale]);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
-  const { quote: quoteParam, quoteId } = useLocalSearchParams<{ quote?: string; quoteId?: string }>();
+  const { quote: quoteParam, quoteId, showSavedDate } = useLocalSearchParams<{ quote?: string; quoteId?: string; showSavedDate?: string }>();
   
   // Remplacement de useData() par les hooks spécifiques
   const { quotes, updateQuote: updateQuoteMutation, toggleLikeQuote, deleteQuote: deleteQuoteMutation } = useQuote();
@@ -926,18 +927,19 @@ function QuoteDetailContent() {
 
                 {quote.user && (
                   <TouchableOpacity style={styles.metaRow} onPress={() => router.navigate(`/user-profile?username=${quote.user?.username}`)}>
-                    <Image
-                      source={{ uri: quote.user.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' }}
+                    <UserAvatar
+                      user={quote.user}
+                      size={16}
                       style={styles.publisherAvatar}
                     />
                     <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>@{quote.user.username}</Text></Text>
                   </TouchableOpacity>
                 )}
 
-                {quote.date && (
+                {(quote.date || quote.savedAt) && (
                   <View style={styles.metaRow}>
                     <Calendar size={16} color={colors.textTertiary} />
-                    <Text style={styles.metaTextDate}>{formatRelativeDate(quote.date)}</Text>
+                    <Text style={styles.metaTextDate}>{formatAbsoluteDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</Text>
                   </View>
                 )}
               </View>
@@ -1029,15 +1031,17 @@ function QuoteDetailContent() {
                     <View style={styles.aiHeader}>
                       <Sparkles size={16} color={colors.primary} />
                       <Text style={styles.aiTitle}>Interprétation IA</Text>
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleTriggerAnalysis();
-                        }}
-                        style={{ marginLeft: 'auto', padding: 4 }}
-                      >
-                        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
-                      </TouchableOpacity>
+                      {__DEV__ && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleTriggerAnalysis();
+                          }}
+                          style={{ marginLeft: 'auto', padding: 4 }}
+                        >
+                          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <Text style={styles.aiText}>{aiInterpretation}</Text>
 
@@ -1361,7 +1365,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     justifyContent: 'flex-end'
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
   },
   modalView: {
@@ -1549,6 +1553,17 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     height: 16,
     borderRadius: 8,
     backgroundColor: colors.surfaceHighlight,
+    overflow: 'hidden',
+  },
+  publisherAvatarPlaceholder: {
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publisherAvatarText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: 'bold',
   },
   metaTextPublisher: {
     color: colors.textSecondary,
@@ -1589,7 +1604,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     overflow: 'visible',
   },
   glowContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'visible',
   },
   aiSection: {

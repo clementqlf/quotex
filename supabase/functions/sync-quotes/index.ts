@@ -12,6 +12,7 @@ import { sql } from '../_shared/db.ts';
 import { matchAuthor, matchBook, AuthorMatchResult, BookMatchResult } from '../_shared/entityMatcher.ts';
 import { findWorkUriByTitleAndAuthor, searchInventaireAuthors, getInventaireWorkDetails, getInventaireAuthorDetails, enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
 import { enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
+import { waitUntil } from '../_shared/waitUntil.ts';
 
 interface OfflineQuote {
   id: string;
@@ -33,6 +34,8 @@ interface SyncResult {
   bookCreated?: boolean;
   inventaireMatch?: boolean;
   inventaireUri?: string;
+  authorId?: number | null;
+  bookId?: number | null;
 }
 
 interface InventaireMatch {
@@ -41,6 +44,8 @@ interface InventaireMatch {
   workUri?: string;
   workTitle?: string;
 }
+
+/// <reference path="../_shared/edge-runtime.d.ts" />
 
 serve(async (req: Request) => {
   const corsResp = handleCors(req);
@@ -208,26 +213,12 @@ serve(async (req: Request) => {
         // Use waitUntil to not block the response
         if (authorLookup?.wasCreated && authorId) {
           console.log(`[sync-quotes] Triggering author enrichment for ${authorId}`);
-          if (typeof EdgeRuntime !== 'undefined') {
-            EdgeRuntime.waitUntil(
-              enrichAuthorWithInventaire(authorId, undefined, undefined, true)
-            );
-          } else {
-            // Fallback for non-EdgeRuntime environments
-            enrichAuthorWithInventaire(authorId, undefined, undefined, true).catch(console.error);
-          }
+          waitUntil(enrichAuthorWithInventaire(authorId, undefined, undefined, true));
         }
 
         if (bookLookup?.wasCreated && bookId) {
           console.log(`[sync-quotes] Triggering book enrichment for ${bookId}`);
-          if (typeof EdgeRuntime !== 'undefined') {
-            EdgeRuntime.waitUntil(
-              enrichBookWithInventaire(bookId)
-            );
-          } else {
-            // Fallback for non-EdgeRuntime environments
-            enrichBookWithInventaire(bookId).catch(console.error);
-          }
+          waitUntil(enrichBookWithInventaire(bookId));
         }
 
         // Record sync result with corrections

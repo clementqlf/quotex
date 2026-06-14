@@ -27,7 +27,7 @@ serve(async (req: Request) => {
   const q = url.searchParams.get('q');
   if (!q) return error('Missing query parameter "q"', 400);
 
-  const query = q.toLowerCase();
+  const query = q.trim().replace(/\s+/g, ' ').toLowerCase();
   const user = await getAuthUser(req);
   const authUserId = user?.id ?? null;
 
@@ -41,7 +41,7 @@ serve(async (req: Request) => {
         // 1. Search in Edition table (ISBN belongs to an edition, not a work)
         const editionMatch = await sql`
           SELECT b.*, e.isbn as isbn, row_to_json(a) as author,
-            COALESCE((SELECT json_agg(ub) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
+            COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${authUserId}::uuid), '[]'::json) as users,
             COALESCE((
               SELECT json_agg(json_build_object(
                 'id', l.id,
@@ -72,6 +72,7 @@ serve(async (req: Request) => {
             inventaireWorks: [],
             inventaireAuthors: [],
             inventairePrizes: [],
+            users: [],
           });
         }
       } catch (dbError) {
@@ -91,6 +92,7 @@ serve(async (req: Request) => {
             inventaireWorks: [mappedResult],
             inventaireAuthors: [],
             inventairePrizes: [],
+            users: [],
           });
         }
       } catch (invError) {
@@ -107,6 +109,7 @@ serve(async (req: Request) => {
         inventaireWorks: [],
         inventaireAuthors: [],
         inventairePrizes: [],
+        users: [],
       });
     }
 
@@ -114,45 +117,83 @@ serve(async (req: Request) => {
     
     // 1-5. Local queries
     console.log(`[search] Executing local DB queries...`);
-    const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw, prizesRaw] = await Promise.all([
+    const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw, prizesRaw, usersRaw] = await Promise.all([
       // ✅ CORRECTION: Utiliser des JOINs au lieu de sous-requêtes pour user et author
       sql`
         SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q."blockData",
           row_to_json(u) as user,
           row_to_json(a) as author,
           row_to_json(b) as book,
-          (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount"
+          (SELECT COUNT(*) FROM "Like" l WHERE l."quoteId" = q.id)::int as "likesCount",
+          ts_rank(to_tsvector('french', q.text), websearch_to_tsquery('french', ${query})) as rank
         FROM "Quote" q
         LEFT JOIN "Profile" u ON u.id = q."userId"
         LEFT JOIN "Author" a ON a.id = q."authorId"
         LEFT JOIN "Book" b ON b.id = q."bookId"
         WHERE (q."isPublic" = true OR q."userId" = ${authUserId}::uuid)
-          AND (q.text ILIKE ${'%' + query + '%'} OR q.theme ILIKE ${'%' + query + '%'})
+          AND (
+            to_tsvector('french', q.text) @@ websearch_to_tsquery('french', ${query})
+            OR public.immutable_unaccent(lower(q.text)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+            OR public.immutable_unaccent(lower(q.theme)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+          )
+        ORDER BY rank DESC
         LIMIT 20
       `,
       sql`
-        SELECT a.*
+        SELECT a.*,
+          similarity(public.immutable_unaccent(lower(a.name)), public.immutable_unaccent(${query})) as score
         FROM "Author" a
-        WHERE a.name ILIKE ${'%' + query + '%'}
+        WHERE public.immutable_unaccent(lower(a.name)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+        ORDER BY
+          CASE WHEN public.immutable_unaccent(lower(a.name)) ILIKE public.immutable_unaccent(${query + '%'}) THEN 0 ELSE 1 END,
+          score DESC
         LIMIT 10
       `,
       sql`
         SELECT b.*, 
           (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
-          row_to_json(a) as author
+          row_to_json(a) as author,
+          similarity(public.immutable_unaccent(lower(b.title)), public.immutable_unaccent(${query})) as score
         FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
-        WHERE b.title ILIKE ${'%' + query + '%'}
+        WHERE public.immutable_unaccent(lower(b.title)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+        ORDER BY
+          CASE WHEN public.immutable_unaccent(lower(b.title)) ILIKE public.immutable_unaccent(${query + '%'}) THEN 0 ELSE 1 END,
+          score DESC
         LIMIT 10
       `,
       sql`
         SELECT DISTINCT theme FROM "Quote"
         WHERE ("isPublic" = true OR "userId" = ${authUserId}::uuid)
-          AND theme ILIKE ${'%' + query + '%'} AND theme IS NOT NULL
+          AND public.immutable_unaccent(lower(theme)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+          AND theme IS NOT NULL
         LIMIT 10
       `,
       sql`
-        SELECT * FROM "LiteraryPrize"
-        WHERE name ILIKE ${'%' + query + '%'}
+        SELECT *,
+          similarity(public.immutable_unaccent(lower(name)), public.immutable_unaccent(${query})) as score
+        FROM "LiteraryPrize"
+        WHERE public.immutable_unaccent(lower(name)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+        ORDER BY
+          CASE WHEN public.immutable_unaccent(lower(name)) ILIKE public.immutable_unaccent(${query + '%'}) THEN 0 ELSE 1 END,
+          score DESC
+        LIMIT 10
+      `,
+      sql`
+        SELECT id, username, name, image, bio, website, followers, following, "isPublic",
+          GREATEST(
+            similarity(public.immutable_unaccent(lower(username)), public.immutable_unaccent(${query})),
+            similarity(public.immutable_unaccent(lower(COALESCE(name, ''))), public.immutable_unaccent(${query}))
+          ) AS score
+        FROM "Profile"
+        WHERE ("isPublic" = true OR id = ${authUserId}::uuid)
+          AND (${authUserId}::uuid IS NULL OR id != ${authUserId}::uuid)
+          AND (
+            public.immutable_unaccent(lower(username)) ILIKE public.immutable_unaccent(${'%' + query + '%'}) 
+            OR public.immutable_unaccent(lower(COALESCE(name, ''))) ILIKE public.immutable_unaccent(${'%' + query + '%'})
+          )
+        ORDER BY
+          CASE WHEN public.immutable_unaccent(lower(username)) ILIKE public.immutable_unaccent(${query + '%'}) THEN 0 ELSE 1 END,
+          score DESC
         LIMIT 10
       `
     ]);
@@ -163,7 +204,7 @@ serve(async (req: Request) => {
       const authorIds = localAuthorsRaw.map((a: any) => a.id).filter(Boolean);
       if (authorIds.length > 0) {
         const userAuthors = await sql`
-          SELECT "authorId", json_agg(ua) as users
+          SELECT "authorId", json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) as users
           FROM "UserAuthor" ua
           WHERE ua."authorId" = ANY(${authorIds}) AND ua."userId" = ${authUserId}::uuid
           GROUP BY "authorId"
@@ -178,7 +219,7 @@ serve(async (req: Request) => {
       const bookIds = localBooksRaw.map((b: any) => b.id).filter(Boolean);
       if (bookIds.length > 0) {
         const userBooks = await sql`
-          SELECT "bookId", json_agg(ub) as users
+          SELECT "bookId", json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) as users
           FROM "UserBook" ub
           WHERE ub."bookId" = ANY(${bookIds}) AND ub."userId" = ${authUserId}::uuid
           GROUP BY "bookId"
@@ -219,7 +260,7 @@ serve(async (req: Request) => {
         const likesMap = new Map(likes.map((l: any) => [l.quoteId, l.likes || []]));
         
         const savedBy = await sql`
-          SELECT "quoteId", json_agg(s) as savedBy
+          SELECT "quoteId", json_agg(json_build_object('userId', s."userId", 'quoteId', s."quoteId", 'addedAt', s."addedAt")) as savedBy
           FROM "UserQuote" s
           WHERE s."quoteId" = ANY(${quoteIds}) AND s."userId" = ${authUserId}::uuid
           GROUP BY "quoteId"
@@ -317,6 +358,7 @@ serve(async (req: Request) => {
       inventaireWorks: inventaireWorks || [],
       inventaireAuthors: inventaireAuthors || [],
       inventairePrizes: inventairePrizes || [],
+      users: usersRaw || [],
     });
   } catch (e: any) {
     console.error('[search] Fatal error:', e);

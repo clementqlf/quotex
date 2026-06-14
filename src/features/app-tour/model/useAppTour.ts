@@ -1,4 +1,5 @@
 import { useTabIndex } from '@/src/app/providers/TabContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef } from 'react';
 import { TOUR_STEPS, useAppTourState } from './useAppTourState';
@@ -13,17 +14,32 @@ import { TOUR_STEPS, useAppTourState } from './useAppTourState';
  * - Fonction de réinitialisation de debug
  */
 export function useAppTour() {
-  const { isActive, currentStepIndex, startTour, resetTour } = useAppTourState();
+  const { isActive, currentStepIndex, startTour, resetTour, setUserId } = useAppTourState();
   const { setPage } = useTabIndex();
-  const tourStarted = useRef(false);
+  const { user } = useAuth();
+  const tourStarted = useRef<string | null>(null);
 
   useEffect(() => {
+    if (user?.id) {
+      setUserId(user.id);
+    } else {
+      setUserId(null);
+    }
+  }, [user?.id, setUserId]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      tourStarted.current = null;
+      return;
+    }
+
     const checkTutorial = async () => {
-      if (tourStarted.current) return;
+      if (tourStarted.current === user.id) return;
       
-      const hasSeenTour = await AsyncStorage.getItem('has_seen_tour');
+      const key = `has_seen_tour_${user.id}`;
+      const hasSeenTour = await AsyncStorage.getItem(key);
       if (!hasSeenTour) {
-        tourStarted.current = true;
+        tourStarted.current = user.id;
         setTimeout(() => {
           startTour();
         }, 1500);
@@ -31,7 +47,7 @@ export function useAppTour() {
     };
     
     checkTutorial();
-  }, [startTour]);
+  }, [startTour, user?.id]);
 
   useEffect(() => {
     if (isActive) {

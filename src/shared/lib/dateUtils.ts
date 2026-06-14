@@ -33,3 +33,16 @@ export const formatRelativeDate = (dateString: string | Date | undefined | null)
         return '';
     }
 };
+
+export const formatAbsoluteDate = (dateString: string | Date | undefined | null): string => {
+    if (!dateString) return '';
+
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+        console.error('[dateUtils] Error formatting absolute date:', e);
+        return '';
+    }
+};

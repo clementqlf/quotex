@@ -1,6 +1,8 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
+import { authService } from '@/src/entities/user/api/AuthService';
+import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
@@ -10,13 +12,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BookOpen, Camera, ChevronLeft, Library, Link, MoreHorizontal, Quote } from 'lucide-react-native';
+import { BookOpen, Camera, ChevronLeft, Library, Link, MoreHorizontal, Quote, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -182,6 +185,45 @@ export default function UserProfileScreen() {
 
   const [isFollowing, setIsFollowing] = useState(false);
 
+  useEffect(() => {
+    if (profileData) {
+      setIsFollowing(!!(profileData as any).isFollowing);
+    }
+  }, [profileData]);
+
+  // Follow modal states
+  const [isFollowModalVisible, setIsFollowModalVisible] = useState(false);
+  const [followModalTab, setFollowModalTab] = useState<'followers' | 'following'>('followers');
+  const [followList, setFollowList] = useState<any[]>([]);
+  const [isFollowListLoading, setIsFollowListLoading] = useState(false);
+
+  const fetchFollowList = async (tab: 'followers' | 'following') => {
+    if (!profileData?.id) return;
+    setIsFollowListLoading(true);
+    setFollowList([]);
+    try {
+      let data: any[] = [];
+      if (tab === 'followers') {
+        data = await authService.getFollowers(profileData.id);
+      } else {
+        data = await authService.getFollowing(profileData.id);
+      }
+      setFollowList(data);
+    } catch (error) {
+      console.error('Error fetching follow list:', error);
+      Alert.alert('Erreur', 'Impossible de récupérer la liste des utilisateurs.');
+    } finally {
+      setIsFollowListLoading(false);
+    }
+  };
+
+  const openFollowModal = (tab: 'followers' | 'following') => {
+    setFollowModalTab(tab);
+    setIsFollowModalVisible(true);
+    fetchFollowList(tab);
+  };
+
+
   const groupedBooks = useMemo(() => {
     const groups: Record<string, any[]> = {
       'READING': [],
@@ -201,8 +243,36 @@ export default function UserProfileScreen() {
     return groups;
   }, [userBooks]);
 
-  const toggleFollow = () => {
-    setIsFollowing(!isFollowing);
+  const toggleFollow = async () => {
+    if (!profileData || !currentUser) return;
+
+    const newFollowState = !isFollowing;
+    setIsFollowing(newFollowState);
+
+    // Optimistic cache update for followers count
+    const profileQueryKey = username || `me_${currentUser?.id || 'none'}`;
+    const currentFollowers = profileData.followers || 0;
+    
+    const updatedProfile = {
+      ...profileData,
+      followers: newFollowState ? currentFollowers + 1 : Math.max(currentFollowers - 1, 0),
+      isFollowing: newFollowState
+    };
+    queryClient.setQueryData(['userProfile', profileQueryKey], updatedProfile);
+
+    try {
+      if (newFollowState) {
+        await authService.followUser(profileData.id);
+      } else {
+        await authService.unfollowUser(profileData.id);
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      // Revert in case of failure
+      setIsFollowing(!newFollowState);
+      queryClient.setQueryData(['userProfile', profileQueryKey], profileData);
+      Alert.alert('Erreur', "Impossible de mettre à jour l'abonnement.");
+    }
   };
 
   const handleEditToggle = () => {
@@ -485,14 +555,12 @@ export default function UserProfileScreen() {
               accessibilityRole="button"
               testID="avatar-button"
             >
-              {editedImage || profileData.image ? (
-                <Image
-                  source={{ uri: editedImage || profileData.image }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <Text style={styles.avatarText}>{profileData.name ? profileData.name[0] : '?'}</Text>
-              )}
+              <UserAvatar
+                user={{ ...profileData, image: editedImage || profileData.image || undefined }}
+                size={80}
+                style={styles.avatarImage}
+                textStyle={styles.avatarText}
+              />
 
               {isEditing && (
                 <View style={styles.avatarOverlay}>
@@ -582,21 +650,33 @@ export default function UserProfileScreen() {
 
           {/* Stats */}
           <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => openFollowModal('followers')}
+              accessible={true}
+              accessibilityLabel="Voir la liste des abonnés"
+              accessibilityRole="button"
+            >
               <Text style={styles.statValue}>{profileData.followers || 0}</Text>
               <Text style={styles.statLabel}>Abonnés</Text>
-            </View>
-            <View style={styles.statItem}>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => openFollowModal('following')}
+              accessible={true}
+              accessibilityLabel="Voir la liste des abonnements"
+              accessibilityRole="button"
+            >
               <Text style={styles.statValue}>{profileData.following || 0}</Text>
               <Text style={styles.statLabel}>Abonnements</Text>
-            </View>
+            </TouchableOpacity>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{userQuotes.length}</Text>
               <Text style={styles.statLabel}>Citations</Text>
             </View>
           </View>
 
-          {/* Bio & Links */}
+          {/* Bio */}
           <View style={styles.section}>
             {isEditing ? (
               <View style={styles.editInputsContainer}>
@@ -612,31 +692,9 @@ export default function UserProfileScreen() {
                   accessibilityLabel="Description"
                   testID="bio-input"
                 />
-                <Text style={styles.inputLabel}>Site web</Text>
-                <TextInput
-                  style={styles.websiteInput}
-                  value={editedWebsite}
-                  onChangeText={setEditedWebsite}
-                  placeholder="https://votre-site.com"
-                  placeholderTextColor={colors.textTertiary}
-                  autoCapitalize="none"
-                  accessible={true}
-                  accessibilityLabel="Site web"
-                  testID="website-input"
-                />
               </View>
             ) : (
-              <>
-                <Text style={styles.bioText}>{profileData.bio || "Aucune description"}</Text>
-                {profileData.website && profileData.website.length > 0 && (
-                  <View style={styles.linksContainer}>
-                    <TouchableOpacity style={styles.linkItem}>
-                      <Link size={14} color={colors.primary} />
-                      <Text style={styles.linkText}>{profileData.website}</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </>
+              <Text style={styles.bioText}>{profileData.bio || "Aucune description"}</Text>
             )}
           </View>
 
@@ -717,7 +775,7 @@ export default function UserProfileScreen() {
                         <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
                         <Text style={styles.savedQuoteBook}>{getBookTitle(quote.book)}</Text>
                       </View>
-                      <Text style={styles.savedQuoteDate}>{quote.time}</Text>
+                      <Text style={styles.savedQuoteDate}>{quote.savedAt ? new Date(quote.savedAt).toLocaleDateString() : quote.time}</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -733,6 +791,124 @@ export default function UserProfileScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {/* Modal Abonnés / Abonnements */}
+      <Modal
+        visible={isFollowModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsFollowModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalContainer}>
+            {/* Header / Tabs */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTabs}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    followModalTab === 'followers' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => {
+                    setFollowModalTab('followers');
+                    fetchFollowList('followers');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      followModalTab === 'followers' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Abonnés
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    followModalTab === 'following' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => {
+                    setFollowModalTab('following');
+                    fetchFollowList('following');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      followModalTab === 'following' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Abonnements
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setIsFollowModalVisible(false)}
+                accessible={true}
+                accessibilityLabel="Fermer"
+                accessibilityRole="button"
+              >
+                <X size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* List / Content */}
+            <View style={styles.modalBody}>
+              {isFollowListLoading ? (
+                <View style={styles.modalLoaderContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              ) : followList.length > 0 ? (
+                <ScrollView
+                  contentContainerStyle={styles.modalListContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {followList.map((user: any) => (
+                    <TouchableOpacity
+                      key={user.id}
+                      style={styles.userRow}
+                      onPress={() => {
+                        setIsFollowModalVisible(false);
+                        // Redirect to profile
+                        router.push({
+                          pathname: '/user-profile',
+                          params: { username: user.username },
+                        });
+                      }}
+                    >
+                      <UserAvatar
+                        user={user}
+                        size={48}
+                        style={styles.userRowAvatar}
+                        textStyle={styles.userRowAvatarText}
+                      />
+                      <View style={styles.userRowInfo}>
+                        <Text style={styles.userRowName}>{user.name}</Text>
+                        <Text style={styles.userRowUsername}>@{user.username}</Text>
+                        {user.bio ? (
+                          <Text style={styles.userRowBio} numberOfLines={1}>
+                            {user.bio}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.modalEmptyContainer}>
+                  <Text style={styles.modalEmptyText}>
+                    {followModalTab === 'followers'
+                      ? "Aucun abonné pour le moment."
+                      : "Aucun abonnement pour le moment."}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -805,7 +981,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: '100%',
   },
   avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -871,7 +1047,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     lineHeight: 20,
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 16,
   },
   linksContainer: {
     flexDirection: 'row',
@@ -1050,5 +1225,122 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 12,
     color: colors.text,
     fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    minHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTabs: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  modalTabButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  modalTabButtonActive: {
+    borderBottomColor: colors.primary,
+  },
+  modalTabText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  modalTabTextActive: {
+    color: colors.primary,
+  },
+  modalCloseButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceHighlight,
+  },
+  modalBody: {
+    flex: 1,
+  },
+  modalLoaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalListContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceHighlight,
+  },
+  userRowAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  userRowAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  userRowAvatarPlaceholder: {
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userRowAvatarText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  userRowInfo: {
+    flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  userRowName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  userRowUsername: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  userRowBio: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  modalEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalEmptyText: {
+    color: colors.textTertiary,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

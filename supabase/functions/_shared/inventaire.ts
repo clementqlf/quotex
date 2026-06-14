@@ -66,7 +66,7 @@ export async function mergeBooks(sourceId: number, targetId: number) {
       for (const ub of userBooks) {
         await tx`
           INSERT INTO "UserBook" ("userId", "bookId", "status", "addedViaQuote", "addedAt")
-          VALUES (${ub.userId}, ${targetId}, ${ub.status}, ${ub.addedViaQuote ?? false}, ${ub.addedAt})
+          VALUES (${ub.userId ?? ub.userid}, ${targetId}, ${ub.status}, ${ub.addedViaQuote ?? false}, ${ub.addedAt})
           ON CONFLICT ("userId", "bookId") DO UPDATE SET
             "status" = COALESCE("UserBook".status, EXCLUDED.status),
             "addedViaQuote" = COALESCE("UserBook"."addedViaQuote", EXCLUDED."addedViaQuote")
@@ -167,12 +167,12 @@ export async function mergeAuthors(sourceId: number, targetId: number) {
       const sourceFollowers = await tx`SELECT * FROM "UserAuthor" WHERE "authorId" = ${sourceId}`;
       for (const f of sourceFollowers) {
         const exists = await tx`
-          SELECT 1 FROM "UserAuthor" WHERE "userId" = ${f.userId} AND "authorId" = ${targetId} LIMIT 1
+          SELECT 1 FROM "UserAuthor" WHERE "userId" = ${f.userId ?? f.userid} AND "authorId" = ${targetId} LIMIT 1
         `;
         if (!exists.length) {
           await tx`
             INSERT INTO "UserAuthor" ("userId", "authorId", "addedAt")
-            VALUES (${f.userId}, ${targetId}, ${f.addedAt})
+            VALUES (${f.userId ?? f.userid}, ${targetId}, ${f.addedAt})
           `;
         }
       }

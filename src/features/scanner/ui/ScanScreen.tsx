@@ -1,5 +1,5 @@
 import { InteractiveTooltip, useAppTour } from '@/src/features/app-tour';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import {
@@ -110,13 +110,19 @@ export default function ScanScreen() {
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
-  const { tabIndex, setTabIndex } = useTabIndex();
+  const { tabIndex, setTabIndex, setPage } = useTabIndex();
   const { resetTour } = useAppTour();
-  const isFocused = tabIndex === 1;
+  const isFocused = tabIndex === 1 || pathname === '/scan';
   const { setSwipeEnabled } = useSwipeEnabled();
-  const { quotes } = useQuote();
+  const { quotes, toggleSaveQuote } = useQuote();
+
+  const navigateToMyQuotesTop = React.useCallback(() => {
+    setTabIndex(0);
+    setPage?.(0);
+  }, [setPage, setTabIndex]);
 
   // ========== SCAN CONTROLLER ==========
   // Gère toute la logique de scan via un hook centralisé
@@ -187,6 +193,7 @@ export default function ScanScreen() {
     handleResetCapture,
     handlePickImage,
     saveScannedQuote,
+    saveRandomQuoteToCollection,
     cleanup,
   } = scanController;
 
@@ -270,18 +277,20 @@ export default function ScanScreen() {
           </TouchableOpacity>
 
           {/* Bouton de debug temporaire pour réinitialiser l'onboarding */}
-          <TouchableOpacity
-            style={[styles.headerButtonLeft, { left: 70 }]}
-            onPress={async () => {
-              await resetTour();
-              Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
-            }}
-            accessible={true}
-            accessibilityLabel="Réinitialiser le tutoriel"
-            accessibilityRole="button"
-          >
-            <RefreshCw size={22} color="#EF4444" />
-          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.headerButtonLeft, { left: 70 }]}
+              onPress={async () => {
+                await resetTour();
+                Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
+              }}
+              accessible={true}
+              accessibilityLabel="Réinitialiser le tutoriel"
+              accessibilityRole="button"
+            >
+              <RefreshCw size={22} color="#EF4444" />
+            </TouchableOpacity>
+          )}
 
           <View style={styles.logoContainer}>
             <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />
@@ -338,7 +347,13 @@ export default function ScanScreen() {
             onReset={handleResetCapture}
             isGallery={isFromGallery}
             normalizedSize={ocrNormalizedSize}
-            onSave={saveScannedQuote}
+            onSave={async (text, book, author) => {
+              const result = await saveScannedQuote(text, book, author);
+              if (result.success) {
+                navigateToMyQuotesTop();
+              }
+              return result;
+            }}
           />
         )}
       </Modal>
@@ -459,19 +474,17 @@ export default function ScanScreen() {
               onConfirm={async (text, book, author) => {
                 try {
                   console.log('[ScanScreen] onConfirm called for random quote');
-                  console.log('[ScanScreen] text:', text);
-                  console.log('[ScanScreen] book:', book);
-                  console.log('[ScanScreen] author:', author);
-                  
-                  // Utiliser QuoteUseCases via saveScannedQuote
-                  const result = await saveScannedQuote(text, book, author);
-                  
-                  if (result.success) {
-                    PlatformServices.haptics.notificationAsync("success");
-                    setShowRandomQuoteModal(false);
-                  } else {
-                    Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
-                  }
+
+                  // Fire and forget the save operation. The hook's implementation
+                  // now handles the optimistic updates (both RAM cache and persistent storage).
+                  saveRandomQuoteToCollection(randomQuote.id).catch(e => {
+                    console.error('[ScanScreen] Background save failed:', e);
+                  });
+
+                  // Instant UI feedback and navigation
+                  PlatformServices.haptics.notificationAsync("success");
+                  setShowRandomQuoteModal(false);
+                  navigateToMyQuotesTop();
                 } catch (e) {
                   console.error('[ScanScreen] Failed to save random quote:', e);
                   Alert.alert('Erreur', 'Impossible d\'enregistrer la citation.');
@@ -681,7 +694,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     overflow: 'visible',
   },
   darkOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
     pointerEvents: 'none',
   },
@@ -765,7 +778,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: 'bold',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.backdrop,
     justifyContent: 'center',
     alignItems: 'center',
