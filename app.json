@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "scheme": "quotex",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#ffffff",
+    "dark": {
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.quotex.app",

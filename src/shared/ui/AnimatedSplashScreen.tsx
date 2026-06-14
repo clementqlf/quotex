@@ -15,87 +15,116 @@ interface Props {
   onAnimationFinish: () => void;
   isDark: boolean;
   isLoading: boolean;
+  onAnimationStart?: () => void;
+  isAnimating?: boolean;
+  isMask?: boolean;
 }
 
 // Logo PNG pour une performance maximale (60 FPS)
 const LOGO_SOURCE = require('@/assets/images/quotex_logo.png');
 
-export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoading }: Props) {
+export default function AnimatedSplashScreen({ 
+  onAnimationFinish, 
+  isDark, 
+  isLoading,
+  onAnimationStart,
+  isAnimating = false,
+  isMask = false
+}: Props) {
   "use no memo";
-  const opacity = useSharedValue(1);
-  const logoOpacity = useSharedValue(1);
   const logoScale = useSharedValue(1); // Commence à 1 pour la transition seamless
+  const logoOpacity = useSharedValue(1);
+  const containerOpacity = useSharedValue(1);
   const [minTimePassed, setMinTimePassed] = React.useState(false);
   const [isImageLoaded, setIsImageLoaded] = React.useState(false);
 
+  // 1. Gestion du temps d'affichage minimal pour l'overlay statique
   useEffect(() => {
-    // Temps d'affichage minimal pour valoriser la marque
-    const timer = setTimeout(() => {
-      setMinTimePassed(true);
-    }, 2000);
+    if (!isMask) {
+      const timer = setTimeout(() => {
+        setMinTimePassed(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isMask]);
 
-    return () => clearTimeout(timer);
-  }, []);
-
+  // 2. Déclenchement du début de l'animation de zoom (passage à l'état de masque)
   useEffect(() => {
-    // Ne déclencher la sortie que si le temps minimal est écoulé ET que le chargement (auth, etc.) est terminé
-    if (minTimePassed && !isLoading) {
-      // 2. Effet de transition : "Entrée dans le logo"
-      // On fait d'abord reculer légèrement le logo (anticipation), puis on le propulse vers l'avant (zoom géant)
+    if (!isMask && minTimePassed && !isLoading) {
+      if (onAnimationStart) {
+        onAnimationStart();
+      }
+    }
+  }, [isMask, minTimePassed, isLoading, onAnimationStart]);
+
+  // 3. Animation de zoom du masque et de fondu de l'overlay
+  useEffect(() => {
+    if (isAnimating) {
+      // Zoom du logo (commun au masque et à l'overlay pour rester synchronisé)
       logoScale.value = withSequence(
         // Recul léger (anticipation)
         withTiming(0.85, { 
           duration: 250, 
           easing: Easing.bezier(0.25, 1, 0.5, 1) 
         }),
-        // Propulsion/Zoom massif
-        withTiming(35, { 
+        // Propulsion/Zoom massif (55x pour recouvrir tout l'écran)
+        withTiming(55, { 
           duration: 650, 
           easing: Easing.bezier(0.6, -0.05, 0.9, 0.1) // Accélération forte
+        }, (finished) => {
+          if (finished) {
+            // Seul le masque signale la fin finale pour éviter les doubles déclenchements
+            if (isMask && onAnimationFinish) {
+              runOnJS(onAnimationFinish)();
+            }
+          }
         })
       );
 
-      // Estompement du logo pendant le zoom
-      logoOpacity.value = withSequence(
-        withTiming(1, { duration: 250 }), // Reste opaque pendant l'anticipation
-        withTiming(0, { 
-          duration: 550, 
-          easing: Easing.out(Easing.ease) 
-        })
-      );
+      // Animations de fondu spécifiques à l'overlay (pour éviter une disparition brutale du logo blanc)
+      if (!isMask) {
+        // Estomper le logo blanc en fondu pendant le zoom
+        logoOpacity.value = withSequence(
+          withTiming(1, { duration: 250 }), // Reste visible pendant l'anticipation
+          withTiming(0, { 
+            duration: 550, 
+            easing: Easing.out(Easing.ease) 
+          })
+        );
 
-      // Fondu de l'écran de fond noir/blanc (retardé de 250ms pour se déclencher quand le logo avance)
-      opacity.value = withDelay(400, withTiming(0, { 
-        duration: 550,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1)
-      }, (finished) => {
-        if (finished) {
-          runOnJS(onAnimationFinish)();
-        }
-      }));
+        // Fondu du fond de l'overlay après l'anticipation
+        containerOpacity.value = withDelay(250, withTiming(0, { 
+          duration: 450,
+          easing: Easing.bezier(0.25, 0.1, 0.25, 1)
+        }));
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minTimePassed, isLoading, onAnimationFinish]);
+  }, [isMask, isAnimating, onAnimationFinish]);
 
   const containerStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
+    opacity: isMask ? 1 : containerOpacity.value,
   }));
 
   const logoStyle = useAnimatedStyle(() => ({
-    opacity: logoOpacity.value,
+    opacity: isMask ? 1 : (!isImageLoaded ? 0 : logoOpacity.value),
     transform: [{ scale: logoScale.value }],
   }));
+
+  // Couleur de fond : transparente pour le masque, solide pour l'overlay (après chargement de l'image)
+  const backgroundColor = isMask 
+    ? 'transparent' 
+    : (isImageLoaded ? (isDark ? '#000000' : '#FFFFFF') : 'transparent');
 
   return (
     <Animated.View style={[
       styles.container, 
-      { backgroundColor: isImageLoaded ? (isDark ? '#000000' : '#FFFFFF') : 'transparent' },
+      { backgroundColor },
       containerStyle
     ]}>
       <Animated.View style={[
         styles.logoContainer, 
-        logoStyle,
-        { opacity: isImageLoaded ? 1 : 0 }
+        logoStyle
       ]}>
         <Image 
           source={LOGO_SOURCE}
@@ -117,8 +146,8 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   logoContainer: {
-    width: 250,
-    height: 100,
+    width: 200,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
   },

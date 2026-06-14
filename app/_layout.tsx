@@ -17,6 +17,7 @@ import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react
 
 import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -58,6 +59,7 @@ function RootLayoutNav() {
 
   const { isDark, colors: themeColors } = useTheme();
   const [isSplashAnimationFinished, setIsSplashAnimationFinished] = React.useState(false);
+  const [isAnimating, setIsAnimating] = React.useState(false);
   const { isLoading } = useAuth();
   
   // Navigation Logger avec typage
@@ -119,22 +121,50 @@ function RootLayoutNav() {
     },
   };
 
+  // Masque dynamique pour MaskedView
+  const maskElement = React.useMemo(() => {
+    if (isSplashAnimationFinished) {
+      // Masque solide blanc pour révéler entièrement l'application sans démonter le Stack
+      return <View style={{ flex: 1, backgroundColor: 'white' }} />;
+    }
+    return (
+      <AnimatedSplashScreen 
+        isDark={isDark} 
+        isLoading={isLoading}
+        isAnimating={isAnimating}
+        isMask={true}
+        onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
+      />
+    );
+  }, [isSplashAnimationFinished, isDark, isLoading, isAnimating]);
+
   return (
-    <View style={{ flex: 1 }} onLayout={() => setIsLayoutReady(true)}>
-      <AuthGuard>
-        <NavThemeProvider value={navigationTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(app)" options={{ animation: 'none' }} />
-            <Stack.Screen name="(auth)" />
-          </Stack>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-        </NavThemeProvider>
-      </AuthGuard>
-      {(!isSplashAnimationFinished) && (
+    <View 
+      style={{ flex: 1, backgroundColor: isDark ? '#000000' : '#FFFFFF' }} 
+      onLayout={() => setIsLayoutReady(true)}
+    >
+      <MaskedView
+        style={{ flex: 1 }}
+        androidRenderingMode="software"
+        maskElement={maskElement}
+      >
+        <AuthGuard>
+          <NavThemeProvider value={navigationTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(app)" options={{ animation: 'none' }} />
+              <Stack.Screen name="(auth)" />
+            </Stack>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
+          </NavThemeProvider>
+        </AuthGuard>
+      </MaskedView>
+      {!isSplashAnimationFinished && (
         <AnimatedSplashScreen 
           isDark={isDark} 
           isLoading={isLoading}
-          onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
+          isAnimating={isAnimating}
+          onAnimationStart={() => setIsAnimating(true)}
+          onAnimationFinish={() => {}} 
         />
       )}
     </View>
