@@ -1,8 +1,9 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { authService } from '@/src/entities/user/api/AuthService';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, CheckCircle2, Lock, User as UserIcon, XCircle } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,16 +25,49 @@ export default function RegisterDetailsScreen() {
   const { colors } = useTheme();
   const { register } = useAuth();
 
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+
+  useEffect(() => {
+    if (!username) {
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    const clean = username.startsWith('@') ? username.slice(1) : username;
+    if (clean.length < 3) {
+      setUsernameAvailable(false);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    setIsCheckingUsername(true);
+    const timer = setTimeout(async () => {
+      try {
+        const exists = await authService.checkUsernameExists(clean);
+        setUsernameAvailable(!exists);
+      } catch (err) {
+        console.error(err);
+        setUsernameAvailable(null);
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [username]);
 
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
   const passwordsMismatch = password.length > 0 && confirmPassword.length > 0 && password !== confirmPassword;
 
   const handleRegister = async () => {
-    if (!username || !password || !confirmPassword) {
+    if (!name || !username || !password || !confirmPassword) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
@@ -50,7 +84,14 @@ export default function RegisterDetailsScreen() {
 
     setIsLoading(true);
     try {
-      const response = await register(username, email!, password);
+      // Vérification de l'unicité du nom d'utilisateur
+      if (usernameAvailable !== true) {
+        Alert.alert('Erreur', "Ce nom d'utilisateur n'est pas disponible. Veuillez en choisir un autre.");
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await register(username, email!, password, name);
       
       if (response && response.token) {
         // Automatically signed in
@@ -101,13 +142,50 @@ export default function RegisterDetailsScreen() {
               <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
+                placeholder="Nom et prénom (ex: Jean Dupont)"
+                placeholderTextColor={colors.textTertiary}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={[
+              styles.inputContainer, 
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              usernameAvailable === true && { borderColor: '#10B981' },
+              usernameAvailable === false && { borderColor: '#EF4444' }
+            ]}>
+              <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
                 placeholder="Nom d'utilisateur (ex: @jean)"
                 placeholderTextColor={colors.textTertiary}
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
               />
+              {isCheckingUsername && (
+                <ActivityIndicator size="small" color={colors.primary} />
+              )}
+              {usernameAvailable !== null && !isCheckingUsername && (
+                <View style={styles.validationIcon}>
+                  {usernameAvailable ? (
+                    <CheckCircle2 size={18} color="#10B981" />
+                  ) : (
+                    <XCircle size={18} color="#EF4444" />
+                  )}
+                </View>
+              )}
             </View>
+
+            {usernameAvailable === false && (
+              <Text style={styles.errorText}>
+                {username.startsWith('@') && username.slice(1).length < 3 || username.length < 3 
+                  ? "Le nom d'utilisateur doit contenir au moins 3 caractères"
+                  : "Ce nom d'utilisateur est déjà utilisé"}
+              </Text>
+            )}
 
             <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
@@ -155,10 +233,10 @@ export default function RegisterDetailsScreen() {
               style={[
                 styles.registerButton, 
                 { backgroundColor: colors.primary },
-                (!username || !passwordsMatch || password.length < 6) && { opacity: 0.6 }
+                (!name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true) && { opacity: 0.6 }
               ]}
               onPress={handleRegister}
-              disabled={isLoading || !username || !passwordsMatch || password.length < 6}
+              disabled={isLoading || !name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true}
             >
               {isLoading ? (
                 <ActivityIndicator color="#FFF" />

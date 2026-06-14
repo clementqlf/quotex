@@ -13,7 +13,7 @@ export const sql = postgres(connectionString, {
   idle_timeout: 10,
   connect_timeout: 10,
   ssl: 'require',
-  parameters: {
+  connection: {
     client_min_messages: 'warning',
   },
 });

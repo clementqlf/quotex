@@ -11,7 +11,8 @@
       "bundleIdentifier": "com.quotex.app",
       "icon": "./assets/icon.icon",
       "infoPlist": {
-        "NSCameraUsageDescription": "Quotex a besoin d'accéder à votre appareil photo pour numériser (OCR) du texte de citations à partir de livres physiques."
+        "NSCameraUsageDescription": "Quotex a besoin d'accéder à votre appareil photo pour numériser (OCR) du texte de citations à partir de livres physiques.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

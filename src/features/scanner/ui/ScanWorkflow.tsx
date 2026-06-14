@@ -562,12 +562,14 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
       )}
 
       {/* Dev Mode Toggle Button */}
-      <TouchableOpacity
-        style={styles.devToggleButton}
-        onPress={() => setIsDevMode(!isDevMode)}
-      >
-        <Bug size={24} color={isDevMode ? '#0f0' : '#666'} />
-      </TouchableOpacity>
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.devToggleButton}
+          onPress={() => setIsDevMode(!isDevMode)}
+        >
+          <Bug size={24} color={isDevMode ? '#0f0' : '#666'} />
+        </TouchableOpacity>
+      )}
 
       {/* Basic Prod UI */}
       {!isDevMode && (

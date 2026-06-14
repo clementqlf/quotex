@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { SearchResults, searchService } from '@/src/features/search/api/SearchService';
-import { Author, Book, Quote } from '@/src/shared/api/types';
+import { Author, Book, Quote, User as UserType } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
@@ -27,19 +27,20 @@ type SearchSection =
     | { title: string; data: any[]; type: 'prize' }
     | { title: string; data: any[]; type: 'inventaire_book' }
     | { title: string; data: any[]; type: 'inventaire_author' }
-    | { title: string; data: any[]; type: 'inventaire_prize' };
+    | { title: string; data: any[]; type: 'inventaire_prize' }
+    | { title: string; data: UserType[]; type: 'user' };
 
 export default function SearchScreen() {
     const router = useRouter();
     const { q } = useLocalSearchParams<{ q?: string }>();
-    const { navigateToBook, navigateToAuthor } = useSmartNavigation();
+    const { navigateToBook, navigateToAuthor, navigateToUserProfile } = useSmartNavigation();
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
     const [query, setQuery] = useState(q || '');
-    const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes' | 'users'>('all');
     const [isLoading, setIsLoading] = useState(false);
-    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] } as any);
+    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
     const inputRef = useRef<TextInput>(null);
 
     useEffect(() => {
@@ -54,7 +55,7 @@ export default function SearchScreen() {
             if (query.trim().length > 2) { // Search after 3 chars
                 performSearch(query);
             } else {
-                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] } as any);
+                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
             }
         }, 500); // 500ms debounce to reduce server load
 
@@ -96,11 +97,12 @@ export default function SearchScreen() {
 
     const sections = React.useMemo(() => {
         const allSections: SearchSection[] = [
-            { title: 'Thèmes', data: results.themes, type: 'theme' },
-            { title: 'Mes Auteurs', data: results.authors, type: 'author' },
-            { title: 'Mes Livres', data: results.books, type: 'book' },
-            { title: 'Prix Littéraires', data: results.prizes, type: 'prize' },
-            { title: 'Citations', data: results.quotes, type: 'quote' },
+            { title: 'Thèmes', data: results.themes || [], type: 'theme' },
+            { title: 'Utilisateurs', data: results.users || [], type: 'user' },
+            { title: 'Mes Auteurs', data: results.authors || [], type: 'author' },
+            { title: 'Mes Livres', data: results.books || [], type: 'book' },
+            { title: 'Prix Littéraires', data: results.prizes || [], type: 'prize' },
+            { title: 'Citations', data: results.quotes || [], type: 'quote' },
             { title: 'Prix (Inventaire)', data: (results as any).inventairePrizes || [], type: 'inventaire_prize' },
             { title: 'Livres', data: results.inventaireWorks || [], type: 'inventaire_book' },
             { title: 'Auteurs', data: results.inventaireAuthors || [], type: 'inventaire_author' },
@@ -112,6 +114,7 @@ export default function SearchScreen() {
             if (activeTab === 'books') return section.type === 'book' || section.type === 'inventaire_book';
             if (activeTab === 'authors') return section.type === 'author' || section.type === 'inventaire_author';
             if (activeTab === 'prizes') return section.type === 'prize' || section.type === 'inventaire_prize';
+            if (activeTab === 'users') return section.type === 'user';
             return false;
         }) as SearchSection[];
     }, [results, activeTab]);
@@ -264,7 +267,27 @@ export default function SearchScreen() {
                         <Text style={styles.subText} numberOfLines={2}>{item.description || 'Importer ce prix'}</Text>
                     </View>
                 </TouchableOpacity>
-            )
+            );
+        } else if (section.type === 'user') {
+            const profile = item;
+            return (
+                <TouchableOpacity
+                    style={styles.resultItem}
+                    onPress={() => navigateToUserProfile(profile.username)}
+                >
+                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                        {profile.image ? (
+                            <Image source={{ uri: profile.image }} style={styles.authorImage} />
+                        ) : (
+                            <User size={20} color="#3B82F6" />
+                        )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.itemTitle}>{profile.name || `@${profile.username}`}</Text>
+                        <Text style={styles.subText}>{profile.name ? `@${profile.username}` : 'Utilisateur'}</Text>
+                    </View>
+                </TouchableOpacity>
+            );
         }
         return null;
     };
@@ -329,7 +352,8 @@ export default function SearchScreen() {
                         { id: 'all', label: 'Tout' },
                         { id: 'books', label: 'Livres' },
                         { id: 'authors', label: 'Auteurs' },
-                        { id: 'prizes', label: 'Prix' }
+                        { id: 'prizes', label: 'Prix' },
+                        { id: 'users', label: 'Utilisateurs' }
                     ].map((tab) => (
                         <TouchableOpacity
                             key={tab.id}

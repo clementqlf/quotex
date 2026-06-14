@@ -28,31 +28,31 @@ BEGIN
     new.raw_user_meta_data->>'image'
   );
 
-  -- 2. Recherche ou création de l'auteur "Georges Duhamel"
-  SELECT id INTO v_author_id FROM public."Author" WHERE name = 'Georges Duhamel' LIMIT 1;
+  -- 2. Recherche ou création de l'auteur "Blaise Pascal"
+  SELECT id INTO v_author_id FROM public."Author" WHERE name = 'Blaise Pascal' LIMIT 1;
   IF v_author_id IS NULL THEN
     INSERT INTO public."Author" (name)
-    VALUES ('Georges Duhamel')
+    VALUES ('Blaise Pascal')
     RETURNING id INTO v_author_id;
   END IF;
 
-  -- 3. Recherche ou création du livre "Les Maîtres"
-  SELECT id INTO v_book_id FROM public."Book" WHERE title = 'Les Maîtres' AND "authorId" = v_author_id LIMIT 1;
+  -- 3. Recherche ou création du livre "Pensées"
+  SELECT id INTO v_book_id FROM public."Book" WHERE title = 'Pensées' AND "authorId" = v_author_id LIMIT 1;
   IF v_book_id IS NULL THEN
     INSERT INTO public."Book" (title, "authorId", year)
-    VALUES ('Les Maîtres', v_author_id, 1937)
+    VALUES ('Pensées', v_author_id, 1670)
     RETURNING id INTO v_book_id;
   END IF;
 
   -- 4. Création de la citation modèle
   INSERT INTO public."Quote" (text, "userId", "authorId", "bookId", "likesCount", theme, "isPublic")
   VALUES (
-    'Le romancier est l’historien du présent, alors que l’historien est le romancier du passé',
+    'Pesons le gain et la perte, en prenant croix que Dieu est. Estimons ces deux cas : si vous gagnez, vous gagnez tout; si vous perdez, vous ne perdez rien. Gagez donc qu''il est, sans hésiter.',
     new.id,
     v_author_id,
     v_book_id,
     0,
-    'Littérature',
+    'Philosophie',
     true
   );
 

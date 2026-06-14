@@ -270,18 +270,20 @@ export default function ScanScreen() {
           </TouchableOpacity>
 
           {/* Bouton de debug temporaire pour réinitialiser l'onboarding */}
-          <TouchableOpacity
-            style={[styles.headerButtonLeft, { left: 70 }]}
-            onPress={async () => {
-              await resetTour();
-              Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
-            }}
-            accessible={true}
-            accessibilityLabel="Réinitialiser le tutoriel"
-            accessibilityRole="button"
-          >
-            <RefreshCw size={22} color="#EF4444" />
-          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.headerButtonLeft, { left: 70 }]}
+              onPress={async () => {
+                await resetTour();
+                Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
+              }}
+              accessible={true}
+              accessibilityLabel="Réinitialiser le tutoriel"
+              accessibilityRole="button"
+            >
+              <RefreshCw size={22} color="#EF4444" />
+            </TouchableOpacity>
+          )}
 
           <View style={styles.logoContainer}>
             <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />

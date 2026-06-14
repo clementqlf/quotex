@@ -6,12 +6,6 @@ export interface RecommendedBook {
   author: string;
 }
 
-export interface AnalysisResult {
-  interpretation: string;
-  theme: string;
-  recommendedBooks?: RecommendedBook[];
-}
-
 const AnalysisResultSchema = z.object({
   interpretation: z.string().min(10),
   theme: z.enum([
@@ -25,6 +19,9 @@ const AnalysisResultSchema = z.object({
     author: z.string().min(1)
   })).max(7).optional()
 });
+
+// ✅ Type inféré depuis le schéma — jamais de désynchronisation
+export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 const fallbackAnalysis: AnalysisResult = {
   interpretation: "Analyse indisponible.",

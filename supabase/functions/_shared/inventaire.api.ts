@@ -212,7 +212,8 @@ export const searchInventaire = async (query: string, types: string = 'works', l
             // Validate response with Zod
             const validated = InventaireSearchResponseSchema.safeParse(rawData);
             if (!validated.success) {
-                console.error('[Inventaire API] Invalid search response format:', validated.error);
+                // @ts-ignore - Zod v3 SafeParseError type narrowing
+                console.error('[Inventaire API] Invalid search response format:', validated.error.issues);
                 throw new Error('Inventaire API returned unexpected format');
             }
             const data = validated.data;
@@ -640,7 +641,8 @@ export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<
             const rawData = await response.json();
             const validated = InventaireSearchResponseSchema.safeParse(rawData);
             if (!validated.success) {
-                console.error('[Inventaire API] Invalid batch search response format:', validated.error);
+                // @ts-ignore - Zod v3 SafeParseError type narrowing
+                console.error('[Inventaire API] Invalid batch search response format:', validated.error.issues);
                 continue;
             }
             validated.data.results.forEach((r: any) => {
@@ -788,7 +790,7 @@ export const getEditionsDetails = async (editionUris: string[]): Promise<Inventa
     const chunkResults = await Promise.all(chunkPromises);
 
     for (const entities of chunkResults) {
-        for (const [uri, e] of Object.entries(entities)) {
+        for (const [uri, e] of Object.entries(entities) as [string, InventaireEntity][]) {
             const claims = e.claims || {};
             const labels = e.labels || {};
             const isbn = safeFirstClaim(claims, 'wdt:P212');
@@ -797,7 +799,7 @@ export const getEditionsDetails = async (editionUris: string[]): Promise<Inventa
             const publisherUri = safeFirstClaim(claims, 'wdt:P123');
             const languageUri = safeFirstClaim(claims, 'wdt:P407');
             const pagesRaw = safeFirstClaim(claims, 'wdt:P1104');
-            const cover = getEntityImage(e.image);
+            const cover = getEntityImage((e as InventaireEntity).image);
             results.push({
                 inventaireUri: uri,
                 isbn,

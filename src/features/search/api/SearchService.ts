@@ -1,5 +1,5 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
-import { Author, Book, Quote } from '@/src/shared/api/types';
+import { Author, Book, Quote, User } from '@/src/shared/api/types';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
@@ -9,6 +9,7 @@ export interface SearchResults {
     books: Book[];
     themes: string[];
     prizes: any[];
+    users: User[];
     inventaireWorks?: any[];
     inventaireAuthors?: any[];
     inventairePrizes?: any[];
@@ -18,7 +19,7 @@ class SearchService {
     private readonly API_URL = `${API_BASE_URL}/search`;
 
     async search(query: string): Promise<SearchResults> {
-        const emptyResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
+        const emptyResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
 
         if (!query.trim()) {
             return emptyResults;
@@ -57,7 +58,7 @@ class SearchService {
     }
 
     private async searchLocal(query: string): Promise<SearchResults> {
-        const emptyResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
+        const emptyResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
         
         try {
             const [quotes, authors, books] = await Promise.all([

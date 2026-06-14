@@ -2,6 +2,7 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ReviewService } from '@/src/shared/api/ReviewService';
 import { Review, User as UserType } from '@/src/shared/api/types';
+import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
@@ -293,13 +294,11 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                         accessibilityLabel={`Profil de ${review.user?.name || 'l\'utilisateur'}`}
                                         accessibilityRole="button"
                                     >
-                                        {review.user?.image ? (
-                                            <Image source={{ uri: review.user.image }} style={styles.reviewerAvatar} />
-                                        ) : (
-                                            <View style={[styles.reviewerAvatar, { backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
-                                                <User size={12} color={colors.textTertiary} />
-                                            </View>
-                                        )}
+                                        <UserAvatar
+                                            user={review.user}
+                                            size={24}
+                                            style={styles.reviewerAvatar}
+                                        />
                                         <View>
                                             <Text style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</Text>
                                             <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
@@ -377,13 +376,11 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                             <View key={review.id} style={styles.modalReviewItem}>
                                 <View style={styles.reviewHeader}>
                                     <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
-                                        {review.user?.image ? (
-                                            <Image source={{ uri: review.user.image }} style={styles.reviewerAvatarLarge} />
-                                        ) : (
-                                            <View style={[styles.reviewerAvatarLarge, { backgroundColor: colors.surfaceHighlight, alignItems: 'center', justifyContent: 'center' }]}>
-                                                <User size={16} color={colors.textTertiary} />
-                                            </View>
-                                        )}
+                                        <UserAvatar
+                                            user={review.user}
+                                            size={32}
+                                            style={styles.reviewerAvatarLarge}
+                                        />
                                         <View>
                                             <Text style={styles.reviewerNameLarge}>{review.user?.name || 'Utilisateur'}</Text>
                                             <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>

@@ -120,6 +120,17 @@ serve(async (req: Request) => {
         }
       }
 
+      // Check if the current authenticated user is following this profile
+      let isFollowing = false;
+      if (authUserId && profileUser.id !== authUserId) {
+        const followCheck = await sql`
+          SELECT 1 FROM public."UserFollow"
+          WHERE "followerId" = ${authUserId}::uuid AND "followingId" = ${profileUser.id}::uuid
+          LIMIT 1
+        `;
+        isFollowing = followCheck.length > 0;
+      }
+
       const quotes = await sql`
         SELECT q.*,
           row_to_json(a) as author,
@@ -157,6 +168,7 @@ serve(async (req: Request) => {
 
       return json({
         ...profileUser,
+        isFollowing,
         quotes: quotes.map((q: any) => formatQuote(q, authUserId ?? '')),
         library,
       });

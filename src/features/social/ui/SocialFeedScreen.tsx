@@ -1,9 +1,12 @@
 import { useTabIndex } from '@/src/app/providers/TabContext';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import { Bookmark, Heart, MessageCircle, Share2, TrendingUp, Zap } from 'lucide-react-native';
-import React, { useEffect, useMemo } from 'react';
+import { Bookmark, Heart, MessageCircle, Share2, Sparkles, TrendingUp } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,18 +18,21 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 
 export default function SocialFeedScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes } = useQuote();
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const { quotes, toggleLikeQuote, toggleSaveQuote, refreshQuotes, isLoading } = useQuote();
   const feedQuotes = quotes.filter(q => q.user && q.user.id !== "1"); // Global quotes except mine
 
   const { tabIndex } = useTabIndex();
   const isFocused = tabIndex === 2;
+
+  const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
     if (isFocused) {
@@ -58,9 +64,11 @@ export default function SocialFeedScreen() {
           accessibilityRole="button"
           testID={`user-profile-${quote.user?.username}`}
         >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(quote.user?.name || 'A')}</Text>
-          </View>
+          <UserAvatar
+            user={quote.user}
+            size={40}
+            style={styles.avatar}
+          />
           <View style={styles.userDetails}>
             <Text style={styles.userName}>{quote.user?.name}</Text>
             <Text style={styles.userMeta}>
@@ -175,15 +183,6 @@ export default function SocialFeedScreen() {
             <TrendingUp size={24} color="#20B8CD" />
             <Text style={styles.headerTitle}>Feed</Text>
           </View>
-          <TouchableOpacity
-            style={styles.headerButton}
-            accessible={true}
-            accessibilityLabel="Découvrir"
-            accessibilityRole="button"
-            testID="discover-button"
-          >
-            <Zap size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
         </View>
 
         {/* Tabs */}
@@ -216,27 +215,55 @@ export default function SocialFeedScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={refreshQuotes}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
         {feedQuotes.map((quote) => (
           <FeedQuoteCard key={quote.id} quote={quote} />
         ))}
       </ScrollView>
-
-      {/* Floating Refresh Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        accessible={true}
-        accessibilityLabel="Rafraîchir"
-        accessibilityRole="button"
-        testID="refresh-feed-button"
-      >
-        <TrendingUp size={24} color="#FFFFFF" />
-      </TouchableOpacity>
+      {showOverlay && (
+        <View style={styles.overlayContainer} pointerEvents="auto">
+          <BlurView intensity={isDark ? 30 : 50} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill}>
+            <View style={styles.blurContent}>
+              <View style={styles.glassCard}>
+                <View style={styles.iconWrapper}>
+                  <MessageCircle size={40} color={colors.primary} />
+                  <Sparkles size={20} color={colors.primary} style={styles.miniSparkle} />
+                </View>
+                <Text style={styles.overlayTitle}>Bientôt disponible</Text>
+                <Text style={styles.overlaySubtitle}>
+                  Le flux social de Quotex arrive bientôt. Vous pourrez partager vos citations favorites, suivre d'autres lecteurs et échanger autour de vos lectures.
+                </Text>
+              </View>
+            </View>
+          </BlurView>
+        </View>
+      )}
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.devFloatingToggleButton}
+          onPress={() => setShowOverlay(prev => !prev)}
+          accessible={true}
+          accessibilityLabel="Masquer ou afficher le voile bientôt disponible"
+          accessibilityRole="button"
+        >
+          <Text style={styles.devToggleText}>
+            {showOverlay ? "Masquer Voile" : "Afficher Voile"}
+          </Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -332,6 +359,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: 'rgba(32, 184, 205, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
   },
   avatarText: {
     fontSize: 14,
@@ -408,20 +441,80 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   actionTextActive: {
     color: colors.primary,
   },
-  fab: {
+  overlayContainer: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+  },
+  devFloatingToggleButton: {
     position: 'absolute',
-    bottom: 96,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    top: 60,
+    right: 16,
+    zIndex: 1100,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FF3B30',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  devToggleText: {
+    fontSize: 11,
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+  blurContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  glassCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: isDark ? 'rgba(26, 26, 26, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  iconWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: isDark ? 'rgba(32, 184, 205, 0.1)' : 'rgba(32, 184, 205, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  miniSparkle: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+  },
+  overlayTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  overlaySubtitle: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

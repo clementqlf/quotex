@@ -72,6 +72,7 @@ serve(async (req: Request) => {
             inventaireWorks: [],
             inventaireAuthors: [],
             inventairePrizes: [],
+            users: [],
           });
         }
       } catch (dbError) {
@@ -91,6 +92,7 @@ serve(async (req: Request) => {
             inventaireWorks: [mappedResult],
             inventaireAuthors: [],
             inventairePrizes: [],
+            users: [],
           });
         }
       } catch (invError) {
@@ -107,6 +109,7 @@ serve(async (req: Request) => {
         inventaireWorks: [],
         inventaireAuthors: [],
         inventairePrizes: [],
+        users: [],
       });
     }
 
@@ -114,7 +117,7 @@ serve(async (req: Request) => {
     
     // 1-5. Local queries
     console.log(`[search] Executing local DB queries...`);
-    const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw, prizesRaw] = await Promise.all([
+    const [quotesRaw, localAuthorsRaw, localBooksRaw, themesRaw, prizesRaw, usersRaw] = await Promise.all([
       // ✅ CORRECTION: Utiliser des JOINs au lieu de sous-requêtes pour user et author
       sql`
         SELECT q.id, q.text, q."userId", q."authorId", q."bookId", q."date", q.theme, q."aiInterpretation", q."blockData",
@@ -153,6 +156,13 @@ serve(async (req: Request) => {
       sql`
         SELECT * FROM "LiteraryPrize"
         WHERE name ILIKE ${'%' + query + '%'}
+        LIMIT 10
+      `,
+      sql`
+        SELECT id, username, name, image, bio, website, followers, following, "isPublic"
+        FROM "Profile"
+        WHERE ("isPublic" = true OR id = ${authUserId}::uuid)
+          AND (username ILIKE ${'%' + query + '%'} OR name ILIKE ${'%' + query + '%'})
         LIMIT 10
       `
     ]);
@@ -317,6 +327,7 @@ serve(async (req: Request) => {
       inventaireWorks: inventaireWorks || [],
       inventaireAuthors: inventaireAuthors || [],
       inventairePrizes: inventairePrizes || [],
+      users: usersRaw || [],
     });
   } catch (e: any) {
     console.error('[search] Fatal error:', e);

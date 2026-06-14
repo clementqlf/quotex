@@ -35,6 +35,27 @@ class AuthService {
     }
 
     /**
+     * Check if a username already exists in Profiles
+     */
+    async checkUsernameExists(username: string): Promise<boolean> {
+        console.log('[AuthService] Checking username existence for:', username);
+        try {
+            const { data, error } = await supabase.functions.invoke('check-username', {
+                body: { username }
+            });
+            if (error) {
+                console.error('[AuthService] Edge Function error:', error);
+                throw error;
+            }
+            console.log('[AuthService] Username exists result:', data?.exists);
+            return !!data?.exists;
+        } catch (err) {
+            console.error('[AuthService] Error checking username existence:', err);
+            return false; // Fallback to safe default
+        }
+    }
+
+    /**
      * Login using Supabase Auth
      */
     async login(email: string, password: string): Promise<AuthResponse> {
@@ -68,7 +89,7 @@ class AuthService {
     /**
      * Register using Supabase Auth
      */
-    async register(username: string, email: string, password: string): Promise<AuthResponse> {
+    async register(username: string, email: string, password: string, name?: string): Promise<AuthResponse> {
         const sanitizedUsername = username.startsWith('@') ? username.slice(1) : username;
         
         const { data, error } = await supabase.auth.signUp({
@@ -77,6 +98,7 @@ class AuthService {
             options: {
                 data: {
                     username: sanitizedUsername,
+                    name: name,
                 }
             }
         });
@@ -241,6 +263,76 @@ class AuthService {
             }
         }
     }
+
+    /**
+     * Follow another user
+     */
+    async followUser(followedUserId: string): Promise<void> {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) throw new Error('Not authenticated');
+
+        const { error } = await supabase
+            .from('UserFollow')
+            .insert({
+                followerId: session.user.id,
+                followingId: followedUserId
+            });
+
+        if (error) throw error;
+    }
+
+    /**
+     * Unfollow another user
+     */
+    async unfollowUser(followedUserId: string): Promise<void> {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) throw new Error('Not authenticated');
+
+        const { error } = await supabase
+            .from('UserFollow')
+            .delete()
+            .eq('followerId', session.user.id)
+            .eq('followingId', followedUserId);
+
+        if (error) throw error;
+    }
+
+    /**
+     * Get list of followers for a user
+     */
+    async getFollowers(userId: string): Promise<User[]> {
+        const { data, error } = await supabase
+            .from('UserFollow')
+            .select(`
+                id,
+                followerId,
+                followingId,
+                follower:Profile!UserFollow_followerId_fkey(id, username, name, image, bio, website, followers, following, "isPublic")
+            `)
+            .eq('followingId', userId);
+
+        if (error) throw error;
+        return (data || []).map((row: any) => row.follower).filter(Boolean);
+    }
+
+    /**
+     * Get list of users followed by a user
+     */
+    async getFollowing(userId: string): Promise<User[]> {
+        const { data, error } = await supabase
+            .from('UserFollow')
+            .select(`
+                id,
+                followerId,
+                followingId,
+                following:Profile!UserFollow_followingId_fkey(id, username, name, image, bio, website, followers, following, "isPublic")
+            `)
+            .eq('followerId', userId);
+
+        if (error) throw error;
+        return (data || []).map((row: any) => row.following).filter(Boolean);
+    }
+
 
     async getUser(passedSession?: Session | null): Promise<User | null> {
         // First try the session
