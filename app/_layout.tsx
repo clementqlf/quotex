@@ -11,8 +11,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
+import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
@@ -65,21 +66,44 @@ function RootLayoutNav() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
 
+  const insets = useSafeAreaInsets();
+  const [isLayoutReady, setIsLayoutReady] = React.useState(false);
+  const [isSafeAreaReady, setIsSafeAreaReady] = React.useState(
+    () => !!initialWindowMetrics || insets.top > 0 || insets.bottom > 0 || insets.left > 0 || insets.right > 0
+  );
+
   useEffect(() => {
     console.log(`[Navigation] Opened Screen: ${pathname}`, params);
   }, [pathname, params]);
 
+  // Track if safe area is resolved
   useEffect(() => {
-    if (!isLoading) {
-      // Hide the native splash screen once the auth state is determined
+    if (isSafeAreaReady) return;
+
+    if (insets.top > 0 || insets.bottom > 0 || insets.left > 0 || insets.right > 0) {
+      const handle = requestAnimationFrame(() => setIsSafeAreaReady(true));
+      return () => cancelAnimationFrame(handle);
+    }
+
+    const timer = setTimeout(() => {
+      setIsSafeAreaReady(true);
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [insets, isSafeAreaReady]);
+
+  // Hide the native splash screen once the auth state is determined, the layout is ready, and safe area is resolved
+  useEffect(() => {
+    if (!isLoading && isLayoutReady && isSafeAreaReady) {
       SplashScreen.hideAsync();
     }
-  }, [isLoading]);
+  }, [isLoading, isLayoutReady, isSafeAreaReady]);
 
   // Hide splash animation when auth is loaded
   useEffect(() => {
     if (!isLoading && !isSplashAnimationFinished) {
-      setIsSplashAnimationFinished(true);
+      const handle = requestAnimationFrame(() => setIsSplashAnimationFinished(true));
+      return () => cancelAnimationFrame(handle);
     }
   }, [isLoading, isSplashAnimationFinished]);
 
@@ -121,7 +145,7 @@ function RootLayoutNav() {
   };
 
   return (
-    <>
+    <View style={{ flex: 1 }} onLayout={() => setIsLayoutReady(true)}>
       <NavThemeProvider value={navigationTheme}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(app)" options={{ animation: 'none' }} />
@@ -136,6 +160,6 @@ function RootLayoutNav() {
           onAnimationFinish={() => setIsSplashAnimationFinished(true)} 
         />
       )}
-    </>
+    </View>
   );
 }
