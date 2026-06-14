@@ -3,12 +3,12 @@ import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
-  Extrapolation,
-  interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withTiming
+  withTiming,
+  withSpring,
+  withSequence,
 } from 'react-native-reanimated';
 
 interface Props {
@@ -23,22 +23,23 @@ const LOGO_SOURCE = require('@/assets/images/quotex_logo.png');
 export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoading }: Props) {
   const opacity = useSharedValue(1);
   const logoOpacity = useSharedValue(0);
-  const logoScale = useSharedValue(0.8);
+  const logoScale = useSharedValue(0.3); // Commence plus petit pour l'effet de surgissement
   const [minTimePassed, setMinTimePassed] = React.useState(false);
 
   useEffect(() => {
-    // Entrée du logo
+    // 1. Entrée du logo avec un effet rebond (spring) très fluide
     logoOpacity.value = withTiming(1, { 
-      duration: 600,
+      duration: 500,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1)
     });
     
-    logoScale.value = withTiming(1, { 
-      duration: 800, 
-      easing: Easing.out(Easing.back(1.2)) 
+    logoScale.value = withSpring(1, { 
+      damping: 10,     // Amortissement pour contrôler les rebonds (plus bas = plus de rebonds)
+      stiffness: 80,   // Rigidité du ressort
+      mass: 0.8,       // Masse du logo (plus bas = plus rapide)
     });
 
-    // Minimum display time for branding
+    // Temps d'affichage minimal pour valoriser la marque
     const timer = setTimeout(() => {
       setMinTimePassed(true);
     }, 2000);
@@ -47,10 +48,35 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
   }, [logoOpacity, logoScale]);
 
   useEffect(() => {
-    // Only start fade out if both animation timer finished AND auth is not loading anymore
+    // Ne déclencher la sortie que si le temps minimal est écoulé ET que le chargement (auth, etc.) est terminé
     if (minTimePassed && !isLoading) {
+      // 2. Effet de transition : "Entrée dans le logo"
+      // On fait d'abord reculer légèrement le logo (anticipation), puis on le propulse vers l'avant (zoom géant)
+      logoScale.value = withSequence(
+        // Recul léger (anticipation)
+        withTiming(0.85, { 
+          duration: 250, 
+          easing: Easing.bezier(0.25, 1, 0.5, 1) 
+        }),
+        // Propulsion/Zoom massif
+        withTiming(35, { 
+          duration: 650, 
+          easing: Easing.bezier(0.6, -0.05, 0.9, 0.1) // Accélération forte
+        })
+      );
+
+      // Estompement du logo pendant le zoom
+      logoOpacity.value = withSequence(
+        withTiming(1, { duration: 250 }), // Reste opaque pendant l'anticipation
+        withTiming(0, { 
+          duration: 550, 
+          easing: Easing.out(Easing.ease) 
+        })
+      );
+
+      // Fondu de l'écran de fond noir/blanc
       opacity.value = withTiming(0, { 
-        duration: 500,
+        duration: 800,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1)
       }, (finished) => {
         if (finished) {
@@ -58,13 +84,10 @@ export default function AnimatedSplashScreen({ onAnimationFinish, isDark, isLoad
         }
       });
     }
-  }, [minTimePassed, isLoading, onAnimationFinish, opacity]);
+  }, [minTimePassed, isLoading, onAnimationFinish, opacity, logoScale, logoOpacity]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [
-      { scale: interpolate(opacity.value, [0, 1], [1.1, 1], Extrapolation.CLAMP) }
-    ]
   }));
 
   const logoStyle = useAnimatedStyle(() => ({

@@ -664,6 +664,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'book'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -689,6 +690,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'author'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -714,6 +716,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'theme'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -740,6 +743,7 @@ export default function MyQuotesScreen() {
             getItemType={() => 'quote'}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
+            alwaysBounceVertical={true}
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
@@ -751,6 +755,13 @@ export default function MyQuotesScreen() {
                 resetFilters={resetFilters}
                 setSelectedStatus={setSelectedStatus}
               />
+            }
+            ListEmptyComponent={
+              <Text style={styles.emptyStateText}>
+                {myQuotes.length === 0
+                  ? "Ajoute une citation pour la voir ici."
+                  : "Aucune citation à afficher avec ces filtres."}
+              </Text>
             }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -907,6 +918,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 100,
+    flexGrow: 1,
   },
   filterContainer: {
     flexDirection: 'row',
