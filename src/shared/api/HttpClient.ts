@@ -97,15 +97,17 @@ export class HttpClient {
       const response = await fetch(url, fetchOptions);
 
       // Si la réponse n'est pas OK, on lance une erreur avec le body si possible
-      if (!response.ok) {
-        let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
-        try {
-          const errorBody = await response.text();
-          if (errorBody) {
-            errorMessage += ` - ${errorBody}`;
+      if (!response || !response.ok) {
+        let errorMessage = response ? `HTTP Error ${response.status}: ${response.statusText}` : 'Network error or response undefined';
+        if (response) {
+          try {
+            const errorBody = await response.text();
+            if (errorBody) {
+              errorMessage += ` - ${errorBody}`;
+            }
+          } catch {
+            // Ignorer l'erreur de parsing
           }
-        } catch {
-          // Ignorer l'erreur de parsing
         }
         throw new Error(errorMessage);
       }

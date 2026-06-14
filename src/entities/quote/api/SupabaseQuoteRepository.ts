@@ -101,7 +101,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             headers
         });
 
-        if (response.ok) {
+        if (response && response.ok) {
             const serverQuotes = await response.json();
             const mappedQuotes: Quote[] = serverQuotes.map((q: any) => this.mapQuoteFromServer(q));
 
@@ -140,7 +140,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     try {
         const headers = await this.getHeaders();
         const response = await fetch(`${this.API_URL}/${id}`, { headers });
-        if (response.ok) {
+        if (response && response.ok) {
             const q = await response.json();
             const mappedQuote = this.mapQuoteFromServer(q);
 
@@ -202,8 +202,8 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         }),
     });
 
-    if (!response.ok) {
-        throw new Error(`Erreur serveur: ${response.status}`);
+    if (!response || !response.ok) {
+        throw new Error(`Erreur serveur: ${response ? response.status : 'no response'}`);
     }
 
     const result = await response.json();
@@ -375,10 +375,10 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             headers
         });
 
-        if (response.ok) {
+        if (response && response.ok) {
             console.log('Quote deleted on server');
         } else {
-            throw new Error(`Server returned ${response.status}`);
+            throw new Error(`Server returned ${response ? response.status : 'no response'}`);
         }
     } catch (error) {
         console.error('Network error deleting quote:', error);
@@ -413,11 +413,11 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             method: 'POST',
             headers
         });
-        if (response.ok) {
+        if (response && response.ok) {
             const data = await response.json();
             return data.isLiked;
         }
-        throw new Error(`Server returned ${response.status}`);
+        throw new Error(`Server returned ${response ? response.status : 'no response'}`);
     } catch (e) {
         console.error('Error toggling like:', e);
         // 4. En cas d'échec, ajouter à la queue offline
@@ -449,11 +449,11 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             method: 'POST',
             headers
         });
-        if (response.ok) {
+        if (response && response.ok) {
             const data = await response.json();
             return { isSaved: data.isSaved, savedAt: data.savedAt || null };
         }
-        throw new Error(`Server returned ${response.status}`);
+        throw new Error(`Server returned ${response ? response.status : 'no response'}`);
     } catch (e) {
         console.error('Error toggling save:', e);
         await OperationQueue.getInstance().enqueue({
@@ -471,8 +471,8 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         method: 'POST',
         headers
     });
-    if (!response.ok) {
-        throw new Error(`Failed to analyze quote: ${await response.text()}`);
+    if (!response || !response.ok) {
+        throw new Error(`Failed to analyze quote: ${response ? await response.text() : 'no response'}`);
     }
     const q = await response.json();
     const mappedQuote = this.mapQuoteFromServer(q);
@@ -501,7 +501,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             signal: controller.signal
         });
         clearTimeout(timeoutId);
-        if (response.ok) {
+        if (response && response.ok) {
             const data = AIResponseSchema.parse(await response.json());
             return data.response;
         } else {
