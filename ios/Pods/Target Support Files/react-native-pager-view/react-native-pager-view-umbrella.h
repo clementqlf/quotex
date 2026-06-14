@@ -10,16 +10,8 @@
 #endif
 #endif
 
-#import "RNCPagerViewComponentView.h"
-#import "RCTConvert+UIPageViewControllerNavigationOrientation.h"
 #import "RCTOnPageScrollEvent.h"
-#import "RCTOnPageScrollStateChanged.h"
-#import "RCTOnPageSelected.h"
-#import "RNCPagerView.h"
-#import "RNCPagerViewManager.h"
-#import "RNCPagerViewShadowView.h"
-#import "UIView+isHorizontalRtlLayout.h"
-#import "UIViewController+CreateExtension.h"
+#import "RNCPagerViewComponentView.h"
 
 FOUNDATION_EXPORT double react_native_pager_viewVersionNumber;
 FOUNDATION_EXPORT const unsigned char react_native_pager_viewVersionString[];

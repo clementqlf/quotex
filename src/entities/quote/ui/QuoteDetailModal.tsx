@@ -874,6 +874,9 @@ function QuoteDetailContent() {
               <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
                 <Trash2 size={20} color={colors.warning} />
               </TouchableOpacity>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
+                <Edit3 size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
               <InteractiveTooltip
                 text="Appuyez sur cette croix pour fermer la fiche et revenir à votre liste de citations."
                 stepName="quoteDetailClose"
@@ -884,9 +887,6 @@ function QuoteDetailContent() {
                   <X size={24} color={colors.textTertiary} />
                 </TouchableOpacity>
               </InteractiveTooltip>
-              <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
-                <Edit3 size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
             </View>
           </View>
 

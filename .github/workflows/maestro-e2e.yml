@@ -2,6 +2,7 @@ name: Maestro E2E Tests Only
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   maestro-e2e:
@@ -12,10 +13,18 @@ jobs:
 
       - name: Free up disk space
         run: |
+          echo "Disk space before cleanup:"
+          df -h
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/share/boost
           sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          docker system prune -af
+          echo "Disk space after cleanup:"
+          df -h
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -38,6 +47,23 @@ jobs:
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Build development Android APK locally
+        run: npx eas build --profile development --platform android --local --non-interactive --output=app.apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_DEV_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_DEV_URL }}/functions/v1
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: x86_64
+
+      - name: Clean build intermediates to free up disk space
+        run: |
+          echo "Disk space before cleaning build intermediates:"
+          df -h
+          rm -rf android/build android/app/build android/.gradle
+          echo "Disk space after cleaning build intermediates:"
+          df -h
+
       - name: Enable KVM group perms
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -48,13 +74,16 @@ jobs:
             sudo chmod 666 /dev/kvm
           fi
 
-      - name: Run E2E Tests (Build & Test)
+      - name: Run E2E Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           arch: x86_64
-          profile: pixel_6_pro
+          profile: pixel
+          ram-size: 2048M
           disk-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
           ndk: 23.2.8568313
           script: ./scripts/run-e2e.sh
         env:

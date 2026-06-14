@@ -23,6 +23,13 @@ node_modules/
 .expo-shared/
 .DS_Store
 
+# Android caches and build dirs
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/app/.cxx/
+
 # Environment variables
 .env
 .env.local
