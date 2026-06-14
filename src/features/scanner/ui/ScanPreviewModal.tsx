@@ -619,7 +619,7 @@ export default function ScanPreviewModal({
                                     onPress={handleConfirm}
                                     disabled={isSubmitting}
                                     accessible={true}
-                                    accessibilityLabel="Confirmer et enregistrer la citation"
+                                    accessibilityLabel={confirmButtonText === 'Enregistrer' ? 'Enregistrer la citation dans ma collection' : 'Confirmer et enregistrer la citation'}
                                     accessibilityRole="button"
                                     testID="save-button"
                                 >

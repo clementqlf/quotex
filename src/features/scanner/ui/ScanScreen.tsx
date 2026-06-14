@@ -116,7 +116,7 @@ export default function ScanScreen() {
   const { resetTour } = useAppTour();
   const isFocused = tabIndex === 1;
   const { setSwipeEnabled } = useSwipeEnabled();
-  const { quotes } = useQuote();
+  const { quotes, toggleSaveQuote } = useQuote();
 
   // ========== SCAN CONTROLLER ==========
   // Gère toute la logique de scan via un hook centralisé
@@ -464,15 +464,18 @@ export default function ScanScreen() {
                   console.log('[ScanScreen] text:', text);
                   console.log('[ScanScreen] book:', book);
                   console.log('[ScanScreen] author:', author);
+
+                  // Le bouton "Enregistrer" doit uniquement associer la citation à la collection de l'utilisateur.
+                  if (randomQuote.isSaved) {
+                    setShowRandomQuoteModal(false);
+                    return;
+                  }
+
+                  await toggleSaveQuote(randomQuote.id);
                   
-                  // Utiliser QuoteUseCases via saveScannedQuote
-                  const result = await saveScannedQuote(text, book, author);
-                  
-                  if (result.success) {
+                  if (randomQuote.id) {
                     PlatformServices.haptics.notificationAsync("success");
                     setShowRandomQuoteModal(false);
-                  } else {
-                    Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer la citation.');
                   }
                 } catch (e) {
                   console.error('[ScanScreen] Failed to save random quote:', e);

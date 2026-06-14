@@ -202,6 +202,12 @@ export const mockReviews: { [key: string]: { id: string; user: { name: string; i
   ]
 };
 
+const quotexUser = {
+  id: "00000000-0000-0000-0000-000000000000",
+  name: "Quotex",
+  username: "quotex",
+};
+
 export const localQuotesDB = [
   {
     id: 1,
@@ -212,6 +218,7 @@ export const localQuotesDB = [
     date: "Il y a 2h",
     likes: 12,
     isLiked: true,
+    user: quotexUser,
   },
   {
     id: 2,
@@ -222,6 +229,7 @@ export const localQuotesDB = [
     date: "Il y a 5h",
     likes: 8,
     isLiked: false,
+    user: quotexUser,
   },
   {
     id: 3,
@@ -232,17 +240,14 @@ export const localQuotesDB = [
     date: "Hier",
     likes: 24,
     isLiked: true,
+    user: quotexUser,
   },
 ];
 
 export const globalQuotesDB = [
   {
     id: 4, // Changed ID to avoid conflict
-    user: {
-      id: "2", // ID correspondant à Sophie dans user-profiles.json
-      name: "Sophie Martin",
-      username: "@sophiereads",
-    },
+    user: quotexUser,
     text: "The only impossible journey is the one you never begin.",
     book: "The Alchemist",
     author: "Paulo Coelho",
@@ -254,11 +259,7 @@ export const globalQuotesDB = [
   },
   {
     id: 5, // Changed ID to avoid conflict
-    user: {
-      id: "1", // ID correspondant à Clément (par exemple)
-      name: "Lucas Bernard",
-      username: "@lucas_books",
-    },
+    user: quotexUser,
     text: "It is never too late to be what you might have been.",
     book: "Middlemarch",
     author: "George Eliot",
@@ -270,11 +271,7 @@ export const globalQuotesDB = [
   },
   {
     id: 6,
-    user: {
-      id: "2",
-      name: "Sophie Martin",
-      username: "@sophiereads",
-    },
+    user: quotexUser,
     text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
     book: "Einstein: His Life and Universe",
     author: "Albert Einstein",
@@ -286,11 +283,7 @@ export const globalQuotesDB = [
   },
   {
     id: 7,
-    user: {
-      id: "1",
-      name: "Lucas Bernard",
-      username: "@lucas_books",
-    },
+    user: quotexUser,
     text: "The man who does not read has no advantage over the man who cannot read.",
     book: "The Obstacle Is the Way", // Just for demo purposes, not the real book
     author: "Ryan Holiday",

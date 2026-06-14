@@ -25,9 +25,9 @@ export const useMyQuotes = () => {
   
   const { user: currentUser } = useAuth();
 
-  // Filtre les quotes de l'utilisateur courant
+  // Filtre les quotes de l'utilisateur courant (créées ou sauvegardées)
   const myQuotes = useMemo(() => {
-    return allQuotes.filter(q => q.user?.id === currentUser?.id);
+    return allQuotes.filter(q => q.user?.id === currentUser?.id || q.isSaved);
   }, [allQuotes, currentUser]);
 
   // Rafraîchissement des données

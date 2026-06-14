@@ -77,7 +77,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             likesCount: (q as any).likesCount || ((q as any).likes && typeof (q as any).likes === 'number' ? (q as any).likes : 0),
             likes: [],
             isLiked: q.isLiked,
-            user: (q as any).user || { id: "1", name: "Clément QLF", username: "@clementqlf" },
+            user: (q as any).user || { id: "00000000-0000-0000-0000-000000000000", name: "Quotex", username: "quotex" },
             date: (q as any).date || (q as any).time,
             isSaved: (q as any).isSaved,
             comments: (q as any).comments,
@@ -129,7 +129,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     // Ensure all legacy quotes have a user
     const safeQuotes = (quotes || []).map(q => ({
         ...q,
-        user: q.user || { id: "1", name: "Clément QLF", username: "@clementqlf" }
+        user: q.user || { id: "00000000-0000-0000-0000-000000000000", name: "Quotex", username: "quotex" }
     }));
 
     return safeQuotes;
