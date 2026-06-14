@@ -1,5 +1,5 @@
 import { InteractiveTooltip, useAppTour } from '@/src/features/app-tour';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import {
@@ -110,11 +110,12 @@ export default function ScanScreen() {
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const styles = useMemo(() => createStyles(colors), [colors]);
   
   const { tabIndex, setTabIndex, setPage } = useTabIndex();
   const { resetTour } = useAppTour();
-  const isFocused = tabIndex === 1;
+  const isFocused = tabIndex === 1 || pathname === '/scan';
   const { setSwipeEnabled } = useSwipeEnabled();
   const { quotes, toggleSaveQuote } = useQuote();
 

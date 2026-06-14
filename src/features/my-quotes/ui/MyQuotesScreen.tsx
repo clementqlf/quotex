@@ -244,7 +244,7 @@ export default function MyQuotesScreen() {
   } = useMyQuotes();
 
   const { handleConfirmSave } = useQuoteActions();
-  const { tabIndex, setTabIndex } = useTabIndex();
+  const { tabIndex, setTabIndex, setPage } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
   const quotesListRef = useRef<any>(null);
@@ -810,7 +810,13 @@ export default function MyQuotesScreen() {
       <AddQuoteMenu
         visible={showAddMenu}
         onClose={() => setShowAddMenu(false)}
-        onScanPress={() => router.navigate('/scan')}
+        onScanPress={() => {
+          if (setPage) {
+            setPage(1);
+          } else {
+            router.navigate('/scan');
+          }
+        }}
         onManualAddPress={() => {
           setEditingQuote(null);
           setShowManualQuoteModal(true);

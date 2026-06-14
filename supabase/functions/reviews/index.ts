@@ -88,7 +88,8 @@ serve(async (req: Request) => {
 
       const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
       if (!review.length) return error('Review not found', 404);
-      if (review[0].userId !== authUser.id) return error('Unauthorized', 403);
+      const reviewOwnerId = review[0].userId ?? review[0].userid;
+      if (reviewOwnerId !== authUser.id) return error('Unauthorized', 403);
 
       const updated = await sql`
         UPDATE "Review"
@@ -110,7 +111,8 @@ serve(async (req: Request) => {
 
       const review = await sql`SELECT * FROM "Review" WHERE id = ${idParam}`;
       if (!review.length) return error('Review not found', 404);
-      if (review[0].userId !== authUser.id) return error('Unauthorized', 403);
+      const reviewOwnerId = review[0].userId ?? review[0].userid;
+      if (reviewOwnerId !== authUser.id) return error('Unauthorized', 403);
 
       await sql`DELETE FROM "Review" WHERE id = ${idParam}`;
 

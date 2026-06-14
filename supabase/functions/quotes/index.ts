@@ -894,8 +894,8 @@ serve(async (req: Request) => {
         return error('Quote not found', 404);
       }
 
-      const quoteOwnerId = quoteRows[0].userId;
-      const quoteBookId = quoteRows[0].bookId;
+      const quoteOwnerId = quoteRows[0].userId ?? quoteRows[0].userid;
+      const quoteBookId = quoteRows[0].bookId ?? quoteRows[0].bookid;
 
       if (quoteOwnerId === authUser.id) {
         // User is the owner: delete the quote itself (cascades to UserQuote & Like)
