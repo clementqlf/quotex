@@ -65,7 +65,7 @@ jobs:
         run: npm ci
 
       - name: Build development
-        run: npx eas build --profile development --platform all --non-interactive
+        run: npx eas-cli build --profile development --platform all --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
@@ -90,7 +90,7 @@ jobs:
         run: npm ci
 
       - name: Build production
-        run: npx eas build --profile production --platform all --non-interactive
+        run: npx eas-cli build --profile production --platform all --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_PROD_URL }}
@@ -98,7 +98,7 @@ jobs:
           EXPO_PUBLIC_API_BASE_URL: ${{ secrets.SUPABASE_PROD_URL }}/functions/v1
 
       - name: Submit to stores
-        run: npx eas submit --profile production --non-interactive
+        run: npx eas-cli submit --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 

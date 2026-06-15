@@ -48,7 +48,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build development Android APK locally
-        run: npx eas build --profile development --platform android --local --non-interactive --output=app.apk
+        run: npx eas-cli build --profile development --platform android --local --non-interactive --output=app.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
