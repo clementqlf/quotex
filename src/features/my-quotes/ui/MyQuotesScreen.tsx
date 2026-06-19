@@ -218,7 +218,7 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
             >
               <Text style={[
                 styles.statusFilterText,
-                selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+                selectedStatus === opt.value && { color: opt.color }
               ]}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
@@ -979,7 +979,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   statusFilterTextActive: {
     color: colors.primary,
-    fontWeight: '700',
   },
   emptyStateText: {
     color: colors.textSecondary,
