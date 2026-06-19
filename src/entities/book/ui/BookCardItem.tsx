@@ -4,11 +4,13 @@ import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { Image } from 'expo-image';
+import { MoreVertical } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -26,9 +28,10 @@ interface BookCardData {
 
 interface BookCardItemProps {
   book: BookCardData;
+  onOpenMenu?: (book: BookCardData) => void;
 }
 
-const BookCardItem = React.memo(({ book }: BookCardItemProps) => {
+const BookCardItem = React.memo(({ book, onOpenMenu }: BookCardItemProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { navigateToBook } = useSmartNavigation();
@@ -55,7 +58,7 @@ const BookCardItem = React.memo(({ book }: BookCardItemProps) => {
         ) : (
           <View style={styles.bookCardCoverPlaceholder} />
         )}
-        <View style={styles.bookCardInfo}>
+        <View style={[styles.bookCardInfo, onOpenMenu ? { paddingRight: 24 } : null]}>
           <View style={styles.bookCardHeader}>
             <TypingText style={styles.bookCardTitle} text={book.title} />
             {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
@@ -78,6 +81,23 @@ const BookCardItem = React.memo(({ book }: BookCardItemProps) => {
           <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
         </View>
       </View>
+
+      {onOpenMenu && (
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onOpenMenu(book);
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityLabel="Plus d'options pour ce livre"
+          accessibilityRole="button"
+          testID="book-more-options"
+        >
+          <MoreVertical size={20} color={colors.textTertiary} />
+        </TouchableOpacity>
+      )}
     </Pressable>
   );
 });
@@ -92,6 +112,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceHighlight,
     overflow: 'hidden',
+    position: 'relative', // ensure absolute positioning of menu button works relative to bookCard
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bookCardContent: {
     flexDirection: 'row',

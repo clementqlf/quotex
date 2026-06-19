@@ -6,6 +6,9 @@ import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -33,8 +36,11 @@ import { getAuthorName, getBookTitle, getStatusLabel, STATUS_OPTIONS } from '@/s
 import { ThemeColors } from '@/src/shared/theme';
 
 // Entity components - OK to import from entities per FSD
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
 import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
+import BookActionModal from '@/src/entities/book/ui/BookActionModal';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
 import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
@@ -282,6 +288,95 @@ export default function MyQuotesScreen() {
   // Edit State
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [actionMenuQuote, setActionMenuQuote] = useState<Quote | null>(null);
+  
+  const { updateBookStatus, toggleSaveBook } = useAuthor();
+  const [actionMenuBook, setActionMenuBook] = useState<any | null>(null);
+
+  const handleOpenBookMenu = useCallback((book: any) => {
+    setActionMenuBook(book);
+  }, []);
+
+  const handleOpenBookStatusMenu = useCallback((book: any) => {
+    if (!book.id) return;
+    const options = [...STATUS_OPTIONS];
+
+    const changeStatus = async (status: string) => {
+      try {
+        await updateBookStatus(book.id, status as ReadingStatus);
+      } catch (error) {
+        Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      const iosOptions = ['Annuler', ...options.map(o => o.label)];
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: iosOptions,
+          cancelButtonIndex: 0,
+          title: 'Classer ce livre',
+        },
+        async (buttonIndex) => {
+          if (buttonIndex > 0) {
+            const selected = options[buttonIndex - 1];
+            await changeStatus(selected.value);
+          }
+        }
+      );
+      return;
+    }
+
+    const androidButtons: any[] = [
+      { text: 'Annuler', style: 'cancel' },
+      ...STATUS_OPTIONS.map(o => ({
+        text: o.label,
+        onPress: () => changeStatus(o.value)
+      }))
+    ];
+
+    Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
+  }, [updateBookStatus]);
+
+  const handleDeleteBook = useCallback(async (book: any) => {
+    const performDelete = async () => {
+      try {
+        // 1. Delete all quotes associated with this book
+        const quotesToDelete = myQuotes.filter(q => {
+          const qBookTitle = getBookTitle(q.book);
+          return qBookTitle.toLowerCase() === book.title.toLowerCase();
+        });
+
+        for (const q of quotesToDelete) {
+          await deleteQuote(q.id);
+        }
+
+        // 2. Unsave the book if it has an ID
+        if (book.id) {
+          const latestBook = allBooks.find(b => b.id === book.id);
+          if (latestBook?.isSaved) {
+            await toggleSaveBook(book.id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to delete book and quotes", err);
+        Alert.alert("Erreur", "Impossible de supprimer le livre.");
+      }
+    };
+
+    if (book.quoteCount > 0) {
+      Alert.alert(
+        "Supprimer le livre",
+        "Supprimer ce livre supprimera également toutes les citations associées. Êtes-vous sûr de vouloir continuer ?",
+        [
+          { text: "Annuler", style: "cancel" },
+          { text: "Supprimer", style: "destructive", onPress: performDelete }
+        ]
+      );
+    } else {
+      await performDelete();
+    }
+  }, [myQuotes, allBooks, deleteQuote, toggleSaveBook]);
+
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -465,7 +560,7 @@ export default function MyQuotesScreen() {
   }, [toggleLikeQuoteStable, handleOpenMenu]);
 
   const renderBookItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    const card = <BookCardItem book={item} />;
+    const card = <BookCardItem book={item} onOpenMenu={handleOpenBookMenu} />;
     if (index === 0) {
       return (
         <View 
@@ -482,7 +577,7 @@ export default function MyQuotesScreen() {
       );
     }
     return card;
-  }, []);
+  }, [handleOpenBookMenu]);
 
   const renderAuthorItem = useCallback(({ item, index }: { item: any; index: number }) => {
     const card = <AuthorCardItem author={item} />;
@@ -822,6 +917,21 @@ export default function MyQuotesScreen() {
         onDelete={() => {
           if (actionMenuQuote) {
             deleteQuote(actionMenuQuote.id);
+          }
+        }}
+      />
+
+      <BookActionModal
+        visible={!!actionMenuBook}
+        onClose={() => setActionMenuBook(null)}
+        onChangeStatus={() => {
+          if (actionMenuBook) {
+            handleOpenBookStatusMenu(actionMenuBook);
+          }
+        }}
+        onDelete={() => {
+          if (actionMenuBook) {
+            handleDeleteBook(actionMenuBook);
           }
         }}
       />
