@@ -3,9 +3,10 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { authService } from '@/src/entities/user/api/AuthService';
-import { Author, Book } from '@/src/shared/api/types';
+import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
+import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { API_BASE_URL } from '@/src/shared/config/api';
-import { getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { getBookTitle, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { ThemeColors } from '@/src/shared/theme';
@@ -16,9 +17,11 @@ import * as WebBrowser from 'expo-web-browser';
 import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Heart, Share as ShareIcon, User, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -130,7 +133,7 @@ export default function AuthorDetailScreen() {
 
   // Remplacement de useData() par les hooks spécifiques
   const { quotes } = useQuote();
-  const { authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleSaveAuthor, getNotableWorks } = useAuthor();
+  const { authors: allAuthors, books: allBooks, getBooksByAuthor, getAuthorByName, toggleSaveAuthor, getNotableWorks, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
   
   // Wrapper pour toggleLikeQuote depuis useQuote
   const { toggleLikeQuote } = useQuote();
@@ -339,6 +342,168 @@ export default function AuthorDetailScreen() {
     await WebBrowser.openBrowserAsync(wikiUrl);
   };
 
+  const handleAddBook = async (book: any) => {
+    try {
+      const localBook = allBooks.find(b => 
+        (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+        b.title.toLowerCase() === book.title.toLowerCase()
+      );
+
+      let bookIdToSave = localBook?.id;
+
+      if (localBook?.isSaved) {
+        const idToUnsave = bookIdToSave;
+        if (idToUnsave) {
+          const quoteCount = quotes.filter(q => {
+            const qBookTitle = getBookTitle(q.book);
+            return qBookTitle.toLowerCase() === book.title.toLowerCase();
+          }).length;
+
+          const performUnsave = async () => {
+            Promise.all([
+              toggleSaveBook(idToUnsave),
+              updateBookStatus(idToUnsave, null as any)
+            ]).catch(err => {
+              console.error('[AuthorDetail] Optimistic unsave failed:', err);
+            });
+            Alert.alert('Succès', `Le livre "${book.title}" a été retiré de votre bibliothèque.`);
+          };
+
+          if (quoteCount > 0) {
+            Alert.alert(
+              'Retirer de ma bibliothèque',
+              "Retirer ce livre de votre bibliothèque ne supprimera pas vos citations associées. Êtes-vous sûr ?",
+              [
+                { text: 'Annuler', style: 'cancel' },
+                { text: 'Retirer', style: 'destructive', onPress: performUnsave }
+              ]
+            );
+          } else {
+            await performUnsave();
+          }
+        }
+        return;
+      }
+
+      if (!bookIdToSave) {
+        const importPayload = {
+          title: book.title,
+          cover: book.cover,
+          description: book.description || '',
+          year: book.year || 0,
+          pages: book.pages || 0,
+          genre: book.genre || 'Unknown',
+          authors: book.authors || [authorName],
+          inventaireUri: book.inventaireUri,
+        };
+
+        const imported = await importBook(importPayload);
+        if (imported && imported.id) {
+          bookIdToSave = imported.id;
+        } else {
+          Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
+          return;
+        }
+      }
+
+      if (bookIdToSave) {
+        Promise.all([
+          toggleSaveBook(bookIdToSave),
+          updateBookStatus(bookIdToSave, 'TO_READ' as ReadingStatus)
+        ]).catch(err => {
+          console.error('[AuthorDetail] Optimistic update failed:', err);
+        });
+        Alert.alert('Succès', `Le livre "${book.title}" a été ajouté à votre bibliothèque.`);
+      }
+    } catch (error) {
+      console.error('[AuthorDetail] Failed to toggle book in library:', error);
+      Alert.alert('Erreur', "Une erreur est survenue lors de la modification de la bibliothèque.");
+    }
+  };
+
+  const handleOpenBookStatusMenu = async (book: any) => {
+    let bookId = book.id;
+
+    const localBook = allBooks.find(b => 
+      (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+      b.title.toLowerCase() === book.title.toLowerCase()
+    );
+
+    if (localBook) {
+      bookId = localBook.id;
+    }
+
+    const options = [...STATUS_OPTIONS];
+
+    const changeStatus = async (status: string) => {
+      try {
+        if (!bookId) {
+          const importPayload = {
+            title: book.title,
+            cover: book.cover,
+            description: book.description || '',
+            year: book.year || 0,
+            pages: book.pages || 0,
+            genre: book.genre || 'Unknown',
+            authors: book.authors || [authorName],
+            inventaireUri: book.inventaireUri,
+            readingStatus: status,
+          };
+          const imported = await importBook(importPayload);
+          if (imported && imported.id) {
+            Promise.all([
+              toggleSaveBook(imported.id),
+              updateBookStatus(imported.id, status as ReadingStatus)
+            ]).catch(err => {
+              console.error('[AuthorDetail] Optimistic update failed:', err);
+            });
+          } else {
+            Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
+          }
+        } else {
+          const promises = [updateBookStatus(bookId, status as ReadingStatus)];
+          if (!localBook?.isSaved) {
+            promises.push(toggleSaveBook(bookId));
+          }
+          Promise.all(promises).catch(err => {
+            console.error('[AuthorDetail] Optimistic update failed:', err);
+          });
+        }
+      } catch (error) {
+        console.error('[AuthorDetail] Failed to update book status:', error);
+        Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      const iosOptions = ['Annuler', ...options.map(o => o.label)];
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: iosOptions,
+          cancelButtonIndex: 0,
+          title: 'Classer ce livre',
+        },
+        async (buttonIndex) => {
+          if (buttonIndex > 0) {
+            const selected = options[buttonIndex - 1];
+            await changeStatus(selected.value);
+          }
+        }
+      );
+      return;
+    }
+
+    const androidButtons: any[] = [
+      { text: 'Annuler', style: 'cancel' },
+      ...STATUS_OPTIONS.map(o => ({
+        text: o.label,
+        onPress: () => changeStatus(o.value)
+      }))
+    ];
+
+    Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
+  };
+
   if (isLoadingAuthor) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -491,28 +656,53 @@ export default function AuthorDetailScreen() {
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
 
-            {authorBooks.map((book, index) => (
-              <TouchableOpacity
-                key={`${book.id || book.title}-${index}`}
-                style={styles.bookItem}
-                onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}>
-                <View style={styles.bookCoverContainer}>
-                  {book.cover ? (
-                    <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                  ) : (
-                    <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                      <BookOpen size={20} color={colors.textTertiary} />
-                    </View>
-                  )}
-                </View>
-                <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
-                  {book.year > 0 && (
-                    <Text style={styles.bookMetaText}>{book.year}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
+            {authorBooks.map((book, index) => {
+              const localBook = allBooks.find(b => 
+                (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+                b.title.toLowerCase() === book.title.toLowerCase()
+              );
+              
+              const quoteCount = quotes.filter(q => {
+                const qBookTitle = getBookTitle(q.book);
+                return qBookTitle.toLowerCase() === book.title.toLowerCase();
+              }).length;
+
+              const bookAuthors: string[] = [];
+              if (book.author) {
+                if (typeof book.author === 'string') {
+                  bookAuthors.push(book.author);
+                } else if (book.author.name) {
+                  bookAuthors.push(book.author.name);
+                }
+              }
+              if (bookAuthors.length === 0) {
+                bookAuthors.push(authorName);
+              }
+
+              const mappedBook = {
+                title: book.title,
+                id: localBook?.id ?? book.id,
+                authors: bookAuthors,
+                quoteCount: quoteCount,
+                year: book.year,
+                description: localBook?.description ?? book.description ?? '',
+                cover: book.cover,
+                readingStatus: localBook?.readingStatus ?? book.readingStatus,
+                inventaireUri: book.inventaireUri,
+                isSaved: localBook?.isSaved ?? false,
+              };
+
+              return (
+                <BookCardItem
+                  key={`${book.id || book.title}-${index}`}
+                  book={mappedBook}
+                  showDescription={false}
+                  showAddButton={true}
+                  onAddPress={() => handleAddBook(mappedBook)}
+                  onAddLongPress={() => handleOpenBookStatusMenu(mappedBook)}
+                />
+              );
+            })}
 
             <TouchableOpacity
               style={styles.showAllButton}
@@ -597,33 +787,56 @@ export default function AuthorDetailScreen() {
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
                   getItemType={() => 'work'}
                   contentContainerStyle={{ padding: 16 }}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.bookItem}
-                      onPress={() => {
-                        setShowAllWorksModal(false);
-                        navigateToBook(item.id ?? item.title, item.inventaireUri);
-                      }}>
-                      <View style={styles.bookCoverContainer}>
-                        {item.cover ? (
-                          <Image source={{ uri: item.cover }} style={styles.bookCover} />
-                        ) : (
-                          <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                            <BookOpen size={20} color={colors.textTertiary} />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.bookInfo}>
-                        <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
-                        {item.year > 0 && (
-                          <Text style={styles.bookMetaText}>Publié en {item.year}</Text>
-                        )}
-                        {item.genre ? (
-                          <Text style={[styles.bookMetaText, { marginTop: 2 }]} numberOfLines={1}>{item.genre}</Text>
-                        ) : null}
-                      </View>
-                    </TouchableOpacity>
-                  )}
+                  renderItem={({ item }) => {
+                    const localBook = allBooks.find(b => 
+                      (item.inventaireUri && b.inventaireUri === item.inventaireUri) || 
+                      b.title.toLowerCase() === item.title.toLowerCase()
+                    );
+                    
+                    const quoteCount = quotes.filter(q => {
+                      const qBookTitle = getBookTitle(q.book);
+                      return qBookTitle.toLowerCase() === item.title.toLowerCase();
+                    }).length;
+
+                    const bookAuthors: string[] = [];
+                    if (item.author) {
+                      if (typeof item.author === 'string') {
+                        bookAuthors.push(item.author);
+                      } else if (item.author.name) {
+                        bookAuthors.push(item.author.name);
+                      }
+                    }
+                    if (bookAuthors.length === 0) {
+                      bookAuthors.push(authorName);
+                    }
+
+                    const mappedBook = {
+                      title: item.title,
+                      id: localBook?.id ?? item.id,
+                      authors: bookAuthors,
+                      quoteCount: quoteCount,
+                      year: item.year,
+                      description: localBook?.description ?? item.description ?? '',
+                      cover: item.cover,
+                      readingStatus: localBook?.readingStatus ?? item.readingStatus,
+                      inventaireUri: item.inventaireUri,
+                      isSaved: localBook?.isSaved ?? false,
+                    };
+
+                    return (
+                      <BookCardItem
+                        book={mappedBook}
+                        showDescription={false}
+                        showAddButton={true}
+                        onAddPress={() => handleAddBook(mappedBook)}
+                        onAddLongPress={() => handleOpenBookStatusMenu(mappedBook)}
+                        onPress={() => {
+                          setShowAllWorksModal(false);
+                          navigateToBook(item.id ?? item.title, item.inventaireUri);
+                        }}
+                      />
+                    );
+                  }}
                 />
               )}
             </View>
@@ -844,29 +1057,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  bookItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-  },
-  bookCoverContainer: {
-    marginRight: 16,
-  },
-  bookCover: {
-    width: 60,
-    height: 90,
-    borderRadius: 6,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  bookCoverPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   emptyText: {
     color: colors.textTertiary,
     fontSize: 14,
@@ -874,19 +1065,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     marginVertical: 10,
   },
-  bookInfo: {
-    flex: 1,
-  },
-  bookTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  bookMetaText: {
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
+
   quoteCard: {
     backgroundColor: colors.background,
     borderRadius: 12,
