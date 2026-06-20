@@ -35,6 +35,7 @@ export interface BlockContext {
     onEditDefinitionSelection?: (blockKey: string) => void; // For Quote
     onManageDictionary?: () => void; // For Book
     onConnectionSearchPress?: (blockId: string) => void; // For Connection block
+    onAddQuote?: () => void;
 
     // State
     blockData?: Record<string, any>;
@@ -54,7 +55,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         book, author, quote, savedQuotes, blockData,
         onUpdateBlockData, onBookPress, onAuthorPress, onQuotePress,
         onReviewAdded, onEditDefinitionSelection, onManageDictionary,
-        onConnectionSearchPress
+        onConnectionSearchPress, onAddQuote
     } = context;
 
     const { colors } = useTheme();
@@ -111,7 +112,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
 
         case 'savedQuotes':
             if (!savedQuotes) return null;
-            return <SavedQuotesBlock quotes={savedQuotes} onQuotePress={(q) => onQuotePress && onQuotePress(q)} onRemove={onRemove} />;
+            return <SavedQuotesBlock quotes={savedQuotes} onQuotePress={(q) => onQuotePress && onQuotePress(q)} onRemove={onRemove} onAddQuote={onAddQuote} />;
 
         case 'similarBooks':
             // Data might come from book or quote's fetched book

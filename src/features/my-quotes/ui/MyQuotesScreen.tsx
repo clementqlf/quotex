@@ -71,23 +71,18 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
-  const [prevViewMode, setPrevViewMode] = useState(viewMode);
-
-  if (viewMode !== prevViewMode) {
-    setPrevViewMode(viewMode);
-    const currentIdx = TAB_INDEXES[currentMode];
-    const newIdx = TAB_INDEXES[viewMode];
-    direction.value = newIdx >= currentIdx ? 1 : -1;
-
-    setPrevMode(currentMode);
-    setCurrentMode(viewMode);
-
-    enterProgress.value = 0;
-    exitProgress.value = 0;
-  }
-
   useEffect(() => {
-    if (enterProgress.value === 0) {
+    if (viewMode !== currentMode) {
+      const currentIdx = TAB_INDEXES[currentMode];
+      const newIdx = TAB_INDEXES[viewMode];
+      direction.value = newIdx >= currentIdx ? 1 : -1;
+
+      setPrevMode(currentMode);
+      setCurrentMode(viewMode);
+
+      enterProgress.value = 0;
+      exitProgress.value = 0;
+
       enterProgress.value = withTiming(1, { duration: 300 });
       exitProgress.value = withTiming(1, { duration: 300 }, (finished) => {
         if (finished) {
@@ -95,7 +90,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
-  }, [currentMode, enterProgress, exitProgress]);
+  }, [viewMode, currentMode, direction, enterProgress, exitProgress]);
 
   const enterStyle = useAnimatedStyle(() => {
     return {
@@ -910,13 +905,21 @@ export default function MyQuotesScreen() {
         onClose={() => setActionMenuQuote(null)}
         onEdit={() => {
           if (actionMenuQuote) {
-            setEditingQuote(actionMenuQuote);
-            setShowManualQuoteModal(true);
+            const quote = actionMenuQuote;
+            setActionMenuQuote(null);
+            setTimeout(() => {
+              setEditingQuote(quote);
+              setShowManualQuoteModal(true);
+            }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}
         onDelete={() => {
           if (actionMenuQuote) {
-            deleteQuote(actionMenuQuote.id);
+            const quote = actionMenuQuote;
+            setActionMenuQuote(null);
+            setTimeout(() => {
+              deleteQuote(quote.id);
+            }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}
       />
@@ -926,12 +929,20 @@ export default function MyQuotesScreen() {
         onClose={() => setActionMenuBook(null)}
         onChangeStatus={() => {
           if (actionMenuBook) {
-            handleOpenBookStatusMenu(actionMenuBook);
+            const book = actionMenuBook;
+            setActionMenuBook(null);
+            setTimeout(() => {
+              handleOpenBookStatusMenu(book);
+            }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}
         onDelete={() => {
           if (actionMenuBook) {
-            handleDeleteBook(actionMenuBook);
+            const book = actionMenuBook;
+            setActionMenuBook(null);
+            setTimeout(() => {
+              handleDeleteBook(book);
+            }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}
       />

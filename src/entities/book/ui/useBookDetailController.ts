@@ -3,6 +3,7 @@ import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { buildBookImportPayload } from '@/src/entities/book/lib/bookImport';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
+import { useQuoteActions } from '@/src/entities/quote/lib';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { BlockService } from '@/src/shared/api/BlockService';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
@@ -78,8 +79,21 @@ export const useBookDetailController = () => {
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = useState(false);
+  const [showAddQuoteModal, setShowAddQuoteModal] = useState(false);
+  const [showAddQuoteMenu, setShowAddQuoteMenu] = useState(false);
+  const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
+  const [scannedText, setScannedText] = useState('');
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('description');
+
+  const { handleConfirmSave } = useQuoteActions();
+
+  const handleConfirmAddQuote = useCallback(async (text: string, bookTitle: string, authorName: string) => {
+    await handleConfirmSave(text, bookTitle, authorName, {
+      setShowModal: setShowAddQuoteModal,
+      isFromScanner: false,
+    });
+  }, [handleConfirmSave]);
   const lastSavedBookBlockData = React.useRef<string>('{}');
   const reloadRef = React.useRef<() => void>(() => {});
 
@@ -415,6 +429,7 @@ export const useBookDetailController = () => {
         setCurrentConnectionBlockId(blockId);
         setResourceSearchModalVisible(true);
       },
+      onAddQuote: () => setShowAddQuoteMenu(true),
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
   }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router, navigateToBook, navigateToAuthor]);
@@ -501,6 +516,15 @@ export const useBookDetailController = () => {
     setDictionaryModalVisible,
     setResourceSearchModalVisible,
     setCurrentConnectionBlockId,
+    showAddQuoteModal,
+    setShowAddQuoteModal,
+    showAddQuoteMenu,
+    setShowAddQuoteMenu,
+    showSimpleScanModal,
+    setShowSimpleScanModal,
+    scannedText,
+    setScannedText,
+    handleConfirmAddQuote,
     getStatusLabel,
     getStatusColor,
     getBookTitle,

@@ -2,6 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
+import { Plus } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
@@ -10,17 +11,24 @@ interface SavedQuotesBlockProps {
     quotes: Quote[];
     onQuotePress: (quote: Quote) => void;
     onRemove?: () => void;
+    onAddQuote?: () => void;
 }
 
-const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove }) => {
+const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove, onAddQuote }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     const hasQuotes = quotes && quotes.length > 0;
 
+    const rightElement = onAddQuote ? (
+        <TouchableOpacity onPress={onAddQuote} style={{ padding: 4 }} testID="add-quote-block-btn">
+            <Plus size={20} color={colors.primary} />
+        </TouchableOpacity>
+    ) : undefined;
+
     if (!hasQuotes) {
         return (
-            <BlockWrapper blockKey="savedQuotes" onRemove={onRemove}>
+            <BlockWrapper blockKey="savedQuotes" onRemove={onRemove} rightElement={rightElement}>
                 <Text style={styles.fallbackText}>
                     Aucune citation sauvegardée pour ce livre.
                 </Text>
@@ -29,7 +37,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
     }
 
     return (
-        <BlockWrapper blockKey="savedQuotes" onRemove={onRemove}>
+        <BlockWrapper blockKey="savedQuotes" onRemove={onRemove} rightElement={rightElement}>
             <View style={styles.savedQuotesList}>
                 {quotes.map(quote => (
                     <TouchableOpacity
