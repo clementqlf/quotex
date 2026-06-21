@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/refs */
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { PanResponder, PanResponderInstance } from 'react-native';
 import { ImageDisplayInfo, WordData } from './ocrProcessor';
 import { SelectionRange } from './useScanState';
@@ -110,7 +110,7 @@ export const useScanInteractions = ({
   const imagePanResponder = useRef<PanResponderInstance>(panResponderInstance);
 
   // Handler pour la pression sur un mot
-  const handleWordPress = (index: number) => {
+  const handleWordPress = useCallback((index: number) => {
     if (isEraserMode) {
       // En mode gomme, on ne sélectionne pas
       return;
@@ -122,12 +122,12 @@ export const useScanInteractions = ({
       }
       return { start: prev.start, end: index } as SelectionRange | null;
     });
-  };
+  }, [isEraserMode, setSelectionRange]);
 
   // Fonction utilitaire pour trouver un mot à une position
-  const findWordAtPosition = (x: number, y: number): number | null => {
+  const findWordAtPosition = useCallback((x: number, y: number): number | null => {
     return findNearestWord(wordsRef.current, x, y);
-  };
+  }, []);
 
   return {
     imagePanResponder,
