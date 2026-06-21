@@ -1,8 +1,8 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { scanService } from '@/src/features/scanner/api/ScanService';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { X, Camera as CameraIcon } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import { X, ScanLine } from 'lucide-react-native';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
+import { ThemeColors } from '@/src/shared/theme';
 
 interface SimpleScanModalProps {
   visible: boolean;
@@ -22,10 +25,21 @@ interface SimpleScanModalProps {
 
 export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleScanModalProps) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const cameraRef = useRef<Camera>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [scanAreaY, setScanAreaY] = useState(0);
+  const [scanFrameLayout, setScanFrameLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const handleCapture = async () => {
     if (!cameraRef.current || isLoading) return;
@@ -58,38 +72,49 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
   const renderContent = () => {
     if (!hasPermission) {
       return (
-        <View style={styles.permissionContainer}>
-          <Text style={[styles.permissionText, { color: colors.text }]}>
-            Quotex a besoin de l'accès à la caméra pour scanner une citation.
-          </Text>
-          <TouchableOpacity
-            style={[styles.permissionButton, { backgroundColor: colors.primary }]}
-            onPress={requestPermission}
-          >
-            <Text style={styles.permissionButtonText}>Autoriser l'accès</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.closeButtonTop} onPress={onClose}>
-            <X size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaContainer}>
+          <View style={styles.permissionContainer}>
+            <Text style={styles.permissionText}>
+              Quotex a besoin de l'accès à la caméra pour scanner une citation.
+            </Text>
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={requestPermission}
+            >
+              <Text style={styles.permissionButtonText}>Autoriser l'accès</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeButtonTop} onPress={onClose}>
+              <X size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       );
     }
 
     if (!device) {
       return (
-        <View style={styles.permissionContainer}>
-          <Text style={[styles.permissionText, { color: colors.text }]}>
-            Caméra arrière introuvable ou indisponible.
-          </Text>
-          <TouchableOpacity style={styles.closeButtonTop} onPress={onClose}>
-            <X size={24} color={colors.text} />
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaContainer}>
+          <View style={styles.permissionContainer}>
+            <Text style={styles.permissionText}>
+              Caméra arrière introuvable ou indisponible.
+            </Text>
+            <TouchableOpacity style={styles.closeButtonTop} onPress={onClose}>
+              <X size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       );
     }
 
     return (
-      <View style={styles.cameraContainer}>
+      <SafeAreaView
+        edges={['top', 'left', 'right']}
+        style={styles.safeAreaContainer}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          setContainerSize({ width, height });
+        }}
+      >
         <Camera
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
@@ -99,46 +124,89 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
           resizeMode="cover"
         />
 
-        {/* Overlay Assombrissant avec Découpe (Visual Hack) */}
-        <View style={styles.overlayContainer} pointerEvents="none">
-          <View style={styles.overlayDarkRow} />
-          <View style={styles.overlayMiddleRow}>
-            <View style={styles.overlayDarkSide} />
-            <View style={[styles.scanFrame, { borderColor: colors.primary + '40' }]} />
-            <View style={styles.overlayDarkSide} />
-          </View>
-          <View style={styles.overlayDarkRow} />
-        </View>
-
-        {/* Cadre de Scan avec Coins Cyans */}
-        <View style={styles.scanAreaContainer} pointerEvents="none">
-          <View style={styles.scanFrameVisual}>
-            {/* Corners */}
-            <View style={[styles.corner, styles.topLeft, { borderColor: colors.primary }]} />
-            <View style={[styles.corner, styles.topRight, { borderColor: colors.primary }]} />
-            <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.primary }]} />
-            <View style={[styles.corner, styles.bottomRight, { borderColor: colors.primary }]} />
-          </View>
-        </View>
-
-        {/* Consignes en haut */}
-        <SafeAreaView style={styles.topBar}>
+        {/* Header content (Relative header space, matching ScanScreen height) */}
+        <View style={styles.header}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <X size={24} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.instructionText}>Cadrez le texte de la citation</Text>
           <View style={{ width: 24 }} />
-        </SafeAreaView>
+        </View>
+
+        {/* Scan Area Frame wrapper */}
+        <View
+          style={styles.scanArea}
+          onLayout={(event) => {
+            const { y } = event.nativeEvent.layout;
+            setScanAreaY(y);
+          }}
+        >
+          <View
+            style={styles.scanFrame}
+            onLayout={(event) => {
+              const { x, y, width, height } = event.nativeEvent.layout;
+              setScanFrameLayout({ x, y, width, height });
+            }}
+          >
+            {scanFrameLayout && (
+              <ScanFrameOverlay
+                isTextDetectedLive={false}
+                scanFrameLayout={scanFrameLayout}
+                colors={colors}
+              />
+            )}
+          </View>
+        </View>
+
+        {/* Overlay Assombrissant avec Découpe SVG */}
+        {scanFrameLayout && containerSize.width > 0 && (
+          <Svg
+            width={containerSize.width}
+            height={containerSize.height}
+            style={styles.darkOverlay}
+            viewBox={`0 0 ${containerSize.width} ${containerSize.height}`}
+          >
+            <Defs>
+              <Mask id="scanMask">
+                <Rect width={containerSize.width} height={containerSize.height} fill="white" />
+                <Rect
+                  x={scanFrameLayout.x}
+                  y={scanAreaY + scanFrameLayout.y}
+                  width={scanFrameLayout.width}
+                  height={scanFrameLayout.height}
+                  rx="24"
+                  ry="24"
+                  fill="black"
+                />
+              </Mask>
+            </Defs>
+            <Rect
+              width={containerSize.width}
+              height={containerSize.height}
+              fill="rgba(0, 0, 0, 0.6)"
+              mask="url(#scanMask)"
+            />
+          </Svg>
+        )}
 
         {/* Contrôles en bas */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={[styles.captureButton, { borderColor: colors.primary }]}
-            onPress={handleCapture}
-            disabled={isLoading}
-          >
-            <View style={[styles.captureButtonInner, { backgroundColor: colors.primary }]} />
-          </TouchableOpacity>
+        <View style={styles.controls}>
+          <View style={styles.controlsRow}>
+            <View style={styles.scanButtonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.scanButton,
+                  isLoading && styles.scanButtonActive,
+                  !device && styles.scanButtonDisabled,
+                ]}
+                onPress={handleCapture}
+                disabled={isLoading || !device}
+                activeOpacity={0.9}
+              >
+                <ScanLine size={28} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {isLoading && (
@@ -147,7 +215,7 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
             <Text style={[styles.loadingText, { color: colors.text }]}>Analyse en cours...</Text>
           </View>
         )}
-      </View>
+      </SafeAreaView>
     );
   };
 
@@ -158,27 +226,38 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  safeAreaContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'visible',
   },
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+    backgroundColor: '#000',
+    width: '100%',
   },
   permissionText: {
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 24,
+    color: colors.text,
   },
   permissionButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
+    backgroundColor: colors.primary,
   },
   permissionButtonText: {
     color: '#000',
@@ -187,91 +266,21 @@ const styles = StyleSheet.create({
   },
   closeButtonTop: {
     position: 'absolute',
-    top: 60,
+    top: 20,
     right: 20,
     padding: 8,
   },
-  cameraContainer: {
-    flex: 1,
-  },
-  overlayContainer: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 1,
-  },
-  overlayDarkRow: {
-    flex: 1.2,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  overlayMiddleRow: {
-    flex: 2,
-    flexDirection: 'row',
-  },
-  overlayDarkSide: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  scanFrame: {
-    width: '80%',
-    aspectRatio: 1.2,
-    borderWidth: 2,
-    borderRadius: 24,
-  },
-  scanAreaContainer: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-    paddingHorizontal: '10%',
-  },
-  scanFrameVisual: {
-    width: '100%',
-    aspectRatio: 1.2,
+  header: {
     position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-  },
-  topLeft: {
-    top: -2,
-    left: -2,
-    borderLeftWidth: 3,
-    borderTopWidth: 3,
-    borderTopLeftRadius: 12,
-  },
-  topRight: {
-    top: -2,
-    right: -2,
-    borderRightWidth: 3,
-    borderTopWidth: 3,
-    borderTopRightRadius: 12,
-  },
-  bottomLeft: {
-    bottom: -2,
-    left: -2,
-    borderLeftWidth: 3,
-    borderBottomWidth: 3,
-    borderBottomLeftRadius: 12,
-  },
-  bottomRight: {
-    bottom: -2,
-    right: -2,
-    borderRightWidth: 3,
-    borderBottomWidth: 3,
-    borderBottomRightRadius: 12,
-  },
-  topBar: {
-    position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    zIndex: 3,
+    zIndex: 10,
+    width: '100%',
+    height: 120,
+    overflow: 'visible',
   },
   closeButton: {
     padding: 8,
@@ -287,34 +296,84 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+  scanArea: {
+    flex: 1,
+    width: '100%',
+    position: 'relative',
     zIndex: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    marginTop: -160,
   },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 4,
+  scanFrame: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    maxHeight: 450,
+    borderWidth: 1,
+    borderColor: 'rgba(32, 184, 205, 0.2)',
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
+    overflow: 'visible',
+    zIndex: 3,
   },
-  captureButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  darkOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1,
+    pointerEvents: 'none',
+  },
+  controls: {
+    position: 'absolute',
+    bottom: 60,
+    width: '100%',
+    paddingHorizontal: 24,
+    zIndex: 20,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanButtonContainer: {
+    width: 110,
+    height: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  scanButton: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'transparent',
+    borderWidth: 3,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 15,
+    elevation: 8,
+    zIndex: 10,
+  },
+  scanButtonActive: {
+    backgroundColor: 'rgba(32, 184, 205, 0.2)',
+    borderColor: '#FFFFFF',
+  },
+  scanButtonDisabled: {
+    opacity: 0.4,
+    borderColor: '#444',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 4,
+    zIndex: 99,
   },
   loadingText: {
     marginTop: 16,

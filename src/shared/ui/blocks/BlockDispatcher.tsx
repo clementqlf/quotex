@@ -35,7 +35,7 @@ export interface BlockContext {
     onEditDefinitionSelection?: (blockKey: string) => void; // For Quote
     onManageDictionary?: () => void; // For Book
     onConnectionSearchPress?: (blockId: string) => void; // For Connection block
-    onAddQuote?: () => void;
+    onAddQuote?: (pageY?: number) => void;
 
     // State
     blockData?: Record<string, any>;

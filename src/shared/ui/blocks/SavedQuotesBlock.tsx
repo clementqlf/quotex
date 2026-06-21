@@ -11,7 +11,7 @@ interface SavedQuotesBlockProps {
     quotes: Quote[];
     onQuotePress: (quote: Quote) => void;
     onRemove?: () => void;
-    onAddQuote?: () => void;
+    onAddQuote?: (pageY?: number) => void;
 }
 
 const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove, onAddQuote }) => {
@@ -21,7 +21,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
     const hasQuotes = quotes && quotes.length > 0;
 
     const rightElement = onAddQuote ? (
-        <TouchableOpacity onPress={onAddQuote} style={{ padding: 4 }} testID="add-quote-block-btn">
+        <TouchableOpacity onPress={(e) => onAddQuote(e.nativeEvent.pageY)} style={{ padding: 4 }} testID="add-quote-block-btn">
             <Plus size={20} color={colors.primary} />
         </TouchableOpacity>
     ) : undefined;

@@ -60,6 +60,8 @@ export default function BookDetailScreen() {
     setShowAddQuoteModal,
     showAddQuoteMenu,
     setShowAddQuoteMenu,
+    menuTriggerY,
+    setMenuTriggerY,
     showSimpleScanModal,
     setShowSimpleScanModal,
     scannedText,
@@ -299,7 +301,11 @@ export default function BookDetailScreen() {
 
         <AddQuoteMenu
           visible={showAddQuoteMenu}
-          onClose={() => setShowAddQuoteMenu(false)}
+          triggerY={menuTriggerY}
+          onClose={() => {
+            setShowAddQuoteMenu(false);
+            setMenuTriggerY(undefined);
+          }}
           onScanPress={() => {
             setShowAddQuoteMenu(false);
             setTimeout(() => {

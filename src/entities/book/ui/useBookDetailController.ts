@@ -81,6 +81,7 @@ export const useBookDetailController = () => {
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = useState(false);
   const [showAddQuoteModal, setShowAddQuoteModal] = useState(false);
   const [showAddQuoteMenu, setShowAddQuoteMenu] = useState(false);
+  const [menuTriggerY, setMenuTriggerY] = useState<number | undefined>(undefined);
   const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
   const [scannedText, setScannedText] = useState('');
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = useState<string | null>(null);
@@ -429,7 +430,10 @@ export const useBookDetailController = () => {
         setCurrentConnectionBlockId(blockId);
         setResourceSearchModalVisible(true);
       },
-      onAddQuote: () => setShowAddQuoteMenu(true),
+      onAddQuote: (pageY) => {
+        setMenuTriggerY(pageY);
+        setShowAddQuoteMenu(true);
+      },
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
   }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router, navigateToBook, navigateToAuthor]);
@@ -520,6 +524,8 @@ export const useBookDetailController = () => {
     setShowAddQuoteModal,
     showAddQuoteMenu,
     setShowAddQuoteMenu,
+    menuTriggerY,
+    setMenuTriggerY,
     showSimpleScanModal,
     setShowSimpleScanModal,
     scannedText,
