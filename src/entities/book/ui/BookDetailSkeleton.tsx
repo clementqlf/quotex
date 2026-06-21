@@ -24,7 +24,7 @@ export const BookDetailSkeleton = ({ colors }: { colors: ThemeColors }) => {
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.surfaceHighlight, marginBottom: 16 }}>
         <View style={{ flexDirection: 'row', gap: 16 }}>
           <Animated.View style={[{ width: 100, height: 150, borderRadius: 8, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-          <View style={{ flex: 1, justifyContent: 'center', gap: 10 }}>
+          <View style={{ flex: 1, justifyContent: 'flex-start', paddingTop: 10, gap: 10 }}>
             <Animated.View style={[{ width: '85%', height: 24, borderRadius: 6, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
             <Animated.View style={[{ width: '55%', height: 16, borderRadius: 6, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>

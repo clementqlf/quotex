@@ -18,7 +18,7 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 type TabType = 'description' | 'my_sheet';
 
-const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks'];
+const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'similarBooks', 'buy'];
 const MYSHEET_BLOCKS = ['notes', 'dictionary', 'connection'];
 
 const isBlockInTab = (blockKey: string, tab: TabType) => {
@@ -162,7 +162,7 @@ export const useBookDetailController = () => {
   const currentTabBlocks = useMemo(() => (gridData || []).filter(key => isBlockInTab(key, activeTab)), [gridData, activeTab]);
   const filteredBlockOptions = useMemo(() => (
     activeTab === 'description'
-      ? ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'buy', 'similarBooks']
+      ? ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'similarBooks', 'buy']
       : ['notes', 'dictionary', 'connection']
   ).map(key => ({ key, label: key })), [activeTab]);
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();

@@ -14,6 +14,7 @@ import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
+import { useHaptics } from '@/src/shared/platform';
 import { createStyles } from './BookDetail.styles';
 import { BookDetailSkeleton } from './BookDetailSkeleton';
 import { useBookDetailController } from './useBookDetailController';
@@ -21,6 +22,7 @@ import { useBookDetailController } from './useBookDetailController';
 export default function BookDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const haptics = useHaptics();
   
   const {
     router,
@@ -34,6 +36,7 @@ export default function BookDetailScreen() {
     scrollableRef,
     isSaved,
     handleHeaderSavePress,
+    handleOpenStatusMenuWithId,
     handleShare,
     handleRemoveBlock,
     handleOrderChange,
@@ -186,14 +189,27 @@ export default function BookDetailScreen() {
                   )}
 
                   {bookInfo.readingStatus && (
-                    <View style={[styles.statusBadge, {
-                      backgroundColor: getStatusColor(bookInfo.readingStatus) + '15',
-                      borderColor: getStatusColor(bookInfo.readingStatus) + '40'
-                    }]}>
+                    <TouchableOpacity
+                      style={[styles.statusBadge, {
+                        backgroundColor: getStatusColor(bookInfo.readingStatus) + '15',
+                        borderColor: getStatusColor(bookInfo.readingStatus) + '40'
+                      }]}
+                      onLongPress={async () => {
+                        if (bookInfo.id) {
+                          try {
+                            await haptics.impactAsync('medium');
+                          } catch (err) {
+                            console.warn('Haptics failed', err);
+                          }
+                          handleOpenStatusMenuWithId(bookInfo.id);
+                        }
+                      }}
+                      delayLongPress={400}
+                    >
                       <Text style={[styles.statusText, { color: getStatusColor(bookInfo.readingStatus) }]}>
                         {getStatusLabel(bookInfo.readingStatus)}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   )}
 
                   {bookInfo.laureates?.map(laureate => (

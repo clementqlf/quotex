@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookOpen, Calendar, Star } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -16,6 +16,29 @@ interface BookInfoBlockProps {
 const BookInfoBlockUI: React.FC<BookInfoBlockProps> = ({ book, onBookPress, variant = 'info', onRemove }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
+
+    const description = book?.description || '';
+
+    const [isMeasured, setIsMeasured] = useState(false);
+    const [showMoreButton, setShowMoreButton] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [prevDescription, setPrevDescription] = useState('');
+
+    if (description !== prevDescription) {
+        setPrevDescription(description);
+        setIsMeasured(false);
+        setShowMoreButton(false);
+        setIsExpanded(false);
+    }
+
+    const onTextLayout = useCallback((e: any) => {
+        if (!isMeasured) {
+            if (e.nativeEvent.lines.length > 10) {
+                setShowMoreButton(true);
+            }
+            setIsMeasured(true);
+        }
+    }, [isMeasured]);
 
     if (!book) {
         return (
@@ -34,7 +57,39 @@ const BookInfoBlockUI: React.FC<BookInfoBlockProps> = ({ book, onBookPress, vari
     if (variant === 'description') {
         return (
             <BlockWrapper blockKey="bookDescription" onRemove={onRemove}>
-                <Text style={styles.bookDesc}>{book.description || "Description non disponible."}</Text>
+                {description ? (
+                    <View pointerEvents="box-none">
+                        {!isMeasured && (
+                            <Text
+                                style={[styles.bookDesc, { position: 'absolute', opacity: 0, left: 0, right: 0 }]}
+                                onTextLayout={onTextLayout}
+                            >
+                                {description}
+                            </Text>
+                        )}
+                        {isMeasured && (
+                            <Text
+                                style={styles.bookDesc}
+                                numberOfLines={isExpanded ? undefined : 10}
+                            >
+                                {description}
+                            </Text>
+                        )}
+                    </View>
+                ) : (
+                    <Text style={styles.bookDesc}>Description non disponible.</Text>
+                )}
+                {showMoreButton && (
+                    <TouchableOpacity
+                        style={styles.showMoreButton}
+                        onPress={() => setIsExpanded(!isExpanded)}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.showMoreText}>
+                            {isExpanded ? 'Voir moins' : 'Voir plus'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </BlockWrapper>
         );
     }
@@ -69,7 +124,37 @@ const BookInfoBlockUI: React.FC<BookInfoBlockProps> = ({ book, onBookPress, vari
                     )}
                 </View>
             </TouchableOpacity>
-            <Text style={styles.bookDesc}>{book.description}</Text>
+            {description ? (
+                <View pointerEvents="box-none">
+                    {!isMeasured && (
+                        <Text
+                            style={[styles.bookDesc, { position: 'absolute', opacity: 0, left: 0, right: 0 }]}
+                            onTextLayout={onTextLayout}
+                        >
+                            {description}
+                        </Text>
+                    )}
+                    {isMeasured && (
+                        <Text
+                            style={styles.bookDesc}
+                            numberOfLines={isExpanded ? undefined : 10}
+                        >
+                            {description}
+                        </Text>
+                    )}
+                </View>
+            ) : null}
+            {showMoreButton && (
+                <TouchableOpacity
+                    style={styles.showMoreButton}
+                    onPress={() => setIsExpanded(!isExpanded)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.showMoreText}>
+                        {isExpanded ? 'Voir moins' : 'Voir plus'}
+                    </Text>
+                </TouchableOpacity>
+            )}
         </BlockWrapper>
     );
 };
@@ -92,6 +177,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         fontSize: 14,
         color: colors.textSecondary,
         lineHeight: 22,
+    },
+    showMoreButton: {
+        marginTop: 8,
+        alignSelf: 'flex-start',
+    },
+    showMoreText: {
+        color: colors.primary,
+        fontSize: 14,
+        fontWeight: '600',
     },
     bookContainer: {
         flexDirection: 'row',
