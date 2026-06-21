@@ -5,7 +5,7 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
-import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, decodeBase64 } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -135,18 +135,7 @@ export const UserProfileSkeleton = ({ colors }: { colors: ThemeColors }) => {
   );
 };
 
-/**
- * Utility to convert base64 to ArrayBuffer for Supabase Storage
- * This is the most reliable way in React Native to avoid 0-byte uploads
- */
-const decodeBase64 = (base64: string) => {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
+
 
 export default function UserProfileScreen() {
   const router = useRouter();

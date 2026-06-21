@@ -1,4 +1,4 @@
-import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel } from '../dataHelpers';
+import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, decodeBase64 } from '../dataHelpers';
 
 describe('dataHelpers', () => {
   describe('getBookTitle', () => {
@@ -66,6 +66,32 @@ describe('dataHelpers', () => {
     test('retourne la couleur grise par défaut pour les statuts inconnus ou vides', () => {
       expect(getStatusColor('UNKNOWN')).toBe('#9CA3AF');
       expect(getStatusColor(undefined)).toBe('#9CA3AF');
+    });
+  });
+
+  describe('decodeBase64', () => {
+    test('décode correctement une chaîne base64 en ArrayBuffer', () => {
+      const buffer = decodeBase64('aGVsbG8=');
+      const bytes = new Uint8Array(buffer);
+      expect(bytes.length).toBe(5);
+      expect(String.fromCharCode(...bytes)).toBe('hello');
+    });
+
+    test('décode correctement avec des paddings différents', () => {
+      const buf1 = decodeBase64('YQ==');
+      expect(String.fromCharCode(...new Uint8Array(buf1))).toBe('a');
+
+      const buf2 = decodeBase64('YWI=');
+      expect(String.fromCharCode(...new Uint8Array(buf2))).toBe('ab');
+
+      const buf3 = decodeBase64('YWJj');
+      expect(String.fromCharCode(...new Uint8Array(buf3))).toBe('abc');
+    });
+
+    test('ignore le préfixe data URI et les espaces blancs', () => {
+      const base64WithUri = 'data:image/png;base64, YQ = =';
+      const buffer = decodeBase64(base64WithUri);
+      expect(String.fromCharCode(...new Uint8Array(buffer))).toBe('a');
     });
   });
 });
