@@ -71,18 +71,22 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
+  // Adjust state during render when viewMode changes
+  if (viewMode !== currentMode) {
+    const currentIdx = TAB_INDEXES[currentMode];
+    const newIdx = TAB_INDEXES[viewMode];
+    direction.value = newIdx >= currentIdx ? 1 : -1;
+
+    setPrevMode(currentMode);
+    setCurrentMode(viewMode);
+
+    enterProgress.value = 0;
+    exitProgress.value = 0;
+  }
+
+  // Trigger animations in response to currentMode / prevMode changes
   useEffect(() => {
-    if (viewMode !== currentMode) {
-      const currentIdx = TAB_INDEXES[currentMode];
-      const newIdx = TAB_INDEXES[viewMode];
-      direction.value = newIdx >= currentIdx ? 1 : -1;
-
-      setPrevMode(currentMode);
-      setCurrentMode(viewMode);
-
-      enterProgress.value = 0;
-      exitProgress.value = 0;
-
+    if (prevMode !== null) {
       enterProgress.value = withTiming(1, { duration: 300 });
       exitProgress.value = withTiming(1, { duration: 300 }, (finished) => {
         if (finished) {
@@ -90,7 +94,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
-  }, [viewMode, currentMode, direction, enterProgress, exitProgress]);
+  }, [currentMode, prevMode, enterProgress, exitProgress]);
 
   const enterStyle = useAnimatedStyle(() => {
     return {
@@ -298,7 +302,7 @@ export default function MyQuotesScreen() {
     const changeStatus = async (status: string) => {
       try {
         await updateBookStatus(book.id, status as ReadingStatus);
-      } catch (error) {
+      } catch {
         Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
       }
     };

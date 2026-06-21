@@ -8,6 +8,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import * as Linking from 'expo-linking';
 import {
   Bell,
   CheckCircle2,
@@ -39,7 +42,64 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import * as Linking from 'expo-linking';
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
+  if (!Device.isDevice) {
+    Alert.alert(
+      "Simulateur détecté",
+      "Les notifications push ne sont pas prises en charge sur simulateur. Veuillez tester sur un appareil physique."
+    );
+    return null;
+  }
+
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      Alert.alert(
+        "Permissions refusées",
+        "Veuillez activer les permissions de notifications dans les réglages de votre appareil pour recevoir des notifications."
+      );
+      return null;
+    }
+
+    const token = (await Notifications.getExpoPushTokenAsync({
+      projectId: 'eaa0560e-b9b6-4344-a4ab-3d9283e277f9',
+    })).data;
+    console.log('[Notifications] Token retrieved:', token);
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    return token;
+  } catch (error) {
+    console.warn('[Notifications] Error registering for push notifications:', error);
+    return null;
+  }
+}
 
 const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: any) => {
   const { colors } = useTheme();
@@ -90,6 +150,53 @@ export default function SettingsScreen() {
   const [isPasswordModalVisible, setIsPasswordModalVisible] = React.useState(false);
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
+
+  const [isNotificationsModalVisible, setIsNotificationsModalVisible] = React.useState(false);
+  const [globalNotificationsEnabled, setGlobalNotificationsEnabled] = React.useState(!!user?.expoPushToken);
+  const [notifyOnFollow, setNotifyOnFollow] = React.useState(user?.notifyOnFollow ?? true);
+  const [notifyOnLike, setNotifyOnLike] = React.useState(user?.notifyOnLike ?? true);
+  const [isSavingNotifications, setIsSavingNotifications] = React.useState(false);
+
+
+
+  const handleSaveNotifications = async () => {
+    if (isSavingNotifications) return;
+    setIsSavingNotifications(true);
+
+    try {
+      if (globalNotificationsEnabled) {
+        let token: string | null | undefined = user?.expoPushToken;
+        if (!token) {
+          token = await registerForPushNotificationsAsync();
+        }
+
+        if (token) {
+          await updateProfile({
+            expoPushToken: token,
+            notifyOnFollow,
+            notifyOnLike,
+          });
+          Alert.alert("Succès", "Vos préférences de notification ont été mises à jour.");
+          setIsNotificationsModalVisible(false);
+        } else {
+          setGlobalNotificationsEnabled(false);
+        }
+      } else {
+        await updateProfile({
+          expoPushToken: null,
+          notifyOnFollow,
+          notifyOnLike,
+        });
+        Alert.alert("Succès", "Vos notifications push ont été désactivées.");
+        setIsNotificationsModalVisible(false);
+      }
+    } catch (err: any) {
+      console.error('[SettingsScreen] Failed to save notifications:', err);
+      Alert.alert("Erreur", "Impossible d'enregistrer vos préférences de notification.");
+    } finally {
+      setIsSavingNotifications(false);
+    }
+  };
 
   const handleOpenLink = async (url: string) => {
     try {
@@ -290,7 +397,12 @@ export default function SettingsScreen() {
               <SettingItem
                 icon={Bell}
                 title="Notifications"
-                onPress={() => { }}
+                onPress={() => {
+                  setGlobalNotificationsEnabled(!!user?.expoPushToken);
+                  setNotifyOnFollow(user?.notifyOnFollow ?? true);
+                  setNotifyOnLike(user?.notifyOnLike ?? true);
+                  setIsNotificationsModalVisible(true);
+                }}
               />
               <SettingItem
                 icon={Trash2}
@@ -473,6 +585,99 @@ export default function SettingsScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Notifications Preferences Modal */}
+      <Modal
+        visible={isNotificationsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsNotificationsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Préférences de Notifications</Text>
+
+            {/* Global Switch */}
+            <View style={styles.notificationPrefRow}>
+              <View style={styles.notificationPrefLeft}>
+                <Text style={styles.notificationPrefTitle}>Notifications Push</Text>
+                <Text style={styles.notificationPrefDesc}>Activer ou désactiver globalement</Text>
+              </View>
+              <Switch
+                value={globalNotificationsEnabled}
+                onValueChange={setGlobalNotificationsEnabled}
+                trackColor={{ false: '#767577', true: colors.primary }}
+                thumbColor={globalNotificationsEnabled ? '#FFFFFF' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Notify On Follow */}
+            <View style={[styles.notificationPrefRow, !globalNotificationsEnabled && { opacity: 0.5 }]}>
+              <View style={styles.notificationPrefLeft}>
+                <Text style={styles.notificationPrefTitle}>Nouveaux Abonnements</Text>
+                <Text style={styles.notificationPrefDesc}>{"Quand un utilisateur s'abonne à votre profil"}</Text>
+              </View>
+              <Switch
+                value={notifyOnFollow}
+                onValueChange={setNotifyOnFollow}
+                disabled={!globalNotificationsEnabled}
+                trackColor={{ false: '#767577', true: colors.primary }}
+                thumbColor={notifyOnFollow ? '#FFFFFF' : '#f4f3f4'}
+              />
+            </View>
+
+            {/* Notify On Like */}
+            <View style={[styles.notificationPrefRow, !globalNotificationsEnabled && { opacity: 0.5 }]}>
+              <View style={styles.notificationPrefLeft}>
+                <Text style={styles.notificationPrefTitle}>{"Mentions J'aime"}</Text>
+                <Text style={styles.notificationPrefDesc}>{"Quand un utilisateur aime l'une de vos citations"}</Text>
+              </View>
+              <Switch
+                value={notifyOnLike}
+                onValueChange={setNotifyOnLike}
+                disabled={!globalNotificationsEnabled}
+                trackColor={{ false: '#767577', true: colors.primary }}
+                thumbColor={notifyOnLike ? '#FFFFFF' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setIsNotificationsModalVisible(false)}
+                accessible={true}
+                accessibilityLabel="Annuler"
+                accessibilityRole="button"
+                testID="notif-modal-cancel-button"
+              >
+                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonSave,
+                  isSavingNotifications && styles.modalButtonDisabled
+                ]}
+                onPress={handleSaveNotifications}
+                disabled={isSavingNotifications}
+                accessible={true}
+                accessibilityLabel="Enregistrer les préférences"
+                accessibilityRole="button"
+                testID="notif-modal-save-button"
+              >
+                {isSavingNotifications ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text style={styles.modalButtonTextSave}>Enregistrer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -676,5 +881,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: '700',
+  },
+  notificationPrefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  notificationPrefLeft: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  notificationPrefTitle: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  notificationPrefDesc: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    lineHeight: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 12,
   },
 });

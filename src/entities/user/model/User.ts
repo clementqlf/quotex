@@ -14,6 +14,9 @@ export interface User {
   website?: string; // Site web
   followers?: number; // Nombre de followers
   following?: number; // Nombre de personnes suivies
+  expoPushToken?: string; // Token de notification push Expo
+  notifyOnFollow?: boolean; // Notification push lors d'un nouvel abonnement
+  notifyOnLike?: boolean; // Notification push lors d'un j'aime
 }
 
 // DTO pour créer un utilisateur
@@ -42,8 +45,11 @@ export interface ServerUserData {
   website?: string;
   followers?: number;
   following?: number;
-  // Champs supplémentaires non typés - limités à string, number ou undefined
-  [key: string]: string | number | undefined;
+  expoPushToken?: string;
+  notifyOnFollow?: boolean;
+  notifyOnLike?: boolean;
+  // Champs supplémentaires non typés - limités à string, number, boolean ou undefined
+  [key: string]: string | number | boolean | undefined;
 }
 
 // Fabrique pour créer des objets User
@@ -59,6 +65,8 @@ export class UserFactory {
       website: dto.website,
       followers: 0,
       following: 0,
+      notifyOnFollow: true,
+      notifyOnLike: true,
     };
   }
 
@@ -73,6 +81,9 @@ export class UserFactory {
       website: data.website,
       followers: data.followers || 0,
       following: data.following || 0,
+      expoPushToken: typeof data.expoPushToken === 'string' ? data.expoPushToken : undefined,
+      notifyOnFollow: typeof data.notifyOnFollow === 'boolean' ? data.notifyOnFollow : true,
+      notifyOnLike: typeof data.notifyOnLike === 'boolean' ? data.notifyOnLike : true,
     };
   }
 }

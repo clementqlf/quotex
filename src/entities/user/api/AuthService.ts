@@ -161,7 +161,7 @@ class AuthService {
         await this.logout();
     }
 
-    async updateUser(data: { username?: string; name?: string; bio?: string; website?: string; image?: string }): Promise<User> {
+    async updateUser(data: { username?: string; name?: string; bio?: string; website?: string; image?: string; expoPushToken?: string | null; notifyOnFollow?: boolean | null; notifyOnLike?: boolean | null }): Promise<User> {
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) throw new Error('Not authenticated');
 

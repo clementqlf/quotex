@@ -19,7 +19,7 @@ interface AuthActions {
     register: (username: string, email: string, password: string, name?: string) => Promise<AuthResponse>;
     logout: () => Promise<void>;
     deleteAccount: () => Promise<void>;
-    updateProfile: (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => Promise<void>;
+    updateProfile: (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string; expoPushToken?: string | null; notifyOnFollow?: boolean | null; notifyOnLike?: boolean | null }) => Promise<void>;
 }
 
 interface AuthContextType extends AuthState, AuthActions {}
@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         queryClient.clear();
     }, [queryClient]);
 
-    const updateProfile = useCallback(async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string }) => {
+    const updateProfile = useCallback(async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string; expoPushToken?: string | null; notifyOnFollow?: boolean | null; notifyOnLike?: boolean | null }) => {
         const updatedUser = await authService.updateUser(data);
         setUser(updatedUser);
     }, []);

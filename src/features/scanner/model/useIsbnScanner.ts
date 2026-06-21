@@ -50,6 +50,7 @@ export function useIsbnScanner({
     enabled = true,
     onIsbnDetected,
 }: UseIsbnScannerProps) {
+    "use no memo";
     const [isScanning, setIsScanning] = useState(false);
     const lastProcessed = useSharedValue(0);
 
