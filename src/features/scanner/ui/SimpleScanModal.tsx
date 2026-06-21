@@ -1,8 +1,8 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { scanService } from '@/src/features/scanner/api/ScanService';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { X, ScanLine } from 'lucide-react-native';
-import React, { useRef, useState, useMemo } from 'react';
+import { X, ScanLine, BookOpen } from 'lucide-react-native';
+import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,8 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import { ThemeColors } from '@/src/shared/theme';
 
@@ -31,6 +37,32 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
   const device = useCameraDevice('back');
   const cameraRef = useRef<Camera>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const [isTextDetectedLive, setIsTextDetectedLive] = useState(false);
+
+  const handleTextDetectedChange = useCallback((detected: boolean) => {
+    setIsTextDetectedLive(detected);
+  }, []);
+
+  const { frameProcessor } = useLiveOCR({
+    cameraRef,
+    isFocused: visible,
+    enabled: !isLoading,
+    scanInterval: 300,
+    positiveThreshold: 1,
+    negativeThreshold: 10,
+    onTextDetectedChange: handleTextDetectedChange,
+  });
+
+  const fadeAnim = useSharedValue(1);
+
+  useEffect(() => {
+    fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
+  }, [isTextDetectedLive, fadeAnim]);
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
 
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [scanAreaY, setScanAreaY] = useState(0);
@@ -75,13 +107,13 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
         <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeAreaContainer}>
           <View style={styles.permissionContainer}>
             <Text style={styles.permissionText}>
-              Quotex a besoin de l'accès à la caméra pour scanner une citation.
+              {"Quotex a besoin de l'accès à la caméra pour scanner une citation."}
             </Text>
             <TouchableOpacity
               style={styles.permissionButton}
               onPress={requestPermission}
             >
-              <Text style={styles.permissionButtonText}>Autoriser l'accès</Text>
+              <Text style={styles.permissionButtonText}>{"Autoriser l'accès"}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.closeButtonTop} onPress={onClose}>
               <X size={24} color={colors.text} />
@@ -121,7 +153,9 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
           device={device}
           isActive={visible}
           photo={true}
+          pixelFormat="yuv"
           resizeMode="cover"
+          frameProcessor={frameProcessor}
         />
 
         {/* Header content (Relative header space, matching ScanScreen height) */}
@@ -129,8 +163,6 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <X size={24} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.instructionText}>Cadrez le texte de la citation</Text>
-          <View style={{ width: 24 }} />
         </View>
 
         {/* Scan Area Frame wrapper */}
@@ -150,11 +182,25 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
           >
             {scanFrameLayout && (
               <ScanFrameOverlay
-                isTextDetectedLive={false}
+                isTextDetectedLive={isTextDetectedLive}
                 scanFrameLayout={scanFrameLayout}
                 colors={colors}
               />
             )}
+
+            <View style={styles.content}>
+              <Animated.View
+                style={[styles.fadeContainer, fadeStyle]}
+                pointerEvents="none"
+              >
+                <View style={styles.iconShadowWrapper}>
+                  <BookOpen size={48} color="#FFFFFF" />
+                </View>
+                <Text style={styles.instructionTextShadow}>
+                  Placez la citation dans le cadre
+                </Text>
+              </Animated.View>
+            </View>
           </View>
         </View>
 
@@ -198,12 +244,13 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
                   styles.scanButton,
                   isLoading && styles.scanButtonActive,
                   !device && styles.scanButtonDisabled,
+                  (!isTextDetectedLive && device) && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
                 ]}
                 onPress={handleCapture}
                 disabled={isLoading || !device}
                 activeOpacity={0.9}
               >
-                <ScanLine size={28} color={colors.primary} />
+                <ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : "#E5E7EB"} />
               </TouchableOpacity>
             </View>
           </View>
@@ -318,6 +365,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: 'transparent',
     overflow: 'visible',
     zIndex: 3,
+  },
+  content: {
+    alignItems: 'center',
+    padding: 24,
+    width: '100%',
+    overflow: 'visible',
+  },
+  fadeContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  instructionTextShadow: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    marginTop: 20,
+    textAlign: 'center',
+    textShadowColor: colors.primary,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
+    overflow: 'visible',
+  },
+  iconShadowWrapper: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   darkOverlay: {
     ...StyleSheet.absoluteFill,

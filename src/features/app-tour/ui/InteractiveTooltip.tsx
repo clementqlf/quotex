@@ -67,7 +67,7 @@ export function InteractiveTooltip({
   const { quotes } = useQuote();
   const { tabIndex } = useTabIndex();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const screenHeight = Dimensions.get('screen').height;
   
   const [localVisible, setLocalVisible] = useState(false);
@@ -180,6 +180,7 @@ export function InteractiveTooltip({
               <Text style={[styles.skipText, { color: colors.textSecondary }]}>Passer</Text>
             </TouchableOpacity>
           </View>
+
           <Text style={[styles.message, { color: colors.text }]}>{currentStepMessage}</Text>
           <View style={styles.footer}>
             {globalStepIndex > 0 && (
@@ -200,6 +201,10 @@ export function InteractiveTooltip({
       allowChildInteraction={allowChildInteraction}
       closeOnChildInteraction={closeOnChildInteraction}
       backgroundColor={tooltipBgColor}
+      backgroundStyle={{
+        width: windowWidth,
+        height: windowHeight,
+      }}
       contentStyle={{ 
         backgroundColor: 'transparent', 
         padding: 0, 
