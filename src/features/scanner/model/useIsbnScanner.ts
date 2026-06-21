@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
 import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
 
@@ -58,6 +58,9 @@ export function useIsbnScanner({
         language: 'latin',
     });
 
+    const setScanningJS = useRunOnJS(setIsScanning, [setIsScanning]);
+    const onIsbnDetectedJS = useRunOnJS(onIsbnDetected, [onIsbnDetected]);
+
     const isScanningActive = enabled && isFocused;
 
     // Use Frame Processor for in-memory ISBN scanning (runs at 2 FPS for fast barcode capture)
@@ -71,17 +74,17 @@ export function useIsbnScanner({
         if (now - lastProcessed.value >= 500) {
             lastProcessed.value = now;
             try {
-                runOnJS(setIsScanning)(true);
+                setScanningJS(true);
                 const result = scanText(frame);
                 if (result && result.resultText) {
                     const isbn = extractIsbn(result.resultText);
                     if (isbn) {
-                        runOnJS(onIsbnDetected)(isbn);
+                        onIsbnDetectedJS(isbn);
                     }
                 }
-                runOnJS(setIsScanning)(false);
+                setScanningJS(false);
             } catch {
-                runOnJS(setIsScanning)(false);
+                setScanningJS(false);
             }
         }
     }, [isScanningActive, scanText, onIsbnDetected]);

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useSharedValue } from 'react-native-reanimated';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
 import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
-import { useRunOnJS } from 'react-native-worklets-core';
+import { useRunOnJS, useSharedValue } from 'react-native-worklets-core';
 
 type UseLiveOCRProps = {
     cameraRef?: React.RefObject<Camera | null>; // Kept for API backward compatibility
