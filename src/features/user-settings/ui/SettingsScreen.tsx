@@ -101,7 +101,7 @@ async function registerForPushNotificationsAsync() {
   }
 }
 
-const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: any) => {
+const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, rightText }: any) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -122,7 +122,12 @@ const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: an
         <Text style={styles.settingItemTitle}>{title}</Text>
       </View>
 
-      {type === 'chevron' && <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />}
+      {type === 'chevron' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {rightText && <Text style={{ color: colors.textTertiary, fontSize: 14 }}>{rightText}</Text>}
+          <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />
+        </View>
+      )}
       {type === 'switch' && (
         <Switch
           value={value}
@@ -141,13 +146,14 @@ const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: an
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
-  const { isDark, colors } = useTheme();
+  const { isDark, colors, themePreference, setThemePreference } = useTheme();
   const { refreshQuotes } = useQuote();
   const { refreshAuthors, refreshBooks } = useAuthor();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = React.useState(false);
+  const [isThemeModalVisible, setIsThemeModalVisible] = React.useState(false);
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
 
@@ -419,9 +425,12 @@ export default function SettingsScreen() {
               <SettingItem
                 icon={Moon}
                 title="Mode Sombre"
-                type="switch"
-                value={isDark}
-                onPress={() => { }} // Hook theme toggle here if available
+                type="chevron"
+                rightText={
+                  themePreference === 'auto' ? 'Auto' :
+                  themePreference === 'dark' ? 'Sombre' : 'Clair'
+                }
+                onPress={() => setIsThemeModalVisible(true)}
               />
               <SettingItem
                 icon={CircleHelp}
@@ -679,6 +688,71 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Theme Selection Modal */}
+      <Modal
+        visible={isThemeModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsThemeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Mode d'affichage</Text>
+
+            <TouchableOpacity
+              style={styles.themeOptionRow}
+              onPress={async () => {
+                await setThemePreference('light');
+                setIsThemeModalVisible(false);
+              }}
+            >
+              <Text style={[styles.themeOptionText, themePreference === 'light' && styles.themeOptionTextSelected]}>Clair</Text>
+              {themePreference === 'light' && <CheckCircle2 size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.themeOptionRow}
+              onPress={async () => {
+                await setThemePreference('dark');
+                setIsThemeModalVisible(false);
+              }}
+            >
+              <Text style={[styles.themeOptionText, themePreference === 'dark' && styles.themeOptionTextSelected]}>Sombre</Text>
+              {themePreference === 'dark' && <CheckCircle2 size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.themeOptionRow}
+              onPress={async () => {
+                await setThemePreference('auto');
+                setIsThemeModalVisible(false);
+              }}
+            >
+              <View>
+                <Text style={[styles.themeOptionText, themePreference === 'auto' && styles.themeOptionTextSelected]}>Automatique</Text>
+                <Text style={styles.themeOptionDesc}>Utilise les paramètres du système</Text>
+              </View>
+              {themePreference === 'auto' && <CheckCircle2 size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <View style={{ height: 20 }} />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setIsThemeModalVisible(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -907,5 +981,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 12,
+  },
+  themeOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+  },
+  themeOptionText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  themeOptionTextSelected: {
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  themeOptionDesc: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
   },
 });

@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
     AUTH_TOKEN: 'auth_token',
     USER_DATA: 'user_data',
     LAST_SYNC_TIME: 'last_sync_time',
+    THEME_PREFERENCE: 'theme_preference',
 };
 
 export const StorageService = {
