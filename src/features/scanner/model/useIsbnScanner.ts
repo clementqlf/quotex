@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/immutability */
 import { useEffect, useState } from 'react';
 import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
