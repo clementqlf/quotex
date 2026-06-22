@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Quote } from '@/src/shared/api/types';
-import { getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { Plus } from 'lucide-react-native';
 import React, { useMemo } from 'react';
@@ -12,9 +12,10 @@ interface SavedQuotesBlockProps {
     onQuotePress: (quote: Quote) => void;
     onRemove?: () => void;
     onAddQuote?: (pageY?: number) => void;
+    showBookTitle?: boolean;
 }
 
-const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove, onAddQuote }) => {
+const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove, onAddQuote, showBookTitle }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -48,7 +49,11 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
                     >
                         <Text style={styles.savedQuoteText}>{quote.text}</Text>
                         <View style={styles.savedQuoteMeta}>
-                            <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
+                            {showBookTitle ? (
+                                <Text style={styles.savedQuoteAuthor}>{getBookTitle(quote.book)}</Text>
+                            ) : (
+                                <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
+                            )}
                             <Text style={styles.savedQuoteDate}>{quote.savedAt || quote.date}</Text>
                         </View>
                     </TouchableOpacity>

@@ -8,6 +8,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { useQueryClient } from '@tanstack/react-query';
+import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import * as Linking from 'expo-linking';
@@ -145,6 +147,7 @@ const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, righ
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
   const { colors, themePreference, setThemePreference } = useTheme();
   const { refreshQuotes } = useQuote();
@@ -347,8 +350,12 @@ export default function SettingsScreen() {
               await StorageService.removeItem(STORAGE_KEYS.BLOCK_LAYOUTS);
               await StorageService.removeItem(STORAGE_KEYS.BLOCK_DATA);
               await StorageService.removeItem(STORAGE_KEYS.USER_DATA);
+              await OperationQueue.getInstance().clear();
 
-              // 4. Force data refresh in the provider to synchronize memory state
+              // 4. Clear React Query Cache to invalidate in-memory caches and active operations
+              queryClient.clear();
+
+              // 5. Force data refresh in the provider to synchronize memory state
               await Promise.all([
                 refreshQuotes(),
                 refreshAuthors(),

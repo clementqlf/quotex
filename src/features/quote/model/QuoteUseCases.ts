@@ -428,8 +428,6 @@ export class QuoteUseCases {
      * Utilise maintenant OperationQueue
      */
     async clearPendingQuotes(): Promise<void> {
-        // Pour l'instant, on efface juste le storage de l britannique queue
-        // Note: Cela ne devrait être utilisé que pour le débogage
-        await StorageService.removeItem(STORAGE_KEYS.PENDING_OPERATIONS);
+        await this.queue.clear();
     }
 }

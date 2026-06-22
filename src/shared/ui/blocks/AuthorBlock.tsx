@@ -11,9 +11,10 @@ interface AuthorBlockProps {
     authorName?: string; // Fallback name
     onAuthorPress?: (authorName: string) => void;
     onRemove?: () => void;
+    hideName?: boolean;
 }
 
-const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove }) => {
+const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove, hideName }) => {
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -58,7 +59,7 @@ const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: n
     return (
         <BlockWrapper blockKey="author" onRemove={onRemove}>
             <TouchableOpacity onPress={handlePress} disabled={!onAuthorPress} activeOpacity={0.7}>
-                <Text style={styles.authorName}>{authorName}</Text>
+                {!hideName && <Text style={styles.authorName}>{authorName}</Text>}
                 {description && (
                     <View pointerEvents="box-none">
                         {!isMeasured && (

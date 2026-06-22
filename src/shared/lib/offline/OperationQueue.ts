@@ -190,4 +190,10 @@ export class OperationQueue {
   async getAll(): Promise<PendingOperation[]> {
     return await StorageService.getItem<PendingOperation[]>(STORAGE_KEY) || [];
   }
+
+  async clear(): Promise<void> {
+    this.currentPending = null;
+    await StorageService.removeItem(STORAGE_KEY);
+    console.log('[OperationQueue] Queue cleared.');
+  }
 }

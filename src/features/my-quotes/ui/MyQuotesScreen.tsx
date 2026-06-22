@@ -758,7 +758,7 @@ export default function MyQuotesScreen() {
 
       {/* Content — FlashList for virtualization */}
       <View style={styles.scrollView}>
-        {viewMode === 'books' ? (
+        <View style={viewMode === 'books' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             data={filteredBooksByStatus}
             renderItem={renderBookItem}
@@ -770,7 +770,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="books"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -784,7 +784,9 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        ) : viewMode === 'authors' ? (
+        </View>
+
+        <View style={viewMode === 'authors' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             data={authorsData}
             renderItem={renderAuthorItem}
@@ -796,7 +798,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="authors"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -810,7 +812,9 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        ) : viewMode === 'themes' ? (
+        </View>
+
+        <View style={viewMode === 'themes' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             data={themes}
             renderItem={renderThemeItem}
@@ -822,7 +826,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="themes"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -836,7 +840,9 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        ) : (
+        </View>
+
+        <View style={viewMode === 'quotes' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             ref={quotesListRef}
             data={quotesToDisplay}
@@ -849,7 +855,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="quotes"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -869,7 +875,7 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        )}
+        </View>
       </View>
 
       <FilterModal
@@ -1121,5 +1127,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     textDecorationLine: 'underline',
+  },
+  listContainerActive: {
+    flex: 1,
+  },
+  listContainerHidden: {
+    display: 'none',
   },
 });

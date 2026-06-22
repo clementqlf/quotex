@@ -14,8 +14,10 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Heart, Share as ShareIcon, User, UserCheck, UserPlus, X } from 'lucide-react-native';
+import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo, useState, useCallback } from 'react';
+import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
+import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -141,10 +143,7 @@ export default function AuthorDetailScreen() {
   const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
   const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
 
-  const [isDescMeasured, setIsDescMeasured] = useState(false);
-  const [showDescMoreButton, setShowDescMoreButton] = useState(false);
-  const [isDescExpanded, setIsDescExpanded] = useState(false);
-  const [prevAuthorDesc, setPrevAuthorDesc] = useState('');
+
 
 
   // New state for All Works Modal
@@ -294,21 +293,7 @@ export default function AuthorDetailScreen() {
   const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
-  if (authorDesc !== prevAuthorDesc) {
-    setPrevAuthorDesc(authorDesc);
-    setIsDescMeasured(false);
-    setShowDescMoreButton(false);
-    setIsDescExpanded(false);
-  }
 
-  const onDescTextLayout = useCallback((e: any) => {
-    if (!isDescMeasured) {
-      if (e.nativeEvent.lines.length > 10) {
-        setShowDescMoreButton(true);
-      }
-      setIsDescMeasured(true);
-    }
-  }, [isDescMeasured]);
 
   const totalQuotes = useMemo(() => quotes.filter(q =>
     getAuthorName(q.author).toLowerCase() === authorName.toLowerCase()
@@ -631,41 +616,7 @@ export default function AuthorDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <User size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>À propos de l&apos;auteur</Text>
-            </View>
-            <View pointerEvents="box-none">
-              {!isDescMeasured && (
-                <Text
-                  style={[styles.authorDesc, { position: 'absolute', opacity: 0, left: 0, right: 0 }]}
-                  onTextLayout={onDescTextLayout}
-                >
-                  {authorDesc}
-                </Text>
-              )}
-              {isDescMeasured && (
-                <Text
-                  style={styles.authorDesc}
-                  numberOfLines={isDescExpanded ? undefined : 10}
-                >
-                  {authorDesc}
-                </Text>
-              )}
-            </View>
-            {showDescMoreButton && (
-              <TouchableOpacity
-                style={styles.showMoreButton}
-                onPress={() => setIsDescExpanded(!isDescExpanded)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.showMoreText}>
-                  {isDescExpanded ? 'Voir moins' : 'Voir plus'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <AuthorBlock author={authorInfo} hideName={true} />
 
           <View style={styles.detailContainerSection}>
             <View style={styles.detailsContainer}>
@@ -767,41 +718,11 @@ export default function AuthorDetailScreen() {
             if (userQuotes.length === 0) return null;
 
             return (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={[styles.sectionTitle, { color: colors.primary }]}>Mes Citations Sauvegardées</Text>
-                </View>
-                <View style={{ gap: 12 }}>
-                  {userQuotes.map((quote) => (
-                    <TouchableOpacity
-                      key={quote.id}
-                      style={styles.quoteCard}
-                      activeOpacity={0.85}
-                      onPress={() => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
-                    >
-                      <Text style={styles.quoteText}>{`"${quote.text}"`}</Text>
-                      <View style={styles.quoteMeta}>
-                        <View style={styles.quoteMetaLeft}>
-                          <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>
-                        </View>
-                        <View style={styles.quoteMetaRight}>
-                          <TouchableOpacity
-                            style={styles.likeButton}
-                            onPress={() => toggleLikeQuote(quote.id)}
-                          >
-                            <Heart
-                              size={16}
-                              color={quote.isLiked ? colors.warning : colors.textTertiary}
-                              fill={quote.isLiked ? colors.warning : "none"}
-                            />
-                            <Text style={styles.likeCount}>{quote.likesCount}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+              <SavedQuotesBlock
+                quotes={userQuotes}
+                showBookTitle={true}
+                onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
+              />
             );
           })()}
         </ScrollView>
@@ -1068,20 +989,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  authorDesc: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
-  showMoreButton: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-  },
-  showMoreText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
   detailContainerSection: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -1119,49 +1026,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginVertical: 10,
   },
 
-  quoteCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    padding: 12,
-  },
-  quoteText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.text,
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  quoteMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  quoteMetaLeft: {
-    flex: 1,
-  },
-  quoteBook: {
-    fontSize: 11,
-    color: colors.textTertiary,
-  },
-  quoteMetaRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  likeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
-  likeCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
   showAllButton: {
     marginTop: 16,
     padding: 12,
