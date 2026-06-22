@@ -64,14 +64,17 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
       .rejects.toThrow('Network request failed');
   });
 
-  it('devrait synchroniser directement si en ligne', async () => {
+  it('devrait synchroniser directement si en ligne et retourner le vrai ID serveur', async () => {
     // Simuler le fait d'être en ligne en résolvant fetch
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({
         syncedCount: 1,
         corrections: [],
-        syncDetails: []
+        syncDetails: [{
+          quoteId: 'temp-123',
+          id: 9999
+        }]
       })
     });
 
@@ -88,6 +91,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     );
 
     expect(quote.wasSynced).toBe(true);
+    expect(quote.id).toBe(9999);
   });
 
   describe('updateQuote, deleteQuote, toggleLike', () => {
@@ -150,7 +154,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
       (globalThis.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: jest.fn().mockResolvedValue({
-          isLiked: { isLiked: true, likesCount: 6 }
+          isLiked: true
         })
       });
 

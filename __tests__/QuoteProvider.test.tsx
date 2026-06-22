@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Button, Text, View } from 'react-native';
-import { RepositoriesProvider } from '../src/app/providers/RepositoriesProvider';
-import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
-import { QuoteProvider, useQuote } from '../src/entities/quote/providers/QuoteProvider';
+import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
+import { SupabaseQuoteRepository } from '@/src/entities/quote/api/SupabaseQuoteRepository';
+import { QuoteProvider, useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 
 // Mocker le hook de réseau
 jest.mock('../src/entities/quote/lib/useNetworkSync', () => ({
@@ -17,7 +17,7 @@ jest.mock('../src/entities/quote/lib/useNetworkSync', () => ({
   })
 }));
 
-jest.mock('../src/entities/quote/api/SupabaseQuoteRepository');
+jest.mock('@/src/entities/quote/api/SupabaseQuoteRepository');
 jest.mock('../src/entities/user/api/AuthService', () => ({
   authService: {
     getUser: jest.fn().mockResolvedValue({ id: 'user-123', name: 'Test User' }),

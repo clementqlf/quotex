@@ -2,6 +2,7 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Book } from '@/src/shared/api/types';
+import { isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { useCallback, useMemo } from 'react';
 
 /**
@@ -28,7 +29,7 @@ export const useMyQuotes = () => {
   // Filtre les quotes de l'utilisateur courant (créées ou sauvegardées) et les trie par date d'ajout
   const myQuotes = useMemo(() => {
     return allQuotes
-      .filter(q => q.user?.id === currentUser?.id || q.isSaved)
+      .filter(q => isUserQuote(q, currentUser?.id))
       .sort((a, b) => {
         const dateA = new Date(a.savedAt || a.date || 0).getTime();
         const dateB = new Date(b.savedAt || b.date || 0).getTime();
@@ -54,16 +55,6 @@ export const useMyQuotes = () => {
   const removeQuote = useCallback(async (quoteId: number) => {
     await deleteQuoteFromProvider(quoteId);
   }, [deleteQuoteFromProvider]);
-
-  // Obtenir le nombre de livres uniques
-  const getBookCount = useCallback(() => {
-    return new Set(myQuotes.map(q => {
-      if (typeof q.book === 'object' && q.book !== null) {
-        return q.book.title;
-      }
-      return q.book as string;
-    })).size;
-  }, [myQuotes]);
 
   // Obtenir la liste des auteurs uniques
   const getAuthors = useCallback(() => {
@@ -133,6 +124,11 @@ export const useMyQuotes = () => {
       inventaireUri: data.bookObj?.inventaireUri,
     }));
   }, [myQuotes, allBooks]);
+
+  // Obtenir le nombre de livres uniques (y compris les livres sauvegardés sans citation)
+  const getBookCount = useCallback(() => {
+    return getBooksData().length;
+  }, [getBooksData]);
 
   // Obtenir les données auteurs
   const getAuthorsData = useCallback(() => {

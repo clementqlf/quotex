@@ -26,6 +26,7 @@ interface OfflineQuote {
 
 interface SyncResult {
   quoteId: string;
+  realQuoteId?: number;
   originalAuthor?: string;
   matchedAuthor?: string;
   originalBook?: string;
@@ -224,6 +225,7 @@ serve(async (req: Request) => {
         // Record sync result with corrections
         syncResults.push({
           quoteId: offlineQuote.id,
+          realQuoteId: quoteRows[0].id,
           originalAuthor: offlineQuote.author,
           matchedAuthor: authorLookup?.wasCreated ? undefined : (authorLookup?.name || finalAuthorName),
           originalBook: offlineQuote.book,
@@ -255,6 +257,7 @@ serve(async (req: Request) => {
       created: syncResults.filter(r => r.authorCreated || r.bookCreated),
       syncDetails: syncResults.map(r => ({
         quoteId: r.quoteId,
+        id: r.realQuoteId,
         authorId: r.authorId,
         bookId: r.bookId,
         authorCreated: r.authorCreated,

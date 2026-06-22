@@ -16,10 +16,11 @@ export interface PendingOperation {
 
 const STORAGE_KEY = STORAGE_KEYS.PENDING_OPERATIONS;
 const MAX_RETRIES = 10;
-const CONCURRENCY = 3; // Nombre max d'opérations simultanées
+const CONCURRENCY = 1; // Nombre max d'opérations simultanées (séquentiel pour éviter les conflits d'ID temporaires)
 
 export class OperationQueue {
   private static instance: OperationQueue;
+  private currentPending: PendingOperation[] | null = null;
   
   static getInstance(): OperationQueue {
     if (!OperationQueue.instance) {
@@ -79,8 +80,11 @@ export class OperationQueue {
     failed: number;
     remaining: number;
   }> {
-    const pending = await this.getAll();
-    if (pending.length === 0) return { succeeded: 0, failed: 0, remaining: 0 };
+    this.currentPending = await this.getAll();
+    if (this.currentPending.length === 0) {
+      this.currentPending = null;
+      return { succeeded: 0, failed: 0, remaining: 0 };
+    }
 
     let succeeded = 0;
     const failed: PendingOperation[] = [];
@@ -88,9 +92,9 @@ export class OperationQueue {
 
     // Traiter en parallèle avec contrôle de concurrence
     const processNext = async () => {
-      if (pending.length === 0) return;
+      if (!this.currentPending || this.currentPending.length === 0) return;
 
-      const op = pending.shift()!;
+      const op = this.currentPending.shift()!;
       inProgress.add(op.id);
 
       try {
@@ -119,11 +123,12 @@ export class OperationQueue {
 
     // Lancer les premières opérations
     const promises: Promise<void>[] = [];
-    for (let i = 0; i < Math.min(CONCURRENCY, pending.length); i++) {
+    for (let i = 0; i < Math.min(CONCURRENCY, this.currentPending.length); i++) {
       promises.push(processNext());
     }
 
     await Promise.all(promises);
+    this.currentPending = null;
 
     // Sauvegarder les échecs pour retry
     if (failed.length > 0) {
@@ -151,6 +156,35 @@ export class OperationQueue {
       'SAVE': 'UNSAVE', 'UNSAVE': 'SAVE',
     };
     return inverses[a] === b;
+  }
+
+  /** Met à jour l'entityId de toutes les opérations associées à une entité */
+  async remapEntityId(oldId: number, newId: number, entityType: 'quote' | 'book' | 'author'): Promise<void> {
+    // 1. Mettre à jour l'état en mémoire s'il y a un flush en cours
+    if (this.currentPending) {
+      this.currentPending = this.currentPending.map(p => {
+        if (p.entityType === entityType && p.entityId === oldId) {
+          return { ...p, entityId: newId };
+        }
+        return p;
+      });
+    }
+
+    // 2. Mettre à jour dans le stockage persistant
+    const pending = await this.getAll();
+    let changed = false;
+    const updated = pending.map(p => {
+      if (p.entityType === entityType && p.entityId === oldId) {
+        changed = true;
+        return { ...p, entityId: newId };
+      }
+      return p;
+    });
+    
+    if (changed) {
+      await StorageService.setItem(STORAGE_KEY, updated);
+      console.log(`[OperationQueue] Remapped ${entityType} ID from ${oldId} to ${newId} in ${updated.filter(p => p.entityId === newId).length} pending operations.`);
+    }
   }
 
   async getAll(): Promise<PendingOperation[]> {

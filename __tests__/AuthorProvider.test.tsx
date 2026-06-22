@@ -3,11 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Button, Text, View } from 'react-native';
-import { RepositoriesProvider } from '../src/app/providers/RepositoriesProvider';
-import { SupabaseAuthorRepository } from '../src/entities/author/api/SupabaseAuthorRepository';
-import { AuthorProvider, useAuthor } from '../src/entities/author/providers/AuthorProvider';
+import { RepositoriesProvider } from '@/src/app/providers/RepositoriesProvider';
+import { SupabaseAuthorRepository } from '@/src/entities/author/api/SupabaseAuthorRepository';
+import { AuthorProvider, useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 
-jest.mock('../src/entities/author/api/SupabaseAuthorRepository');
+jest.mock('@/src/entities/author/api/SupabaseAuthorRepository');
 
 const TestComponent = () => {
   const { 

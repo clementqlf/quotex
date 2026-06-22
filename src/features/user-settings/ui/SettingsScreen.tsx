@@ -146,7 +146,7 @@ const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, righ
 export default function SettingsScreen() {
   const router = useRouter();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
-  const { isDark, colors, themePreference, setThemePreference } = useTheme();
+  const { colors, themePreference, setThemePreference } = useTheme();
   const { refreshQuotes } = useQuote();
   const { refreshAuthors, refreshBooks } = useAuthor();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -698,7 +698,7 @@ export default function SettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Mode d'affichage</Text>
+            <Text style={styles.modalTitle}>{"Mode d'affichage"}</Text>
 
             <TouchableOpacity
               style={styles.themeOptionRow}

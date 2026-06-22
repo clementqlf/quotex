@@ -7,6 +7,7 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { globalQuotesDB, localQuotesDB } from '@/src/shared/api/staticData';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
+import { QueuedOperationError } from '@/src/shared/lib/offline/QueuedOperationError';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
@@ -255,11 +256,10 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         syncCorrections.book = { original: cleanBook || '', matched: typeof finalBook === 'string' ? finalBook : (finalBook?.title || correction.matchedBook) };
     }
 
-    // Server doesn't return the full quote object from /sync-quotes, 
-    // it returns syncedCount. So we construct the resulting quote:
-    // (QuoteUseCases will just use the returned ID to update its local version)
+    // Server returns the synced details including the real quote ID.
+    // So we construct the resulting quote using the server-returned ID:
     return {
-        id: tempId, // In reality, we should fetch the real ID, but sync-quotes uses the offline ID (tempId)
+        id: detail?.id ? Number(detail.id) : tempId,
         text,
         book: finalBook,
         author: finalAuthor,
@@ -406,7 +406,15 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
     }
 
-    // 3. Tenter l'appel serveur
+    // 3. Si la citation est encore en attente de sync (offline), ne pas tenter
+    //    l'appel serveur — son ID temporaire n'existe pas côté DB.
+    //    Le like sera résolu une fois la citation synchronisée.
+    if (quote?._isPending) {
+        console.log(`[toggleLike] Quote ${id} is pending, skipping server call.`);
+        throw new QueuedOperationError({ isLiked: newIsLiked, likesCount: quote?.likesCount || 0 });
+    }
+
+    // 4. Tenter l'appel serveur
     try {
         const headers = await this.getHeaders();
         const response = await fetch(`${this.API_URL}/${id}/like`, {
@@ -415,18 +423,31 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         });
         if (response && response.ok) {
             const data = await response.json();
-            return data.isLiked;
+            // data.isLiked est un booléen ; on conserve le likesCount optimiste
+            return { isLiked: data.isLiked, likesCount: quote?.likesCount || 0 };
+        }
+        // 404 means the quote isn't on the server yet (pending sync).
+        // Queue the operation silently — it will be retried once the quote is synced.
+        if (response?.status === 404) {
+            console.log(`[toggleLike] Quote ${id} not found on server yet, queuing for later.`);
+            await OperationQueue.getInstance().enqueue({
+                type: newIsLiked ? 'LIKE' : 'UNLIKE',
+                entityType: 'quote',
+                entityId: id,
+            });
+            throw new QueuedOperationError({ isLiked: newIsLiked, likesCount: quote?.likesCount || 0 });
         }
         throw new Error(`Server returned ${response ? response.status : 'no response'}`);
     } catch (e) {
+        if (QueuedOperationError.is(e)) throw e; // propager sans log
         console.error('Error toggling like:', e);
-        // 4. En cas d'échec, ajouter à la queue offline
+        // 5. En cas d'échec réseau, ajouter à la queue offline
         await OperationQueue.getInstance().enqueue({
             type: newIsLiked ? 'LIKE' : 'UNLIKE',
             entityType: 'quote',
             entityId: id,
         });
-        return { isLiked: newIsLiked, likesCount: quote?.likesCount || 0 };
+        throw new QueuedOperationError({ isLiked: newIsLiked, likesCount: quote?.likesCount || 0 });
     }
   }
 
@@ -443,6 +464,13 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
     }
 
+    // Si la citation est encore en attente de sync (offline), ne pas tenter
+    // l'appel serveur — son ID temporaire n'existe pas côté DB.
+    if (quote?._isPending) {
+        console.log(`[toggleSave] Quote ${id} is pending, skipping server call.`);
+        throw new QueuedOperationError({ isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null });
+    }
+
     try {
         const headers = await this.getHeaders();
         const response = await fetch(`${this.API_URL}/${id}/toggle-save`, {
@@ -453,15 +481,27 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             const data = await response.json();
             return { isSaved: data.isSaved, savedAt: data.savedAt || null };
         }
+        // 404 means the quote isn't on the server yet (pending sync).
+        // Queue the operation silently — it will be retried once the quote is synced.
+        if (response?.status === 404) {
+            console.log(`[toggleSave] Quote ${id} not found on server yet, queuing for later.`);
+            await OperationQueue.getInstance().enqueue({
+                type: newIsSaved ? 'SAVE' : 'UNSAVE',
+                entityType: 'quote',
+                entityId: id,
+            });
+            throw new QueuedOperationError({ isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null });
+        }
         throw new Error(`Server returned ${response ? response.status : 'no response'}`);
     } catch (e) {
+        if (QueuedOperationError.is(e)) throw e; // propager sans log
         console.error('Error toggling save:', e);
         await OperationQueue.getInstance().enqueue({
             type: newIsSaved ? 'SAVE' : 'UNSAVE',
             entityType: 'quote',
             entityId: id,
         });
-        return { isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null };
+        throw new QueuedOperationError({ isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null });
     }
   }
 

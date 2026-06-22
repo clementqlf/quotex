@@ -162,11 +162,19 @@ export default function ScanPreviewModal({
         if (editedBook.trim()) return editedBook.trim();
         if (initialBook && initialBook !== 'Livre inconnu') return initialBook;
 
-        return (
-            Object.keys(bookDescriptions).find((title) =>
-                localQuotesDB.some((q) => q.text === scannedText && q.book === title)
-            ) || ''
+        // Try to match from static database
+        const staticMatch = Object.keys(bookDescriptions).find((title) =>
+            (localQuotesDB || []).some((q) => q.text === scannedText && q.book === title)
         );
+        if (staticMatch) return staticMatch;
+
+        // Or from the user's active quotes list
+        const userMatch = quotes.find((q) => q.text === scannedText);
+        if (userMatch && userMatch.book) {
+            return getBookTitle(userMatch.book);
+        }
+
+        return '';
     };
 
     const resolveAuthorName = () => {
@@ -176,7 +184,20 @@ export default function ScanPreviewModal({
         const bookTitle = resolveBookTitle();
         if (initialBook && initialBook !== 'Livre inconnu' && bookTitle === initialBook && initialAuthor && initialAuthor !== 'Auteur inconnu') return initialAuthor;
 
-        return bookDescriptions[bookTitle]?.author || '';
+        // Try to get author from bookDescriptions
+        if (bookDescriptions[bookTitle]?.author) {
+            return bookDescriptions[bookTitle].author;
+        }
+
+        // Or search the user's active quotes for a quote from this book
+        if (bookTitle) {
+            const sameBookQuote = quotes.find(q => getBookTitle(q.book) === bookTitle);
+            if (sameBookQuote && sameBookQuote.author) {
+                return getAuthorName(sameBookQuote.author);
+            }
+        }
+
+        return '';
     };
 
     const handleConfirm = async () => {

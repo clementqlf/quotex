@@ -6,7 +6,7 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { API_BASE_URL } from '@/src/shared/config/api';
-import { getBookTitle, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { ThemeColors } from '@/src/shared/theme';
@@ -311,14 +311,11 @@ export default function AuthorDetailScreen() {
   }, [isDescMeasured]);
 
   const totalQuotes = useMemo(() => quotes.filter(q =>
-    typeof q.author === 'string' ? q.author === authorName : false
+    getAuthorName(q.author).toLowerCase() === authorName.toLowerCase()
   ).length, [quotes, authorName]);
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
-    const isMyQuote = q.user?.id === currentUser?.id || !q.user;
-    if (!isMyQuote) return false;
-      const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
-    return qAuthorName === authorName;
+    return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
   }).length, [quotes, authorName, currentUser]);
 
   const isSaved = authorInfo?.isSaved || userQuotesCount > 0;
@@ -764,10 +761,7 @@ export default function AuthorDetailScreen() {
 
           {(() => {
             const userQuotes = quotes.filter(q => {
-              const isMyQuote = q.user?.id === currentUser?.id || !q.user;
-              if (!isMyQuote) return false;
-              const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
-              return qAuthorName === authorName;
+              return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
             });
 
             if (userQuotes.length === 0) return null;
@@ -775,7 +769,7 @@ export default function AuthorDetailScreen() {
             return (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={[styles.sectionTitle, { color: colors.primary }]}>Mes Citations</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.primary }]}>Mes Citations Sauvegardées</Text>
                 </View>
                 <View style={{ gap: 12 }}>
                   {userQuotes.map((quote) => (

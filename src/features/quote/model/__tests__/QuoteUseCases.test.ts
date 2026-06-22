@@ -1,5 +1,18 @@
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 import { QuoteUseCases } from '../QuoteUseCases';
+import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+
+jest.mock('@/src/shared/api/StorageService', () => ({
+  StorageService: {
+    getItem: jest.fn().mockResolvedValue([]),
+    setItem: jest.fn().mockResolvedValue(undefined),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+  STORAGE_KEYS: {
+    QUOTES: 'quotes',
+    PENDING_OPERATIONS: 'pending_operations',
+  },
+}));
 
 const mockRepository: jest.Mocked<IQuoteRepository> = {
   getQuoteById: jest.fn(),
@@ -120,6 +133,48 @@ describe('QuoteUseCases', () => {
 
       expect(result.book).toBeNull();
       expect(result.author).toBeNull();
+    });
+  });
+
+  describe('executeCreateQuote', () => {
+    it('should sync quote and remap temporary ID to server ID in the queue', async () => {
+      const mockOp = {
+        id: 'op-123',
+        type: 'CREATE',
+        entityType: 'quote',
+        entityId: 100, // temp ID
+        payload: {
+          text: 'Synced text',
+          book: 'Synced Book',
+          author: 'Synced Author',
+          tempId: 100
+        }
+      } as any;
+
+      const serverQuote = {
+        id: 9999, // real server ID
+        text: 'Synced text',
+        book: 'Synced Book',
+        author: 'Synced Author'
+      } as any;
+
+      mockRepository.createQuote.mockResolvedValue(serverQuote);
+      mockQueue.remapEntityId = jest.fn().mockResolvedValue(undefined);
+
+      // We need to mock StorageService.getItem / setItem since replaceTempQuote is called
+      (StorageService.getItem as jest.Mock).mockResolvedValue([{ id: 100, text: 'Synced text' }]);
+
+      // @ts-ignore - call private method for testing
+      await useCases.executeCreateQuote(mockOp);
+
+      expect(mockRepository.createQuote).toHaveBeenCalledWith('Synced text', 'Synced Book', 'Synced Author');
+      expect(mockQueue.remapEntityId).toHaveBeenCalledWith(100, 9999, 'quote');
+      expect(StorageService.setItem).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([
+          expect.objectContaining({ id: 9999 })
+        ])
+      );
     });
   });
 });

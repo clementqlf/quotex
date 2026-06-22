@@ -72,3 +72,8 @@ export const decodeBase64 = (base64: string): ArrayBuffer => {
   return arrayBuffer;
 };
 
+export const isUserQuote = (quote: any, currentUserId?: string | null): boolean => {
+  return quote?.user?.id === currentUserId || !quote?.user || !!quote?.isSaved;
+};
+
+

@@ -602,6 +602,12 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
+      // Check that the quote exists on the server before trying to save it
+      const quoteExists = await sql`SELECT 1 FROM "Quote" WHERE id = ${idParam} LIMIT 1`;
+      if (!quoteExists.length) {
+        return error('Quote not found on server', 404);
+      }
+
       const existing = await sql`
         SELECT 1, "addedAt" FROM "UserQuote" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam} LIMIT 1
       `;
@@ -619,16 +625,22 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
+      // Check that the quote exists on the server before trying to like it
+      const quoteExists = await sql`SELECT 1 FROM "Quote" WHERE id = ${idParam} LIMIT 1`;
+      if (!quoteExists.length) {
+        return error('Quote not found on server', 404);
+      }
+
       const existing = await sql`
         SELECT 1 FROM "Like" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam} LIMIT 1
       `;
       if (existing.length) {
         await sql`DELETE FROM "Like" WHERE "userId" = ${authUser.id} AND "quoteId" = ${idParam}`;
-        await sql`UPDATE "Quote" SET "likesCount" = GREATEST(0, "likesCount" - 1) WHERE id = ${idParam}`;
+        // Note: likesCount is automatically decremented by the DB trigger trg_like_delete_update_quote
         return json({ isLiked: false });
       } else {
         await sql`INSERT INTO "Like" ("userId", "quoteId", "createdAt") VALUES (${authUser.id}, ${idParam}, now())`;
-        await sql`UPDATE "Quote" SET "likesCount" = "likesCount" + 1 WHERE id = ${idParam}`;
+        // Note: likesCount is automatically incremented by the DB trigger trg_like_insert_update_quote
         return json({ isLiked: true });
       }
     }

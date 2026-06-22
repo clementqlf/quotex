@@ -8,7 +8,7 @@ import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { BlockService } from '@/src/shared/api/BlockService';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
 import { Author, Book } from '@/src/shared/api/types';
-import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -195,10 +195,11 @@ export const useBookDetailController = () => {
     return () => clearTimeout(timer);
   }, [blockData, bookTitle, updateBookData]);
 
-  const userQuotesCountForThisBook = useMemo(() => quotes.filter(q => {
-    const isMyQuote = q.user?.id === currentUser?.id || !q.user;
-    return isMyQuote && getBookTitle(q.book) === bookTitle;
-  }).length, [quotes, bookTitle, currentUser]);
+  const userQuotesCountForThisBook = useMemo(() => {
+    return quotes.filter(q => {
+      return isUserQuote(q, currentUser?.id) && getBookTitle(q.book).toLowerCase() === bookTitle?.toLowerCase();
+    }).length;
+  }, [quotes, bookTitle, currentUser]);
 
   const isSaved = bookInfo?.isSaved || userQuotesCountForThisBook > 0;
 
@@ -324,7 +325,11 @@ export const useBookDetailController = () => {
     }
   }, [bookInfo, bookTitle]);
 
-  const savedQuotes = useMemo(() => quotes.filter(q => getBookTitle(q.book) === bookTitle), [quotes, bookTitle]);
+  const savedQuotes = useMemo(() => {
+    return quotes.filter(q => {
+      return isUserQuote(q, currentUser?.id) && getBookTitle(q.book).toLowerCase() === bookTitle?.toLowerCase();
+    });
+  }, [quotes, bookTitle, currentUser]);
 
   const resolvedSimilarBooks = useMemo(() => {
     const serverSimilar = bookInfo?.similarBooks || [];

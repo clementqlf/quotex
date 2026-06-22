@@ -2,6 +2,7 @@ import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
 import { SyncStatus, useNetworkSync } from '@/src/entities/quote/lib/useNetworkSync';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { Quote, User } from '@/src/shared/api/types';
+import { QueuedOperationError } from '@/src/shared/lib/offline/QueuedOperationError';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
 
@@ -65,9 +66,12 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
       return { previousQuotes };
     },
     onError: (err, id, ctx) => {
+      // Opération en file d'attente offline → conserver l'état optimiste, pas de rollback
+      if (QueuedOperationError.is(err)) return;
       if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
     },
-    onSettled: () => {
+    onSettled: (_data, err) => {
+      if (QueuedOperationError.is(err)) return;
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
     }
   });
@@ -100,9 +104,14 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
       return { previousQuotes };
     },
     onError: (err, variables, ctx) => {
+      // Opération en file d'attente offline → conserver l'état optimiste, pas de rollback
+      if (QueuedOperationError.is(err)) return;
       if (ctx?.previousQuotes) queryClient.setQueryData(['quotes'], ctx.previousQuotes);
     },
-    onSettled: () => {
+    onSettled: (_data, err) => {
+      // Si l'opération est en queue offline → ne pas refetch le serveur
+      // (il ne connaît pas encore cette sauvegarde ; l'état local fait foi jusqu'à la sync)
+      if (QueuedOperationError.is(err)) return;
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
     }
   });
@@ -213,8 +222,24 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     syncStatus,
     refreshQuotes,
-    toggleLikeQuote: (id: number) => toggleLikeMutation.mutateAsync(id),
-    toggleSaveQuote: (id: number, quote?: Quote) => toggleSaveMutation.mutateAsync({ id, quote }),
+    toggleLikeQuote: async (id: number) => {
+      try {
+        return await toggleLikeMutation.mutateAsync(id);
+      } catch (e) {
+        // Op. en queue offline : retourner le résultat optimiste comme un succès
+        if (QueuedOperationError.is(e)) return e.result as { isLiked: boolean; likesCount: number };
+        throw e;
+      }
+    },
+    toggleSaveQuote: async (id: number, quote?: Quote) => {
+      try {
+        return await toggleSaveMutation.mutateAsync({ id, quote });
+      } catch (e) {
+        // Op. en queue offline : retourner le résultat optimiste comme un succès
+        if (QueuedOperationError.is(e)) return e.result as { isSaved: boolean; savedAt?: string | null };
+        throw e;
+      }
+    },
     deleteQuote: (id: number) => deleteQuoteMutation.mutateAsync(id),
     addQuote: (text: string, book?: string | null, author?: string | null) => 
       addQuoteMutation.mutateAsync({ text, book, author }),

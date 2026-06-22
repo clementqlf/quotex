@@ -198,6 +198,11 @@ export class QuoteUseCases {
             // Mettre à jour la citation dans le cache local avec les données canoniques du serveur
             await this.replaceTempQuote(tempId, serverQuote);
             
+            // Remaper l'ID temporaire vers le vrai ID dans la file d'attente hors-ligne
+            if (serverQuote.id !== tempId) {
+                await this.queue.remapEntityId(tempId, serverQuote.id, 'quote');
+            }
+            
             console.log(`[QuoteUseCases] Successfully synced quote ${tempId} -> ${serverQuote.id}`);
         } catch (error) {
             console.error(`[QuoteUseCases] Failed to sync quote ${tempId}:`, error);
