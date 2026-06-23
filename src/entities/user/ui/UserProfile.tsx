@@ -22,6 +22,7 @@ import {
   Animated,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +32,7 @@ import {
 } from 'react-native';
 import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 
 
 
@@ -161,6 +163,11 @@ export default function UserProfileScreen() {
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Quotes modal states
+  const [showAllQuotesModal, setShowAllQuotesModal] = useState(false);
+  const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = useState(false);
+  const [modalQuoteFilter, setModalQuoteFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
+
   const userQuotes = useMemo(() => {
     if (isMe) {
       return allQuotes
@@ -180,6 +187,17 @@ export default function UserProfileScreen() {
     }));
   }, [profileData, isMe, allQuotes, currentUser]);
 
+  const filteredModalQuotes = useMemo(() => {
+    if (!profileData) return [];
+    const targetOwnerId = profileData.id;
+    if (modalQuoteFilter === 'PUBLISHED') {
+      return userQuotes.filter((q: any) => q.user?.id === targetOwnerId || !q.user);
+    } else if (modalQuoteFilter === 'SAVED') {
+      return userQuotes.filter((q: any) => q.user && q.user?.id !== targetOwnerId && q.isSaved);
+    }
+    return userQuotes;
+  }, [userQuotes, modalQuoteFilter, profileData]);
+
   const userBooks = useMemo(() => {
     if (!profileData || !(profileData as any).library) return [];
     return (profileData as any).library;
@@ -197,6 +215,8 @@ export default function UserProfileScreen() {
   const [followModalTab, setFollowModalTab] = useState<'followers' | 'following'>('followers');
   const [followList, setFollowList] = useState<any[]>([]);
   const [isFollowListLoading, setIsFollowListLoading] = useState(false);
+
+
 
   const fetchFollowList = async (tab: 'followers' | 'following') => {
     if (!profileData?.id) return;
@@ -673,10 +693,22 @@ export default function UserProfileScreen() {
               <Text style={styles.statValue}>{profileData.following || 0}</Text>
               <Text style={styles.statLabel}>Abonnements</Text>
             </TouchableOpacity>
-            <View style={styles.statItem}>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => {
+                if (userQuotes.length > 0) {
+                  setHasRenderedQuotesModal(true);
+                  setShowAllQuotesModal(true);
+                }
+              }}
+              accessible={true}
+              accessibilityLabel="Voir la liste des citations"
+              accessibilityRole="button"
+              activeOpacity={0.7}
+            >
               <Text style={styles.statValue}>{userQuotes.length}</Text>
               <Text style={styles.statLabel}>Citations</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Bio */}
@@ -901,6 +933,116 @@ export default function UserProfileScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      {/* Modal de toutes les citations */}
+      {hasRenderedQuotesModal && (
+        <Modal
+          visible={showAllQuotesModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowAllQuotesModal(false)}
+        >
+          <View style={styles.quotesModalContainer}>
+            <View style={styles.quotesModalHeader}>
+              <View style={styles.modalTabs}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    modalQuoteFilter === 'ALL' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => setModalQuoteFilter('ALL')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      modalQuoteFilter === 'ALL' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Tout
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    modalQuoteFilter === 'PUBLISHED' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => setModalQuoteFilter('PUBLISHED')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      modalQuoteFilter === 'PUBLISHED' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Publiés
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    modalQuoteFilter === 'SAVED' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => setModalQuoteFilter('SAVED')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      modalQuoteFilter === 'SAVED' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Partagées
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseButton} 
+                onPress={() => setShowAllQuotesModal(false)}
+                accessible={true}
+                accessibilityLabel="Fermer"
+                accessibilityRole="button"
+              >
+                <X size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <FlashList
+              data={filteredModalQuotes}
+              keyExtractor={(item: any) => String(item.id)}
+              getItemType={() => 'quote'}
+              contentContainerStyle={styles.quotesModalListContent}
+              renderItem={({ item }: { item: any }) => {
+                const isQuoteMine = item.user?.id === currentUser?.id || !item.user;
+                return (
+                  <TouchableOpacity
+                    style={styles.quoteModalCard}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setShowAllQuotesModal(false);
+                      router.navigate({
+                        pathname: '/quote-detail',
+                        params: { quoteId: item.id }
+                      });
+                    }}
+                  >
+                    <Text style={styles.quoteModalText}>“ {item.text} ”</Text>
+                    <View style={styles.quoteModalMeta}>
+                      <Text style={styles.quoteModalBook}>{getBookTitle(item.book)}</Text>
+                      <Text style={styles.quoteModalUser}>
+                        Par {isQuoteMine ? 'Moi' : item.user?.name || `@${item.user?.username}`}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.centered}>
+                  <Text style={styles.placeholderText}>Aucune citation trouvée.</Text>
+                </View>
+              }
+            />
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -1299,5 +1441,67 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textTertiary,
     fontSize: 14,
     textAlign: 'center',
+  },
+  quotesModalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  quotesModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginTop: Platform.OS === 'ios' ? 0 : 20,
+  },
+  quotesModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  quotesModalListContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  quoteModalCard: {
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 12,
+  },
+  quoteModalText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    fontFamily: 'serif',
+  },
+  quoteModalMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+  },
+  quoteModalBook: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  quoteModalUser: {
+    fontSize: 11,
+    color: colors.textTertiary,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

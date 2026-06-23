@@ -80,7 +80,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
                     style={[styles.tab, quoteSubFilter === 'SAVED' && styles.activeTab]}
                 >
                     <Text style={[styles.tabText, quoteSubFilter === 'SAVED' && styles.activeTabText]}>
-                        Enregistré
+                        Partagées
                     </Text>
                 </TouchableOpacity>
             </View>
