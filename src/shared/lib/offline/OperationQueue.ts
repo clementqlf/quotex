@@ -1,4 +1,5 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { getExponentialBackoff } from '@/src/shared/lib/offline/backoff';
 
 export type OperationType = 'LIKE' | 'UNLIKE' | 'SAVE' | 'UNSAVE' | 'DELETE' | 'UPDATE' | 'CREATE';
 
@@ -147,7 +148,7 @@ export class OperationQueue {
 
   /** Calculer le délai de backoff exponentiel */
   getBackoffDelay(retryCount: number): number {
-    return Math.min(1000 * Math.pow(2, retryCount), 60000); // Max 1 minute
+    return getExponentialBackoff(retryCount);
   }
 
   private isInverse(a: OperationType, b: OperationType): boolean {

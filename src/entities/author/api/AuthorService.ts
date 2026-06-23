@@ -1,5 +1,7 @@
 import { BookImportPayload } from '@/src/entities/book/lib/bookImport';
 import { httpClient } from '@/src/shared/api/HttpClient';
+import { normalizeInventaireUri } from '@/src/shared/api/InventaireService';
+import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Author, Book } from '@/src/shared/api/types';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
@@ -12,15 +14,10 @@ const debugLog = (...args: any[]) => {
 };
 
 class AuthorService {
-    private normalizeInventaireUri(uri?: string | null): string {
-        if (!uri) return '';
-        return uri.trim().toLowerCase().replace(/^wd:/, '');
-    }
-
     private mapBookFromServer(b: any): Book {
         return {
             ...b,
-            buyLinks: b.buyLinks && typeof b.buyLinks === 'string' ? JSON.parse(b.buyLinks) : (b.buyLinks || []),
+            buyLinks: parseJsonField<string[]>(b.buyLinks) || [],
             similarBooks: b.similarBooks || [],
         };
     }
@@ -141,7 +138,7 @@ class AuthorService {
     }
 
     async getBookByInventaireUri(inventaireUri: string): Promise<Book | undefined> {
-        const target = this.normalizeInventaireUri(inventaireUri);
+        const target = normalizeInventaireUri(inventaireUri);
 
         if (!target) {
             debugLog('getBookByInventaireUri: empty target', { inventaireUri });
@@ -163,7 +160,7 @@ class AuthorService {
         }
 
         const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return (storedBooks || []).find(b => this.normalizeInventaireUri(b.inventaireUri) === target);
+        return (storedBooks || []).find(b => normalizeInventaireUri(b.inventaireUri) === target);
     }
 
     async getBookById(id: number): Promise<Book | undefined> {

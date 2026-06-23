@@ -1,5 +1,5 @@
 import { Author, Book } from '@/src/shared/api/types';
-import { getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
 import { 
   fetchInventaireEntities,
@@ -24,14 +24,7 @@ const logWarn = (...args: any[]) => {
 };
 
 const buildFallbackBook = (inventaireUri: string, bookData?: string): Book => {
-  const parsedBookData = (() => {
-    if (!bookData) return null;
-    try {
-      return typeof bookData === 'string' ? JSON.parse(bookData) : bookData;
-    } catch {
-      return null;
-    }
-  })();
+  const parsedBookData = parseJsonField(bookData);
 
   return {
     id: 0,
@@ -91,14 +84,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     const mainEntity = resolveInventaireEntity(entities, inventaireUri);
     if (!mainEntity) return null;
 
-    const parsedBookData = (() => {
-      if (!bookData) return null;
-      try {
-        return typeof bookData === 'string' ? JSON.parse(bookData) : bookData;
-      } catch {
-        return null;
-      }
-    })();
+    const parsedBookData = parseJsonField(bookData);
 
     const title = (mainEntity.labels && typeof mainEntity.labels === 'object' && mainEntity.labels['fr'])
       ? mainEntity.labels['fr']

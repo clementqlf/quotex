@@ -1,5 +1,6 @@
 import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
+import { getExponentialBackoff } from '@/src/shared/lib/offline/backoff';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import { extractIsbn, IsbnSchema } from '@/src/shared/lib/validation/isbn';
 import { searchService } from '@/src/features/search/api/SearchService';
@@ -211,7 +212,7 @@ export class ScanService {
                             throw importErr;
                         }
                         console.warn(`[ScanService] Import attempt ${attempt} failed, retrying...`, importErr);
-                        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                        await new Promise(resolve => setTimeout(resolve, getExponentialBackoff(attempt - 1)));
                     }
                 }
                 

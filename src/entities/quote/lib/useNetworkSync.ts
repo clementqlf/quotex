@@ -1,5 +1,6 @@
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { getExponentialBackoff } from '@/src/shared/lib/offline/backoff';
 import { Quote } from '@/src/shared/api/types';
 import NetInfo from '@react-native-community/netinfo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -147,7 +148,7 @@ export const useNetworkSync = () => {
                     if (e.quote && typeof e.quote === 'object') return e.quote.retryCount || 0;
                     return 0;
                 }));
-                const backoffDelay = Math.min(1000 * Math.pow(2, maxRetry), 60000); // Max 1 minute
+                const backoffDelay = getExponentialBackoff(maxRetry);
                 console.log(`[useNetworkSync] Some operations failed to sync. Scheduling retry in ${backoffDelay}ms`);
                 
                 if (syncTimer.current) {

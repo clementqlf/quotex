@@ -1,5 +1,6 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { API_BASE_URL } from '@/src/shared/config/api';
+import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { Quote, User } from '@/src/shared/api/types';
 import { z } from 'zod';
 import { IQuoteRepository } from './IQuoteRepository';
@@ -47,7 +48,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
         isSaved: q.isSaved || false,
         comments: q.comments || 0,
-        blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
+        blockData: parseJsonField<Record<string, any>>(q.blockData) || {},
         user: q.user,
         aiInterpretation: q.aiInterpretation,
         isPublic: q.isPublic,

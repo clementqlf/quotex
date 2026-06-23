@@ -76,4 +76,18 @@ export const isUserQuote = (quote: any, currentUserId?: string | null): boolean 
   return quote?.user?.id === currentUserId || !quote?.user || !!quote?.isSaved;
 };
 
+/**
+ * Safely parse a JSON field that might be stringified
+ * @param value - The value to parse (string, object, null, or undefined)
+ * @returns Parsed value or null if parsing fails
+ */
+export const parseJsonField = <T>(value: string | T | undefined | null): T | null => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) as T; }
+    catch { return null; }
+  }
+  return value as T;
+};
+
 
