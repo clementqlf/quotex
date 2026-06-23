@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
-import { Edit3, Trash2, X } from 'lucide-react-native';
+import { Edit3, Trash2, Bookmark, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
   Modal,
@@ -16,9 +16,10 @@ interface QuoteActionModalProps {
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isSavedQuote?: boolean;
 }
 
-const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete }: QuoteActionModalProps) => {
+const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete, isSavedQuote }: QuoteActionModalProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -37,16 +38,18 @@ const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete }: Quo
               <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={styles.actionMenuItem}
-            onPress={() => {
-              onEdit();
-              onClose();
-            }}
-          >
-            <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Modifier</Text>
-          </TouchableOpacity>
+          {!isSavedQuote && (
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={() => {
+                onEdit();
+                onClose();
+              }}
+            >
+              <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
+              <Text style={styles.actionMenuText}>Modifier</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
             onPress={() => {
@@ -54,8 +57,17 @@ const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete }: Quo
               onClose();
             }}
           >
-            <Trash2 size={20} color={colors.warning} style={{ marginRight: 12 }} />
-            <Text style={[styles.actionMenuText, { color: colors.warning }]}>Supprimer</Text>
+            {isSavedQuote ? (
+              <>
+                <Bookmark size={20} color={colors.warning} style={{ marginRight: 12 }} />
+                <Text style={[styles.actionMenuText, { color: colors.warning }]}>Retirer de ma collection</Text>
+              </>
+            ) : (
+              <>
+                <Trash2 size={20} color={colors.warning} style={{ marginRight: 12 }} />
+                <Text style={[styles.actionMenuText, { color: colors.warning }]}>Supprimer</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </Pressable>

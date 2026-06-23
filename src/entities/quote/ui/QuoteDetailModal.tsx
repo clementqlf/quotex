@@ -2,7 +2,7 @@ import { InteractiveTooltip, TOUR_STEPS, useAppTourState } from '@/src/features/
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BookOpen, Calendar, CheckCircle2, Edit3, Heart, Plus, Share2, Sparkles, Trash2, User as UserIcon, X } from 'lucide-react-native';
+import { BookOpen, Bookmark, Calendar, CheckCircle2, Edit3, Heart, Plus, Share2, Sparkles, Trash2, User as UserIcon, X } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +32,7 @@ import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg'
 
 // Removed walkthroughable components
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { authorService } from '@/src/entities/author/api/AuthorService';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
@@ -294,7 +295,8 @@ function QuoteDetailContent() {
   const { quote: quoteParam, quoteId, showSavedDate } = useLocalSearchParams<{ quote?: string; quoteId?: string; showSavedDate?: string }>();
   
   // Remplacement de useData() par les hooks spécifiques
-  const { quotes, updateQuote: updateQuoteMutation, toggleLikeQuote, deleteQuote: deleteQuoteMutation } = useQuote();
+  const { quotes, updateQuote: updateQuoteMutation, toggleLikeQuote, toggleSaveQuote, deleteQuote: deleteQuoteMutation } = useQuote();
+  const { user: currentUser } = useAuth();
   const { books, refreshBooks } = useAuthor();
   
   // Méthodes pour BlockService
@@ -795,6 +797,23 @@ function QuoteDetailContent() {
     closeAddBlockModal();
   };
 
+  const handleToggleSave = async () => {
+    if (!quote) return;
+    const newIsSaved = !quote.isSaved;
+    setQuote((currentQuote: Quote | undefined) => {
+      if (!currentQuote) return currentQuote;
+      return { ...currentQuote, isSaved: newIsSaved };
+    });
+    try {
+      await toggleSaveQuote(quote.id);
+      if (!newIsSaved) {
+        onClose();
+      }
+    } catch (e) {
+      console.error('Error toggling save:', e);
+    }
+  };
+
   const handleDeleteQuote = () => {
     if (!quote) return;
     Alert.alert(
@@ -874,9 +893,19 @@ function QuoteDetailContent() {
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Détails de la citation</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
-                <Trash2 size={20} color={colors.warning} />
-              </TouchableOpacity>
+              {quote.user && quote.user?.id !== currentUser?.id ? (
+                <TouchableOpacity style={styles.closeButton} onPress={handleToggleSave}>
+                  <Bookmark
+                    size={20}
+                    color={quote.isSaved ? colors.primary : colors.textTertiary}
+                    fill={quote.isSaved ? colors.primary : 'none'}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
+                  <Trash2 size={20} color={colors.warning} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
                 <Edit3 size={20} color={colors.textTertiary} />
               </TouchableOpacity>

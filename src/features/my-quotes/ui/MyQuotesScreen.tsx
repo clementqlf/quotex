@@ -32,6 +32,7 @@ import { bookDescriptions } from '@/src/shared/api/staticData';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuoteActions } from '@/src/entities/quote/lib';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
@@ -301,6 +302,7 @@ export default function MyQuotesScreen() {
   } = useMyQuotes();
 
   const { handleConfirmSave } = useQuoteActions();
+  const { toggleSaveQuote } = useQuote();
   const { tabIndex, setTabIndex, setPage } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
@@ -960,6 +962,7 @@ export default function MyQuotesScreen() {
       <QuoteActionModal
         visible={!!actionMenuQuote}
         onClose={() => setActionMenuQuote(null)}
+        isSavedQuote={!!(actionMenuQuote?.user && actionMenuQuote.user?.id !== currentUser?.id && actionMenuQuote.isSaved)}
         onEdit={() => {
           if (actionMenuQuote) {
             const quote = actionMenuQuote;
@@ -975,7 +978,11 @@ export default function MyQuotesScreen() {
             const quote = actionMenuQuote;
             setActionMenuQuote(null);
             setTimeout(() => {
-              deleteQuote(quote.id);
+              if (quote.user && quote.user?.id !== currentUser?.id && quote.isSaved) {
+                toggleSaveQuote(quote.id);
+              } else {
+                deleteQuote(quote.id);
+              }
             }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}

@@ -775,7 +775,9 @@ export default function UserProfileScreen() {
               ownerId={profileData.id}
               title="Citations partagées"
               showBookTitle={true}
-              fallbackText="Cet utilisateur n'a pas encore partagé de citations."
+              fallbackText="Aucunes citations partagées/enregistrées"
+              publishedFallbackText="Aucunes citations partagées"
+              savedFallbackText="Aucunes citations enregistrées"
               onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
             />
           )}

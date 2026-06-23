@@ -17,10 +17,23 @@ interface SavedQuotesBlockProps {
     showBookTitle?: boolean;
     title?: string;
     fallbackText?: string;
+    publishedFallbackText?: string;
+    savedFallbackText?: string;
     ownerId?: string;
 }
 
-const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePress, onRemove, onAddQuote, showBookTitle, title, fallbackText, ownerId }) => {
+const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ 
+    quotes, 
+    onQuotePress, 
+    onRemove, 
+    onAddQuote, 
+    showBookTitle, 
+    title, 
+    fallbackText, 
+    publishedFallbackText,
+    savedFallbackText,
+    ownerId 
+}) => {
     const { colors } = useTheme();
     const { user: currentUser } = useAuth();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -76,7 +89,9 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
                 <Text style={styles.fallbackText}>
                     {quoteSubFilter === 'ALL' 
                         ? (fallbackText || (showBookTitle ? "Aucune citation sauvegardée pour cet auteur." : "Aucune citation sauvegardée pour ce livre."))
-                        : "Aucune citation dans cette catégorie."
+                        : quoteSubFilter === 'PUBLISHED'
+                            ? (publishedFallbackText || "Aucune citation dans cette catégorie.")
+                            : (savedFallbackText || "Aucune citation dans cette catégorie.")
                     }
                 </Text>
             ) : (
@@ -110,6 +125,8 @@ export const SavedQuotesBlock = React.memo(SavedQuotesBlockUI, (prevProps, nextP
         prevProps.ownerId === nextProps.ownerId &&
         prevProps.title === nextProps.title &&
         prevProps.fallbackText === nextProps.fallbackText &&
+        prevProps.publishedFallbackText === nextProps.publishedFallbackText &&
+        prevProps.savedFallbackText === nextProps.savedFallbackText &&
         prevProps.showBookTitle === nextProps.showBookTitle &&
         prevProps.quotes.length === nextProps.quotes.length &&
         prevProps.quotes.every((q, i) => q.id === nextProps.quotes[i].id)
@@ -120,7 +137,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fallbackText: {
         color: colors.textTertiary,
         fontStyle: 'italic',
-        marginTop: 8
+        marginTop: 8,
+        textAlign: 'center',
     },
     savedQuotesList: {
         gap: 12,
