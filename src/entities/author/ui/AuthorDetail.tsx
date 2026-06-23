@@ -7,6 +7,7 @@ import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { fetchInventaireEntities, getInventaireImageUrl, resolveInventaireEntity } from '@/src/shared/api/InventaireService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { ThemeColors } from '@/src/shared/theme';
@@ -77,11 +78,8 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
 // Fetch author details from Inventaire API (client-side version)
 async function fetchExternalAuthorDetails(inventaireUri: string) {
   try {
-    const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(inventaireUri)}&lang=fr&props=labels|descriptions|claims|image`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const entity = data.entities?.[inventaireUri];
+    const entities = await fetchInventaireEntities([inventaireUri], 'labels|descriptions|claims|image');
+    const entity = resolveInventaireEntity(entities, inventaireUri);
     if (!entity) return null;
 
     const labels = entity.labels || {};
@@ -89,9 +87,7 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
     const claims = entity.claims || {};
     const name = labels['fr'] || labels['en'] || null;
     const description = descriptions['fr'] || descriptions['en'] || null;
-    const image = entity.image?.url || entity.image?.file
-      ? `https://inventaire.io${entity.image?.url || entity.image?.file}`
-      : null;
+    const image = getInventaireImageUrl(entity.image);
     const birthDateRaw = claims['wdt:P569']?.[0];
     let birthDate = null;
     if (birthDateRaw) {

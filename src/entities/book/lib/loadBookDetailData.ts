@@ -1,6 +1,13 @@
 import { Author, Book } from '@/src/shared/api/types';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
+import { 
+  fetchInventaireEntities,
+  fetchInventaireEditions,
+  getInventaireImageUrl,
+  normalizeInventaireUri,
+  resolveInventaireEntity 
+} from '@/src/shared/api/InventaireService';
 import type { BookImportPayload } from './bookImport';
 import { buildBookImportPayload } from './bookImport';
 
@@ -62,58 +69,6 @@ const shouldRefreshFromInventaire = (book: Book | null | undefined): boolean => 
   // Don't refresh if book was just imported (we already have server data)
   if (book.id && book.inventaireUri) return false;
   return !book.description || book.description.length < 50 || !book.pages || book.pages <= 0;
-};
-
-const INVENTAIRE_HEADERS = { 'User-Agent': 'QuotexApp/1.0' };
-const normalizeInventaireUri = (uri?: string | null): string => {
-  if (!uri) return '';
-  return uri.trim().toLowerCase().replace(/^wd:/, '');
-};
-
-const getInventaireImageUrl = (imageObj: any): string | null => {
-  if (!imageObj) return null;
-  if (typeof imageObj === 'string') return imageObj.startsWith('http') ? imageObj : (imageObj.startsWith('/img/') ? `https://inventaire.io${imageObj}` : null);
-  if (imageObj.url) return imageObj.url.startsWith('http') ? imageObj.url : `https://inventaire.io${imageObj.url}`;
-  if (imageObj.file) return imageObj.file.startsWith('http') ? imageObj.file : (imageObj.file.startsWith('/img/') ? `https://inventaire.io${imageObj.file}` : null);
-  return null;
-};
-
-const fetchInventaireEntities = async (uris: string[]): Promise<Record<string, any>> => {
-  if (!uris.length) return {};
-  const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(uris.join('|'))}&lang=fr`;
-  logDebug('Inventaire request', { uris });
-  const response = await fetch(url, { headers: INVENTAIRE_HEADERS });
-  if (!response.ok) return {};
-  const data = await response.json();
-  return data.entities || {};
-};
-
-const resolveInventaireEntity = (entities: Record<string, any>, uri: string): any | null => {
-  if (entities[uri]) return entities[uri];
-  const stripped = uri.replace(/^wd:/, '');
-  const fallbackKey = Object.keys(entities).find(key => key === stripped || key.endsWith(stripped));
-  if (fallbackKey) return entities[fallbackKey];
-  const firstKey = Object.keys(entities)[0];
-  return firstKey ? entities[firstKey] : null;
-};
-
-// Helper to fetch editions from Inventaire for a work
-const fetchInventaireEditions = async (workUri: string): Promise<any[]> => {
-  try {
-    const normalizedUri = normalizeInventaireUri(workUri);
-    const url = `https://inventaire.io/api/entities/${encodeURIComponent(normalizedUri)}/editions?lang=fr`;
-    logDebug('Fetching Inventaire editions', { workUri: normalizedUri, url });
-    const response = await fetch(url, { headers: INVENTAIRE_HEADERS });
-    if (!response.ok) {
-      logDebug('Inventaire editions request failed', { status: response.status });
-      return [];
-    }
-    const data = await response.json();
-    return Array.isArray(data?.editions) ? data.editions : [];
-  } catch (error) {
-    logDebug('Failed to fetch Inventaire editions:', error);
-    return [];
-  }
 };
 
 const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: string): Promise<Book | null> => {
