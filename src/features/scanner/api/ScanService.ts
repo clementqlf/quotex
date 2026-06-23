@@ -1,9 +1,9 @@
 import { authService } from '@/src/entities/user/api/AuthService';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
-import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
+import { extractIsbn, IsbnSchema } from '@/src/shared/lib/validation/isbn';
 import { searchService } from '@/src/features/search/api/SearchService';
 import { Quote } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { PlatformServices } from '@/src/shared/platform';
 import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 const ImportPayloadSchema = z.object({
   title: z.string().min(1),
-  isbn: z.string().regex(/^(?:\d{10}|\d{13})$/),
+  isbn: IsbnSchema,
   year: z.number().int().positive().optional(),
   pages: z.number().int().positive().optional(),
   description: z.string().optional(),
@@ -202,20 +202,9 @@ export class ScanService {
                 
                 for (let attempt = 1; attempt <= 3; attempt++) {
                     try {
-                        const importRes = await fetch(`${API_BASE_URL}/books/import`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                            },
-                            body: JSON.stringify(importPayload),
-                        });
-
-                        if (importRes.ok) {
-                            imported = await importRes.json();
-                            importSuccess = true;
-                            break;
-                        }
+                        imported = await httpClient.post<Record<string, unknown>>('/books/import', importPayload);
+                        importSuccess = true;
+                        break;
                     } catch (importErr) {
                         if (attempt === 3) {
                             console.error('[ScanService] Import failed after 3 attempts:', importErr);

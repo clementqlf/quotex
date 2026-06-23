@@ -1,8 +1,8 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { searchService } from '@/src/features/search/api/SearchService';
 import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { Book as BookIcon, Heart, Share2, User as UserIcon, X } from 'lucide-react-native';
@@ -472,16 +472,12 @@ export default function ScanPreviewModal({
                                                                                 if (item.type === 'inventaire' && item.data) {
                                                                                     setIsLoadingSuggestions(true);
                                                                                     try {
-                                                                                        await fetch(`${API_BASE_URL}/books/import`, {
-                                                                                            method: 'POST',
-                                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                                            body: JSON.stringify({
-                                                                                                title: item.title,
-                                                                                                inventaireUri: item.data.uri,
-                                                                                                authors: item.data.authors || [],
-                                                                                                cover: item.data.image || null,
-                                                                                                description: item.data.description || '',
-                                                                                            }),
+                                                                                        await httpClient.post('/books/import', {
+                                                                                            title: item.title,
+                                                                                            inventaireUri: item.data.uri,
+                                                                                            authors: item.data.authors || [],
+                                                                                            cover: item.data.image || null,
+                                                                                            description: item.data.description || '',
                                                                                         });
                                                                                         if (item.data.authors && item.data.authors.length > 0) {
                                                                                             setEditedAuthor(item.data.authors[0]);

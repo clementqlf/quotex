@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookCopy, ExternalLink } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -75,11 +75,8 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
         const fetchEditions = async () => {
             setIsLoading(true);
             try {
-                const response = await fetch(`${API_BASE_URL}/books/${book.id}/editions`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setEditions(data);
-                }
+                const data = await httpClient.get<Edition[]>(`/books/${book.id}/editions`);
+                setEditions(data);
             } catch (e) {
                 console.error('[EditionsBlock] Fetch error:', e);
             } finally {

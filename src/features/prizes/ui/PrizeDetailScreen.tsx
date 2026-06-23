@@ -1,8 +1,9 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { runSPARQL } from '@/src/entities/author/api/WikidataService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
@@ -61,10 +62,7 @@ interface PrizeDetailScreenProps {
 const fetchExternalPrizeDetails = async (inventaireUri: string) => {
     if (!inventaireUri.startsWith('wd:')) return null;
     const qid = inventaireUri.substring(3);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-    try {
-        const sparql = `
+    const sparql = `
         SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
           OPTIONAL { wd:${qid} wdt:P571 ?inception . }
           OPTIONAL {
@@ -81,35 +79,15 @@ const fetchExternalPrizeDetails = async (inventaireUri: string) => {
           }
         } LIMIT 1
         `;
-        const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-        const res = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
-                'Accept': 'application/sparql-results+json'
-            }
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) {
-            console.warn(`[PrizeDetail] Wikidata error: ${res.status}`);
-            return null;
-        }
-        const data = await res.json();
-        const binding = data.results?.bindings?.[0];
-        if (!binding) return null;
+    const bindings = await runSPARQL(sparql, 6000);
+    const binding = bindings[0];
+    if (!binding) return null;
 
-        const inceptionRaw = binding.inception?.value;
-        const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
-        const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
+    const inceptionRaw = binding.inception?.value;
+    const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
+    const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
 
-        return { inceptionYear, founder };
-    } catch (e) {
-        clearTimeout(timeoutId);
-        if (e instanceof Error && e.name !== 'AbortError') {
-            console.error('[PrizeDetail] Failed to fetch external prize details:', e);
-        }
-        return null;
-    }
+    return { inceptionYear, founder };
 };
 
 const fetchWikipediaDescription = async (title: string): Promise<string | null> => {
@@ -150,10 +128,6 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
      * without any reload or loading indicator.
      */
     const enrichMissingCovers = React.useCallback(async (laureates: LiteraryPrizeLaureate[]) => {
-        const token = await authService.getToken().catch(() => null);
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
         const booksToEnrich = laureates.filter(
             l => l.book?.id && !l.book.cover && !enrichingBookIds.current.has(l.book.id!)
         );
@@ -163,8 +137,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
             enrichingBookIds.current.add(bookId);
 
             // Fire-and-forget: no await in the loop, all run concurrently
-            fetch(`${API_BASE_URL}/books/${bookId}/enrich`, { method: 'POST', headers })
-                .then(res => (res.ok ? res.json() : null))
+            httpClient.post<{ cover: string }>(`/books/${bookId}/enrich`, {})
                 .then(enrichedBook => {
                     if (enrichedBook?.cover) {
                         // Patch only the cover of this specific book in local state

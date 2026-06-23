@@ -1,8 +1,7 @@
 import { BookImportPayload } from '@/src/entities/book/lib/bookImport';
-import { authService } from '@/src/entities/user/api/AuthService';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Author, Book } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 // Debug flag - set to false to disable debug logs in production
@@ -13,23 +12,9 @@ const debugLog = (...args: any[]) => {
 };
 
 class AuthorService {
-    private readonly API_URL = API_BASE_URL;
-
     private normalizeInventaireUri(uri?: string | null): string {
         if (!uri) return '';
         return uri.trim().toLowerCase().replace(/^wd:/, '');
-    }
-
-    private async getHeaders(extraHeaders: Record<string, string> = {}) {
-        const token = await authService.getToken();
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            ...extraHeaders,
-        };
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-        return headers;
     }
 
     private mapBookFromServer(b: any): Book {
@@ -48,17 +33,13 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/authors`, { headers });
-            if (response.ok) {
-                const authors = await response.json();
-                const mappedAuthors = authors.map((a: any) => ({
-                    ...a,
-                    similarAuthors: a.similarAuthors || []
-                }));
-                await StorageService.setItem(STORAGE_KEYS.AUTHORS, mappedAuthors);
-                return mappedAuthors;
-            }
+            const authors = await httpClient.get<any[]>('/authors');
+            const mappedAuthors = authors.map((a: any) => ({
+                ...a,
+                similarAuthors: a.similarAuthors || []
+            }));
+            await StorageService.setItem(STORAGE_KEYS.AUTHORS, mappedAuthors);
+            return mappedAuthors;
         } catch (error) {
             logFetchError('Error fetching authors from server', error);
         }
@@ -75,15 +56,11 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/authors/by-name/${encodeURIComponent(name)}`, { headers });
-            if (response.ok) {
-                const author = await response.json();
-                return {
-                    ...author,
-                    similarAuthors: author.similarAuthors || []
-                };
-            }
+            const author = await httpClient.get<any>(`/authors/by-name/${encodeURIComponent(name)}`);
+            return {
+                ...author,
+                similarAuthors: author.similarAuthors || []
+            };
         } catch (error) {
             logFetchError('Error fetching author by name from server', error);
         }
@@ -100,15 +77,11 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/authors/${id}`, { headers });
-            if (response.ok) {
-                const author = await response.json();
-                return {
-                    ...author,
-                    similarAuthors: author.similarAuthors || []
-                };
-            }
+            const author = await httpClient.get<any>(`/authors/${id}`);
+            return {
+                ...author,
+                similarAuthors: author.similarAuthors || []
+            };
         } catch (error) {
             logFetchError('Error fetching author by ID from server', error);
         }
@@ -129,16 +102,12 @@ class AuthorService {
 
         try {
             // If we have an ID, use the specialized endpoint
-            const url = authorId
-                ? `${this.API_URL}/authors/${authorId}/books`
-                : `${this.API_URL}/books?authorName=${encodeURIComponent(authorName)}`;
+            const path = authorId
+                ? `/authors/${authorId}/books`
+                : `/books?authorName=${encodeURIComponent(authorName)}`;
 
-            const headers = await this.getHeaders();
-            const response = await fetch(url, { headers });
-            if (response.ok) {
-                const books = await response.json();
-                return books.map((b: any) => this.mapBookFromServer(b));
-            }
+            const books = await httpClient.get<any[]>(path);
+            return books.map((b: any) => this.mapBookFromServer(b));
         } catch (error) {
             logFetchError('Error fetching author books from server', error);
         }
@@ -157,16 +126,12 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books`, { headers });
-            if (response.ok) {
-                const books = await response.json();
-                const book = books.find((b: any) => b.title === title);
-                if (book) {
-                    return this.mapBookFromServer(book);
-                }
-                return undefined;
+            const books = await httpClient.get<any[]>('/books');
+            const book = books.find((b: any) => b.title === title);
+            if (book) {
+                return this.mapBookFromServer(book);
             }
+            return undefined;
         } catch (error) {
             logFetchError('Error fetching book by title', error);
         }
@@ -190,19 +155,9 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const directUrl = `${this.API_URL}/books/by-inventaire/${encodeURIComponent(inventaireUri)}`;
-            const directResponse = await fetch(directUrl, { headers });
-
-            debugLog('getBookByInventaireUri: direct lookup', {
-                status: directResponse.status,
-                ok: directResponse.ok,
-            });
-
-            if (directResponse.ok) {
-                const book = await directResponse.json();
-                return this.mapBookFromServer(book);
-            }
+            debugLog('getBookByInventaireUri: direct lookup', { inventaireUri });
+            const book = await httpClient.get<any>(`/books/by-inventaire/${encodeURIComponent(inventaireUri)}`);
+            return this.mapBookFromServer(book);
         } catch (error) {
             logFetchError('[AuthorService] Error fetching book by inventaireUri', error);
         }
@@ -219,12 +174,8 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books/${id}`, { headers });
-            if (response.ok) {
-                const book = await response.json();
-                return this.mapBookFromServer(book);
-            }
+            const book = await httpClient.get<any>(`/books/${id}`);
+            return this.mapBookFromServer(book);
         } catch (error) {
             logFetchError('Error fetching book by ID', error);
         }
@@ -240,14 +191,7 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/authors/${id}/toggle-save`, {
-                method: 'POST',
-                headers
-            });
-            if (response.ok) {
-                return await response.json();
-            }
+            return await httpClient.post<{ isSaved: boolean; followersCount: number }>(`/authors/${id}/toggle-save`, {});
         } catch (error) {
             logFetchError('Error toggling author save status', error);
         }
@@ -261,15 +205,8 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books/${id}/toggle-save`, {
-                method: 'POST',
-                headers
-            });
-            if (response.ok) {
-                const result = await response.json();
-                return result.isSaved;
-            }
+            const result = await httpClient.post<{ isSaved: boolean }>(`/books/${id}/toggle-save`, {});
+            return result.isSaved;
         } catch (error) {
             logFetchError('Error toggling book save status', error);
         }
@@ -283,16 +220,8 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books/${id}/status`, {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify({ readingStatus: status })
-            });
-            if (response.ok) {
-                const book = await response.json();
-                return this.mapBookFromServer(book);
-            }
+            const book = await httpClient.patch<any>(`/books/${id}/status`, { readingStatus: status });
+            return this.mapBookFromServer(book);
         } catch (error) {
             logFetchError('Error updating book status', error);
         }
@@ -312,38 +241,26 @@ class AuthorService {
                 year: bookData.year,
                 pages: bookData.pages,
             });
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books/import`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    title: bookData.title,
-                    authors: bookData.authors ?? (typeof bookData.author === 'string' ? [bookData.author] : (bookData.author?.name ? [bookData.author.name] : [])),
-                    authorUris: bookData.authorUris,
-                    description: bookData.description,
-                    cover: bookData.cover,
-                    inventaireUri: bookData.inventaireUri,
-                    openLibraryId: bookData.openLibraryId,
-                    googleId: bookData.googleId,
-                    isbn: bookData.isbn,
-                    year: bookData.year,
-                    pages: bookData.pages,
-                    genre: bookData.genre
-                })
+            const book = await httpClient.post<any>('/books/import', {
+                title: bookData.title,
+                authors: bookData.authors ?? (typeof bookData.author === 'string' ? [bookData.author] : (bookData.author?.name ? [bookData.author.name] : [])),
+                authorUris: bookData.authorUris,
+                description: bookData.description,
+                cover: bookData.cover,
+                inventaireUri: bookData.inventaireUri,
+                openLibraryId: bookData.openLibraryId,
+                googleId: bookData.googleId,
+                isbn: bookData.isbn,
+                year: bookData.year,
+                pages: bookData.pages,
+                genre: bookData.genre
             });
-            if (response.ok) {
-                const book = await response.json();
-                debugLog('importBook: success', {
-                    id: book?.id,
-                    title: book?.title,
-                    pages: book?.pages,
-                });
-                return this.mapBookFromServer(book);
-            }
-            debugLog('importBook: non-ok response', {
-                status: response.status,
-                statusText: response.statusText,
+            debugLog('importBook: success', {
+                id: book?.id,
+                title: book?.title,
+                pages: book?.pages,
             });
+            return this.mapBookFromServer(book);
         } catch (error) {
             logFetchError('[AuthorService] Error importing book', error);
         }
@@ -358,14 +275,10 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/books`, { headers });
-            if (response.ok) {
-                const books = await response.json();
-                const mappedBooks = books.map((b: any) => this.mapBookFromServer(b));
-                await StorageService.setItem(STORAGE_KEYS.BOOKS, mappedBooks);
-                return mappedBooks;
-            }
+            const books = await httpClient.get<any[]>('/books');
+            const mappedBooks = books.map((b: any) => this.mapBookFromServer(b));
+            await StorageService.setItem(STORAGE_KEYS.BOOKS, mappedBooks);
+            return mappedBooks;
         } catch (error) {
             logFetchError('Error fetching books from server', error);
         }
@@ -385,12 +298,8 @@ class AuthorService {
         }
 
         try {
-            const headers = await this.getHeaders();
-            const response = await fetch(`${this.API_URL}/authors/${authorId}/notable-works`, { headers });
-            if (response.ok) {
-                const books = await response.json();
-                return books.map((b: any) => this.mapBookFromServer(b));
-            }
+            const books = await httpClient.get<any[]>(`/authors/${authorId}/notable-works`);
+            return books.map((b: any) => this.mapBookFromServer(b));
         } catch (error) {
             logFetchError('Error fetching notable works', error);
         }

@@ -1,5 +1,5 @@
 import { Book } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { z } from 'zod';
 
@@ -8,6 +8,49 @@ const SparqlResultSchema = z.object({
     bindings: z.array(z.record(z.any()))
   })
 });
+
+/**
+ * Execute a SPARQL query against Wikidata
+ * @param query - The SPARQL query string
+ * @param timeout - Request timeout in milliseconds (default: 8000)
+ * @returns Array of binding results or empty array on error
+ */
+export const runSPARQL = async (query: string, timeoutMs: number = 8000): Promise<any[]> => {
+  if (await isOffline()) {
+    return [];
+  }
+
+  const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}&format=json`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Quotex/1.0 (got@example.com)',
+        'Accept': 'application/sparql-results+json'
+      }
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      console.warn(`[WikidataService] SPARQL HTTP error: ${response.status}`);
+      return [];
+    }
+    const data = await response.json();
+    try {
+      return SparqlResultSchema.parse(data).results.bindings;
+    } catch (parseError) {
+      console.error('[WikidataService] Invalid SPARQL format:', parseError);
+      return [];
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name !== 'AbortError') {
+      logFetchError('[WikidataService] SPARQL Error', error);
+    }
+    return [];
+  }
+};
 
 export class WikidataService {
     private enrichmentCache = new Map<string, Promise<Record<string, any>>>();
@@ -67,9 +110,7 @@ export class WikidataService {
     private async fetchFromBackendSafe(uris: string[]): Promise<Record<string, any>> {
         if (await isOffline()) return {};
         try {
-            const response = await fetch(`${API_BASE_URL}/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
-            if (!response.ok) return {};
-            return await response.json();
+            return await httpClient.get<Record<string, any>>(`/inventaire/entities?uris=${encodeURIComponent(uris.join('|'))}`);
         } catch (err) {
             logFetchError('[WikidataService] Enrichment failed', err);
             return {};

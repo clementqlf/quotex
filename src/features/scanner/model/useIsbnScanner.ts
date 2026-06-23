@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSharedValue, useRunOnJS } from 'react-native-worklets-core';
 import { Camera, useFrameProcessor } from 'react-native-vision-camera';
 import { useTextRecognition } from 'react-native-vision-camera-ocr-plus';
+import { extractIsbn } from '@/src/shared/lib/validation/isbn';
 
 type UseIsbnScannerProps = {
     cameraRef?: React.RefObject<Camera | null>; // Kept for backward compatibility
@@ -10,41 +11,6 @@ type UseIsbnScannerProps = {
     enabled?: boolean;
     onIsbnDetected: (isbn: string) => void;
 };
-
-export function extractIsbn(text: string): string | null {
-    'worklet';
-    const cleanText = text.replace(/\n/g, ' ');
-    const candidates = cleanText.match(/(?:[0-9xX][-\s]*){9,17}/g) || [];
-    
-    let found10: string | null = null;
-    
-    for (const cand of candidates) {
-        const cleaned = cand.replace(/[-\s]/g, '');
-        if (cleaned.length === 13 && /^(97[89])\d{10}$/.test(cleaned)) {
-            return cleaned;
-        }
-        if (cleaned.length === 10 && /^\d{9}[\dxX]$/i.test(cleaned)) {
-            if (!found10) found10 = cleaned;
-        }
-    }
-    
-    const digitsOnly = cleanText.replace(/[^0-9xX]/g, '');
-    const fallbackMatch = /(97[89]\d{10})/.exec(digitsOnly);
-    if (fallbackMatch) {
-        return fallbackMatch[1];
-    }
-    
-    if (found10) {
-        return found10;
-    }
-    
-    const fallbackMatch10 = /(\b\d{9}[\dxX]\b)/i.exec(digitsOnly);
-    if (fallbackMatch10) {
-        return fallbackMatch10[1];
-    }
-    
-    return null;
-}
 
 export function useIsbnScanner({
     isFocused,

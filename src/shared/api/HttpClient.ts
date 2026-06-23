@@ -9,6 +9,11 @@ import Constants from 'expo-constants';
 export interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;
   params?: Record<string, string | number | boolean>;
+  /**
+   * If true, 404 responses will return null instead of throwing an error
+   * Useful for GET requests where missing resource is a valid state
+   */
+  ignore404?: boolean;
 }
 
 /**
@@ -98,6 +103,11 @@ export class HttpClient {
 
       // Si la réponse n'est pas OK, on lance une erreur avec le body si possible
       if (!response || !response.ok) {
+        // Handle 404 gracefully if ignore404 is set
+        if (response?.status === 404 && options.ignore404) {
+          return null as any;
+        }
+        
         let errorMessage = response ? `HTTP Error ${response.status}: ${response.statusText}` : 'Network error or response undefined';
         if (response) {
           try {
@@ -136,6 +146,14 @@ export class HttpClient {
 
   public async get<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T> {
     return this.request<T>(path, { ...options, method: 'GET' });
+  }
+
+  /**
+   * GET request that returns null on 404 instead of throwing an error.
+   * Use this for fetching resources where "not found" is a valid, expected state.
+   */
+  public async getSafe<T>(path: string, options?: Omit<RequestOptions, 'method'>): Promise<T | null> {
+    return this.request<T>(path, { ...options, method: 'GET', ignore404: true });
   }
 
   public async post<T>(path: string, body: any, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {

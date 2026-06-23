@@ -3,10 +3,11 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { authService } from '@/src/entities/user/api/AuthService';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
 import { fetchInventaireEntities, getInventaireImageUrl, resolveInventaireEntity } from '@/src/shared/api/InventaireService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
@@ -102,22 +103,6 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
   }
 }
 
-const formatDisplayDate = (dateStr?: string | null): string => {
-  if (!dateStr) return 'Inconnu';
-  if (/^\d{4}$/.test(dateStr)) return dateStr;
-  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  const d = new Date(dateStr);
-  if (!isNaN(d.getTime()) && (dateStr.includes('-') || dateStr.includes('/'))) {
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  return dateStr;
-};
-
 export default function AuthorDetailScreen() {
   const { user: currentUser } = useAuth();
   const { colors } = useTheme();
@@ -211,14 +196,8 @@ export default function AuthorDetailScreen() {
         if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
           console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
           try {
-            const BASE_URL = API_BASE_URL;
-            const token = await authService.getToken();
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
-            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers, signal });
-            if (enrichRes.ok) {
-              const data = await enrichRes.json();
+            const data = await httpClient.post<any>(`/authors/${fetchedAuthor.id}/enrich`, {}, { signal });
+            if (data) {
               if (data.author) {
                 setAuthorInfo(data.author);
                 activeAuthor = data.author;
@@ -646,7 +625,7 @@ export default function AuthorDetailScreen() {
               <View style={styles.detailItem}>
                 <Calendar size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Naissance</Text>
-                <Text style={styles.detailValue}>{formatDisplayDate(authorInfo?.birthDate)}</Text>
+                <Text style={styles.detailValue}>{formatFlexibleDate(authorInfo?.birthDate)}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Globe size={16} color={colors.textTertiary} />
