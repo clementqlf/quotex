@@ -59,6 +59,16 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
         { opacity: pressed ? 0.85 : 1 }
       ]}
       onPress={onPress || (() => navigateToBook(book.id ?? book.title, book.inventaireUri))}
+      onLongPress={async () => {
+        if (onOpenMenu) {
+          try {
+            await haptics.impactAsync('medium');
+          } catch (err) {
+            console.warn('Haptics failed', err);
+          }
+          onOpenMenu(book);
+        }
+      }}
     >
       <View style={styles.bookCardContent}>
         {book.cover ? (

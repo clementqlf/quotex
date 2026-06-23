@@ -29,6 +29,7 @@ import { useTabIndex } from '@/src/app/providers/TabContext';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuoteActions } from '@/src/entities/quote/lib';
 import { Quote } from '@/src/shared/api/types';
@@ -155,6 +156,8 @@ interface ListHeaderMemoProps {
   removeFilter: (filter: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }) => void;
   resetFilters: () => void;
   setSelectedStatus: (status: string) => void;
+  quoteSubFilter?: 'ALL' | 'PUBLISHED' | 'SAVED';
+  setQuoteSubFilter?: (filter: 'ALL' | 'PUBLISHED' | 'SAVED') => void;
 }
 
 const ListHeaderMemo = React.memo(function ListHeaderMemo({
@@ -166,6 +169,8 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
   removeFilter,
   resetFilters,
   setSelectedStatus,
+  quoteSubFilter,
+  setQuoteSubFilter,
 }: ListHeaderMemoProps) {
   const elements: React.ReactNode[] = [];
 
@@ -232,6 +237,37 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
     );
   }
 
+  if (viewMode === 'quotes') {
+    elements.push(
+      <View key="quote-sub-pills" style={styles.tabsContainer}>
+        <TouchableOpacity
+          onPress={() => setQuoteSubFilter?.('ALL')}
+          style={[styles.tab, quoteSubFilter === 'ALL' && styles.activeTab]}
+        >
+          <Text style={[styles.tabText, quoteSubFilter === 'ALL' && styles.activeTabText]}>
+            Tout
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setQuoteSubFilter?.('PUBLISHED')}
+          style={[styles.tab, quoteSubFilter === 'PUBLISHED' && styles.activeTab]}
+        >
+          <Text style={[styles.tabText, quoteSubFilter === 'PUBLISHED' && styles.activeTabText]}>
+            Publiés
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setQuoteSubFilter?.('SAVED')}
+          style={[styles.tab, quoteSubFilter === 'SAVED' && styles.activeTab]}
+        >
+          <Text style={[styles.tabText, quoteSubFilter === 'SAVED' && styles.activeTabText]}>
+            Enregistré
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return elements.length > 0 ? <>{elements}</> : null;
 })
 export default function MyQuotesScreen() {
@@ -245,8 +281,10 @@ export default function MyQuotesScreen() {
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [quoteSubFilter, setQuoteSubFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
   const [firstItemHeight, setFirstItemHeight] = useState(150);
+  const { user: currentUser } = useAuth();
 
   // Feature hook - découplé de DataProvider
   const {
@@ -435,6 +473,13 @@ export default function MyQuotesScreen() {
   // Derived filtered quotes
   const quotesToDisplay = useMemo(() => {
     let filtered = [...myQuotes];
+
+    if (quoteSubFilter === 'PUBLISHED') {
+      filtered = filtered.filter(q => q.user?.id === currentUser?.id || !q.user);
+    } else if (quoteSubFilter === 'SAVED') {
+      filtered = filtered.filter(q => q.user && q.user?.id !== currentUser?.id && q.isSaved);
+    }
+
     if (activeFilters.length > 0) {
       const filtersByType = activeFilters.reduce((acc, filter) => {
         if (!acc[filter.type]) {
@@ -459,7 +504,7 @@ export default function MyQuotesScreen() {
       });
     }
     return filtered;
-  }, [myQuotes, activeFilters, allBooks]);
+  }, [myQuotes, activeFilters, allBooks, quoteSubFilter, currentUser]);
 
   // Authors data
   const authorsData = useMemo(() => getAuthorsData(), [getAuthorsData]);
@@ -862,6 +907,8 @@ export default function MyQuotesScreen() {
                 removeFilter={removeFilter}
                 resetFilters={resetFilters}
                 setSelectedStatus={setSelectedStatus}
+                quoteSubFilter={quoteSubFilter}
+                setQuoteSubFilter={setQuoteSubFilter}
               />
             }
             ListEmptyComponent={
@@ -1127,6 +1174,33 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     textDecorationLine: 'underline',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 16,
+    gap: 24,
+  },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  activeTabText: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   listContainerActive: {
     flex: 1,

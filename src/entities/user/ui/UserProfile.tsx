@@ -5,8 +5,10 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
-import { getAuthorName, getBookTitle, decodeBase64 } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ThemeColors } from '@/src/shared/theme';
+import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -142,6 +144,7 @@ export default function UserProfileScreen() {
   const { username } = useLocalSearchParams<{ username?: string }>();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
+  const { quotes: allQuotes } = useQuote();
   const queryClient = useQueryClient();
 
   const { data: profileData, isLoading: isProfileLoading, isFetching } = useUserProfile(username);
@@ -159,13 +162,23 @@ export default function UserProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const userQuotes = useMemo(() => {
+    if (isMe) {
+      return allQuotes
+        .filter(q => isUserQuote(q, currentUser?.id))
+        .sort((a, b) => {
+          const dateA = new Date(a.savedAt || a.date || 0).getTime();
+          const dateB = new Date(b.savedAt || b.date || 0).getTime();
+          return dateB - dateA;
+        });
+    }
+
     if (!profileData || !(profileData as any).quotes) return [];
     return (profileData as any).quotes.map((q: any) => ({
       ...q,
       user: profileData,
       time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
     }));
-  }, [profileData]);
+  }, [profileData, isMe, allQuotes, currentUser]);
 
   const userBooks = useMemo(() => {
     if (!profileData || !(profileData as any).library) return [];
@@ -745,40 +758,27 @@ export default function UserProfileScreen() {
           </View>
 
           {/* User's Quotes */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Quote size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Citations partagées</Text>
-            </View>
-
-            {userQuotes.length > 0 ? (
-              <View style={styles.savedQuotesList}>
-                {userQuotes.map((quote: any) => (
-                    <TouchableOpacity
-                      key={quote.id}
-                      style={styles.savedQuoteCard}
-                      onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
-                    >
-                    <Text style={styles.savedQuoteText} numberOfLines={3}>&quot;{quote.text}&quot;</Text>
-                    <View style={styles.savedQuoteMeta}>
-                      <View>
-                        <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
-                        <Text style={styles.savedQuoteBook}>{getBookTitle(quote.book)}</Text>
-                      </View>
-                      <Text style={styles.savedQuoteDate}>{quote.savedAt ? new Date(quote.savedAt).toLocaleDateString() : quote.time}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+          {(isProfileLoading || isFetching) ? (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Quote size={16} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Citations partagées</Text>
               </View>
-            ) : (isProfileLoading || isFetching) ? (
               <View style={{ gap: 12 }}>
                 <QuoteSkeleton colors={colors} />
                 <QuoteSkeleton colors={colors} />
               </View>
-            ) : (
-              <Text style={styles.placeholderText}>Cet utilisateur n&apos;a pas encore partagé de citations.</Text>
-            )}
-          </View>
+            </View>
+          ) : (
+            <SavedQuotesBlock
+              quotes={userQuotes}
+              ownerId={profileData.id}
+              title="Citations partagées"
+              showBookTitle={true}
+              fallbackText="Cet utilisateur n'a pas encore partagé de citations."
+              onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+            />
+          )}
         </ScrollView>
       </View>
 
@@ -1093,42 +1093,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 24,
   },
-  savedQuotesList: {
-    gap: 12,
-  },
-  savedQuoteCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    padding: 12,
-  },
-  savedQuoteText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.text,
-    fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  savedQuoteMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  savedQuoteAuthor: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  savedQuoteBook: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  savedQuoteDate: {
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
+
   libraryContainer: {
     gap: 16,
   },
