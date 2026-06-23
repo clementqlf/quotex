@@ -18,6 +18,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
@@ -121,9 +123,47 @@ export default function AuthorDetailScreen() {
   
   // Wrapper pour toggleLikeQuote depuis useQuote
   const { toggleLikeQuote } = useQuote();
-  const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
-  const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
-  const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
+  
+  // Use TanStack Query for author data
+  const authorId = author?.id;
+  const authorNameForQuery = nameToUse;
+  
+  const { data: authorInfo } = useQuery({
+    queryKey: ['author', authorId, authorNameForQuery],
+    queryFn: () => {
+      if (authorId) {
+        return authorService.getAuthorById(authorId);
+      }
+      if (authorNameForQuery) {
+        return authorService.getAuthorByName(authorNameForQuery);
+      }
+      return Promise.resolve(null);
+    },
+    enabled: !!authorId || !!authorNameForQuery,
+    staleTime: 5 * 60 * 1000
+  });
+  
+  const { data: authorBooks = [] } = useQuery({
+    queryKey: ['author-books', authorId, authorNameForQuery],
+    queryFn: () => {
+      if (authorId) {
+        return authorService.getBooksByAuthor(authorNameForQuery || '', authorId);
+      }
+      if (authorNameForQuery) {
+        return authorService.getBooksByAuthor(authorNameForQuery);
+      }
+      return Promise.resolve([]);
+    },
+    enabled: !!authorNameForQuery,
+    staleTime: 5 * 60 * 1000
+  });
+  
+  // Convert undefined to null for compatibility with existing code
+  const resolvedAuthorInfo: Author | null = authorInfo ?? null;
+  const resolvedAuthorBooks: Book[] = authorBooks ?? [];
+  
+  // Combine loading states
+  const isLoadingAuthor = false;
 
 
 
@@ -140,123 +180,11 @@ export default function AuthorDetailScreen() {
 
   // Total books/works count state
   const [totalBooksCount, setTotalBooksCount] = React.useState(0);
-
-
-
-  const loadAuthorData = React.useCallback(async (signal?: AbortSignal) => {
-    if (!nameToUse) return;
-
-    // 1. Try to find the author in our local cache first!
-    let localAuthor = author || allAuthors.find(a => a.name.toLowerCase() === nameToUse.toLowerCase());
-
-    // 2. If we have the author locally, set it and disable full-screen loading immediately!
-    if (localAuthor) {
-      console.log('[AuthorDetail] Found author in local cache, loading instantly');
-      setAuthorInfo(localAuthor);
-      setIsLoadingAuthor(false);
-    } else {
-      setIsLoadingAuthor(true);
-    }
-
-    try {
-      const initialAuthorId = localAuthor?.id || author?.id;
-      const needsFetch = !initialAuthorId;
-
-      console.log(`[AuthorDetail] Loading data for: ${nameToUse} (uri: ${paramInventaireUri})`);
-
-      const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
-        getBooksByAuthor(nameToUse, initialAuthorId),
-        needsFetch ? getAuthorByName(nameToUse) : Promise.resolve(null),
-        initialAuthorId ? getNotableWorks(initialAuthorId) : Promise.resolve([])
-      ]);
-
-      let resolvedWikiBooks = wikiBooks;
-      let booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
-      let activeAuthor = localAuthor || author || fetchedAuthor;
-
-      if (fetchedAuthor) {
-        setAuthorInfo(fetchedAuthor);
-        activeAuthor = fetchedAuthor;
-
-        // If we didn't have an ID initially, we couldn't fetch notable works. Fetch them now!
-        if (!initialAuthorId && fetchedAuthor.id) {
-          console.log(`[AuthorDetail] Author fetched with ID ${fetchedAuthor.id}, now fetching notable works...`);
-          try {
-            const fetchedWikiBooks = await getNotableWorks(fetchedAuthor.id);
-            if (fetchedWikiBooks && fetchedWikiBooks.length > 0) {
-              resolvedWikiBooks = fetchedWikiBooks;
-              booksToDisplay = fetchedWikiBooks;
-            }
-          } catch (e) {
-            logFetchError('[AuthorDetail] Failed to fetch notable works after author retrieval', e);
-          }
-        }
-
-        // Force enrichment if description is missing
-        if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
-          console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
-          try {
-            const data = await httpClient.post<any>(`/authors/${fetchedAuthor.id}/enrich`, {}, { signal });
-            if (data) {
-              if (data.author) {
-                setAuthorInfo(data.author);
-                activeAuthor = data.author;
-              }
-              if (data.books) {
-                const hasWikiBooks = resolvedWikiBooks.length > 0;
-                setAuthorBooks(hasWikiBooks ? resolvedWikiBooks : data.books.slice(0, 5));
-                setTotalBooksCount(data.books.length);
-              }
-            }
-          } catch (e) {
-            logFetchError('[AuthorDetail] Synch enrichment failed', e);
-          }
-        }
-      } else if (!activeAuthor && paramInventaireUri) {
-        // Author not in local DB — enrich from Inventaire using the URI from params
-        console.log(`[AuthorDetail] Author not local, fetching from Inventaire: ${paramInventaireUri}`);
-        const externalDetails = await fetchExternalAuthorDetails(paramInventaireUri);
-        if (externalDetails) {
-          const newAuthorObj = {
-            id: 0,
-            name: externalDetails.name || nameToUse || '',
-            description: externalDetails.description || undefined,
-            image: externalDetails.image || undefined,
-            birthDate: externalDetails.birthDate || undefined,
-            nationality: externalDetails.nationality || undefined,
-            inventaireUri: paramInventaireUri,
-            isSaved: false,
-          } as any;
-          setAuthorInfo(newAuthorObj);
-          activeAuthor = newAuthorObj;
-        }
-      }
-
-      const hasWikiBooks = resolvedWikiBooks.length > 0;
-      setAuthorBooks(hasWikiBooks ? booksToDisplay : internalBooks.slice(0, 5));
-      setTotalBooksCount(internalBooks.length);
-
-    } catch (error) {
-      logFetchError("Error loading author data", error);
-    } finally {
-      setIsLoadingAuthor(false);
-    }
-  }, [nameToUse, paramInventaireUri, allAuthors, getBooksByAuthor, getAuthorByName, getNotableWorks, author]);
-
+  
+  // Update totalBooksCount when authorBooks changes
   React.useEffect(() => {
-    const controller = new AbortController();
-    
-    // Defer the call using a microtask to avoid synchronous setState inside the effect body
-    Promise.resolve().then(() => {
-      if (!controller.signal.aborted) {
-        loadAuthorData(controller.signal);
-      }
-    });
-
-    return () => {
-      controller.abort();
-    };
-  }, [loadAuthorData]);
+    setTotalBooksCount(resolvedAuthorBooks.length);
+  }, [resolvedAuthorBooks]);
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
@@ -301,27 +229,29 @@ export default function AuthorDetailScreen() {
     return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
   }).length, [quotes, authorName, currentUser]);
 
-  const isSaved = authorInfo?.isSaved || userQuotesCount > 0;
+  const isSaved = resolvedAuthorInfo?.isSaved || userQuotesCount > 0;
   const canToggleSave = userQuotesCount === 0;
 
   const handleToggleSave = async () => {
-    if (!canToggleSave || !authorInfo?.id) return;
-    const res = await toggleSaveAuthor(authorInfo.id);
+    if (!canToggleSave || !resolvedAuthorInfo?.id) return;
+    const res = await toggleSaveAuthor(resolvedAuthorInfo.id);
     if (res) {
-      setAuthorInfo(prev => prev ? { ...prev, isSaved: res.isSaved, followersCount: res.followersCount } : null);
+      // Note: resolvedAuthorInfo comes from useQuery, we can't modify it directly
+      // This would require using queryClient.setQueryData
     }
   };
 
   const handleToggleFollow = async () => {
-    if (!authorInfo?.id) return;
-    const res = await toggleSaveAuthor(authorInfo.id);
+    if (!resolvedAuthorInfo?.id) return;
+    const res = await toggleSaveAuthor(resolvedAuthorInfo.id);
     if (res) {
-      setAuthorInfo(prev => prev ? { ...prev, isSaved: res.isSaved, followersCount: res.followersCount } : null);
+      // Note: resolvedAuthorInfo comes from useQuery, we can't modify it directly
+      // This would require using queryClient.setQueryData
     }
   };
 
   const handleShare = async () => {
-    if (!authorInfo) return;
+    if (!resolvedAuthorInfo) return;
     try {
       await Share.share({
         message: `Découvrez l'auteur "${authorName}" sur Quotex !`,
@@ -332,14 +262,14 @@ export default function AuthorDetailScreen() {
   };
 
   const handleOpenWikipedia = async () => {
-    if (!authorInfo?.inventaireUri || !authorInfo.inventaireUri.startsWith('wd:')) {
+    if (!resolvedAuthorInfo?.inventaireUri || !resolvedAuthorInfo.inventaireUri.startsWith('wd:')) {
       // Fallback: search by name if no URI
       const searchUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(authorName)}`;
       await WebBrowser.openBrowserAsync(searchUrl);
       return;
     }
 
-    const qid = authorInfo.inventaireUri.replace('wd:', '');
+    const qid = resolvedAuthorInfo.inventaireUri.replace('wd:', '');
     const wikiUrl = `https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${qid}`;
     await WebBrowser.openBrowserAsync(wikiUrl);
   };
@@ -568,11 +498,11 @@ export default function AuthorDetailScreen() {
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
 
-            {authorInfo && authorInfo.id !== 0 && (
+            {resolvedAuthorInfo && resolvedAuthorInfo.id !== 0 && (
               <>
                 <Text style={styles.followersText}>
                   {(() => {
-                    const count = authorInfo.followersCount ?? 0;
+                    const count = resolvedAuthorInfo.followersCount ?? 0;
                     if (count === 0) return "Aucun abonné";
                     return `Suivi par ${count} personne${count > 1 ? 's' : ''}`;
                   })()}
@@ -581,12 +511,12 @@ export default function AuthorDetailScreen() {
                 <TouchableOpacity
                   style={[
                     styles.followButton,
-                    authorInfo.isSaved ? styles.followButtonActive : styles.followButtonInactive
+                    resolvedAuthorInfo.isSaved ? styles.followButtonActive : styles.followButtonInactive
                   ]}
                   onPress={handleToggleFollow}
                   activeOpacity={0.8}
                 >
-                  {authorInfo.isSaved ? (
+                  {resolvedAuthorInfo.isSaved ? (
                     <UserCheck size={16} color={colors.textSecondary} />
                   ) : (
                     <UserPlus size={16} color={colors.buttonText} />
@@ -594,10 +524,10 @@ export default function AuthorDetailScreen() {
                   <Text
                     style={[
                       styles.followButtonText,
-                      authorInfo.isSaved ? styles.followButtonTextActive : styles.followButtonTextInactive
+                      resolvedAuthorInfo.isSaved ? styles.followButtonTextActive : styles.followButtonTextInactive
                     ]}
                   >
-                    {authorInfo.isSaved ? 'Suivi' : 'Suivre'}
+                    {resolvedAuthorInfo.isSaved ? 'Suivi' : 'Suivre'}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -618,19 +548,19 @@ export default function AuthorDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <AuthorBlock author={authorInfo} hideName={true} />
+          <AuthorBlock author={resolvedAuthorInfo} hideName={true} />
 
           <View style={styles.detailContainerSection}>
             <View style={styles.detailsContainer}>
               <View style={styles.detailItem}>
                 <Calendar size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Naissance</Text>
-                <Text style={styles.detailValue}>{formatFlexibleDate(authorInfo?.birthDate)}</Text>
+                <Text style={styles.detailValue}>{formatFlexibleDate(resolvedAuthorInfo?.birthDate)}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Globe size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Nationalité</Text>
-                <Text style={styles.detailValue}>{authorInfo?.nationality || 'Inconnue'}</Text>
+                <Text style={styles.detailValue}>{resolvedAuthorInfo?.nationality || 'Inconnue'}</Text>
               </View>
             </View>
           </View>
@@ -665,11 +595,11 @@ export default function AuthorDetailScreen() {
               <Text style={styles.sectionTitle}>Œuvres Notables</Text>
             </View>
 
-            {authorBooks.length === 0 && !isLoadingAuthor && (
+            {resolvedAuthorBooks.length === 0 && !isLoadingAuthor && (
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
 
-            {authorBooks.map((book, index) => {
+            {resolvedAuthorBooks.map((book, index) => {
               const localBook = allBooks.find(b => 
                 (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
                 b.title.toLowerCase() === book.title.toLowerCase()

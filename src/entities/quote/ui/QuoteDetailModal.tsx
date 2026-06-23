@@ -31,6 +31,7 @@ import Sortable from 'react-native-sortables';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
 // Removed walkthroughable components
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { authorService } from '@/src/entities/author/api/AuthorService';
@@ -342,9 +343,24 @@ function QuoteDetailContent() {
     initialQuote?.blockData ? JSON.stringify(initialQuote.blockData) : '{}'
   );
 
-  // State for rich data
-  const [fetchedBook, setFetchedBook] = React.useState<Book | null>(null);
-  const [fetchedAuthor, setFetchedAuthor] = React.useState<Author | null>(null);
+  // State for rich data - using TanStack Query
+  const { data: fetchedBook } = useQuery({
+    queryKey: ['book', quote?.bookId],
+    queryFn: () => authorService.getBookById(quote!.bookId!),
+    enabled: !!quote?.bookId,
+    staleTime: 5 * 60 * 1000
+  });
+  
+  const { data: fetchedAuthor } = useQuery({
+    queryKey: ['author', quote?.authorId],
+    queryFn: () => authorService.getAuthorById(quote!.authorId!),
+    enabled: !!quote?.authorId,
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Convert undefined to null for compatibility with existing code
+  const resolvedFetchedBook = fetchedBook ?? null;
+  const resolvedFetchedAuthor = fetchedAuthor ?? null;
   const [gridData, setGridData] = React.useState<string[]>([]);
   const [, setIsLoadingLayout] = React.useState(true);
   const [isAIChatVisible, setAIChatVisible] = React.useState(false);
@@ -533,36 +549,23 @@ function QuoteDetailContent() {
     }
   }, [quoteId]);
 
+  // Refresh quote if user is missing
   React.useEffect(() => {
     const loadData = async () => {
-      if (quote) {
-        // If user is missing, try to fetch the full quote details freshly
-        if (!quote.user && quote.id) {
-          try {
-            const freshQuote = await quoteService.getQuoteById(quote.id);
-            if (freshQuote && freshQuote.user) {
-              lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
-              setQuote(freshQuote);
-              return; // Return to avoid double fetching book/author immediately, let the effect re-run
-            }
-          } catch (e) {
-            console.log('Failed to refresh quote details', e);
+      if (quote && !quote.user && quote.id) {
+        try {
+          const freshQuote = await quoteService.getQuoteById(quote.id);
+          if (freshQuote && freshQuote.user) {
+            lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
+            setQuote(freshQuote);
           }
+        } catch (e) {
+          console.log('Failed to refresh quote details', e);
         }
-
-        const bookTitle = getBookTitle(quote.book);
-        const authorName = getAuthorName(quote.author);
-
-        // Fetch rich data using services
-        const book = await authorService.getBookByTitle(bookTitle);
-        setFetchedBook(book || null);
-
-        const author = await authorService.getAuthorByName(authorName);
-        setFetchedAuthor(author || null);
       }
     };
     loadData();
-  }, [quote?.id, quote?.user, quote?.book, quote?.author]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [quote?.id, quote?.user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const quoteAuthorName = quote ? getAuthorName(quote.author) : '';
   const quoteBookTitle = quote ? getBookTitle(quote.book) : '';
@@ -704,8 +707,8 @@ function QuoteDetailContent() {
   // Helper for Dispatcher Context
   const blockContext = useMemo((): BlockContext => ({
     quote,
-    book: fetchedBook,
-    author: fetchedAuthor,
+    book: resolvedFetchedBook,
+    author: resolvedFetchedAuthor,
     onUpdateBlockData: handleUpdateBlockData,
     onBookPress: (idOrTitle, uri) => navigateToBook(idOrTitle, uri),
     onAuthorPress: (name, uri) => navigateToAuthor(name, uri),
@@ -717,7 +720,7 @@ function QuoteDetailContent() {
       setCurrentConnectionBlockId(blockId);
       setResourceSearchModalVisible(true);
     },
-  }), [quote, fetchedBook, fetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor]);
+  }), [quote, resolvedFetchedBook, resolvedFetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor]);
 
   const handleToggleLike = () => {
     if (!quote) return;
@@ -741,7 +744,7 @@ function QuoteDetailContent() {
   };
 
   const onAuthorPress = (authorName: string, inventaireUri?: string) => navigateToAuthor(authorName, inventaireUri);
-  const onBookPress = (bookTitle: string) => navigateToBook(fetchedBook?.id ?? bookTitle, fetchedBook?.inventaireUri);
+  const onBookPress = (bookTitle: string) => navigateToBook(resolvedFetchedBook?.id ?? bookTitle, resolvedFetchedBook?.inventaireUri);
 
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   const aiSectionRef = React.useRef<View>(null);
@@ -1265,8 +1268,8 @@ function QuoteDetailContent() {
           visible={isAIChatVisible}
           onClose={() => setAIChatVisible(false)}
           quote={quote}
-          book={fetchedBook}
-          author={fetchedAuthor}
+          book={resolvedFetchedBook}
+          author={resolvedFetchedAuthor}
           onUpdateQuote={(updated) => setQuote(updated)}
         />
 

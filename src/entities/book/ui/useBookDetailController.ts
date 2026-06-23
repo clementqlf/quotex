@@ -12,6 +12,7 @@ import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, isUserQuot
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
@@ -72,7 +73,38 @@ export const useBookDetailController = () => {
 
   const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
+  const queryClient = useQueryClient();
+  
+  // Use TanStack Query for book and author data
+  const { data: bookData, isLoading: isLoadingQuery } = useQuery({
+    queryKey: ['book-detail', bookId, bookTitleParam, inventaireUriParam],
+    queryFn: () => loadBookDetailData({
+      bookId,
+      bookTitle: bookTitleParam,
+      inventaireUri: inventaireUriParam,
+      bookCover: bookCoverParam,
+      bookData: rawParams.bookData,
+      getBookById,
+      getBookByTitle,
+      getBookByInventaireUri,
+      importBook,
+      getAuthorByName,
+    }),
+    enabled: !!bookId || !!bookTitleParam,
+    staleTime: 5 * 60 * 1000
+  });
+  
+  // Combine loading states
+  const isLoadingMetadata = isLoadingQuery || isImporting;
+  
+  // Update local state when query data changes
+  useEffect(() => {
+    if (bookData) {
+      setBookInfo(bookData.book);
+      setAuthorInfo(bookData.author);
+    }
+  }, [bookData]);
   const [gridData, setGridData] = useState<string[]>([]);
   const [blockData, setBlockData] = useState<Record<string, any>>({});
   const [isLoadingLayout, setIsLoadingLayout] = useState(true);
@@ -94,62 +126,29 @@ export const useBookDetailController = () => {
 
   const [prevBookKey, setPrevBookKey] = useState<string>('');
   const currentBookKey = `${bookId}_${bookTitleParam}_${inventaireUriParam}`;
-  if (currentBookKey !== prevBookKey) {
-    setPrevBookKey(currentBookKey);
-    setBookInfo(null);
-    setAuthorInfo(null);
-    setGridData([]);
-    setBlockData({});
-    // eslint-disable-next-line react-hooks/refs
-    lastSavedBookBlockData.current = '{}';
-    setIsLoadingLayout(true);
-    setIsLoadingMetadata(true);
-    setActiveTab('description');
-  }
-
+  
+  // Reset state when book key changes
   useEffect(() => {
-    let mounted = true;
-
-    if (!bookId && !bookTitleParam) {
-      if (mounted) {
-        Promise.resolve().then(() => {
-          setIsLoadingMetadata(false);
-        });
-      }
-      return;
+    if (currentBookKey !== prevBookKey) {
+      setPrevBookKey(currentBookKey);
+      setBookInfo(null);
+      setAuthorInfo(null);
+      setGridData([]);
+      setBlockData({});
+      lastSavedBookBlockData.current = '{}';
+      setIsLoadingLayout(true);
+      setActiveTab('description');
+      // Invalidate query to force refetch
+      queryClient.invalidateQueries({ queryKey: ['book-detail'] });
     }
+  }, [currentBookKey, prevBookKey, queryClient]);
 
-    const load = async () => {
-      try {
-        const result = await loadBookDetailData({
-          bookId,
-          bookTitle: bookTitleParam,
-          inventaireUri: inventaireUriParam,
-          bookCover: bookCoverParam,
-          bookData: rawParams.bookData,
-          getBookById,
-          getBookByTitle,
-          getBookByInventaireUri,
-          importBook,
-          getAuthorByName,
-        });
-
-        if (mounted) {
-          setBookInfo(result.book);
-          setAuthorInfo(result.author);
-        }
-      } catch (err) {
-        console.error('[BookDetail] load error:', err);
-      } finally {
-        if (mounted) setIsLoadingMetadata(false);
-      }
+  // Update reloadRef to use query client
+  useEffect(() => {
+    reloadRef.current = () => {
+      queryClient.invalidateQueries({ queryKey: ['book-detail', bookId, bookTitleParam, inventaireUriParam] });
     };
-
-    reloadRef.current = () => { if (mounted) void load(); };
-    void load();
-
-    return () => { mounted = false; };
-  }, [bookId, bookTitleParam, inventaireUriParam, bookCoverParam, rawParams.bookData, getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName]);
+  }, [queryClient, bookId, bookTitleParam, inventaireUriParam]);
 
   const currentTabBlocks = useMemo(() => (gridData || []).filter(key => isBlockInTab(key, activeTab)), [gridData, activeTab]);
   const filteredBlockOptions = useMemo(() => (
@@ -273,7 +272,7 @@ export const useBookDetailController = () => {
 
     if (!currentBookInfo.id) {
       try {
-        setIsLoadingMetadata(true);
+        setIsImporting(true);
         const importPayload = buildBookImportPayload({
           title: currentBookInfo.title,
           cover: currentBookInfo.cover,
@@ -289,6 +288,8 @@ export const useBookDetailController = () => {
         if (imported?.id) {
           currentBookInfo = imported;
           setBookInfo(imported);
+          // Invalidate query to refresh data
+          queryClient.invalidateQueries({ queryKey: ['book-detail'] });
         } else {
           Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
           return;
@@ -298,7 +299,7 @@ export const useBookDetailController = () => {
         Alert.alert('Erreur', 'Une erreur est survenue lors de la création du livre.');
         return;
       } finally {
-        setIsLoadingMetadata(false);
+        setIsImporting(false);
       }
     }
 
