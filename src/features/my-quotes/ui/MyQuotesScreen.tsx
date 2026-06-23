@@ -27,6 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import SimpleScanModal from '@/src/features/scanner/ui/SimpleScanModal';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -278,6 +279,8 @@ export default function MyQuotesScreen() {
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
+  const [scannedText, setScannedText] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
@@ -944,6 +947,7 @@ export default function MyQuotesScreen() {
         onClose={() => {
           setShowManualQuoteModal(false);
           setEditingQuote(null);
+          setScannedText('');
         }}
         onConfirm={async (text, book, author) => {
           await handleConfirmSave(text, book, author, {
@@ -954,9 +958,22 @@ export default function MyQuotesScreen() {
           });
           scrollToQuotesTop();
         }}
-        scannedText={editingQuote ? editingQuote.text : ""}
+        scannedText={editingQuote ? editingQuote.text : scannedText}
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}
         initialAuthor={editingQuote ? getAuthorName(editingQuote.author) : ""}
+      />
+
+      <SimpleScanModal
+        visible={showSimpleScanModal}
+        onClose={() => setShowSimpleScanModal(false)}
+        onSuccess={(text) => {
+          setShowSimpleScanModal(false);
+          setScannedText(text);
+          setEditingQuote(null);
+          setTimeout(() => {
+            setShowManualQuoteModal(true);
+          }, Platform.OS === 'ios' ? 350 : 50);
+        }}
       />
 
       <QuoteActionModal
@@ -1015,14 +1032,14 @@ export default function MyQuotesScreen() {
         visible={showAddMenu}
         onClose={() => setShowAddMenu(false)}
         onScanPress={() => {
-          if (setPage) {
-            setPage(1);
-          } else {
-            router.navigate('/scan');
-          }
+          setShowAddMenu(false);
+          setTimeout(() => {
+            setShowSimpleScanModal(true);
+          }, Platform.OS === 'ios' ? 350 : 50);
         }}
         onManualAddPress={() => {
           setEditingQuote(null);
+          setScannedText('');
           setShowManualQuoteModal(true);
         }}
       />
