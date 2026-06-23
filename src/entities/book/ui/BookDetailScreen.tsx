@@ -1,10 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
 import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
-import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
-import SimpleScanModal from '@/src/features/scanner/ui/SimpleScanModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { Image } from 'expo-image';
@@ -59,17 +56,7 @@ export default function BookDetailScreen() {
     getStatusColor,
     getStatusLabel,
     DESCRIPTION_BLOCKS,
-    showAddQuoteModal,
-    setShowAddQuoteModal,
-    showAddQuoteMenu,
-    setShowAddQuoteMenu,
-    menuTriggerY,
-    setMenuTriggerY,
-    showSimpleScanModal,
-    setShowSimpleScanModal,
-    scannedText,
-    setScannedText,
-    handleConfirmAddQuote,
+    renderQuoteModals,
   } = useBookDetailController();
 
   const renderGridItem = useCallback(({ item }: { item: string }) => (
@@ -315,51 +302,7 @@ export default function BookDetailScreen() {
           onSelect={handleResourceSelected}
         />
 
-        <AddQuoteMenu
-          visible={showAddQuoteMenu}
-          triggerY={menuTriggerY}
-          onClose={() => {
-            setShowAddQuoteMenu(false);
-            setMenuTriggerY(undefined);
-          }}
-          onScanPress={() => {
-            setShowAddQuoteMenu(false);
-            setTimeout(() => {
-              setShowSimpleScanModal(true);
-            }, Platform.OS === 'ios' ? 350 : 50);
-          }}
-          onManualAddPress={() => {
-            setShowAddQuoteMenu(false);
-            setScannedText('');
-            setTimeout(() => {
-              setShowAddQuoteModal(true);
-            }, Platform.OS === 'ios' ? 350 : 50);
-          }}
-        />
-
-        <SimpleScanModal
-          visible={showSimpleScanModal}
-          onClose={() => setShowSimpleScanModal(false)}
-          onSuccess={(text) => {
-            setShowSimpleScanModal(false);
-            setScannedText(text);
-            setTimeout(() => {
-              setShowAddQuoteModal(true);
-            }, Platform.OS === 'ios' ? 350 : 50);
-          }}
-        />
-
-        <ScanPreviewModal
-          visible={showAddQuoteModal}
-          onClose={() => {
-            setShowAddQuoteModal(false);
-            setScannedText('');
-          }}
-          onConfirm={handleConfirmAddQuote}
-          scannedText={scannedText}
-          initialBook={bookTitle || ""}
-          initialAuthor={bookInfo?.author ? getAuthorName(bookInfo.author) : ""}
-        />
+        {renderQuoteModals()}
       </View>
     </SafeAreaView>
   );

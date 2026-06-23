@@ -3,7 +3,7 @@ import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { buildBookImportPayload } from '@/src/entities/book/lib/bookImport';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
-import { useQuoteActions } from '@/src/entities/quote/lib';
+import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { BlockService } from '@/src/shared/api/BlockService';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
@@ -79,26 +79,18 @@ export const useBookDetailController = () => {
   const [isAddBlockModalVisible, setAddBlockModalVisible] = useState(false);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = useState(false);
-  const [showAddQuoteModal, setShowAddQuoteModal] = useState(false);
-  const [showAddQuoteMenu, setShowAddQuoteMenu] = useState(false);
-  const [menuTriggerY, setMenuTriggerY] = useState<number | undefined>(undefined);
-  const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
-  const [scannedText, setScannedText] = useState('');
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('description');
 
-  const { handleConfirmSave } = useQuoteActions();
-
-  const handleConfirmAddQuote = useCallback(async (text: string, bookTitle: string, authorName: string) => {
-    await handleConfirmSave(text, bookTitle, authorName, {
-      setShowModal: setShowAddQuoteModal,
-      isFromScanner: false,
-    });
-  }, [handleConfirmSave]);
   const lastSavedBookBlockData = React.useRef<string>('{}');
   const reloadRef = React.useRef<() => void>(() => {});
 
   const bookTitle = bookInfo?.title || bookTitleParam || (bookId ? allBooks.find(b => b.id === bookId)?.title : undefined);
+
+  const { openAddQuoteFlow, renderQuoteModals } = useQuoteCreationFlow({
+    initialBook: bookTitle,
+    initialAuthor: bookInfo?.author ? getAuthorName(bookInfo.author) : '',
+  });
 
   const [prevBookKey, setPrevBookKey] = useState<string>('');
   const currentBookKey = `${bookId}_${bookTitleParam}_${inventaireUriParam}`;
@@ -435,13 +427,10 @@ export const useBookDetailController = () => {
         setCurrentConnectionBlockId(blockId);
         setResourceSearchModalVisible(true);
       },
-      onAddQuote: (pageY) => {
-        setMenuTriggerY(pageY);
-        setShowAddQuoteMenu(true);
-      },
+      onAddQuote: openAddQuoteFlow,
       ...({ visibleDefinitions, hiddenTerms: Array.from(hiddenTermsSet), manualDefinitions: manualDefs, aggregatedDefinitions } as any)
     };
-  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router, navigateToBook, navigateToAuthor]);
+  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router, navigateToBook, navigateToAuthor, openAddQuoteFlow]);
 
   const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = (blockContext as any);
 
@@ -525,17 +514,7 @@ export const useBookDetailController = () => {
     setDictionaryModalVisible,
     setResourceSearchModalVisible,
     setCurrentConnectionBlockId,
-    showAddQuoteModal,
-    setShowAddQuoteModal,
-    showAddQuoteMenu,
-    setShowAddQuoteMenu,
-    menuTriggerY,
-    setMenuTriggerY,
-    showSimpleScanModal,
-    setShowSimpleScanModal,
-    scannedText,
-    setScannedText,
-    handleConfirmAddQuote,
+    renderQuoteModals,
     getStatusLabel,
     getStatusColor,
     getBookTitle,

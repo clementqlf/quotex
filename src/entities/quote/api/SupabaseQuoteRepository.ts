@@ -63,6 +63,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
         user: q.user,
         aiInterpretation: q.aiInterpretation,
+        isPublic: q.isPublic,
         savedAt: q.savedAt || q.AddedAt || null, // Date de sauvegarde depuis userquote.AddedAt
     };
   }

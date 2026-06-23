@@ -18,6 +18,7 @@ import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, U
 import React, { useMemo, useState, useCallback } from 'react';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
+import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -152,6 +153,15 @@ export default function AuthorDetailScreen() {
   const [allWorks, setAllWorks] = React.useState<Book[]>([]);
   const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
 
+  // New state for All Quotes Modal
+  const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
+  const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
+
+  // Total books/works count state
+  const [totalBooksCount, setTotalBooksCount] = React.useState(0);
+
+
+
   const loadAuthorData = React.useCallback(async (signal?: AbortSignal) => {
     if (!nameToUse) return;
 
@@ -179,6 +189,7 @@ export default function AuthorDetailScreen() {
         initialAuthorId ? getNotableWorks(initialAuthorId) : Promise.resolve([])
       ]);
 
+      let resolvedWikiBooks = wikiBooks;
       let booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
       let activeAuthor = localAuthor || author || fetchedAuthor;
 
@@ -192,6 +203,7 @@ export default function AuthorDetailScreen() {
           try {
             const fetchedWikiBooks = await getNotableWorks(fetchedAuthor.id);
             if (fetchedWikiBooks && fetchedWikiBooks.length > 0) {
+              resolvedWikiBooks = fetchedWikiBooks;
               booksToDisplay = fetchedWikiBooks;
             }
           } catch (e) {
@@ -215,7 +227,11 @@ export default function AuthorDetailScreen() {
                 setAuthorInfo(data.author);
                 activeAuthor = data.author;
               }
-              if (data.books) setAuthorBooks(data.books);
+              if (data.books) {
+                const hasWikiBooks = resolvedWikiBooks.length > 0;
+                setAuthorBooks(hasWikiBooks ? resolvedWikiBooks : data.books.slice(0, 5));
+                setTotalBooksCount(data.books.length);
+              }
             }
           } catch (e) {
             logFetchError('[AuthorDetail] Synch enrichment failed', e);
@@ -241,7 +257,9 @@ export default function AuthorDetailScreen() {
         }
       }
 
-      setAuthorBooks(booksToDisplay);
+      const hasWikiBooks = resolvedWikiBooks.length > 0;
+      setAuthorBooks(hasWikiBooks ? booksToDisplay : internalBooks.slice(0, 5));
+      setTotalBooksCount(internalBooks.length);
 
     } catch (error) {
       logFetchError("Error loading author data", error);
@@ -282,6 +300,7 @@ export default function AuthorDetailScreen() {
       if (!currentAuthorId) throw new Error("Artist ID missing");
       const works = await getBooksByAuthor(nameToUse, currentAuthorId);
       setAllWorks(works);
+      setTotalBooksCount(works.length);
     } catch (error) {
       logFetchError("Error fetching all works", error);
     } finally {
@@ -295,9 +314,13 @@ export default function AuthorDetailScreen() {
 
 
 
-  const totalQuotes = useMemo(() => quotes.filter(q =>
-    getAuthorName(q.author).toLowerCase() === authorName.toLowerCase()
-  ).length, [quotes, authorName]);
+  const authorQuotes = useMemo(() => {
+    return quotes.filter(q =>
+      getAuthorName(q.author).toLowerCase() === authorName.toLowerCase()
+    );
+  }, [quotes, authorName]);
+
+  const totalQuotes = authorQuotes.length;
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
     return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
@@ -345,6 +368,10 @@ export default function AuthorDetailScreen() {
     const wikiUrl = `https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${qid}`;
     await WebBrowser.openBrowserAsync(wikiUrl);
   };
+
+  const { openAddQuoteFlow, renderQuoteModals } = useQuoteCreationFlow({
+    initialAuthor: authorName,
+  });
 
   const handleAddBook = async (book: any) => {
     try {
@@ -634,14 +661,27 @@ export default function AuthorDetailScreen() {
           </View>
 
           <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{authorBooks.length}</Text>
-              <Text style={styles.statLabel}>Œuvres Notables</Text>
-            </View>
-            <View style={styles.statItem}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={fetchAllWorks}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.statValue}>{totalBooksCount}</Text>
+              <Text style={styles.statLabel}>Œuvres</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => {
+                if (totalQuotes > 0) {
+                  setHasRenderedQuotesModal(true);
+                  setShowAllQuotesModal(true);
+                }
+              }}
+              activeOpacity={0.7}
+            >
               <Text style={styles.statValue}>{totalQuotes}</Text>
               <Text style={styles.statLabel}>Citations</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
@@ -715,13 +755,12 @@ export default function AuthorDetailScreen() {
               return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
             });
 
-            if (userQuotes.length === 0) return null;
-
             return (
               <SavedQuotesBlock
                 quotes={userQuotes}
                 showBookTitle={true}
                 onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
+                onAddQuote={openAddQuoteFlow}
               />
             );
           })()}
@@ -807,6 +846,62 @@ export default function AuthorDetailScreen() {
             </View>
           </Modal>
         )}
+
+        {hasRenderedQuotesModal && (
+          <Modal
+            visible={showAllQuotesModal}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setShowAllQuotesModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Citations de {authorName}</Text>
+                <TouchableOpacity onPress={() => setShowAllQuotesModal(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <FlashList
+                data={authorQuotes}
+                keyExtractor={(item) => String(item.id)}
+                getItemType={() => 'quote'}
+                contentContainerStyle={{ padding: 16 }}
+                renderItem={({ item }) => {
+                  const isMine = item.user?.id === currentUser?.id || !item.user;
+                  return (
+                    <TouchableOpacity
+                      style={styles.quoteModalCard}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setShowAllQuotesModal(false);
+                        router.navigate({
+                          pathname: '/quote-detail',
+                          params: { quote: JSON.stringify(item) }
+                        });
+                      }}
+                    >
+                      <Text style={styles.quoteModalText}>“ {item.text} ”</Text>
+                      <View style={styles.quoteModalMeta}>
+                        <Text style={styles.quoteModalBook}>{getBookTitle(item.book)}</Text>
+                        <Text style={styles.quoteModalUser}>
+                          Par {isMine ? 'Moi' : item.user?.name || `@${item.user?.username}`}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={styles.centered}>
+                    <Text style={styles.emptyText}>Aucune citation trouvée.</Text>
+                  </View>
+                }
+              />
+            </View>
+          </Modal>
+        )}
+
+        {renderQuoteModals()}
       </View>
     </SafeAreaView>
   );
@@ -1062,5 +1157,38 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  quoteModalCard: {
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 12,
+  },
+  quoteModalText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    fontFamily: 'serif',
+  },
+  quoteModalMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+  },
+  quoteModalBook: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  quoteModalUser: {
+    fontSize: 11,
+    color: colors.textTertiary,
   },
 });

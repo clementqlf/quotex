@@ -59,6 +59,7 @@ export interface Quote {
   notes?: string | null; // Notes personnelles
   blockData?: BlockData; // Données de blocks personnalisés
   aiInterpretation?: string | null; // Interprétation par IA
+  isPublic?: boolean; // Indique si la citation est publique
   
   // Champs de synchronisation
   wasSynced?: boolean; // A été synchronisé avec le serveur

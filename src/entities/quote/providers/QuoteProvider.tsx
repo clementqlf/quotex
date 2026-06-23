@@ -45,10 +45,14 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
   // Synchronisation automatique après sync
   useEffect(() => {
     if (syncStatus.lastSyncTime && syncStatus.pendingCount === 0) {
-      const timer = setTimeout(() => refreshQuotes('sync complete'), 1000);
+      const timer = setTimeout(() => {
+        refreshQuotes('sync complete');
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+        queryClient.invalidateQueries({ queryKey: ['books'] });
+      }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [syncStatus.lastSyncTime, syncStatus.pendingCount, refreshQuotes]);
+  }, [syncStatus.lastSyncTime, syncStatus.pendingCount, refreshQuotes, queryClient]);
 
   // Mutation pour toggleLike
   const toggleLikeMutation = useMutation({
@@ -73,6 +77,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     onSettled: (_data, err) => {
       if (QueuedOperationError.is(err)) return;
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     }
   });
 
@@ -113,6 +118,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
       // (il ne connaît pas encore cette sauvegarde ; l'état local fait foi jusqu'à la sync)
       if (QueuedOperationError.is(err)) return;
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     }
   });
 
@@ -136,6 +142,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     }
   });
 
@@ -180,6 +187,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     }
   });
 
@@ -203,6 +211,7 @@ export const QuoteProvider = ({ children }: { children: ReactNode }) => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     }
   });
 

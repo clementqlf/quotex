@@ -1,6 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { ThemeColors } from '@/src/shared/theme';
 import { Plus } from 'lucide-react-native';
 import React, { useMemo } from 'react';
@@ -31,7 +32,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
         return (
             <BlockWrapper blockKey="savedQuotes" onRemove={onRemove} rightElement={rightElement}>
                 <Text style={styles.fallbackText}>
-                    Aucune citation sauvegardée pour ce livre.
+                    {showBookTitle ? "Aucune citation sauvegardée pour cet auteur." : "Aucune citation sauvegardée pour ce livre."}
                 </Text>
             </BlockWrapper>
         );
@@ -54,7 +55,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({ quotes, onQuotePr
                             ) : (
                                 <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
                             )}
-                            <Text style={styles.savedQuoteDate}>{quote.savedAt || quote.date}</Text>
+                            <Text style={styles.savedQuoteDate}>{formatAbsoluteDate(quote.savedAt || quote.date)}</Text>
                         </View>
                     </TouchableOpacity>
                 ))}

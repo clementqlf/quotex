@@ -254,6 +254,7 @@ export default function UserProfileScreen() {
       } else {
         await authService.unfollowUser(profileData.id);
       }
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     } catch (error) {
       console.error('Error toggling follow:', error);
       // Revert in case of failure
@@ -435,6 +436,7 @@ export default function UserProfileScreen() {
         const profileQueryKey = isViewingOwnProfile ? `me_${currentUser?.id || 'none'}` : username;
         
         queryClient.setQueryData(['userProfile', profileQueryKey], updatedProfile);
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       }
 
       console.log("Profile updated successfully");
