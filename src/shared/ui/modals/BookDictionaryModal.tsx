@@ -1,5 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { fetchDefinition } from '@/src/features/dictionary/api/WiktionaryService';
+import { fetchDefinition } from '@/src/shared/api/WiktionaryService';
 import { ThemeColors } from '@/src/shared/theme';
 import { Check, Plus, Search, Trash2, X } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';

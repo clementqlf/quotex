@@ -170,10 +170,8 @@ export default function AuthorDetailScreen() {
 
   // New state for All Works Modal
   const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);
-  const [hasRenderedModal, setHasRenderedModal] = React.useState(false);
-  const [allWorks, setAllWorks] = React.useState<Book[]>([]);
-  const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
-
+  const [hasRenderedWorksModal, setHasRenderedWorksModal] = React.useState(false);
+  
   // New state for All Quotes Modal
   const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
   const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
@@ -186,29 +184,29 @@ export default function AuthorDetailScreen() {
     setTotalBooksCount(resolvedAuthorBooks.length);
   }, [resolvedAuthorBooks]);
 
+  // Use TanStack Query for all works
+  const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
+    queryKey: ['author-all-works', authorInfo?.id, nameToUse],
+    queryFn: async () => {
+      const currentAuthorId = authorInfo?.id;
+      if (!currentAuthorId || !nameToUse) throw new Error("Author ID or name missing");
+      return getBooksByAuthor(nameToUse, currentAuthorId);
+    },
+    enabled: showAllWorksModal && !!authorInfo?.id && !!nameToUse,
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Update total books count when allWorks is fetched
+  React.useEffect(() => {
+    if (allWorks.length > 0) {
+      setTotalBooksCount(allWorks.length);
+    }
+  }, [allWorks]);
+
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
-    setHasRenderedModal(true);
-    if (allWorks.length > 0) {
-      setShowAllWorksModal(true);
-      return;
-    }
-
-    setIsLoadingAllWorks(true);
+    setHasRenderedWorksModal(true);
     setShowAllWorksModal(true);
-    try {
-      // For now, "All Works" still uses external service or we could also move it to backend
-      // Using existing backend enrichment logic for consistency
-      const currentAuthorId = authorInfo?.id;
-      if (!currentAuthorId) throw new Error("Artist ID missing");
-      const works = await getBooksByAuthor(nameToUse, currentAuthorId);
-      setAllWorks(works);
-      setTotalBooksCount(works.length);
-    } catch (error) {
-      logFetchError("Error fetching all works", error);
-    } finally {
-      setIsLoadingAllWorks(false);
-    }
   };
 
   const authorName = authorInfo?.name || nameToUse || 'Inconnu';
@@ -671,7 +669,7 @@ export default function AuthorDetailScreen() {
           })()}
         </ScrollView>
 
-        {hasRenderedModal && (
+        {hasRenderedWorksModal && (
           <Modal
             visible={showAllWorksModal}
             animationType="slide"
@@ -695,6 +693,8 @@ export default function AuthorDetailScreen() {
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
                   getItemType={() => 'work'}
+                  estimatedItemSize={150}
+                  removeClippedSubviews={true}
                   contentContainerStyle={{ padding: 16 }}
                   renderItem={({ item }) => {
                     const localBook = allBooks.find(b => 
@@ -771,6 +771,8 @@ export default function AuthorDetailScreen() {
                 data={authorQuotes}
                 keyExtractor={(item) => String(item.id)}
                 getItemType={() => 'quote'}
+                estimatedItemSize={200}
+                removeClippedSubviews={true}
                 contentContainerStyle={{ padding: 16 }}
                 renderItem={({ item }) => {
                   const isMine = item.user?.id === currentUser?.id || !item.user;

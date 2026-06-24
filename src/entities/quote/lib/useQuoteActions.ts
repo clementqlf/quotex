@@ -3,7 +3,7 @@ import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
-import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
 import { Quote } from '@/src/shared/api/types';
 import { PlatformServices } from '@/src/shared/platform';
 import { useCallback } from 'react';

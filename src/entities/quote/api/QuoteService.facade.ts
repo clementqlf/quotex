@@ -1,5 +1,5 @@
-import { SupabaseQuoteRepository } from '@/src/entities/quote/api/SupabaseQuoteRepository';
-import { QuoteUseCases } from '@/src/features/quote/model/QuoteUseCases';
+import { SupabaseQuoteRepository } from './SupabaseQuoteRepository';
+import { QuoteUseCases } from '../model/QuoteUseCases';
 
 /**
  * Service de citation - Façade qui expose les QuoteUseCases

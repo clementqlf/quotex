@@ -1,4 +1,5 @@
-import { InteractiveTooltip, useAppTour } from '@/src/features/app-tour';
+import { useAppTour } from '@/src/features/app-tour';
+import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useRouter, usePathname } from 'expo-router';
 import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
@@ -35,7 +36,7 @@ import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 
 // Removed CopilotTouchable
 
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
 

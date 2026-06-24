@@ -11,6 +11,31 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { PhotoFile } from 'react-native-vision-camera';
 import { z } from 'zod';
 
+// Types pour les résultats ML Kit (OCR)
+export interface MLKitTextBlock {
+  text: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  cornerPoints?: { x: number; y: number }[];
+}
+
+export interface MLKitTextElement {
+  text: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+}
+
+export interface MLKitResult {
+  textBlocks: MLKitTextBlock[];
+  textElements: MLKitTextElement[];
+}
+
+// Type pour les résultats d'analyse IA (Groq)
+export interface GroqAnalysisResult {
+  author?: { name: string; confidence: number };
+  title?: { name: string; confidence: number };
+  isbn?: { code: string; confidence: number };
+  error?: string;
+}
+
 const ImportPayloadSchema = z.object({
   title: z.string().min(1),
   isbn: IsbnSchema,
@@ -260,7 +285,7 @@ export class ScanService {
                 const book = data.books[0];
                 const authorName = typeof book.author === 'string'
                     ? book.author
-                    : (book.author as any)?.name || 'Auteur inconnu';
+                    : (book.author as { name?: string })?.name || 'Auteur inconnu';
                 
                 this.platformServices.haptics.notificationAsync("success");
                 
@@ -320,7 +345,7 @@ export class ScanService {
                 path: normalizedPath || photoFile.path,
                 width: ocrResult.normalizedSize?.width || photoFile.width,
                 height: ocrResult.normalizedSize?.height || photoFile.height,
-                metadata: { Orientation: 1 } as any,
+                metadata: { Orientation: 1 } as Record<string, unknown>,
             };
 
             return {
@@ -389,13 +414,13 @@ export class ScanService {
                 };
             }
 
-            const pickedPhoto = {
+            const pickedPhoto: PhotoFile = {
                 path: cleanPath,
                 width: ocrResult.normalizedSize?.width || 0,
                 height: ocrResult.normalizedSize?.height || 0,
                 isRawPhoto: false,
-                metadata: { Orientation: 1 },
-            } as any as PhotoFile;
+                metadata: { Orientation: 1 } as Record<string, unknown>,
+            };
 
             return {
                 success: true,
@@ -453,7 +478,7 @@ export class ScanService {
 
             // 2. Si rien trouvé, fallback sur les citations globales statiques
             if (candidates.length === 0) {
-                candidates = (globalQuotesDB as unknown as Quote[]).filter(
+                candidates = globalQuotesDB.filter(
                     (q: Quote) => q.user && q.user.id !== "1" && q.user.id !== currentUserId
                 );
             }
@@ -462,7 +487,7 @@ export class ScanService {
             if (candidates.length === 0) {
                 candidates = allQuotes.length > 0 
                     ? allQuotes 
-                    : [...(localQuotesDB as unknown as Quote[]), ...(globalQuotesDB as unknown as Quote[])];
+                    : [...localQuotesDB, ...globalQuotesDB];
             }
 
             if (candidates.length === 0) {

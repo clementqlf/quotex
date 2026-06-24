@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
-interface Definition {
+export interface Definition {
     term: string;
     genre: string;
     pronunciation?: string;

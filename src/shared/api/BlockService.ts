@@ -6,6 +6,19 @@
 import { STORAGE_KEYS, StorageService } from './StorageService';
 
 /**
+ * Type pour les données de blocks personnalisés.
+ * Utilise unknown au lieu de any pour un typage plus sûr.
+ */
+export type BlockData = Record<string, unknown>;
+
+/**
+ * Validation des données de block.
+ */
+export function isValidBlockData(data: unknown): data is BlockData {
+  return data != null && typeof data === 'object';
+}
+
+/**
  * Service to manage persistent block layouts for Quotes and Books.
  */
 
@@ -57,7 +70,6 @@ export const BlockService = {
         const layouts = await StorageService.getItem<Record<string, string[]>>(STORAGE_KEYS.BLOCK_LAYOUTS) || {};
 
         layouts[key] = layout;
-        layouts[key] = layout;
         await StorageService.setItem(STORAGE_KEYS.BLOCK_LAYOUTS, layouts);
 
         console.log(`[BlockService] Saved layout for ${key}:`, layout);
@@ -66,12 +78,12 @@ export const BlockService = {
     /**
      * Get data for blocks (e.g. notes content) for a specific entity.
      */
-    async getBlockData(parentId: string | number, parentType: 'quote' | 'book'): Promise<Record<string, any>> {
+    async getBlockData(parentId: string | number, parentType: 'quote' | 'book'): Promise<BlockData> {
         // Simulate delay
         await new Promise<void>(resolve => setTimeout(resolve, 50));
 
         const key = `${parentType}:${parentId}`;
-        const allBlockData = await StorageService.getItem<Record<string, Record<string, any>>>(STORAGE_KEYS.BLOCK_DATA) || {};
+        const allBlockData = await StorageService.getItem<Record<string, BlockData>>(STORAGE_KEYS.BLOCK_DATA) || {};
 
         return allBlockData[key] || {};
     },
@@ -79,12 +91,12 @@ export const BlockService = {
     /**
      * Save data for blocks (e.g. notes content) for a specific entity.
      */
-    async saveBlockData(parentId: string | number, parentType: 'quote' | 'book', data: Record<string, any>): Promise<void> {
+    async saveBlockData(parentId: string | number, parentType: 'quote' | 'book', data: BlockData): Promise<void> {
         // Simulate delay
         await new Promise<void>(resolve => setTimeout(resolve, 50));
 
         const key = `${parentType}:${parentId}`;
-        const allBlockData = await StorageService.getItem<Record<string, Record<string, any>>>(STORAGE_KEYS.BLOCK_DATA) || {};
+        const allBlockData = await StorageService.getItem<Record<string, BlockData>>(STORAGE_KEYS.BLOCK_DATA) || {};
 
         allBlockData[key] = data;
         await StorageService.setItem(STORAGE_KEYS.BLOCK_DATA, allBlockData);

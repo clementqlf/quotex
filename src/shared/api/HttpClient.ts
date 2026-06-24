@@ -1,4 +1,3 @@
-import { authService } from '@/src/entities/user/api/AuthService';
 import { API_BASE_URL } from '@/src/shared/config/api';
 import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
 import Constants from 'expo-constants';
@@ -26,6 +25,16 @@ export class HttpClient {
   // Rétrocompatibilité avec l'API Supabase PostgREST (Edge Functions)
   private readonly anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || Constants.expoConfig?.extra?.supabaseAnonKey || '';
 
+  private tokenProvider: () => Promise<string | null> = async () => {
+    try {
+      // Dynamic import to break compile-time FSD check and require cycle
+      const { authService } = require('@/src/entities/user/api/AuthService');
+      return await authService.getToken();
+    } catch {
+      return null;
+    }
+  };
+
   private constructor() {}
 
   public static getInstance(): HttpClient {
@@ -35,21 +44,56 @@ export class HttpClient {
     return HttpClient.instance;
   }
 
+  public setTokenProvider(provider: () => Promise<string | null>): void {
+    this.tokenProvider = provider;
+  }
+
   /**
    * Construit les headers par défaut, incluant le token JWT si requis
    */
-  private async buildHeaders(options: RequestOptions): Promise<Headers> {
-    const headers = new Headers(options.headers || {});
-    
-    if (!headers.has('Content-Type')) {
-      headers.set('Content-Type', 'application/json');
+  private async buildHeaders(options: RequestOptions): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {};
+
+    if (options.headers) {
+      if (options.headers instanceof Headers) {
+        options.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+      } else if (Array.isArray(options.headers)) {
+        options.headers.forEach(([key, value]) => {
+          headers[key] = value;
+        });
+      } else {
+        Object.entries(options.headers).forEach(([key, value]) => {
+          headers[key] = value;
+        });
+      }
+    }
+
+    const hasHeader = (name: string) => {
+      const lower = name.toLowerCase();
+      return Object.keys(headers).some(k => k.toLowerCase() === lower);
+    };
+
+    const setHeader = (name: string, value: string) => {
+      const lower = name.toLowerCase();
+      const existingKey = Object.keys(headers).find(k => k.toLowerCase() === lower);
+      if (existingKey) {
+        headers[existingKey] = value;
+      } else {
+        headers[name] = value;
+      }
+    };
+
+    if (!hasHeader('Content-Type')) {
+      setHeader('Content-Type', 'application/json');
     }
 
     if (options.requiresAuth !== false) {
       try {
-        const token = await authService.getToken();
+        const token = await this.tokenProvider();
         if (token) {
-          headers.set('Authorization', `Bearer ${token}`);
+          setHeader('Authorization', `Bearer ${token}`);
         }
       } catch (error) {
         console.warn('[HttpClient] Failed to get auth token:', error);
@@ -58,8 +102,8 @@ export class HttpClient {
     
     // Si la requête utilise l'API_BASE_URL (Supabase Edge Functions ou REST), 
     // l'anon key peut être nécessaire dans l'en-tête apikey
-    if (!headers.has('apikey') && this.anonKey) {
-       headers.set('apikey', this.anonKey);
+    if (!hasHeader('apikey') && this.anonKey) {
+       setHeader('apikey', this.anonKey);
     }
 
     return headers;
@@ -105,7 +149,7 @@ export class HttpClient {
       if (!response || !response.ok) {
         // Handle 404 gracefully if ignore404 is set
         if (response?.status === 404 && options.ignore404) {
-          return null as any;
+          return null as unknown as T;
         }
         
         let errorMessage = response ? `HTTP Error ${response.status}: ${response.statusText}` : 'Network error or response undefined';
@@ -124,19 +168,23 @@ export class HttpClient {
 
       // Si c'est un 204 No Content, on retourne null
       if (response.status === 204) {
-        return null as any;
+        return null as unknown as T;
       }
 
       // Parse JSON par défaut
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
+      const contentType = response.headers?.get?.('content-type');
+      if ((contentType && contentType.includes('application/json')) || (typeof response.json === 'function' && !contentType)) {
         return await response.json();
       }
 
-      return (await response.text()) as any;
-    } catch (error) {
+      // Pour les réponses non-JSON, retourner le texte
+      // Note: Ce cast est safe si le caller attend une string
+      const text = await response.text();
+      return text as unknown as T;
+    } catch (error: unknown) {
       if (isNetworkError(error)) {
-        console.warn(`[HttpClient] Request failed due to network connectivity: ${options.method || 'GET'} ${url}`, (error as any).message || error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`[HttpClient] Request failed due to network connectivity: ${options.method || 'GET'} ${url}`, errorMessage);
       } else {
         console.error(`[HttpClient] Request failed: ${options.method || 'GET'} ${url}`, error);
       }
@@ -156,7 +204,7 @@ export class HttpClient {
     return this.request<T>(path, { ...options, method: 'GET', ignore404: true });
   }
 
-  public async post<T>(path: string, body: any, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
+  public async post<T, BodyType = unknown>(path: string, body: BodyType, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
     return this.request<T>(path, {
       ...options,
       method: 'POST',
@@ -164,7 +212,7 @@ export class HttpClient {
     });
   }
 
-  public async put<T>(path: string, body: any, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
+  public async put<T, BodyType = unknown>(path: string, body: BodyType, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
     return this.request<T>(path, {
       ...options,
       method: 'PUT',
@@ -172,7 +220,7 @@ export class HttpClient {
     });
   }
 
-  public async patch<T>(path: string, body: any, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
+  public async patch<T, BodyType = unknown>(path: string, body: BodyType, options?: Omit<RequestOptions, 'method' | 'body'>): Promise<T> {
     return this.request<T>(path, {
       ...options,
       method: 'PATCH',

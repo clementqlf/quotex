@@ -1,5 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { TOUR_STEPS, useAppTourState } from '@/src/features/app-tour';
+import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';

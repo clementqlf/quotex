@@ -1,7 +1,7 @@
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
 import { Quote } from '@/src/shared/api/types';
 import { PlatformServices } from '@/src/shared/platform';
 import { act, renderHook } from '@testing-library/react-native';
@@ -26,7 +26,7 @@ jest.mock('@/src/entities/user/api/AuthService', () => ({
     getUser: jest.fn().mockResolvedValue({ id: '1', username: 'test', name: 'Test User' }),
   },
 }));
-jest.mock('@/src/features/quote/api/QuoteService', () => ({
+jest.mock('@/src/entities/quote/api/QuoteService.facade', () => ({
   quoteService: {
     createQuoteWithMatching: jest.fn(),
   },

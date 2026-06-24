@@ -1,3 +1,5 @@
+import type { Quote } from '@/src/entities/quote/model/Quote';
+
 export const aiInterpretations: { [key: string]: string } = {
   "The only way to do great work is to love what you do.": "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
   "In the middle of difficulty lies opportunity.": "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
@@ -208,8 +210,8 @@ const quotexUser = {
   username: "quotex",
 };
 
-export const localQuotesDB: any[] = [];
+export const localQuotesDB: Quote[] = [];
 
-export const globalQuotesDB: any[] = [];
+export const globalQuotesDB: Quote[] = [];
 
 // --- Simulation de la base de données ---

@@ -6,7 +6,7 @@ import React, { ReactElement, useEffect, useState } from 'react';
 import { Dimensions, Platform, StyleProp, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Tooltip from 'react-native-walkthrough-tooltip';
-import { TOUR_STEPS, TourStep, useAppTourState } from '../model/useAppTourState';
+import { TOUR_STEPS, TourStep, useAppTourState } from '@/src/shared/stores/appTourStore';
 
 interface Props {
   stepName?: TourStep;

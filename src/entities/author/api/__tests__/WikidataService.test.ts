@@ -98,7 +98,8 @@ describe('WikidataService', () => {
       const result = await service['fetchEnrichment'](['Q123']);
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/inventaire/entities?uris=')
+        expect.stringContaining('/inventaire/entities?uris='),
+        expect.any(Object)
       );
       expect(result).toEqual(mockEnrichment);
     });

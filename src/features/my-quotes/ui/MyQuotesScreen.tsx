@@ -1,10 +1,10 @@
-import { InteractiveTooltip } from '@/src/features/app-tour';
+import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -26,8 +26,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 import { useTabIndex } from '@/src/app/providers/TabContext';
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
-import SimpleScanModal from '@/src/features/scanner/ui/SimpleScanModal';
+import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
+import SimpleScanModal from '@/src/shared/ui/modals/SimpleScanModal';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -74,18 +74,20 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
-  // Adjust state during render when viewMode changes
-  if (viewMode !== currentMode) {
-    const currentIdx = TAB_INDEXES[currentMode];
-    const newIdx = TAB_INDEXES[viewMode];
-    direction.value = newIdx >= currentIdx ? 1 : -1;
+  // Adjust state and shared values synchronously before paint when viewMode changes
+  useLayoutEffect(() => {
+    if (viewMode !== currentMode) {
+      const currentIdx = TAB_INDEXES[currentMode];
+      const newIdx = TAB_INDEXES[viewMode];
+      direction.value = newIdx >= currentIdx ? 1 : -1;
 
-    setPrevMode(currentMode);
-    setCurrentMode(viewMode);
+      enterProgress.value = 0;
+      exitProgress.value = 0;
 
-    enterProgress.value = 0;
-    exitProgress.value = 0;
-  }
+      setPrevMode(currentMode);
+      setCurrentMode(viewMode);
+    }
+  }, [viewMode, currentMode, direction, enterProgress, exitProgress]);
 
   // Trigger animations in response to currentMode / prevMode changes
   useEffect(() => {
@@ -459,10 +461,10 @@ export default function MyQuotesScreen() {
 
 
 
-  // Memoized derived data - utilisant les getters du hook feature
-  const authors = useMemo(() => getAuthors(), [getAuthors]);
-  const books = useMemo(() => getBooksData(), [getBooksData]);
-  const bookCount = useMemo(() => getBookCount(), [getBookCount]);
+  // Derived data - appel direct des getters (useMemo inutiles supprimés)
+  const authors = getAuthors();
+  const books = getBooksData();
+  const bookCount = getBookCount();
 
   const years = useMemo(() => {
     return [...new Set(
@@ -473,7 +475,7 @@ export default function MyQuotesScreen() {
   }, [myQuotes]);
 
   // Liste des thèmes
-  const themes = useMemo(() => getThemes(), [getThemes]);
+  const themes = getThemes();
 
   // Derived filtered quotes
   const quotesToDisplay = useMemo(() => {
@@ -512,7 +514,7 @@ export default function MyQuotesScreen() {
   }, [myQuotes, activeFilters, allBooks, quoteSubFilter, currentUser]);
 
   // Authors data
-  const authorsData = useMemo(() => getAuthorsData(), [getAuthorsData]);
+  const authorsData = getAuthorsData();
 
   const filteredBooksByStatus = useMemo(() => {
     if (selectedStatus === 'ALL') return books;
@@ -814,6 +816,7 @@ export default function MyQuotesScreen() {
             renderItem={renderBookItem}
             keyExtractor={bookKeyExtractor}
             getItemType={() => 'book'}
+            estimatedItemSize={150}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}
@@ -842,6 +845,7 @@ export default function MyQuotesScreen() {
             renderItem={renderAuthorItem}
             keyExtractor={authorKeyExtractor}
             getItemType={() => 'author'}
+            estimatedItemSize={80}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}
@@ -870,6 +874,7 @@ export default function MyQuotesScreen() {
             renderItem={renderThemeItem}
             keyExtractor={themeKeyExtractor}
             getItemType={() => 'theme'}
+            estimatedItemSize={60}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}
@@ -899,6 +904,7 @@ export default function MyQuotesScreen() {
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
             getItemType={() => 'quote'}
+            estimatedItemSize={200}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}

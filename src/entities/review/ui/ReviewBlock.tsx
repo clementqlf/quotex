@@ -1,7 +1,7 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ReviewService } from '@/src/shared/api/ReviewService';
-import { Review, User as UserType } from '@/src/shared/api/types';
+import { User as UserType } from '@/src/shared/api/types';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
@@ -9,6 +9,7 @@ import { ThemeColors } from '@/src/shared/theme';
 import { MoreHorizontal, Send, Star, Trash2, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import type { Review } from '../model/Review';
 
 interface ReviewBlockProps {
     bookId: number;
@@ -409,7 +410,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             </Modal>
         </View>
     );
-}
+};
 
 const ReviewBlock = React.memo(ReviewBlockUI, (prevProps, nextProps) => {
     return prevProps.bookId === nextProps.bookId;

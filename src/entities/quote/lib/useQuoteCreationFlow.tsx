@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { Platform } from 'react-native';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
-import SimpleScanModal from '@/src/features/scanner/ui/SimpleScanModal';
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import SimpleScanModal from '@/src/shared/ui/modals/SimpleScanModal';
+import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import { useQuoteActions } from './useQuoteActions';
 
 interface UseQuoteCreationFlowProps {

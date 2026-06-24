@@ -1,7 +1,7 @@
 import { Quote } from '@/src/shared/api/types';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
 
-import { QuoteUseCases } from '@/src/features/quote/model/QuoteUseCases';
+import { QuoteUseCases } from '@/src/entities/quote/model/QuoteUseCases';
 import { SupabaseQuoteRepository } from './SupabaseQuoteRepository';
 
 

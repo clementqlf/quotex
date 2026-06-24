@@ -26,6 +26,8 @@ export function isNetworkError(error: any): boolean {
     message.includes('Failed to fetch') ||
     message.includes('Aborted') ||
     message.includes('AbortError') ||
+    message.toLowerCase().includes('canceled') ||
+    message.toLowerCase().includes('cancelled') ||
     name === 'AbortError'
   );
 }

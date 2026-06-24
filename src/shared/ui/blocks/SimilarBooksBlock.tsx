@@ -7,7 +7,7 @@ import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { BlockWrapper } from './BlockWrapper';
 
 interface SimilarBooksBlockProps {
-    books: (Book | any)[]; // Flexible type as sometimes it's partial data or just strings
+    books: Book[];
     onBookPress: (bookIdOrTitle: string | number, inventaireUri?: string) => void;
     onRemove?: () => void;
 }

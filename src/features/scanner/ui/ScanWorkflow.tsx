@@ -18,7 +18,7 @@ import { PlatformServices } from '@/src/shared/platform';
 import { useScanInteractions } from '../model/useScanInteractions';
 import { SelectionRange, useScanState } from '../model/useScanState';
 
-import ScanPreviewModal from './ScanPreviewModal';
+import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 
 type ScanWorkflowProps = {
   photo: PhotoFile;

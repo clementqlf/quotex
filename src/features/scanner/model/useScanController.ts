@@ -4,6 +4,7 @@ import * as ExpoImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
+import type { CameraDevice, CameraDeviceFormat } from 'react-native-vision-camera';
 import { Camera, PhotoFile, useCameraDevice, useCameraFormat, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -43,8 +44,8 @@ export interface UseScanControllerProps {
 export interface ScanControllerState {
   // Camera state
   hasPermission: boolean;
-  device: any;
-  format: any;
+  device: CameraDevice | null;
+  format: CameraDeviceFormat | null;
   cameraRef: React.RefObject<Camera | null>;
   
   // Scan state
@@ -102,7 +103,7 @@ export interface ScanControllerActions {
   handleTextDetectedChange: (detected: boolean) => void;
   
   // Code scanner
-  codeScanner: any;
+  codeScanner: ReturnType<typeof useCodeScanner>;
   regionOfInterest: {
     x: number;
     y: number;
@@ -500,8 +501,8 @@ export const useScanController = (
             width: asset.width,
             height: asset.height,
             isRawPhoto: false,
-            metadata: { Orientation: 1 } as any,
-          } as PhotoFile;
+            metadata: { Orientation: 1 } as Record<string, unknown>,
+          };
 
           setIsFromGallery(true);
           setPhoto(pickedPhoto);
@@ -517,7 +518,7 @@ export const useScanController = (
         }
       }, 300);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Picker error:', error);
       setIsLoading(false);
       setIsPickerActive(false);
@@ -532,7 +533,7 @@ export const useScanController = (
     // ⚡ Désactiver la caméra
     if (cameraRef.current) {
       try {
-        (cameraRef.current as any)?.setActive?.(false);
+        cameraRef.current?.setActive?.(false);
       } catch (e) {
         console.warn('[ScanController] Error disabling camera:', e);
       }

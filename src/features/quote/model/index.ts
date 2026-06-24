@@ -1,5 +1,5 @@
 // Quote Use Cases
-export { QuoteUseCases } from './QuoteUseCases';
+export { QuoteUseCases } from '@/src/entities/quote/model/QuoteUseCases';
 
 // Flow hooks
 export { useAddQuoteFlow } from './useAddQuoteFlow';

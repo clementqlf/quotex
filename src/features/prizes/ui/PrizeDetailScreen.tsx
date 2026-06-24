@@ -404,6 +404,8 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                 data={prize.laureates?.sort((a, b) => b.year - a.year) || []}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderLaureate}
+                estimatedItemSize={100}
+                removeClippedSubviews={true}
                 onEndReached={loadNextBatch}
                 onEndReachedThreshold={0.5}
                 ListFooterComponent={

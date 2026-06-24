@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { SearchResults, searchService } from '@/src/features/search/api/SearchService';
-import { Author, Book, Quote, User as UserType } from '@/src/shared/api/types';
+import { SearchResults, InventairePrize, InventaireEntity, searchService } from '@/src/features/search/api/SearchService';
+import { Author, Book, LiteraryPrize, Quote, User as UserType } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIndicator,
   SectionList,
@@ -19,15 +20,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Types étendus pour les items de recherche
+interface InventaireBookItem extends Partial<InventaireEntity> {
+    type: 'book';
+    label: string;
+    authors?: string[];
+}
+
+interface InventaireAuthorItem extends Partial<InventaireEntity> {
+    type: 'author';
+    label: string;
+}
+
 type SearchSection =
     | { title: string; data: Quote[]; type: 'quote' }
     | { title: string; data: Book[]; type: 'book' }
     | { title: string; data: Author[]; type: 'author' }
     | { title: string; data: string[]; type: 'theme' }
-    | { title: string; data: any[]; type: 'prize' }
-    | { title: string; data: any[]; type: 'inventaire_book' }
-    | { title: string; data: any[]; type: 'inventaire_author' }
-    | { title: string; data: any[]; type: 'inventaire_prize' }
+    | { title: string; data: LiteraryPrize[]; type: 'prize' }
+    | { title: string; data: InventaireBookItem[]; type: 'inventaire_book' }
+    | { title: string; data: InventaireAuthorItem[]; type: 'inventaire_author' }
+    | { title: string; data: InventairePrize[]; type: 'inventaire_prize' }
     | { title: string; data: UserType[]; type: 'user' };
 
 export default function SearchScreen() {
@@ -39,9 +52,20 @@ export default function SearchScreen() {
 
     const [query, setQuery] = useState(q || '');
     const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes' | 'users'>('all');
-    const [isLoading, setIsLoading] = useState(false);
-    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
+    const [debouncedQuery, setDebouncedQuery] = useState('');
     const inputRef = useRef<TextInput>(null);
+
+    // Définir emptyResults pour réinitialiser
+    const emptyResults: SearchResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
+
+    // Utiliser useQuery pour la recherche
+    const { data: results = emptyResults, isFetching, isLoading } = useQuery({
+        queryKey: ['search', debouncedQuery],
+        queryFn: () => searchService.search(debouncedQuery),
+        enabled: debouncedQuery.length >= 2,
+        staleTime: 30000,
+        retry: 2
+    });
 
     useEffect(() => {
         // Focus input on mount
@@ -50,43 +74,29 @@ export default function SearchScreen() {
         }, 100);
     }, []);
 
-    const performSearch = async (text: string) => {
-        setIsLoading(true);
-        try {
-            const data = await searchService.search(text);
-            setResults(data);
-        } catch (error) {
-            console.error('Search error:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+    // Debounce effect pour la query
     useEffect(() => {
-        const delayDebounceFn = setTimeout(async () => {
-            if (query.trim().length > 2) { // Search after 3 chars
-                performSearch(query);
-            } else {
-                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
-            }
-        }, 500); // 500ms debounce to reduce server load
+        const delayDebounceFn = setTimeout(() => {
+            setDebouncedQuery(query);
+        }, 500); // 500ms debounce
 
         return () => clearTimeout(delayDebounceFn);
     }, [query]);
 
-    const handleImportBook = (item: any) => {
+    const handleImportBook = (item: unknown) => {
+        const itemObj = item as Record<string, unknown>;
         router.push({
             pathname: '/book-detail',
             params: {
-                bookTitle: item.label,
-                inventaireUri: item.uri,
+                bookTitle: itemObj.label as string,
+                inventaireUri: itemObj.uri as string,
                 bookData: JSON.stringify(item),
                 skipCache: 'true'
             }
         });
     };
 
-    const handleImportPrize = (item: any) => {
+    const handleImportPrize = (item: unknown) => {
         router.push({
             pathname: '/prize-detail',
             params: {
@@ -103,7 +113,7 @@ export default function SearchScreen() {
             { title: 'Mes Livres', data: results.books || [], type: 'book' },
             { title: 'Prix Littéraires', data: results.prizes || [], type: 'prize' },
             { title: 'Citations', data: results.quotes || [], type: 'quote' },
-            { title: 'Prix (Inventaire)', data: (results as any).inventairePrizes || [], type: 'inventaire_prize' },
+            { title: 'Prix (Inventaire)', data: results.inventairePrizes || [], type: 'inventaire_prize' },
             { title: 'Livres', data: results.inventaireWorks || [], type: 'inventaire_book' },
             { title: 'Auteurs', data: results.inventaireAuthors || [], type: 'inventaire_author' },
         ];
@@ -119,7 +129,7 @@ export default function SearchScreen() {
         }) as SearchSection[];
     }, [results, activeTab]);
 
-    const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
+    const renderItem = <T extends SearchSection>({ item, section }: { item: T['data'][number]; section: T }) => {
         if (section.type === 'quote') {
             const quote = item as Quote;
             return (
@@ -358,7 +368,7 @@ export default function SearchScreen() {
                         <TouchableOpacity
                             key={tab.id}
                             style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-                            onPress={() => setActiveTab(tab.id as any)}
+                            onPress={() => setActiveTab(tab.id as 'all' | 'books' | 'authors' | 'prizes' | 'users')}
                             accessible={true}
                             accessibilityRole="tab"
                             accessibilityState={{ selected: activeTab === tab.id }}
@@ -378,7 +388,7 @@ export default function SearchScreen() {
                 </View>
             ) : (
                 <SectionList
-                    sections={sections as any}
+                    sections={sections}
                     keyExtractor={(item, index) => index.toString()}
                     renderItem={renderItem}
                     renderSectionHeader={({ section: { title } }) => (

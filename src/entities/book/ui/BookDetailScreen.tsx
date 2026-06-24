@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
-import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
-import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
+import BookDictionaryModal from '@/src/shared/ui/modals/BookDictionaryModal';
+import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
+import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { Image } from 'expo-image';

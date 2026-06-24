@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
 import { Quote } from '@/src/shared/api/types';
 
 /**

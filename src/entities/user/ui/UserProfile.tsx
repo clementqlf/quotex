@@ -1007,10 +1007,12 @@ export default function UserProfileScreen() {
 
             <FlashList
               data={filteredModalQuotes}
-              keyExtractor={(item: any) => String(item.id)}
+              keyExtractor={(item) => String(item.id)}
               getItemType={() => 'quote'}
+              estimatedItemSize={200}
+              removeClippedSubviews={true}
               contentContainerStyle={styles.quotesModalListContent}
-              renderItem={({ item }: { item: any }) => {
+              renderItem={({ item }) => {
                 const isQuoteMine = item.user?.id === currentUser?.id || !item.user;
                 return (
                   <TouchableOpacity
