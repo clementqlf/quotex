@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80.95% </span>
+                <span class="strong">80.48% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>34/42</span>
+                <span class='fraction'>33/41</span>
             </div>
         
             
@@ -37,9 +37,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.58% </span>
+                <span class="strong">68.75% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>12/17</span>
+                <span class='fraction'>11/16</span>
             </div>
         
             
@@ -350,7 +350,19 @@
 <a name='L285'></a><a href='#L285'>285</a>
 <a name='L286'></a><a href='#L286'>286</a>
 <a name='L287'></a><a href='#L287'>287</a>
-<a name='L288'></a><a href='#L288'>288</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -518,7 +530,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -637,15 +649,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, Linking, StyleSheet, Modal, ScrollView, Platform } from 'react-native';
-import { ExternalLink, ShoppingCart, ChevronRight, X } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
 import { BUY_STORES } from '@/src/shared/config/stores';
+import { ThemeColors } from '@/src/shared/theme';
+import { ChevronRight, ExternalLink, ShoppingCart, X } from 'lucide-react-native';
+import React, { useState, useMemo } from 'react';
+import { Alert, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlockWrapper } from './BlockWrapper';
+&nbsp;
+interface BuyLink {
+    store: string;
+    url: string;
+    price: string;
+}
 &nbsp;
 interface BuyLinkBlockProps {
     book: Book;
@@ -654,7 +672,7 @@ interface BuyLinkBlockProps {
 &nbsp;
 const BuyLinkBlockUI: React.FC&lt;BuyLinkBlockProps&gt; = ({ book, onRemove }) =&gt; {
     const { colors } = useTheme();
-    const styles = useMemo(() =&gt; createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const [isModalVisible, setIsModalVisible] = useState(false);
 &nbsp;
     // Sanitize function for URL safety
@@ -706,7 +724,7 @@ const BuyLinkBlockUI: React.FC&lt;BuyLinkBlockProps&gt; = ({ book, onRemove }) =
     const initialLinks = allLinks.slice(0, 2);
     const hasMore = allLinks.length &gt; 2;
 &nbsp;
-    const renderLink = (link: any, idx: number, isCompact = false) =&gt; {
+    const renderLink = (link: BuyLink, idx: number, isCompact = false) =&gt; {
         const safeUrl = typeof link.url === 'string' &amp;&amp; link.url.startsWith('http')
             ? link.url
             : <span class="branch-1 cbranch-no" title="branch not covered" >'https://quotex.app';</span>
@@ -753,7 +771,7 @@ const BuyLinkBlockUI: React.FC&lt;BuyLinkBlockProps&gt; = ({ book, onRemove }) =
     return (
         &lt;BlockWrapper blockKey="buy" onRemove={onRemove}&gt;
             &lt;View style={styles.buyLinksList}&gt;
-                {initialLinks.map((link, idx) =&gt; renderLink(link, idx))}
+                {initialLinks.map((link: BuyLink, idx: number) =&gt; renderLink(link, idx))}
                 
                 {hasMore &amp;&amp; (
                     &lt;TouchableOpacity 
@@ -790,7 +808,7 @@ const BuyLinkBlockUI: React.FC&lt;BuyLinkBlockProps&gt; = ({ book, onRemove }) =
                         &gt;
                             &lt;Text style={styles.modalSubtitle}&gt;Sélectionnez une boutique pour voir le prix et la disponibilité :&lt;/Text&gt;
                             &lt;View style={styles.modalGrid}&gt;
-                                {allLinks.map((link, idx) =&gt; renderLink(link, idx, true))}
+                                {allLinks.map((link: BuyLink, idx: number) =&gt; renderLink(link, idx, true))}
                             &lt;/View&gt;
                         &lt;/ScrollView&gt;
                     &lt;/SafeAreaView&gt;
@@ -931,7 +949,7 @@ const createStyles = (colors: ThemeColors) =&gt; StyleSheet.create({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-11T19:12:29.795Z
+                at 2026-06-27T18:13:04.371Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -1,7 +1,7 @@
-import { searchService } from '@/src/features/search/api/SearchService';
+import { searchServer } from '@/src/features/search/lib/useSearch';
 import { ScanService } from '../ScanService';
 
-jest.mock('@/src/features/search/api/SearchService');
+jest.mock('@/src/features/search/lib/useSearch');
 jest.mock('@react-native-ml-kit/text-recognition');
 jest.mock('expo-image-manipulator');
 jest.mock('expo-file-system/legacy');
@@ -29,7 +29,7 @@ describe('ScanService', () => {
     });
 
     it('should call searchService with detected ISBN', async () => {
-      (searchService.search as jest.Mock).mockResolvedValue({
+      (searchServer as jest.Mock).mockResolvedValue({
         inventaireWorks: [{
           title: 'Test Book',
           authors: ['Test Author'],
@@ -38,20 +38,20 @@ describe('ScanService', () => {
       });
 
       const result = await service.checkAndHandleIsbn('9782070368976');
-      expect(searchService.search).toHaveBeenCalledWith('9782070368976');
+      expect(searchServer).toHaveBeenCalledWith('9782070368976');
       expect(result.success).toBe(true);
       expect(result.bookData?.title).toBe('Test Book');
     });
 
     it('should handle searchService errors', async () => {
-      (searchService.search as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (searchServer as jest.Mock).mockRejectedValue(new Error('Network error'));
       const result = await service.checkAndHandleIsbn('9782070368976');
       expect(result.success).toBe(false);
       expect(result.error).toContain('Network error');
     });
 
     it('should validate payload with Zod before import', async () => {
-      (searchService.search as jest.Mock).mockResolvedValue({
+      (searchServer as jest.Mock).mockResolvedValue({
         inventaireWorks: [{
           label: 'Test Book',
           inventaireUri: undefined,
@@ -74,7 +74,7 @@ describe('ScanService', () => {
     });
 
     it('should retry 3 times before giving up on import', async () => {
-      (searchService.search as jest.Mock).mockResolvedValue({
+      (searchServer as jest.Mock).mockResolvedValue({
         inventaireWorks: [{
           label: 'Test Book',
           inventaireUri: undefined,

@@ -10,7 +10,7 @@ export const ISBN_10_REGEX = /^\d{9}[\dxX]$/i;
  * Combined regex that matches valid ISBN-10 or ISBN-13
  * Note: This is stricter than just \d{10}|\d{13} - it validates the structure
  */
-export const ISBN_REGEX = /^(97[89]\d{10})|(\d{9}[\dxX])$/i;
+export const ISBN_REGEX = /^(?:97[89]\d{10}|\d{9}[\dxX])$/i;
 
 /**
  * Validate an ISBN string (with or without separators)

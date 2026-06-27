@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.29% </span>
+                <span class="strong">75.67% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>28/41</span>
+                <span class='fraction'>28/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">52% </span>
+                <span class="strong">56.52% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>13/25</span>
+                <span class='fraction'>13/23</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70% </span>
+                <span class="strong">75.67% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>28/40</span>
+                <span class='fraction'>28/37</span>
             </div>
         
             
@@ -179,13 +179,7 @@
 <a name='L114'></a><a href='#L114'>114</a>
 <a name='L115'></a><a href='#L115'>115</a>
 <a name='L116'></a><a href='#L116'>116</a>
-<a name='L117'></a><a href='#L117'>117</a>
-<a name='L118'></a><a href='#L118'>118</a>
-<a name='L119'></a><a href='#L119'>119</a>
-<a name='L120'></a><a href='#L120'>120</a>
-<a name='L121'></a><a href='#L121'>121</a>
-<a name='L122'></a><a href='#L122'>122</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L117'></a><a href='#L117'>117</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -286,10 +280,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -305,15 +295,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useCallback } from 'react';
-import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { PlatformServices } from '@/src/shared/platform';
-import { Quote } from '@/src/shared/api/types';
-import { quoteService } from '@/src/features/quote/api/QuoteService';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import { authService } from '@/src/entities/user/api/AuthService';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
+import { httpClient } from '@/src/shared/api/HttpClient';
+import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
+import { Quote } from '@/src/shared/api/types';
+import { PlatformServices } from '@/src/shared/platform';
+import { useCallback } from 'react';
 &nbsp;
 export interface HandleConfirmSaveOptions {
   onReset?: () =&gt; void;
@@ -403,11 +392,7 @@ export const useQuoteActions = () =&gt; {
           const authorObj = <span class="cstat-no" title="statement not covered" >newQuote.author;</span>
 <span class="cstat-no" title="statement not covered" >          if (authorObj.inventaireUri &amp;&amp; (!authorObj.description || authorObj.description.length &lt; 50)) {</span>
 <span class="cstat-no" title="statement not covered" >            console.log('[useQuoteActions] Background enriching author:', authorObj.id);</span>
-            const token = <span class="cstat-no" title="statement not covered" >await authService.getToken();</span>
-            const headers: Record&lt;string, string&gt; = <span class="cstat-no" title="statement not covered" >{ 'Content-Type': 'application/json' };</span>
-<span class="cstat-no" title="statement not covered" >            if (token) <span class="cstat-no" title="statement not covered" >headers['Authorization'] = `Bearer ${token}`;</span></span>
-&nbsp;
-<span class="cstat-no" title="statement not covered" >            fetch(`${API_BASE_URL}/authors/${authorObj.id}/enrich`, { method: 'POST', headers })</span>
+<span class="cstat-no" title="statement not covered" >            httpClient.post(`/authors/${authorObj.id}/enrich`, {})</span>
               .then(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >refreshAuthors())</span>
               .catch(<span class="fstat-no" title="function not covered" >er</span>r =&gt; <span class="cstat-no" title="statement not covered" >console.error('[useQuoteActions] Background author enrichment failed:', err))</span>;
           }
@@ -433,7 +418,7 @@ export const useQuoteActions = () =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-11T19:12:29.795Z
+                at 2026-06-27T18:13:04.371Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
