@@ -8,7 +8,7 @@ import { IQuoteRepository } from './IQuoteRepository';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { globalQuotesDB, localQuotesDB } from '@/src/shared/api/staticData';
-import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
+import { OperationQueue, OperationType } from '@/src/shared/lib/offline/OperationQueue';
 import { QueuedOperationError } from '@/src/shared/lib/offline/QueuedOperationError';
 
 // Simulate API delay
@@ -341,102 +341,35 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   async toggleLike(id: number): Promise<{ isLiked: boolean; likesCount: number }> {
-    // 1. Déterminer l'état actuel pour savoir si on like ou unlike
-    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-    const quoteIndex = quotes.findIndex(q => q.id === id);
-    const quote = quotes[quoteIndex];
-    const newIsLiked = !(quote?.isLiked);
-
-    // 2. Mise à jour optimiste locale
-    if (quote) {
-        quote.isLiked = newIsLiked;
-        quote.likesCount += newIsLiked ? 1 : -1;
-        quotes[quoteIndex] = quote;
-        await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-    }
-
-    // 3. Si la citation est encore en attente de sync (offline), ne pas tenter
-    //    l'appel serveur — son ID temporaire n'existe pas côté DB.
-    //    Le like sera résolu une fois la citation synchronisée.
-    if (quote?._isPending) {
-        console.log(`[toggleLike] Quote ${id} is pending, skipping server call.`);
-        throw new QueuedOperationError({ isLiked: newIsLiked, likesCount: quote?.likesCount || 0 });
-    }
-
-    // 4. Tenter l'appel serveur
-    try {
-        const data = await httpClient.post<{ isLiked: boolean }>(`/quotes/${id}/like`, {});
-        // data.isLiked est un booléen ; on conserve le likesCount optimiste
-        return { isLiked: data.isLiked, likesCount: quote?.likesCount || 0 };
-    } catch (e: any) {
-        // 404 means the quote isn't on the server yet (pending sync).
-        // Queue the operation silently — it will be retried once the quote is synced.
-        if (e.message?.includes?.('404')) {
-            console.log(`[toggleLike] Quote ${id} not found on server yet, queuing for later.`);
-            await OperationQueue.getInstance().enqueue({
-                type: newIsLiked ? 'LIKE' : 'UNLIKE',
-                entityType: 'quote',
-                entityId: id,
-            });
-            throw new QueuedOperationError({ isLiked: newIsLiked, likesCount: quote?.likesCount || 0 });
-        }
-        throw e;
-        if (QueuedOperationError.is(e)) throw e; // propager sans log
-        console.error('Error toggling like:', e);
-        // 5. En cas d'échec réseau, ajouter à la queue offline
-        await OperationQueue.getInstance().enqueue({
-            type: newIsLiked ? 'LIKE' : 'UNLIKE',
-            entityType: 'quote',
-            entityId: id,
-        });
-        throw new QueuedOperationError({ isLiked: newIsLiked, likesCount: quote?.likesCount || 0 });
-    }
+    return this.executeToggleOperation(
+      id,
+      (quote, newValue) => {
+        quote.isLiked = newValue;
+        quote.likesCount += newValue ? 1 : -1;
+      },
+      async () => {
+        await httpClient.post<{ isLiked: boolean }>(`/quotes/${id}/like`, {});
+      },
+      (newValue, quote) => ({ isLiked: newValue, likesCount: quote?.likesCount || 0 }),
+      { true: 'LIKE' as const, false: 'UNLIKE' as const },
+      'isLiked'
+    );
   }
 
   async toggleSave(id: number): Promise<{ isSaved: boolean; savedAt?: string | null }> {
-    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-    const quoteIndex = quotes.findIndex(q => q.id === id);
-    const quote = quotes[quoteIndex];
-    const newIsSaved = !(quote?.isSaved);
-
-    if (quote) {
-        quote.isSaved = newIsSaved;
-        quote.savedAt = newIsSaved ? new Date().toISOString() : null;
-        quotes[quoteIndex] = quote;
-        await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-    }
-
-    // Si la citation est encore en attente de sync (offline), ne pas tenter
-    // l'appel serveur — son ID temporaire n'existe pas côté DB.
-    if (quote?._isPending) {
-        console.log(`[toggleSave] Quote ${id} is pending, skipping server call.`);
-        throw new QueuedOperationError({ isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null });
-    }
-
-    try {
-        const data = await httpClient.post<{ isSaved: boolean; savedAt: string | null }>(`/quotes/${id}/toggle-save`, {});
-        return { isSaved: data.isSaved, savedAt: data.savedAt || null };
-    } catch (e: any) {
-        // 404 means the quote isn't on the server yet (pending sync).
-        // Queue the operation silently — it will be retried once the quote is synced.
-        if (e.message?.includes?.('404')) {
-            console.log(`[toggleSave] Quote ${id} not found on server yet, queuing for later.`);
-            await OperationQueue.getInstance().enqueue({
-                type: newIsSaved ? 'SAVE' : 'UNSAVE',
-                entityType: 'quote',
-                entityId: id,
-            });
-            throw new QueuedOperationError({ isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null });
-        }
-        if (QueuedOperationError.is(e)) throw e; // propager sans log
-        console.error('Error toggling save:', e);
-        await OperationQueue.getInstance().enqueue({
-            type: newIsSaved ? 'SAVE' : 'UNSAVE',
-            entityType: 'quote',
-            entityId: id,
-        });
-        throw new QueuedOperationError({ isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null });
-    }
+    return this.executeToggleOperation(
+      id,
+      (quote, newValue) => {
+        quote.isSaved = newValue;
+        quote.savedAt = newValue ? new Date().toISOString() : null;
+      },
+      async () => {
+        await httpClient.post<{ isSaved: boolean; savedAt: string | null }>(`/quotes/${id}/toggle-save`, {});
+      },
+      (newValue, quote) => ({ isSaved: newValue, savedAt: newValue ? new Date().toISOString() : null }),
+      { true: 'SAVE' as const, false: 'UNSAVE' as const },
+      'isSaved'
+    );
   }
 
   async analyzeQuote(id: number): Promise<Quote> {
@@ -492,6 +425,77 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     }
 
     return "C'est une excellente question. Cette formulation recèle en effet plusieurs niveaux de lecture. En la replaçant dans l'ensemble de l'œuvre, on comprend que l'auteur cherche avant tout à susciter une réflexion intime chez le lecteur plutôt qu'à imposer une vérité absolue.";
+  }
+
+  /**
+   * Helper pour exécuter des opérations toggle avec gestion de la queue offline.
+   * Centralise la logique commune entre toggleLike, toggleSave, etc.
+   * 
+   * @param id - ID de la citation
+   * @param quoteUpdater - Fonction pour mettre à jour la quote localement
+   * @param serverCall - Fonction pour faire l'appel serveur
+   * @param createResult - Fonction pour créer le résultat optimiste
+   * @param operationTypes - Types d'opération pour la queue (true/false)
+   * @param fieldName - Nom du champ booléen à toggler (ex: 'isLiked', 'isSaved')
+   */
+  private async executeToggleOperation<T extends { isLiked?: boolean; likesCount?: number; isSaved?: boolean; savedAt?: string | null }>(
+    id: number,
+    quoteUpdater: (quote: Quote, newValue: boolean) => void,
+    serverCall: () => Promise<void>,
+    createResult: (newValue: boolean, quote?: Quote) => T,
+    operationTypes: { true: OperationType; false: OperationType },
+    fieldName: keyof Quote
+  ): Promise<T> {
+    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+    const quoteIndex = quotes.findIndex(q => q.id === id);
+    const quote = quotes[quoteIndex];
+
+    if (!quote) {
+      throw new Error(`Quote with id ${id} not found`);
+    }
+
+    // Determine new value based on current state
+    const oldValue = quote[fieldName] as boolean | undefined;
+    const newValue = !oldValue;
+
+    // Optimistic local update
+    quoteUpdater(quote, newValue);
+    quotes[quoteIndex] = quote;
+    await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+
+    const result = createResult(newValue, quote);
+
+    // Skip server call if quote is still pending sync
+    if (quote?._isPending) {
+      console.log(`[SupabaseQuoteRepository] Quote ${id} is pending, skipping server call.`);
+      throw new QueuedOperationError(result);
+    }
+
+    // Try server call
+    try {
+      await serverCall();
+      return result;
+    } catch (e: any) {
+      // 404 means the quote isn't on the server yet (pending sync)
+      if (e.message?.includes?.('404')) {
+        console.log(`[SupabaseQuoteRepository] Quote ${id} not found on server yet, queuing for later.`);
+        await OperationQueue.getInstance().enqueue({
+          type: newValue ? operationTypes.true : operationTypes.false,
+          entityType: 'quote',
+          entityId: id,
+        });
+        throw new QueuedOperationError(result);
+      }
+      
+      // Other network errors - also queue
+      console.error(`[SupabaseQuoteRepository] Error in toggle operation for quote ${id}:`, e);
+      await OperationQueue.getInstance().enqueue({
+        type: newValue ? operationTypes.true : operationTypes.false,
+        entityType: 'quote',
+        entityId: id,
+      });
+      throw new QueuedOperationError(result);
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

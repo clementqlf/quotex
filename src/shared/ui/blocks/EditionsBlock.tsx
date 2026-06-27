@@ -3,7 +3,7 @@ import { Book } from '@/src/shared/api/types';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookCopy, ExternalLink } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -55,7 +55,7 @@ const resolveLanguage = (uri: string | null): string => {
 
 const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const [editions, setEditions] = useState<Edition[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -107,7 +107,7 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
     };
 
     // Nothing to show if no inventaireUri on the book
-    const hasInventaireUri = !!(book as any)?.inventaireUri;
+    const hasInventaireUri = !!book?.inventaireUri;
 
     if (!hasInventaireUri && !isLoading && editions.length === 0) {
         return null; // Don't render the block if book has no Inventaire data

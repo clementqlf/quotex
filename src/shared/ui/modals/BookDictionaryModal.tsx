@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { fetchDefinition } from '@/src/shared/api/WiktionaryService';
 import { ThemeColors } from '@/src/shared/theme';
 import { Check, Plus, Search, Trash2, X } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export interface DefinitionItem {
@@ -35,7 +35,7 @@ export default function BookDictionaryModal({
     currentManualDefinitions
 }: BookDictionaryModalProps) {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const [localHiddenTerms, setLocalHiddenTerms] = useState<Set<string>>(new Set(hiddenTerms));
     const [localManualDefinitions, setLocalManualDefinitions] = useState<DefinitionItem[]>(currentManualDefinitions);

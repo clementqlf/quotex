@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookOpen, X } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -35,7 +35,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
     onRemove
 }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     // Group definitions by term to show them in separate sections
     const groupedDefinitions = useMemo(() => {

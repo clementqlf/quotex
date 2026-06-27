@@ -1,7 +1,7 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { Book } from '@/src/shared/api/types';
+import { Author, Book } from '@/src/shared/api/types';
 import { isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { useCallback, useMemo } from 'react';
 
@@ -132,7 +132,8 @@ export const useMyQuotes = () => {
 
   // Obtenir les données auteurs
   const getAuthorsData = useCallback(() => {
-    const grouped: Record<string, { author: any; quoteCount: number }> = {};
+    type AuthorData = { author: Author | string | null | undefined; quoteCount: number };
+    const grouped: Record<string, AuthorData> = {};
 
     myQuotes.forEach(quote => {
       const name = typeof quote.author === 'object' && quote.author !== null 
@@ -154,7 +155,7 @@ export const useMyQuotes = () => {
       }
     });
 
-    return Object.values(grouped).map((data: any) => ({
+    return Object.values(grouped).map((data) => ({
       name: typeof data.author === 'object' && data.author !== null 
         ? data.author.name 
         : data.author as string,

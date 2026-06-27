@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { StyleSheet, TextInput } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -23,7 +23,7 @@ const NotesBlockUI: React.FC<NotesBlockProps> = ({
     onRemove
 }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     return (
         <BlockWrapper blockKey={blockKey} onRemove={onRemove}>

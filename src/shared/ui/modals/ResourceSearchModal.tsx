@@ -1,5 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { SearchResults, searchService } from '@/src/features/search/api/SearchService';
+import { SearchResults } from '@/src/features/search/api/SearchService';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
@@ -16,6 +16,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSearch, searchLocal } from '@/src/features/search/lib/useSearch';
+import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 
 interface ResourceSearchModalProps {
     visible: boolean;
@@ -25,11 +27,30 @@ interface ResourceSearchModalProps {
 
 export default function ResourceSearchModal({ visible, onClose, onSelect }: ResourceSearchModalProps) {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const [query, setQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [results, setResults] = useState<SearchResults | null>(null);
     const inputRef = useRef<TextInput>(null);
+
+    // Utiliser le hook useSearch pour la recherche
+    const { data: serverResults, isLoading, isFetching } = useSearch(query);
+    
+    // Gérer le fallback offline
+    const [results, setResults] = useState<SearchResults | null>(null);
+    
+    useEffect(() => {
+        if (query.trim().length < 2) {
+            setResults(null);
+            return;
+        }
+        
+        if (isOffline()) {
+            // Recherche locale en offline
+            searchLocal(query).then(setResults);
+        } else {
+            // Utiliser les résultats du serveur
+            setResults(serverResults || null);
+        }
+    }, [query, serverResults, isOffline]);
 
     // Ajuster l'état de recherche pendant la phase de rendu
     const [prevVisible, setPrevVisible] = useState(visible);
@@ -47,26 +68,6 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
             setTimeout(() => inputRef.current?.focus(), 100);
         }
     }, [visible]);
-
-    useEffect(() => {
-        if (query.trim().length < 2) {
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            setIsLoading(true);
-            try {
-                const data = await searchService.search(query);
-                setResults(data);
-            } catch (e) {
-                console.error('Search failed', e);
-            } finally {
-                setIsLoading(false);
-            }
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, [query]);
 
     const flattenedResults = useMemo(() => {
         if (!displayResults) return [];

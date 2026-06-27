@@ -5,7 +5,7 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { ThemeColors } from '@/src/shared/theme';
 import { Plus } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -36,7 +36,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
 }) => {
     const { colors } = useTheme();
     const { user: currentUser } = useAuth();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const [quoteSubFilter, setQuoteSubFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
 
     const filteredQuotes = useMemo(() => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemePreference = 'light' | 'dark' | 'auto';
 
@@ -14,6 +15,9 @@ export const useThemeStore = create<ThemeState>()(
       preference: 'auto',
       setPreference: (pref) => set({ preference: pref }),
     }),
-    { name: 'theme-storage' }
+    {
+      name: 'theme-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+    }
   )
 );

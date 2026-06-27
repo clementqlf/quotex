@@ -1,15 +1,20 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ReviewService } from '@/src/shared/api/ReviewService';
 import { User as UserType } from '@/src/shared/api/types';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
+import {
+  useReviewsByBookId,
+  useCreateReview,
+  useUpdateReview,
+  useDeleteReview,
+} from '../lib/useReviewService';
+import type { Review } from '../model/Review';
 import { MoreHorizontal, Send, Star, Trash2, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import type { Review } from '../model/Review';
 
 interface ReviewBlockProps {
     bookId: number;
@@ -21,13 +26,44 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    const [reviews, setReviews] = useState<Review[]>([]);
+    // Utilisation des hooks TanStack Query pour la gestion des reviews
+    const { data: fetchedReviews, isLoading, refetch } = useReviewsByBookId(bookId);
+    const createReviewMutation = useCreateReview();
+    const updateReviewMutation = useUpdateReview();
+    const deleteReviewMutation = useDeleteReview();
+
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [isAllReviewsVisible, setAllReviewsVisible] = useState(false);
-    const [, setIsLoading] = useState(false);
     const { user } = useAuth();
     const { navigateToUserProfile } = useSmartNavigation();
+
+    // Appliquer le filtrage des reviews (bloquées/signalées) côté client
+    const [reviews, setReviews] = useState<Review[]>([]);
+
+    // Charger et filtrer les reviews au démarrage ou quand fetchedReviews change
+    useEffect(() => {
+      const loadAndFilterReviews = async () => {
+        if (!fetchedReviews) return;
+        
+        console.log(`[ReviewBlock] Fetched ${fetchedReviews.length} reviews`);
+        
+        const blockedUsers = await UGCModerationService.getBlockedUsers();
+        const reportedReviews = await UGCModerationService.getReportedReviews();
+        
+        const filteredReviews = fetchedReviews.filter(review => {
+          const userId = review.user?.id ? String(review.user.id) : null;
+          const reviewId = String(review.id);
+          if (userId && blockedUsers.includes(userId)) return false;
+          if (reportedReviews.includes(reviewId)) return false;
+          return true;
+        });
+        
+        setReviews(filteredReviews);
+      };
+
+      loadAndFilterReviews();
+    }, [fetchedReviews]);
 
     const myReview = useMemo(() => {
         if (!user) return null;
@@ -46,38 +82,22 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         setComment(myReview?.comment || '');
     }
 
-    const loadReviews = useCallback(async () => {
-        setIsLoading(true);
-        console.log(`[ReviewBlock] Fetching reviews for bookId: ${bookId}`);
+    // Recharger les reviews après une modification
+    const reloadReviews = useCallback(async () => {
         try {
-            const fetchedReviews = await ReviewService.getReviewsByBookId(bookId);
-            console.log(`[ReviewBlock] Fetched ${fetchedReviews.length} reviews`);
-            
-            const blockedUsers = await UGCModerationService.getBlockedUsers();
-            const reportedReviews = await UGCModerationService.getReportedReviews();
-            
-            const filteredReviews = fetchedReviews.filter(review => {
-                const userId = review.user?.id ? String(review.user.id) : null;
-                const reviewId = String(review.id);
-                if (userId && blockedUsers.includes(userId)) return false;
-                if (reportedReviews.includes(reviewId)) return false;
-                return true;
-            });
-            
-            setReviews(filteredReviews);
+            await refetch();
         } catch (error) {
-            console.error("[ReviewBlock] Error loading reviews:", error);
-            Alert.alert("Erreur", "Impossible de charger les avis. Veuillez vérifier votre connexion.");
-        } finally {
-            setIsLoading(false);
+            console.error("[ReviewBlock] Error refetching reviews:", error);
+            Alert.alert("Erreur", "Impossible de recharger les avis. Veuillez vérifier votre connexion.");
         }
-    }, [bookId]);
+    }, [refetch]);
 
+    // Charger initialement les reviews
     useEffect(() => {
-        Promise.resolve().then(() => {
-            loadReviews();
-        });
-    }, [loadReviews]);
+        if (bookId) {
+            refetch();
+        }
+    }, [bookId, refetch]);
 
 
     const handleReportReview = (reviewId: string | number) => {
@@ -92,7 +112,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     onPress: async () => {
                         await UGCModerationService.reportReview(reviewId);
                         Alert.alert("Succès", "Cet avis a été signalé et masqué.");
-                        loadReviews(); // Reload to apply filters
+                        await reloadReviews(); // Reload to apply filters
                     }
                 }
             ]
@@ -112,7 +132,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     onPress: async () => {
                         await UGCModerationService.blockUser(userId);
                         Alert.alert("Succès", "Utilisateur bloqué. Ses avis seront masqués.");
-                        loadReviews(); // Reload to apply filters
+                        await reloadReviews(); // Reload to apply filters
                     }
                 }
             ]
@@ -137,15 +157,16 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     text: "Supprimer", 
                     style: "destructive",
                     onPress: async () => {
-                        const success = await ReviewService.deleteReview(myReview.id);
-                        if (success) {
+                        try {
+                            await deleteReviewMutation.mutateAsync(myReview.id);
                             setReviews(prev => prev.filter(r => r.id !== myReview.id));
                             setRating(0);
                             setComment('');
                             Alert.alert("Succès", "Votre avis a été supprimé.");
-                            loadReviews();
+                            await reloadReviews();
                             if (onReviewAdded) onReviewAdded();
-                        } else {
+                        } catch (error) {
+                            console.error("[ReviewBlock] Error deleting review:", error);
                             Alert.alert("Erreur", "Impossible de supprimer l'avis.");
                         }
                     }
@@ -178,39 +199,39 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             return;
         }
 
-        if (myReview) {
-            const updatedReview = await ReviewService.updateReview(myReview.id, {
-                rating,
-                comment,
-            });
+        try {
+            if (myReview) {
+                const updatedReview = await updateReviewMutation.mutateAsync({
+                    reviewId: myReview.id,
+                    review: {
+                        rating,
+                        comment,
+                    },
+                });
 
-            if (updatedReview) {
                 setReviews(prev => prev.map(r => r.id === myReview.id ? { ...r, rating, comment } : r));
                 Alert.alert("Succès", "Votre avis a été mis à jour !");
-                loadReviews();
+                await reloadReviews();
                 if (onReviewAdded) {
                     onReviewAdded();
                 }
             } else {
-                Alert.alert("Erreur", "Impossible de mettre à jour l'avis.");
-            }
-        } else {
-            const newReview = await ReviewService.createReview({
-                rating,
-                comment,
-                bookId,
-            });
+                const newReview = await createReviewMutation.mutateAsync({
+                    rating,
+                    comment,
+                    bookId,
+                });
 
-            if (newReview) {
                 setReviews(prev => [newReview, ...prev]);
                 Alert.alert("Succès", "Votre avis a été publié !");
-                loadReviews();
+                await reloadReviews();
                 if (onReviewAdded) {
                     onReviewAdded();
                 }
-            } else {
-                Alert.alert("Erreur", "Impossible de publier l'avis.");
             }
+        } catch (error) {
+            console.error("[ReviewBlock] Error publishing review:", error);
+            Alert.alert("Erreur", myReview ? "Impossible de mettre à jour l'avis." : "Impossible de publier l'avis.");
         }
     };
 

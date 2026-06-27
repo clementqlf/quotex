@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BLOCK_CONFIGS, BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
 import { X } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface BlockWrapperProps {
@@ -25,7 +25,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     rightElement
 }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const config = BLOCK_CONFIGS[blockKey];
     const Icon = config?.icon || FallbackIcon;
     const displayTitle = title || config?.label || 'Block';

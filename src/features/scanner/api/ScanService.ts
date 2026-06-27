@@ -3,7 +3,7 @@ import { httpClient } from '@/src/shared/api/HttpClient';
 import { getExponentialBackoff } from '@/src/shared/lib/offline/backoff';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
 import { extractIsbn, IsbnSchema } from '@/src/shared/lib/validation/isbn';
-import { searchService } from '@/src/features/search/api/SearchService';
+import { searchServer } from '@/src/features/search/lib/useSearch';
 import { Quote } from '@/src/shared/api/types';
 import { PlatformServices } from '@/src/shared/platform';
 import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
@@ -159,8 +159,8 @@ export class ScanService {
         console.log('[ScanService] Valid ISBN detected:', isbn);
 
         try {
-            // Rechercher le livre via le service de recherche
-            const rawData = await searchService.search(isbn);
+            // Rechercher le livre via searchServer
+            const rawData = await searchServer(isbn);
             // Validate response with Zod
             const data = SearchResultsSchema.parse(rawData);
             

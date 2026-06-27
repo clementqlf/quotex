@@ -40,23 +40,24 @@ import { ThemeColors } from '@/src/shared/theme';
 
 // Entity components - OK to import from entities per FSD
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { ReadingStatus } from '@/src/entities/author/model/Author';
+import { ReadingStatus, Author } from '@/src/entities/author/model/Author';
+import { Book } from '@/src/entities/book/model/Book';
 import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
+import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
 import BookActionModal from '@/src/entities/book/ui/BookActionModal';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
 import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
 import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
-import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
 
 // Feature hook
 import { useMyQuotes } from '../model/useMyQuotes';
 
 interface AnimatedHeaderTitleProps {
   viewMode: 'quotes' | 'books' | 'themes' | 'authors';
-  colors: any;
-  styles: any;
+  colors: ThemeColors;
+  styles: StyleSheet.NamedStyles;
 }
 
 const TAB_INDEXES = {
@@ -156,7 +157,7 @@ interface ListHeaderMemoProps {
   viewMode: 'quotes' | 'books' | 'authors' | 'themes';
   selectedStatus: string;
   colors: ThemeColors;
-  styles: any;
+  styles: StyleSheet.NamedStyles;
   removeFilter: (filter: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }) => void;
   resetFilters: () => void;
   setSelectedStatus: (status: string) => void;
@@ -311,7 +312,7 @@ export default function MyQuotesScreen() {
   const { tabIndex, setTabIndex, setPage } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
-  const quotesListRef = useRef<any>(null);
+  const quotesListRef = useRef<FlashList<Quote> | null>(null);
 
   const scrollToQuotesTop = useCallback(() => {
     setViewMode('quotes');
@@ -334,13 +335,13 @@ export default function MyQuotesScreen() {
   const [actionMenuQuote, setActionMenuQuote] = useState<Quote | null>(null);
   
   const { updateBookStatus, toggleSaveBook } = useAuthor();
-  const [actionMenuBook, setActionMenuBook] = useState<any | null>(null);
+  const [actionMenuBook, setActionMenuBook] = useState<Book | null>(null);
 
-  const handleOpenBookMenu = useCallback((book: any) => {
+  const handleOpenBookMenu = useCallback((book: Book) => {
     setActionMenuBook(book);
   }, []);
 
-  const handleOpenBookStatusMenu = useCallback((book: any) => {
+  const handleOpenBookStatusMenu = useCallback((book: Book) => {
     if (!book.id) return;
     const options = [...STATUS_OPTIONS];
 
@@ -370,7 +371,7 @@ export default function MyQuotesScreen() {
       return;
     }
 
-    const androidButtons: any[] = [
+    const androidButtons: { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }[] = [
       { text: 'Annuler', style: 'cancel' },
       ...STATUS_OPTIONS.map(o => ({
         text: o.label,
@@ -381,7 +382,7 @@ export default function MyQuotesScreen() {
     Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
   }, [updateBookStatus]);
 
-  const handleDeleteBook = useCallback(async (book: any) => {
+  const handleDeleteBook = useCallback(async (book: Book) => {
     const performDelete = async () => {
       try {
         // 1. Delete all quotes associated with this book
@@ -610,7 +611,7 @@ export default function MyQuotesScreen() {
     return card;
   }, [toggleLikeQuoteStable, handleOpenMenu]);
 
-  const renderBookItem = useCallback(({ item, index }: { item: any; index: number }) => {
+  const renderBookItem = useCallback(({ item, index }: { item: Book; index: number }) => {
     const card = <BookCardItem book={item} onOpenMenu={handleOpenBookMenu} />;
     if (index === 0) {
       return (
@@ -630,7 +631,7 @@ export default function MyQuotesScreen() {
     return card;
   }, [handleOpenBookMenu]);
 
-  const renderAuthorItem = useCallback(({ item, index }: { item: any; index: number }) => {
+  const renderAuthorItem = useCallback(({ item, index }: { item: Author; index: number }) => {
     const card = <AuthorCardItem author={item} />;
     if (index === 0) {
       return (
@@ -650,7 +651,7 @@ export default function MyQuotesScreen() {
     return card;
   }, []);
 
-  const renderThemeItem = useCallback(({ item, index }: { item: any; index: number }) => {
+  const renderThemeItem = useCallback(({ item, index }: { item: string; index: number }) => {
     const card = <ThemeCardItem theme={item} />;
     if (index === 0) {
       return (
@@ -671,9 +672,9 @@ export default function MyQuotesScreen() {
   }, []);
 
   const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
-  const bookKeyExtractor = useCallback((item: any) => item.title, []);
-  const authorKeyExtractor = useCallback((item: any) => item.name, []);
-  const themeKeyExtractor = useCallback((item: any) => item.theme, []);
+  const bookKeyExtractor = useCallback((item: Book) => item.title, []);
+  const authorKeyExtractor = useCallback((item: Author) => item.name, []);
+  const themeKeyExtractor = useCallback((item: string) => item, []);
   const statsContent = (
     <>
       <TouchableOpacity

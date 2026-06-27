@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
 import { Book as BookIcon } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -14,7 +14,7 @@ interface SimilarBooksBlockProps {
 
 const SimilarBooksBlockUI: React.FC<SimilarBooksBlockProps> = ({ books, onBookPress, onRemove }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const hasBooks = books && books.length > 0;
 

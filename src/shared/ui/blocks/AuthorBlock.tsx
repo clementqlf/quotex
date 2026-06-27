@@ -1,8 +1,8 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Author, Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
-import React, { useMemo, useState, useCallback } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { NativeSyntheticEvent, StyleSheet, Text, TextLayoutEventData, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
 interface AuthorBlockProps {
@@ -16,7 +16,7 @@ interface AuthorBlockProps {
 
 const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove, hideName }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const authorName = nameOverride || (author?.name) || (typeof book?.author === 'string' ? book?.author : book?.author?.name);
     const description = author?.description;
@@ -33,7 +33,7 @@ const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: n
         setIsExpanded(false);
     }
 
-    const onTextLayout = useCallback((e: any) => {
+    const onTextLayout = useCallback((e: NativeSyntheticEvent<TextLayoutEventData>) => {
         if (!isMeasured) {
             if (e.nativeEvent.lines.length > 10) {
                 setShowMoreButton(true);

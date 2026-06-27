@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect } from 'react';
 import { authService, AuthResponse } from '../../entities/user/api/AuthService';
 import { supabase } from '../../shared/api/supabase';
 import { User } from '../../shared/api/types';
 import { UGCModerationService } from '../../shared/api/UGCModerationService';
 import * as Linking from 'expo-linking';
+import { useAuthStore } from '@/src/shared/stores/authStore';
 
 // Séparer les types de state pour éviter les re-renders inutiles
 interface AuthState {
@@ -28,9 +29,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const queryClient = useQueryClient();
-    const [user, setUser] = useState<User | null>(null);
-    const [token, setToken] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    
+    // Utiliser authStore comme source de vérité unique
+    const { user, token, isLoading, isAuthenticated, setAuth, clearAuth, setLoading } = useAuthStore();
 
     useEffect(() => {
         // Load initial state
@@ -40,18 +41,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const unsubscribe = authService.onAuthStateChange(async (userProfile, sessionToken) => {
             try {
                 if (userProfile && sessionToken) {
-                    setToken(sessionToken);
-                    setUser(userProfile);
+                    // Mettre à jour authStore au lieu du state local
+                    setAuth(userProfile, sessionToken);
                     UGCModerationService.syncWithServer().catch(console.error);
                 } else {
-                    setUser(null);
-                    setToken(null);
+                    // Déconnecter via authStore
+                    clearAuth();
                     queryClient.clear();
                 }
             } catch (e) {
                 console.error('[AuthContext] Error in onAuthStateChange:', e);
             } finally {
-                setIsLoading(false);
+                setLoading(false);
             }
         });
 
@@ -96,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const tokens = parseSupabaseTokens(url);
             if (tokens) {
                 console.log('[AuthContext] Found auth tokens in URL, signing in...');
-                setIsLoading(true);
+                setLoading(true);
                 try {
                     const { error } = await supabase.auth.setSession({
                         access_token: tokens.access_token,
@@ -106,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.log('[AuthContext] Session established successfully from deep link');
                 } catch (err) {
                     console.error('[AuthContext] Failed to set session from deep link:', err);
-                    setIsLoading(false);
+                    setLoading(false);
                 }
             }
         };
@@ -130,60 +131,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // ⚡ Memoize les actions pour éviter leur recréation à chaque render
     const login = useCallback(async (email: string, password: string) => {
         const data = await authService.login(email, password);
-        setUser(data.user);
-        setToken(data.token);
-    }, []);
+        setAuth(data.user, data.token);
+    }, [setAuth]);
 
     const register = useCallback(async (username: string, email: string, password: string, name?: string) => {
         const data = await authService.register(username, email, password, name);
-        setUser(data.user);
-        setToken(data.token);
+        setAuth(data.user, data.token);
         return data;
-    }, []);
+    }, [setAuth]);
 
     const logout = useCallback(async () => {
         await authService.logout();
-        setUser(null);
-        setToken(null);
+        clearAuth();
         queryClient.clear();
-    }, [queryClient]);
+    }, [clearAuth, queryClient]);
 
     const deleteAccount = useCallback(async () => {
         await authService.deleteAccount();
-        setUser(null);
-        setToken(null);
+        clearAuth();
         queryClient.clear();
-    }, [queryClient]);
+    }, [clearAuth, queryClient]);
 
     const updateProfile = useCallback(async (data: { username?: string; password?: string; name?: string; bio?: string; website?: string; image?: string; expoPushToken?: string | null; notifyOnFollow?: boolean | null; notifyOnLike?: boolean | null }) => {
         const updatedUser = await authService.updateUser(data);
-        setUser(updatedUser);
-    }, []);
+        setAuth(updatedUser, token); // Garder le même token, juste mettre à jour l'utilisateur
+    }, [setAuth, token]);
 
-    // ✅ Séparer le state et les actions dans des objets memoized distincts
-    const authState = useMemo(() => ({
-        user,
-        token,
-        isLoading,
-        isAuthenticated: !!token,
-    }), [user, token, isLoading]);
-
-    const authActions = useMemo(() => ({
-        login,
-        register,
-        logout,
-        deleteAccount,
-        updateProfile,
-    }), [login, register, logout, deleteAccount, updateProfile]);
-
-    // ✅ Combiner les deux objets dans le contexte
-    const contextValue = useMemo(() => ({
-        ...authState,
-        ...authActions,
-    }), [authState, authActions]);
-
+    // Source de vérité unique : authStore
+    // Pas besoin de useMemo car les valeurs viennent déjà de sources stables
     return (
-        <AuthContext.Provider value={contextValue}>
+        <AuthContext.Provider value={{
+            user,
+            token,
+            isLoading,
+            isAuthenticated,
+            login,
+            register,
+            logout,
+            deleteAccount,
+            updateProfile,
+        }}>
             {children}
         </AuthContext.Provider>
     );

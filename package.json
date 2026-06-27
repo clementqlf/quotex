@@ -10,7 +10,7 @@
     "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "types:generate": "npx supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > src/shared/types/database.ts",
+    "types:generate": "./scripts/generate-supabase-types.sh",
     "eas:build:dev": "eas build --profile dev --platform all",
     "eas:build:staging": "eas build --profile staging --platform all",
     "eas:build:prod": "eas build --profile prod --platform all",

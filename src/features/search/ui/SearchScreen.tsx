@@ -1,5 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { SearchResults, InventairePrize, InventaireEntity, searchService } from '@/src/features/search/api/SearchService';
+import { SearchResults, InventairePrize, InventaireEntity } from '@/src/features/search/api/SearchService';
+import { InventaireEntity as InventaireEntityType } from '@/src/shared/api/InventaireService';
 import { Author, Book, LiteraryPrize, Quote, User as UserType } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
@@ -8,7 +9,8 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useSearch, searchLocal } from '@/src/features/search/lib/useSearch';
+import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 import {
   ActivityIndicator,
   SectionList,
@@ -58,14 +60,11 @@ export default function SearchScreen() {
     // Définir emptyResults pour réinitialiser
     const emptyResults: SearchResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
 
-    // Utiliser useQuery pour la recherche
-    const { data: results = emptyResults, isFetching, isLoading } = useQuery({
-        queryKey: ['search', debouncedQuery],
-        queryFn: () => searchService.search(debouncedQuery),
-        enabled: debouncedQuery.length >= 2,
-        staleTime: 30000,
-        retry: 2
-    });
+    // Utiliser le hook useSearch pour la recherche
+    const { data: serverResults, isFetching, isLoading } = useSearch(debouncedQuery);
+    
+    // Gérer le fallback offline
+    const results = isOffline() ? emptyResults : serverResults || emptyResults;
 
     useEffect(() => {
         // Focus input on mount

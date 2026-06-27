@@ -2,8 +2,8 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookOpen, Calendar, Star } from 'lucide-react-native';
-import React, { useMemo, useState, useCallback } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { Image, StyleSheet, Text, TouchableOpacity, View, NativeSyntheticEvent, TextLayoutEventData } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
 interface BookInfoBlockProps {
@@ -15,7 +15,7 @@ interface BookInfoBlockProps {
 
 const BookInfoBlockUI: React.FC<BookInfoBlockProps> = ({ book, onBookPress, variant = 'info', onRemove }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const description = book?.description || '';
 
@@ -31,7 +31,7 @@ const BookInfoBlockUI: React.FC<BookInfoBlockProps> = ({ book, onBookPress, vari
         setIsExpanded(false);
     }
 
-    const onTextLayout = useCallback((e: any) => {
+    const onTextLayout = useCallback((e: NativeSyntheticEvent<TextLayoutEventData>) => {
         if (!isMeasured) {
             if (e.nativeEvent.lines.length > 10) {
                 setShowMoreButton(true);

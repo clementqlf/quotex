@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface BlockOption {
@@ -17,7 +17,7 @@ interface AddBlockModalProps {
 
 export default function AddBlockModal({ visible, onClose, onSelect, options }: AddBlockModalProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = createStyles(colors);
 
   const opts: BlockOption[] = options ?? [
     { key: 'definition', label: 'Définition' },

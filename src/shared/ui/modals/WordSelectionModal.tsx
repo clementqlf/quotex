@@ -13,7 +13,7 @@ interface WordSelectionModalProps {
 
 export default function WordSelectionModal({ visible, onClose, onConfirm, quoteText }: WordSelectionModalProps) {
     const { colors } = useTheme();
-    const styles = React.useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const [words, setWords] = useState<{ id: number; text: string; selected: boolean }[]>([]);
 
     const [prevQuoteText, setPrevQuoteText] = useState('');

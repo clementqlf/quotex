@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { scanService } from '@/src/features/scanner/api/ScanService';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { X, ScanLine, BookOpen } from 'lucide-react-native';
-import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,7 @@ interface SimpleScanModalProps {
 
 export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleScanModalProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = createStyles(colors);
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');

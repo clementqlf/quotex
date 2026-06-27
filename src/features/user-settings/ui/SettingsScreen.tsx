@@ -103,7 +103,16 @@ async function registerForPushNotificationsAsync() {
   }
 }
 
-const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, rightText }: any) => {
+interface SettingItemProps {
+  icon: React.FC<{ size?: number; color?: string }>;
+  title: string;
+  value?: boolean;
+  type?: 'chevron' | 'switch';
+  onPress?: () => void;
+  rightText?: string;
+}
+
+const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, rightText }: SettingItemProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -199,7 +208,7 @@ export default function SettingsScreen() {
         Alert.alert("Succès", "Vos notifications push ont été désactivées.");
         setIsNotificationsModalVisible(false);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('[SettingsScreen] Failed to save notifications:', err);
       Alert.alert("Erreur", "Impossible d'enregistrer vos préférences de notification.");
     } finally {
@@ -234,8 +243,8 @@ export default function SettingsScreen() {
             try {
               await updateProfile({ username: newUsername });
               Alert.alert("Succès", "Votre nom d'utilisateur a été mis à jour.");
-            } catch (error: any) {
-              Alert.alert("Erreur", error.message || "Échec de la mise à jour");
+            } catch (error) {
+              Alert.alert("Erreur", (error as Error).message || "Échec de la mise à jour");
             } finally {
               setIsUpdating(false);
             }
@@ -264,8 +273,8 @@ export default function SettingsScreen() {
       setIsPasswordModalVisible(false);
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
-      Alert.alert("Erreur", error.message || "Échec de la mise à jour");
+    } catch (error) {
+      Alert.alert("Erreur", (error as Error).message || "Échec de la mise à jour");
     } finally {
       setIsUpdating(false);
     }
@@ -307,9 +316,9 @@ export default function SettingsScreen() {
               setIsUpdating(true);
               await deleteAccount();
               router.replace('/login');
-            } catch (error: any) {
+            } catch (error) {
               console.error("Delete account error", error);
-              Alert.alert("Erreur", error.message || "Impossible de supprimer le compte.");
+              Alert.alert("Erreur", (error as Error).message || "Impossible de supprimer le compte.");
             } finally {
               setIsUpdating(false);
             }

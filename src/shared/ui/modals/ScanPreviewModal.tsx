@@ -1,12 +1,13 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { httpClient } from '@/src/shared/api/HttpClient';
-import { searchService } from '@/src/features/search/api/SearchService';
 import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { Book as BookIcon, Heart, Share2, User as UserIcon, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { searchServer, searchLocal } from '@/src/features/search/lib/useSearch';
+import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 import {
   ActivityIndicator,
   Keyboard,
@@ -50,9 +51,12 @@ export default function ScanPreviewModal({
 }: ScanPreviewModalProps) {
     const { quotes } = useQuote();
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const cannonConfettiRef = useRef<CannonConfettiMethods>(null);
+
+    // Définir emptyResults pour les recherches
+    const emptySearchResults = { books: [], inventaireWorks: [], authors: [], inventaireAuthors: [] };
 
     // State for editing
     const [isEditingBook, setIsEditingBook] = useState(false);
@@ -254,7 +258,8 @@ export default function ScanPreviewModal({
         const timer = setTimeout(async () => {
             setIsLoadingSuggestions(true);
             try {
-                const results = await searchService.search(editedBook).catch(() => ({ books: [], inventaireWorks: [] }));
+                // Utiliser searchServer pour la recherche
+                const results = isOffline() ? emptySearchResults : await searchServer(editedBook).catch(() => emptySearchResults);
 
                 const dbItems: SuggestionItem[] = (results.books || []).map((b: any) => ({
                     type: 'database',
@@ -313,7 +318,7 @@ export default function ScanPreviewModal({
         const timer = setTimeout(async () => {
             setIsLoadingAuthorSuggestions(true);
             try {
-                const results = await searchService.search(editedAuthor);
+                const results = isOffline() ? emptySearchResults : await searchServer(editedAuthor).catch(() => emptySearchResults);
 
                 const dbItems: AuthorSuggestionItem[] = (results.authors || []).map((a: any) => ({
                     type: 'database' as const,
