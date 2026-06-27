@@ -82,7 +82,7 @@ function RootLayoutNav() {
   );
 
   useEffect(() => {
-    console.log(`[Navigation] Opened Screen: ${pathname}`, params);
+    console.log(`[Navigation] Opened Screen: ${pathname}`, JSON.parse(paramsString));
   }, [pathname, paramsString]);
 
   // Track if safe area is resolved

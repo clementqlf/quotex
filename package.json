@@ -19,6 +19,9 @@
     "eas:update:prod": "eas update --branch production --message",
     "channels:create": "chmod +x ./scripts/create-channels.sh && ./scripts/create-channels.sh",
     "eas:submit:prod": "eas submit --profile prod",
+    "sync-theme-docs": "node scripts/sync-theme-docs.js",
+    "pretest": "npm run sync-theme-docs",
+    "prelint": "npm run sync-theme-docs",
     "postinstall": "node scripts/patch-gradle-foojay.js"
   },
   "dependencies": {
