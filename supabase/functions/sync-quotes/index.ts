@@ -169,7 +169,7 @@ serve(async (req: Request) => {
             authorLookup = await matchAuthor(finalAuthorName, true);
             authorId = authorLookup?.id || null;
             if (authorId && inventaireMatch.authorUri) {
-              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true WHERE id = ${authorId}`;
+              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true, "isVerified" = true WHERE id = ${authorId}`;
             }
           }
         }
@@ -187,7 +187,7 @@ serve(async (req: Request) => {
             bookLookup = await matchBook(finalBookTitle, authorId, true);
             bookId = bookLookup?.id || null;
             if (bookId && inventaireMatch.workUri) {
-              await sql`UPDATE "Book" SET "inventaireUri" = ${inventaireMatch.workUri}, "isEnriching" = true WHERE id = ${bookId}`;
+              await sql`UPDATE "Book" SET "inventaireUri" = ${inventaireMatch.workUri}, "isEnriching" = true, "isVerified" = true WHERE id = ${bookId}`;
             }
           }
         }

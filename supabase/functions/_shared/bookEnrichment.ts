@@ -55,6 +55,7 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
     if (enriched) {
       const updateData: Record<string, any> = {
         lastEnrichedAt: new Date(),
+        isVerified: true,
       };
 
       // Title standardization / merge

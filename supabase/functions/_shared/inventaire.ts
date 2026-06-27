@@ -428,6 +428,7 @@ export const syncAuthorProfile = async (
             "birthDate" = ${updateData.birthDate ?? null},
             nationality = ${updateData.nationality ?? null},
             "lastEnrichedAt" = ${updateData.lastEnrichedAt},
+            "isVerified" = true,
             ${updateData.name ? sql`name = ${updateData.name},` : sql``}
             "isEnriching" = false
           WHERE id = ${authorId}

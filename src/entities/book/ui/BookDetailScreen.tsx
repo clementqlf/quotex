@@ -5,7 +5,7 @@ import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { Image } from 'expo-image';
-import { BookOpen, Calendar, Check, ChevronLeft, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
+import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -130,6 +130,15 @@ export default function BookDetailScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {bookInfo.isVerified === false && (
+          <View style={styles.unverifiedBanner}>
+            <Info size={14} color={colors.primary} />
+            <Text style={styles.unverifiedBannerText}>
+              Ce livre n'est pas encore vérifié.
+            </Text>
+          </View>
+        )}
 
         <Animated.ScrollView
           ref={scrollableRef}

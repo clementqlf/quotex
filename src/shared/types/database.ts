@@ -52,6 +52,7 @@ export type Database = {
           image: string | null
           inventaireUri: string | null
           isEnriching: boolean
+          isVerified: boolean
           lastDiscoveredAt: string | null
           lastEnrichedAt: string | null
           name: string
@@ -64,6 +65,7 @@ export type Database = {
           image?: string | null
           inventaireUri?: string | null
           isEnriching?: boolean
+          isVerified?: boolean
           lastDiscoveredAt?: string | null
           lastEnrichedAt?: string | null
           name: string
@@ -76,6 +78,7 @@ export type Database = {
           image?: string | null
           inventaireUri?: string | null
           isEnriching?: boolean
+          isVerified?: boolean
           lastDiscoveredAt?: string | null
           lastEnrichedAt?: string | null
           name?: string
@@ -94,6 +97,7 @@ export type Database = {
           id: number
           inventaireUri: string | null
           isEnriching: boolean
+          isVerified: boolean
           lastDiscoveredAt: string | null
           lastEnrichedAt: string | null
           openLibraryId: string | null
@@ -112,6 +116,7 @@ export type Database = {
           id?: number
           inventaireUri?: string | null
           isEnriching?: boolean
+          isVerified?: boolean
           lastDiscoveredAt?: string | null
           lastEnrichedAt?: string | null
           openLibraryId?: string | null
@@ -130,6 +135,7 @@ export type Database = {
           id?: number
           inventaireUri?: string | null
           isEnriching?: boolean
+          isVerified?: boolean
           lastDiscoveredAt?: string | null
           lastEnrichedAt?: string | null
           openLibraryId?: string | null

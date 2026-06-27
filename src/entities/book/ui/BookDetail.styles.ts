@@ -181,4 +181,20 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   activeTabButton: { borderBottomColor: colors.primary },
   tabText: { fontSize: 14, fontWeight: '500', color: colors.textTertiary },
   activeTabText: { color: colors.text, fontWeight: '600' },
+  unverifiedBanner: {
+    backgroundColor: 'rgba(32, 184, 205, 0.08)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(32, 184, 205, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  unverifiedBannerText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
 });
