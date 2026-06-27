@@ -67,6 +67,7 @@ const useScanWorkflowLogic = (
     setIsEraserMode: setEraserModeState,
     clearSelection,
     clearExclusions,
+    toggleWordExclusion,
   } = scanState;
 
   // Synchroniser isEraserMode avec useScanState
@@ -81,6 +82,7 @@ const useScanWorkflowLogic = (
     selectionRange: selectionRange,
     setSelectionRange: setSelectionRange as React.Dispatch<React.SetStateAction<SelectionRange | null>>,
     excludedIndices,
+    toggleWordExclusion,
     isEraserMode,
     imageDisplayInfo,
   });

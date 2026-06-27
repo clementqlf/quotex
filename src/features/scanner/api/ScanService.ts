@@ -345,7 +345,7 @@ export class ScanService {
                 path: normalizedPath || photoFile.path,
                 width: ocrResult.normalizedSize?.width || photoFile.width,
                 height: ocrResult.normalizedSize?.height || photoFile.height,
-                metadata: { Orientation: 1 } as Record<string, unknown>,
+                metadata: { Orientation: 1 } as any,
             };
 
             return {
@@ -414,13 +414,15 @@ export class ScanService {
                 };
             }
 
-            const pickedPhoto: PhotoFile = {
+            const pickedPhoto = {
                 path: cleanPath,
                 width: ocrResult.normalizedSize?.width || 0,
                 height: ocrResult.normalizedSize?.height || 0,
                 isRawPhoto: false,
-                metadata: { Orientation: 1 } as Record<string, unknown>,
-            };
+                metadata: { Orientation: 1 } as any,
+                orientation: 'portrait' as const,
+                isMirrored: false,
+            } as PhotoFile;
 
             return {
                 success: true,

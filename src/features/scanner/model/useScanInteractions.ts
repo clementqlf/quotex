@@ -12,6 +12,7 @@ export interface UseScanInteractionsProps {
   selectionRange: SelectionRange | null;
   setSelectionRange: React.Dispatch<React.SetStateAction<SelectionRange | null>>;
   excludedIndices: Set<number>;
+  toggleWordExclusion: (index: number) => void;
   isEraserMode: boolean;
   imageDisplayInfo: ImageDisplayInfo;
 }
@@ -63,17 +64,25 @@ export const useScanInteractions = ({
   words,
   selectionRange,
   setSelectionRange,
+  excludedIndices,
+  toggleWordExclusion,
   isEraserMode,
   imageDisplayInfo,
 }: UseScanInteractionsProps): ScanInteractionsResult => {
   
   const wordsRef = useRef(words);
   const selectionRangeRef = useRef(selectionRange);
+  const isEraserModeRef = useRef(isEraserMode);
+  const toggleWordExclusionRef = useRef(toggleWordExclusion);
+  const excludedIndicesRef = useRef(excludedIndices);
   
   useEffect(() => {
     wordsRef.current = words;
     selectionRangeRef.current = selectionRange;
-  }, [words, selectionRange]);
+    isEraserModeRef.current = isEraserMode;
+    toggleWordExclusionRef.current = toggleWordExclusion;
+    excludedIndicesRef.current = excludedIndices;
+  }, [words, selectionRange, isEraserMode, toggleWordExclusion, excludedIndices]);
 
   const panResponderInstance = useRef(
     PanResponder.create({
@@ -85,7 +94,14 @@ export const useScanInteractions = ({
         const nearestIndex = findNearestWord(wordsRef.current, locationX, locationY);
         
         if (nearestIndex !== null) {
-          setSelectionRange({ start: nearestIndex, end: nearestIndex } as SelectionRange);
+          if (isEraserModeRef.current) {
+            const range = selectionRangeRef.current;
+            if (range && nearestIndex >= Math.min(range.start, range.end) && nearestIndex <= Math.max(range.start, range.end)) {
+              toggleWordExclusionRef.current(nearestIndex);
+            }
+          } else {
+            setSelectionRange({ start: nearestIndex, end: nearestIndex } as SelectionRange);
+          }
         }
       },
       
@@ -93,11 +109,20 @@ export const useScanInteractions = ({
         const { locationX, locationY } = evt.nativeEvent;
         const nearestIndex = findNearestWord(wordsRef.current, locationX, locationY);
         
-        if (nearestIndex !== null && selectionRangeRef.current) {
-          setSelectionRange({ 
-            start: selectionRangeRef.current.start, 
-            end: nearestIndex 
-          } as SelectionRange);
+        if (nearestIndex !== null) {
+          if (isEraserModeRef.current) {
+            const range = selectionRangeRef.current;
+            if (range && nearestIndex >= Math.min(range.start, range.end) && nearestIndex <= Math.max(range.start, range.end)) {
+              if (!excludedIndicesRef.current.has(nearestIndex)) {
+                toggleWordExclusionRef.current(nearestIndex);
+              }
+            }
+          } else if (selectionRangeRef.current) {
+            setSelectionRange({ 
+              start: selectionRangeRef.current.start, 
+              end: nearestIndex 
+            } as SelectionRange);
+          }
         }
       },
       

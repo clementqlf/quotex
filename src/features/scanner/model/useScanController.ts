@@ -385,9 +385,98 @@ export const useScanController = (
       console.log('[ScanController] Photo taken. Processing...');
       
       // Utiliser ScanService pour traiter la photo
-      const result = await scanService.capturePhotoAndRecognize(photoFile);
+      let result = await scanService.capturePhotoAndRecognize(photoFile);
       
-      if (!result.success || !result.ocrResult || !result.photo) {
+      // Filtrer les résultats OCR pour ne garder que ceux dans le cadre visuel
+      if (result.success && result.ocrResult && scanFrameLayout && containerSize.width > 0 && containerSize.height > 0) {
+        const photoW = result.ocrResult.normalizedSize?.width || (result.photo ? result.photo.width : 0);
+        const photoH = result.ocrResult.normalizedSize?.height || (result.photo ? result.photo.height : 0);
+
+        if (photoW > 0 && photoH > 0) {
+          const scaleX = containerSize.width / photoW;
+          const scaleY = containerSize.height / photoH;
+          const scale = Math.max(scaleX, scaleY);
+
+          const scaledWidth = photoW * scale;
+          const scaledHeight = photoH * scale;
+
+          const offsetX = (scaledWidth - containerSize.width) / 2;
+          const offsetY = (scaledHeight - containerSize.height) / 2;
+
+          const frameLeft = scanFrameLayout.x;
+          const frameRight = scanFrameLayout.x + scanFrameLayout.width;
+          const frameTop = scanAreaY + scanFrameLayout.y;
+          const frameBottom = scanAreaY + scanFrameLayout.y + scanFrameLayout.height;
+
+          const isPointInsideFrame = (px: number, py: number) => {
+            const xScreen = px * scale - offsetX;
+            const yScreen = py * scale - offsetY;
+            return xScreen >= frameLeft && xScreen <= frameRight &&
+                   yScreen >= frameTop && yScreen <= frameBottom;
+          };
+
+          const isElementInside = (el: TextElement) => {
+            const f = el.frame || (el as any).rect || (el as any).boundingBox || { left: 0, x: 0, top: 0, y: 0, width: 0, height: 0 };
+            const left = f.left !== undefined ? f.left : (f as any).x || 0;
+            const top = f.top !== undefined ? f.top : (f as any).y || 0;
+            const width = f.width || 0;
+            const height = f.height || 0;
+
+            let cx = left + width / 2;
+            let cy = top + height / 2;
+
+            if (el.cornerPoints && el.cornerPoints.length >= 4) {
+              const p0 = el.cornerPoints[0];
+              const p1 = el.cornerPoints[1];
+              const p2 = el.cornerPoints[2];
+              const p3 = el.cornerPoints[3];
+              cx = (p0.x + p1.x + p2.x + p3.x) / 4;
+              cy = (p0.y + p1.y + p2.y + p3.y) / 4;
+            }
+
+            return isPointInsideFrame(cx, cy);
+          };
+
+          // Filtrer les éléments de texte individuels
+          const filteredElements = result.ocrResult.elements.filter(isElementInside);
+
+          // Filtrer les blocs de texte et leurs lignes
+          const filteredBlocks: TextBlock[] = [];
+          if (result.ocrResult.blocks) {
+            for (const block of result.ocrResult.blocks) {
+              const filteredLines: any[] = [];
+              for (const line of block.lines) {
+                const filteredLineElements = line.elements.filter(isElementInside);
+                if (filteredLineElements.length > 0) {
+                  filteredLines.push({
+                    ...line,
+                    elements: filteredLineElements,
+                  });
+                }
+              }
+              if (filteredLines.length > 0) {
+                filteredBlocks.push({
+                  ...block,
+                  lines: filteredLines,
+                });
+              }
+            }
+          }
+
+          // Mettre à jour les résultats avec les éléments filtrés
+          result = {
+            ...result,
+            ocrResult: {
+              ...result.ocrResult,
+              elements: filteredElements,
+              blocks: filteredBlocks,
+              text: filteredElements.map(e => e.text).join(' '),
+            }
+          };
+        }
+      }
+      
+      if (!result.success || !result.ocrResult || !result.photo || result.ocrResult.elements.length === 0) {
         console.log('[ScanController] No text recognized or error:', result.error);
         setPhoto(null);
         setOcrElements(null);
@@ -422,7 +511,7 @@ export const useScanController = (
         console.log('[ScanController] handleTakePhoto finished. Lock released.');
       }, 100);
     }
-  }, [isLoading, isFocused, cameraRef]);
+  }, [isLoading, isFocused, cameraRef, containerSize, scanFrameLayout, scanAreaY]);
 
   const handleResetCapture = useCallback(async () => {
     if (photo?.path) {
@@ -496,13 +585,15 @@ export const useScanController = (
           }
 
           // Image normale avec texte
-          const pickedPhoto: PhotoFile = {
+          const pickedPhoto = {
             path: cleanPath,
             width: asset.width,
             height: asset.height,
             isRawPhoto: false,
-            metadata: { Orientation: 1 } as Record<string, unknown>,
-          };
+            metadata: { Orientation: 1 } as any,
+            orientation: 'portrait' as const,
+            isMirrored: false,
+          } as PhotoFile;
 
           setIsFromGallery(true);
           setPhoto(pickedPhoto);
@@ -548,8 +639,8 @@ export const useScanController = (
   return {
     // Camera state
     hasPermission,
-    device,
-    format,
+    device: device ?? null,
+    format: format ?? null,
     cameraRef,
     
     // Scan state
