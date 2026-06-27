@@ -21,22 +21,22 @@ export interface Review {
 export interface LiteraryPrizeLaureate {
   id: number;
   year: number;
-  category?: string;
+  category?: string | null;
   prizeId: number;
-  authorId?: number;
-  bookId?: number;
-  author?: Author;
-  book?: Book;
+  authorId?: number | null;
+  bookId?: number | null;
+  author?: Author | null;
+  book?: Book | null;
 }
 
 export interface LiteraryPrize {
   id: number;
   name: string;
-  description?: string;
-  image?: string;
-  inventaireUri?: string;
-  wikipediaTitle?: string;
-  inceptionYear?: number;
-  founder?: string;
+  description?: string | null;
+  image?: string | null;
+  inventaireUri?: string | null;
+  wikipediaTitle?: string | null;
+  inceptionYear?: number | null;
+  founder?: string | null;
   laureates?: LiteraryPrizeLaureate[];
 }

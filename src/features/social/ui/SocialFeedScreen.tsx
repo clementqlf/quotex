@@ -19,6 +19,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { Quote } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
 
 export default function SocialFeedScreen() {
@@ -41,7 +42,7 @@ export default function SocialFeedScreen() {
 
 
 
-  const FeedQuoteCard = ({ quote }: { quote: any }) => {
+  const FeedQuoteCard = ({ quote }: { quote: Quote }) => {
     return (
       <View style={styles.quoteCard}>
         {/* User Info - Cliquable */}

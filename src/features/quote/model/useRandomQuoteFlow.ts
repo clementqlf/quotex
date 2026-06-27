@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
@@ -45,9 +46,21 @@ export const useRandomQuoteFlow = (
 ): UseRandomQuoteFlowResult => {
   const { quotes, currentUser } = props;
   const { toggleSaveQuote } = useQuote();
+  const queryClient = useQueryClient();
 
   // ========== RANDOM QUOTE STATE ==========
-  const [randomQuote, setRandomQuote] = useState<Quote | null>(null);
+  // Use TanStack Query for random quote
+  const { data: randomQuoteData } = useQuery({
+    queryKey: ['random-quote', quotes.length, currentUser?.id],
+    queryFn: () => scanService.getRandomQuoteFromOtherUsers(quotes, currentUser?.id)
+      .then(res => res.quote || null),
+    enabled: false, // Disabled - will be triggered manually
+    staleTime: Infinity
+  });
+  
+  // Convert undefined to null for type compatibility
+  const randomQuote: Quote | null = randomQuoteData ?? null;
+  
   const [showRandomQuoteModal, setShowRandomQuoteModal] = useState(false);
 
   // ========== QUOTE SAVING ==========
@@ -81,8 +94,9 @@ export const useRandomQuoteFlow = (
       const result = await scanService.getRandomQuoteFromOtherUsers(quotes, currentUser?.id);
       
       if (result.success && result.quote) {
+        // Update query cache with the new quote
+        queryClient.setQueryData(['random-quote', quotes.length, currentUser?.id], result.quote);
         PlatformServices.haptics.impactAsync("light");
-        setRandomQuote(result.quote);
         setShowRandomQuoteModal(true);
       } else {
         Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
@@ -90,7 +104,7 @@ export const useRandomQuoteFlow = (
     } catch {
       Alert.alert("Aucune citation", "Aucune citation d'autres utilisateurs n'est disponible pour le moment.");
     }
-  }, [quotes, currentUser]);
+  }, [quotes, currentUser, queryClient]);
 
   return {
     // State

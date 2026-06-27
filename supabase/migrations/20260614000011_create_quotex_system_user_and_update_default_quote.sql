@@ -21,13 +21,13 @@ BEGIN
   FOR r IN
     SELECT *
     FROM (VALUES
-      ('The only way to do great work is to love what you do.', 'Steve Jobs', 'Steve Jobs', 2011, 'Passion et excellence', 'wd:Q19837', 'wd:Q480332'),
-      ('In the middle of difficulty lies opportunity.', 'Albert Einstein', 'Einstein: His Life and Universe', 2007, 'Résilience et opportunité', 'wd:Q937', 'wd:Q5349791'),
-      ('It is our choices that show what we truly are, far more than our abilities.', 'J.K. Rowling', 'Harry Potter and the Chamber of Secrets', 1998, 'Choix et identité', 'wd:Q34660', 'wd:Q172784'),
-      ('The only impossible journey is the one you never begin.', 'Paulo Coelho', 'The Alchemist', 1988, 'Motivation et voyage', 'wd:Q128560', 'wd:Q178825'),
-      ('It is never too late to be what you might have been.', 'George Eliot', 'Middlemarch', 1871, 'Potentiel et temps', 'wd:Q191228', 'wd:Q692882'),
-      ('The man who does not read has no advantage over the man who cannot read.', 'Ryan Holiday', 'The Obstacle Is the Way', 2014, 'Lecture et discipline', 'wd:Q7384160', 'wd:Q17515437'),
-      ('Two things are infinite: the universe and human stupidity; and I''m not sure about the universe.', 'Albert Einstein', 'Einstein: His Life and Universe', 2007, 'Humour et science', 'wd:Q937', 'wd:Q5349791')
+      ('It is our choices, Harry, that show what we truly are, far more than our abilities.', 'J.K. Rowling', 'Harry Potter and the Chamber of Secrets', 1998, 'Choix et identité', 'wd:Q34660', 'wd:Q113331'),
+      ('Fame is a fickle friend, Harry. Celebrity is as celebrity does. Remember that.', 'J.K. Rowling', 'Harry Potter and the Chamber of Secrets', 1998, 'Célébrité', 'wd:Q34660', 'wd:Q113331'),
+      ('The obstacle in the path becomes the path. Never forget, within every obstacle is an opportunity to improve our condition.', 'Ryan Holiday', 'The Obstacle Is the Way', 2014, 'Résilience et philosophie', 'wd:Q7384151', 'wd:Q24263628'),
+      ('Control your perceptions. Direct your actions properly. Willingly accept what''s outside your control.', 'Ryan Holiday', 'The Obstacle Is the Way', 2014, 'Discipline et stoïcisme', 'wd:Q7384151', 'wd:Q24263628'),
+      ('When you want something, all the universe conspires in helping you to achieve it.', 'Paulo Coelho', 'The Alchemist', 1988, 'Motivation et destin', 'wd:Q12881', 'wd:Q179021'),
+      ('It''s the possibility of having a dream come true that makes life interesting.', 'Paulo Coelho', 'The Alchemist', 1988, 'Rêves et voyage', 'wd:Q12881', 'wd:Q179021'),
+      ('It is a narrow mind which cannot look at a subject from various points of view.', 'George Eliot', 'Middlemarch', 1871, 'Sagesse et perspective', 'wd:Q131333', 'wd:Q206584')
     ) AS seed(text, author_name, book_title, book_year, theme, author_uri, book_uri)
   LOOP
     v_author_id := NULL;

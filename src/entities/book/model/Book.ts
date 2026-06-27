@@ -27,6 +27,7 @@ export interface Book {
   isbn?: string; // ISBN du livre
   laureates?: Laureate[]; // Prix littéraires reçus
   lastEnrichedAt?: string; // Date du dernier enrichissement
+  isVerified?: boolean; // Le livre est-il vérifié via une source de confiance
 }
 
 // DTO pour créer un livre
@@ -43,6 +44,7 @@ export interface CreateBookDto {
   openLibraryId?: string;
   googleId?: string;
   inventaireUri?: string;
+  isVerified?: boolean;
 }
 
 export interface BookImportPayload extends CreateBookDto {
@@ -70,6 +72,7 @@ export class BookFactory {
       inventaireUri: dto.inventaireUri,
       isSaved: false,
       readingStatus: null,
+      isVerified: dto.isVerified ?? false,
     };
   }
 
@@ -84,6 +87,7 @@ export class BookFactory {
       rating: data.rating || 0,
       genre: data.genre || '',
       cover: data.cover || '',
+      isVerified: !!data.isVerified,
     };
   }
 }

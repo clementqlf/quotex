@@ -10,7 +10,10 @@ export const STORAGE_KEYS = {
     AUTH_TOKEN: 'auth_token',
     USER_DATA: 'user_data',
     LAST_SYNC_TIME: 'last_sync_time',
-};
+    THEME_PREFERENCE: 'theme_preference',
+} as const;
+
+export type StorageKey = keyof typeof STORAGE_KEYS;
 
 export const StorageService = {
     async getItem<T>(key: string): Promise<T | null> {

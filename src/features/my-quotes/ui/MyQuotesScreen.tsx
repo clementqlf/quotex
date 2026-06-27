@@ -1,11 +1,14 @@
-import { InteractiveTooltip } from '@/src/features/app-tour';
+import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from 'expo-router/react-navigation';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,30 +26,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 import { useTabIndex } from '@/src/app/providers/TabContext';
-import ScanPreviewModal from '@/src/features/scanner/ui/ScanPreviewModal';
+import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
+import SimpleScanModal from '@/src/shared/ui/modals/SimpleScanModal';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 
+import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuoteActions } from '@/src/entities/quote/lib';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 
 // Entity components - OK to import from entities per FSD
-import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
-import BookCardItem from '@/src/entities/book/ui/BookCardItem';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
+import AuthorCardItem, { AuthorCardData } from '@/src/entities/author/ui/AuthorCardItem';
+import BookCardItem, { BookCardData } from '@/src/entities/book/ui/BookCardItem';
+import ThemeCardItem, { ThemeCardData } from '@/src/entities/theme/ui/ThemeCardItem';
+import BookActionModal from '@/src/entities/book/ui/BookActionModal';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
 import QuoteActionModal from '@/src/entities/quote/ui/QuoteActionModal';
 import QuoteCard from '@/src/entities/quote/ui/QuoteCard';
-import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
 
 // Feature hook
 import { useMyQuotes } from '../model/useMyQuotes';
 
 interface AnimatedHeaderTitleProps {
   viewMode: 'quotes' | 'books' | 'themes' | 'authors';
-  colors: any;
+  colors: ThemeColors;
   styles: any;
 }
 
@@ -65,23 +74,22 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
-  const [prevViewMode, setPrevViewMode] = useState(viewMode);
-
-  if (viewMode !== prevViewMode) {
-    setPrevViewMode(viewMode);
+  // Adjust state and shared values synchronously during render when viewMode changes
+  if (viewMode !== currentMode) {
     const currentIdx = TAB_INDEXES[currentMode];
     const newIdx = TAB_INDEXES[viewMode];
     direction.value = newIdx >= currentIdx ? 1 : -1;
 
-    setPrevMode(currentMode);
-    setCurrentMode(viewMode);
-
     enterProgress.value = 0;
     exitProgress.value = 0;
+
+    setPrevMode(currentMode);
+    setCurrentMode(viewMode);
   }
 
+  // Trigger animations in response to currentMode / prevMode changes
   useEffect(() => {
-    if (enterProgress.value === 0) {
+    if (prevMode !== null) {
       enterProgress.value = withTiming(1, { duration: 300 });
       exitProgress.value = withTiming(1, { duration: 300 }, (finished) => {
         if (finished) {
@@ -89,7 +97,8 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
-  }, [currentMode, enterProgress, exitProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMode, prevMode]);
 
   const enterStyle = useAnimatedStyle(() => {
     return {
@@ -150,6 +159,8 @@ interface ListHeaderMemoProps {
   removeFilter: (filter: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }) => void;
   resetFilters: () => void;
   setSelectedStatus: (status: string) => void;
+  quoteSubFilter?: 'ALL' | 'PUBLISHED' | 'SAVED';
+  setQuoteSubFilter?: (filter: 'ALL' | 'PUBLISHED' | 'SAVED') => void;
 }
 
 const ListHeaderMemo = React.memo(function ListHeaderMemo({
@@ -161,6 +172,8 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
   removeFilter,
   resetFilters,
   setSelectedStatus,
+  quoteSubFilter,
+  setQuoteSubFilter,
 }: ListHeaderMemoProps) {
   const elements: React.ReactNode[] = [];
 
@@ -218,11 +231,42 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
             >
               <Text style={[
                 styles.statusFilterText,
-                selectedStatus === opt.value && { color: opt.color, fontWeight: '700' }
+                selectedStatus === opt.value && { color: opt.color }
               ]}>{opt.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+    );
+  }
+
+  if (viewMode === 'quotes') {
+    elements.push(
+      <View key="quote-sub-pills" style={styles.tabsContainer}>
+        <TouchableOpacity
+          onPress={() => setQuoteSubFilter?.('ALL')}
+          style={[styles.tab, quoteSubFilter === 'ALL' && styles.activeTab]}
+        >
+          <Text style={[styles.tabText, quoteSubFilter === 'ALL' && styles.activeTabText]}>
+            Tout
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setQuoteSubFilter?.('PUBLISHED')}
+          style={[styles.tab, quoteSubFilter === 'PUBLISHED' && styles.activeTab]}
+        >
+          <Text style={[styles.tabText, quoteSubFilter === 'PUBLISHED' && styles.activeTabText]}>
+            Publiés
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setQuoteSubFilter?.('SAVED')}
+          style={[styles.tab, quoteSubFilter === 'SAVED' && styles.activeTab]}
+        >
+          <Text style={[styles.tabText, quoteSubFilter === 'SAVED' && styles.activeTabText]}>
+            Enregistré
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -236,12 +280,16 @@ export default function MyQuotesScreen() {
 
   const [showManualQuoteModal, setShowManualQuoteModal] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
+  const [scannedText, setScannedText] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [quoteSubFilter, setQuoteSubFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
   const [viewMode, setViewMode] = useState<'quotes' | 'books' | 'themes' | 'authors'>('quotes');
   const [firstItemHeight, setFirstItemHeight] = useState(150);
+  const { user: currentUser } = useAuth();
 
   // Feature hook - découplé de DataProvider
   const {
@@ -258,10 +306,11 @@ export default function MyQuotesScreen() {
   } = useMyQuotes();
 
   const { handleConfirmSave } = useQuoteActions();
-  const { tabIndex, setTabIndex, setPage } = useTabIndex();
+  const { toggleSaveQuote } = useQuote();
+  const { tabIndex, setTabIndex } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
-  const quotesListRef = useRef<any>(null);
+  const quotesListRef = useRef<FlashListRef<Quote> | null>(null);
 
   const scrollToQuotesTop = useCallback(() => {
     setViewMode('quotes');
@@ -282,6 +331,96 @@ export default function MyQuotesScreen() {
   // Edit State
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [actionMenuQuote, setActionMenuQuote] = useState<Quote | null>(null);
+  
+  const { updateBookStatus, toggleSaveBook } = useAuthor();
+  const [actionMenuBook, setActionMenuBook] = useState<BookCardData | null>(null);
+
+  const handleOpenBookMenu = useCallback((book: BookCardData) => {
+    setActionMenuBook(book);
+  }, []);
+
+  const handleOpenBookStatusMenu = useCallback((book: BookCardData) => {
+    const bookId = book.id;
+    if (!bookId) return;
+    const options = [...STATUS_OPTIONS];
+
+    const changeStatus = async (status: string) => {
+      try {
+        await updateBookStatus(bookId, status as ReadingStatus);
+      } catch {
+        Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      const iosOptions = ['Annuler', ...options.map(o => o.label)];
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: iosOptions,
+          cancelButtonIndex: 0,
+          title: 'Classer ce livre',
+        },
+        async (buttonIndex) => {
+          if (buttonIndex > 0) {
+            const selected = options[buttonIndex - 1];
+            await changeStatus(selected.value);
+          }
+        }
+      );
+      return;
+    }
+
+    const androidButtons: { text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }[] = [
+      { text: 'Annuler', style: 'cancel' },
+      ...STATUS_OPTIONS.map(o => ({
+        text: o.label,
+        onPress: () => changeStatus(o.value)
+      }))
+    ];
+
+    Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
+  }, [updateBookStatus]);
+
+  const handleDeleteBook = useCallback(async (book: BookCardData) => {
+    const performDelete = async () => {
+      try {
+        // 1. Delete all quotes associated with this book
+        const quotesToDelete = myQuotes.filter(q => {
+          const qBookTitle = getBookTitle(q.book);
+          return qBookTitle.toLowerCase() === book.title.toLowerCase();
+        });
+
+        for (const q of quotesToDelete) {
+          await deleteQuote(q.id);
+        }
+
+        // 2. Unsave the book if it has an ID
+        if (book.id) {
+          const latestBook = allBooks.find(b => b.id === book.id);
+          if (latestBook?.isSaved) {
+            await toggleSaveBook(book.id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to delete book and quotes", err);
+        Alert.alert("Erreur", "Impossible de supprimer le livre.");
+      }
+    };
+
+    if (book.quoteCount > 0) {
+      Alert.alert(
+        "Supprimer le livre",
+        "Supprimer ce livre supprimera également toutes les citations associées. Êtes-vous sûr de vouloir continuer ?",
+        [
+          { text: "Annuler", style: "cancel" },
+          { text: "Supprimer", style: "destructive", onPress: performDelete }
+        ]
+      );
+    } else {
+      await performDelete();
+    }
+  }, [myQuotes, allBooks, deleteQuote, toggleSaveBook]);
+
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -322,10 +461,10 @@ export default function MyQuotesScreen() {
 
 
 
-  // Memoized derived data - utilisant les getters du hook feature
-  const authors = useMemo(() => getAuthors(), [getAuthors]);
-  const books = useMemo(() => getBooksData(), [getBooksData]);
-  const bookCount = useMemo(() => getBookCount(), [getBookCount]);
+  // Derived data - appel direct des getters (useMemo inutiles supprimés)
+  const authors = getAuthors();
+  const books = getBooksData();
+  const bookCount = getBookCount();
 
   const years = useMemo(() => {
     return [...new Set(
@@ -336,11 +475,18 @@ export default function MyQuotesScreen() {
   }, [myQuotes]);
 
   // Liste des thèmes
-  const themes = useMemo(() => getThemes(), [getThemes]);
+  const themes = getThemes();
 
   // Derived filtered quotes
   const quotesToDisplay = useMemo(() => {
     let filtered = [...myQuotes];
+
+    if (quoteSubFilter === 'PUBLISHED') {
+      filtered = filtered.filter(q => q.user?.id === currentUser?.id || !q.user);
+    } else if (quoteSubFilter === 'SAVED') {
+      filtered = filtered.filter(q => q.user && q.user?.id !== currentUser?.id && q.isSaved);
+    }
+
     if (activeFilters.length > 0) {
       const filtersByType = activeFilters.reduce((acc, filter) => {
         if (!acc[filter.type]) {
@@ -365,10 +511,10 @@ export default function MyQuotesScreen() {
       });
     }
     return filtered;
-  }, [myQuotes, activeFilters, allBooks]);
+  }, [myQuotes, activeFilters, allBooks, quoteSubFilter, currentUser]);
 
   // Authors data
-  const authorsData = useMemo(() => getAuthorsData(), [getAuthorsData]);
+  const authorsData = getAuthorsData();
 
   const filteredBooksByStatus = useMemo(() => {
     if (selectedStatus === 'ALL') return books;
@@ -464,8 +610,8 @@ export default function MyQuotesScreen() {
     return card;
   }, [toggleLikeQuoteStable, handleOpenMenu]);
 
-  const renderBookItem = useCallback(({ item, index }: { item: any; index: number }) => {
-    const card = <BookCardItem book={item} />;
+  const renderBookItem = useCallback(({ item, index }: { item: BookCardData; index: number }) => {
+    const card = <BookCardItem book={item} onOpenMenu={handleOpenBookMenu} />;
     if (index === 0) {
       return (
         <View 
@@ -482,9 +628,9 @@ export default function MyQuotesScreen() {
       );
     }
     return card;
-  }, []);
+  }, [handleOpenBookMenu]);
 
-  const renderAuthorItem = useCallback(({ item, index }: { item: any; index: number }) => {
+  const renderAuthorItem = useCallback(({ item, index }: { item: AuthorCardData; index: number }) => {
     const card = <AuthorCardItem author={item} />;
     if (index === 0) {
       return (
@@ -504,7 +650,7 @@ export default function MyQuotesScreen() {
     return card;
   }, []);
 
-  const renderThemeItem = useCallback(({ item, index }: { item: any; index: number }) => {
+  const renderThemeItem = useCallback(({ item, index }: { item: ThemeCardData; index: number }) => {
     const card = <ThemeCardItem theme={item} />;
     if (index === 0) {
       return (
@@ -525,9 +671,9 @@ export default function MyQuotesScreen() {
   }, []);
 
   const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
-  const bookKeyExtractor = useCallback((item: any) => item.title, []);
-  const authorKeyExtractor = useCallback((item: any) => item.name, []);
-  const themeKeyExtractor = useCallback((item: any) => item.theme, []);
+  const bookKeyExtractor = useCallback((item: BookCardData) => item.title, []);
+  const authorKeyExtractor = useCallback((item: AuthorCardData) => item.name, []);
+  const themeKeyExtractor = useCallback((item: ThemeCardData) => item.theme, []);
   const statsContent = (
     <>
       <TouchableOpacity
@@ -664,7 +810,7 @@ export default function MyQuotesScreen() {
 
       {/* Content — FlashList for virtualization */}
       <View style={styles.scrollView}>
-        {viewMode === 'books' ? (
+        <View style={viewMode === 'books' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             data={filteredBooksByStatus}
             renderItem={renderBookItem}
@@ -676,7 +822,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="books"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -690,7 +836,9 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        ) : viewMode === 'authors' ? (
+        </View>
+
+        <View style={viewMode === 'authors' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             data={authorsData}
             renderItem={renderAuthorItem}
@@ -702,7 +850,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="authors"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -716,7 +864,9 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        ) : viewMode === 'themes' ? (
+        </View>
+
+        <View style={viewMode === 'themes' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             data={themes}
             renderItem={renderThemeItem}
@@ -728,7 +878,7 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="themes"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
@@ -742,7 +892,9 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        ) : (
+        </View>
+
+        <View style={viewMode === 'quotes' ? styles.listContainerActive : styles.listContainerHidden}>
           <FlashList
             ref={quotesListRef}
             data={quotesToDisplay}
@@ -755,13 +907,15 @@ export default function MyQuotesScreen() {
             ListHeaderComponent={
               <ListHeaderMemo
                 activeFilters={activeFilters}
-                viewMode={viewMode}
+                viewMode="quotes"
                 selectedStatus={selectedStatus}
                 colors={colors}
                 styles={styles}
                 removeFilter={removeFilter}
                 resetFilters={resetFilters}
                 setSelectedStatus={setSelectedStatus}
+                quoteSubFilter={quoteSubFilter}
+                setQuoteSubFilter={setQuoteSubFilter}
               />
             }
             ListEmptyComponent={
@@ -775,7 +929,7 @@ export default function MyQuotesScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
           />
-        )}
+        </View>
       </View>
 
       <FilterModal
@@ -795,6 +949,7 @@ export default function MyQuotesScreen() {
         onClose={() => {
           setShowManualQuoteModal(false);
           setEditingQuote(null);
+          setScannedText('');
         }}
         onConfirm={async (text, book, author) => {
           await handleConfirmSave(text, book, author, {
@@ -805,23 +960,72 @@ export default function MyQuotesScreen() {
           });
           scrollToQuotesTop();
         }}
-        scannedText={editingQuote ? editingQuote.text : ""}
+        scannedText={editingQuote ? editingQuote.text : scannedText}
         initialBook={editingQuote ? getBookTitle(editingQuote.book) : ""}
         initialAuthor={editingQuote ? getAuthorName(editingQuote.author) : ""}
+      />
+
+      <SimpleScanModal
+        visible={showSimpleScanModal}
+        onClose={() => setShowSimpleScanModal(false)}
+        onSuccess={(text) => {
+          setShowSimpleScanModal(false);
+          setScannedText(text);
+          setEditingQuote(null);
+          setTimeout(() => {
+            setShowManualQuoteModal(true);
+          }, Platform.OS === 'ios' ? 350 : 50);
+        }}
       />
 
       <QuoteActionModal
         visible={!!actionMenuQuote}
         onClose={() => setActionMenuQuote(null)}
+        isSavedQuote={!!(actionMenuQuote?.user && actionMenuQuote.user?.id !== currentUser?.id && actionMenuQuote.isSaved)}
         onEdit={() => {
           if (actionMenuQuote) {
-            setEditingQuote(actionMenuQuote);
-            setShowManualQuoteModal(true);
+            const quote = actionMenuQuote;
+            setActionMenuQuote(null);
+            setTimeout(() => {
+              setEditingQuote(quote);
+              setShowManualQuoteModal(true);
+            }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}
         onDelete={() => {
           if (actionMenuQuote) {
-            deleteQuote(actionMenuQuote.id);
+            const quote = actionMenuQuote;
+            setActionMenuQuote(null);
+            setTimeout(() => {
+              if (quote.user && quote.user?.id !== currentUser?.id && quote.isSaved) {
+                toggleSaveQuote(quote.id);
+              } else {
+                deleteQuote(quote.id);
+              }
+            }, Platform.OS === 'ios' ? 350 : 50);
+          }
+        }}
+      />
+
+      <BookActionModal
+        visible={!!actionMenuBook}
+        onClose={() => setActionMenuBook(null)}
+        onChangeStatus={() => {
+          if (actionMenuBook) {
+            const book = actionMenuBook;
+            setActionMenuBook(null);
+            setTimeout(() => {
+              handleOpenBookStatusMenu(book);
+            }, Platform.OS === 'ios' ? 350 : 50);
+          }
+        }}
+        onDelete={() => {
+          if (actionMenuBook) {
+            const book = actionMenuBook;
+            setActionMenuBook(null);
+            setTimeout(() => {
+              handleDeleteBook(book);
+            }, Platform.OS === 'ios' ? 350 : 50);
           }
         }}
       />
@@ -830,14 +1034,14 @@ export default function MyQuotesScreen() {
         visible={showAddMenu}
         onClose={() => setShowAddMenu(false)}
         onScanPress={() => {
-          if (setPage) {
-            setPage(1);
-          } else {
-            router.navigate('/scan');
-          }
+          setShowAddMenu(false);
+          setTimeout(() => {
+            setShowSimpleScanModal(true);
+          }, Platform.OS === 'ios' ? 350 : 50);
         }}
         onManualAddPress={() => {
           setEditingQuote(null);
+          setScannedText('');
           setShowManualQuoteModal(true);
         }}
       />
@@ -979,7 +1183,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   statusFilterTextActive: {
     color: colors.primary,
-    fontWeight: '700',
   },
   emptyStateText: {
     color: colors.textSecondary,
@@ -997,5 +1200,38 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     textDecorationLine: 'underline',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 16,
+    gap: 24,
+  },
+  tab: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  activeTabText: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  listContainerActive: {
+    flex: 1,
+  },
+  listContainerHidden: {
+    display: 'none',
   },
 });

@@ -46,6 +46,8 @@ export interface Quote {
   text: string; // Texte de la citation
   book?: string | Book | null; // Livre associé (peut être une string ou un objet Book)
   author?: string | Author | null; // Auteur (peut être une string ou un objet Author)
+  bookId?: number; // ID du livre associé (pour la base de données)
+  authorId?: number; // ID de l'auteur associé (pour la base de données)
   theme?: string; // Thème de la citation
   date?: string; // Date de création de la quote
   savedAt?: string | null; // Date où l'utilisateur a sauvegardé la quote (userquote.AddedAt)
@@ -59,6 +61,7 @@ export interface Quote {
   notes?: string | null; // Notes personnelles
   blockData?: BlockData; // Données de blocks personnalisés
   aiInterpretation?: string | null; // Interprétation par IA
+  isPublic?: boolean; // Indique si la citation est publique
   
   // Champs de synchronisation
   wasSynced?: boolean; // A été synchronisé avec le serveur

@@ -1,5 +1,5 @@
 import { Book } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 export interface BookSearchResult {
@@ -19,7 +19,6 @@ export interface BookSearchResult {
 }
 
 class BookSearchService {
-    private readonly BASE_URL = `${API_BASE_URL}`;
 
     async search(query: string): Promise<BookSearchResult[]> {
         if (!query.trim()) return [];
@@ -29,11 +28,7 @@ class BookSearchService {
         }
 
         try {
-            const response = await fetch(`${this.BASE_URL}/book-search/search?q=${encodeURIComponent(query)}`);
-            if (response && response.ok) {
-                return await response.json();
-            }
-            return [];
+            return await httpClient.get<BookSearchResult[]>(`/book-search/search?q=${encodeURIComponent(query)}`);
         } catch (error) {
             logFetchError('Error searching books', error);
             return [];
@@ -46,18 +41,7 @@ class BookSearchService {
         }
 
         try {
-            const response = await fetch(`${this.BASE_URL}/books/import`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(bookData),
-            });
-
-            if (response && response.ok) {
-                return await response.json();
-            }
-            return null;
+            return await httpClient.post<Book>('/books/import', bookData);
         } catch (error) {
             logFetchError('Error importing book', error);
             return null;

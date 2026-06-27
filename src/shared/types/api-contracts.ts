@@ -4,6 +4,20 @@
  * de données, réduisant ainsi les erreurs de payload.
  */
 
+// Types pour les opérations offline
+export type OperationType = 'LIKE' | 'UNLIKE' | 'SAVE' | 'UNSAVE' | 'DELETE' | 'UPDATE' | 'CREATE';
+export type EntityType = 'QUOTE' | 'BOOK' | 'AUTHOR';
+
+// Payload typé pour chaque type d'opération
+export type OperationPayload =
+  | { type: 'LIKE'; quoteId: number }
+  | { type: 'UNLIKE'; quoteId: number }
+  | { type: 'SAVE'; quoteId: number }
+  | { type: 'UNSAVE'; quoteId: number }
+  | { type: 'DELETE'; entityId: number | string; entityType: EntityType }
+  | { type: 'UPDATE'; entityId: number | string; entityType: EntityType; data: unknown }
+  | { type: 'CREATE'; entityType: EntityType; data: unknown };
+
 // Payload pour la fonction `sync-quotes`
 export interface SyncQuotesPayload {
   offlineQuotes: {
@@ -38,10 +52,10 @@ export interface BookImportPayload {
 // Type définissant le format d'une opération asynchrone stockée offline
 export interface OfflineOperationContract {
   id: string; // UUID de l'opération
-  type: 'LIKE' | 'UNLIKE' | 'SAVE' | 'UNSAVE' | 'DELETE' | 'UPDATE' | 'CREATE';
+  type: OperationType;
   entityId: number | string;
-  entityType: 'QUOTE' | 'BOOK' | 'AUTHOR';
-  payload?: any;
+  entityType: EntityType;
+  payload: OperationPayload;
   createdAt: number;
   retryCount: number;
 }

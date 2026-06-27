@@ -1,9 +1,10 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { TOUR_STEPS, useAppTourState } from '@/src/features/app-tour';
+import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { useHaptics } from '@/src/shared/platform';
 import { ThemeColors } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { useRouter } from 'expo-router';
@@ -37,6 +38,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { currentStepIndex, nextStep } = useAppTourState();
+  const haptics = useHaptics();
 
   // Utiliser Realtime pour obtenir les versions à jour (avec fallback polling)
   const bookId = typeof quote.book === 'object' && quote.book !== null ? quote.book.id : undefined;
@@ -95,6 +97,14 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
               params.fromTour = 'true';
             }
             router.navigate({ pathname: '/quote-detail', params });
+          }}
+          onLongPress={async () => {
+            try {
+              await haptics.impactAsync('medium');
+            } catch (err) {
+              console.warn('Haptics failed', err);
+            }
+            onOpenMenu(quote);
           }}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
         >

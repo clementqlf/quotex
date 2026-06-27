@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Author } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -13,7 +13,7 @@ interface SimilarAuthorsBlockProps {
 
 const SimilarAuthorsBlockUI: React.FC<SimilarAuthorsBlockProps> = ({ authors, onAuthorPress, onRemove }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const hasAuthors = authors && authors.length > 0;
 

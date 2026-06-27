@@ -1,3 +1,5 @@
+import type { Quote } from '@/src/entities/quote/model/Quote';
+
 export const aiInterpretations: { [key: string]: string } = {
   "The only way to do great work is to love what you do.": "Cette citation de Steve Jobs souligne l'importance de la passion. L'excellence ne peut être atteinte que lorsque nous sommes profondément investis émotionnellement. C'est un rappel que la satisfaction professionnelle et le succès sont intimement liés.",
   "In the middle of difficulty lies opportunity.": "Einstein nous invite à adopter une perspective optimiste face aux défis. Chaque obstacle contient en son cœur le potentiel de croissance. C'est dans l'adversité que se forgent les plus grandes avancées.",
@@ -202,97 +204,8 @@ export const mockReviews: { [key: string]: { id: string; user: { name: string; i
   ]
 };
 
-const quotexUser = {
-  id: "00000000-0000-0000-0000-000000000000",
-  name: "Quotex",
-  username: "quotex",
-};
+export const localQuotesDB: Quote[] = [];
 
-export const localQuotesDB = [
-  {
-    id: 1,
-    text: "The only way to do great work is to love what you do.",
-    book: "Steve Jobs",
-    author: "Steve Jobs",
-    theme: "Passion et excellence",
-    date: "Il y a 2h",
-    likes: 12,
-    isLiked: true,
-    user: quotexUser,
-  },
-  {
-    id: 2,
-    text: "In the middle of difficulty lies opportunity.",
-    book: "Einstein: His Life and Universe",
-    author: "Albert Einstein",
-    theme: "Résilience et opportunité",
-    date: "Il y a 5h",
-    likes: 8,
-    isLiked: false,
-    user: quotexUser,
-  },
-  {
-    id: 3,
-    text: "It is our choices that show what we truly are, far more than our abilities.",
-    book: "Harry Potter and the Chamber of Secrets",
-    author: "J.K. Rowling",
-    theme: "Choix et identité",
-    date: "Hier",
-    likes: 24,
-    isLiked: true,
-    user: quotexUser,
-  },
-];
-
-export const globalQuotesDB = [
-  {
-    id: 4, // Changed ID to avoid conflict
-    user: quotexUser,
-    text: "The only impossible journey is the one you never begin.",
-    book: "The Alchemist",
-    author: "Paulo Coelho",
-    time: "Il y a 5min",
-    likes: 142,
-    comments: 12,
-    isLiked: false,
-    isSaved: false,
-  },
-  {
-    id: 5, // Changed ID to avoid conflict
-    user: quotexUser,
-    text: "It is never too late to be what you might have been.",
-    book: "Middlemarch",
-    author: "George Eliot",
-    time: "Il y a 15min",
-    likes: 89,
-    comments: 5,
-    isLiked: true,
-    isSaved: false,
-  },
-  {
-    id: 6,
-    user: quotexUser,
-    text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.",
-    book: "Einstein: His Life and Universe",
-    author: "Albert Einstein",
-    time: "Il y a 22min",
-    likes: 256,
-    comments: 28,
-    isLiked: false,
-    isSaved: true,
-  },
-  {
-    id: 7,
-    user: quotexUser,
-    text: "The man who does not read has no advantage over the man who cannot read.",
-    book: "The Obstacle Is the Way", // Just for demo purposes, not the real book
-    author: "Ryan Holiday",
-    time: "Il y a 1h",
-    likes: 112,
-    comments: 9,
-    isLiked: true,
-    isSaved: true,
-  }
-];
+export const globalQuotesDB: Quote[] = [];
 
 // --- Simulation de la base de données ---

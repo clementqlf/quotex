@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75.67% </span>
+                <span class="strong">64.44% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>28/37</span>
+                <span class='fraction'>29/45</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">54.76% </span>
+                <span class="strong">52.08% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>23/42</span>
+                <span class='fraction'>25/48</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.77% </span>
+                <span class="strong">70% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>7/9</span>
+                <span class='fraction'>7/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">76.47% </span>
+                <span class="strong">64.28% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>26/34</span>
+                <span class='fraction'>27/42</span>
             </div>
         
             
@@ -336,13 +336,10 @@
 <a name='L271'></a><a href='#L271'>271</a>
 <a name='L272'></a><a href='#L272'>272</a>
 <a name='L273'></a><a href='#L273'>273</a>
-<a name='L274'></a><a href='#L274'>274</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L274'></a><a href='#L274'>274</a>
+<a name='L275'></a><a href='#L275'>275</a>
+<a name='L276'></a><a href='#L276'>276</a>
+<a name='L277'></a><a href='#L277'>277</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -382,6 +379,7 @@
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
@@ -435,12 +433,20 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -609,40 +615,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useTheme } from '@/src/app/providers/ThemeContext';
+import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
+import { Quote } from '@/src/shared/api/types';
+import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
+import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
+import { useHaptics } from '@/src/shared/platform';
+import { ThemeColors } from '@/src/shared/theme';
+import { TypingText } from '@/src/shared/ui/TypingText';
+import { useRouter } from 'expo-router';
+import { Heart, MoreVertical, Share2 } from 'lucide-react-native';
+import React, { useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
   Pressable,
   Share,
   StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Heart, Share2, MoreVertical, CheckCircle2 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useRouter } from 'expo-router';
-import { Quote } from '@/src/shared/api/types';
-import { useAppTourState, TOUR_STEPS } from '@/src/features/app-tour';
-import { getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
-import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
 import EnrichingSkeleton from './EnrichingSkeleton';
-import { useBookRealtime, useAuthorRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
-import { supabase } from '@/src/shared/api/supabase';
-import { TypingText } from '@/src/shared/ui/TypingText';
 &nbsp;
 interface QuoteCardProps {
   quote: Quote;
   onToggleLike: (id: number) =&gt; void;
   onOpenMenu: (quote: Quote) =&gt; void;
+  showSavedDate?: boolean; // Afficher savedAt au lieu de date (pour les quotes sauvegardées)
 }
 &nbsp;
 const isEnriching = (item: any): boolean =&gt; {
@@ -650,11 +650,12 @@ const isEnriching = (item: any): boolean =&gt; {
   return false;
 };
 &nbsp;
-const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProps) =&gt; {
+const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }: QuoteCardProps) =&gt; {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() =&gt; createStyles(colors), [colors]);
   const { currentStepIndex, nextStep } = useAppTourState();
+  const haptics = useHaptics();
 &nbsp;
   // Utiliser Realtime pour obtenir les versions à jour (avec fallback polling)
   const bookId = typeof quote.book === 'object' &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >quote.book !== null </span>? <span class="branch-0 cbranch-no" title="branch not covered" >quote.book.id </span>: undefined;
@@ -704,15 +705,23 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
         &lt;Pressable
           onPress={<span class="fstat-no" title="function not covered" >()</span> =&gt; {
             const activeStepName = <span class="cstat-no" title="statement not covered" >TOUR_STEPS[currentStepIndex];</span>
+            const params: any = <span class="cstat-no" title="statement not covered" >{ quoteId: quote.id.toString() };</span>
+<span class="cstat-no" title="statement not covered" >            if (showSavedDate) {</span>
+<span class="cstat-no" title="statement not covered" >              params.showSavedDate = 'true';</span>
+            }
 <span class="cstat-no" title="statement not covered" >            if (activeStepName === 'quoteCardDetail') {</span>
 <span class="cstat-no" title="statement not covered" >              nextStep();</span>
-<span class="cstat-no" title="statement not covered" >              router.navigate({</span>
-                pathname: '/quote-detail',
-                params: { quoteId: quote.id.toString(), fromTour: 'true' }
-              });
-            } else {
-<span class="cstat-no" title="statement not covered" >              router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } });</span>
+<span class="cstat-no" title="statement not covered" >              params.fromTour = 'true';</span>
             }
+<span class="cstat-no" title="statement not covered" >            router.navigate({ pathname: '/quote-detail', params });</span>
+          }}
+          onLongPress={<span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {
+<span class="cstat-no" title="statement not covered" >            try {</span>
+<span class="cstat-no" title="statement not covered" >              await haptics.impactAsync('medium');</span>
+            } catch (err) {
+<span class="cstat-no" title="statement not covered" >              console.warn('Haptics failed', err);</span>
+            }
+<span class="cstat-no" title="statement not covered" >            onOpenMenu(quote);</span>
           }}
           style={({ pressed }) =&gt; ({ opacity: pressed ? <span class="branch-0 cbranch-no" title="branch not covered" >0.75 </span>: 1 })}
         &gt;
@@ -753,7 +762,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu }: QuoteCardProp
                 /&gt;
               )}
             &lt;/View&gt;
-            &lt;Text style={styles.dateText}&gt;{formatRelativeDate(quote.date)}&lt;/Text&gt;
+            &lt;Text style={styles.dateText}&gt;{formatRelativeDate(showSavedDate &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >quote.savedAt </span>? <span class="branch-0 cbranch-no" title="branch not covered" >quote.savedAt </span>: quote.date)}&lt;/Text&gt;
           &lt;/View&gt;
         &lt;/Pressable&gt;
 &nbsp;
@@ -889,7 +898,7 @@ export default QuoteCard;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-11T19:12:29.795Z
+                at 2026-06-27T18:13:04.371Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

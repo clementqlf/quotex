@@ -1,9 +1,11 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import ReviewBlock from '@/src/entities/book/ui/ReviewBlock';
+import ReviewBlock from '@/src/entities/review/ui/ReviewBlock';
+import type { BlockData } from '@/src/shared/api/BlockService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { BlockKey } from '@/src/shared/config/blocks';
 import React from 'react';
 import { Text, View } from 'react-native';
+import type { Definition } from './DefinitionBlock';
 import { AuthorBlock } from './AuthorBlock';
 import { BlockWrapper } from './BlockWrapper';
 import { BookInfoBlock } from './BookInfoBlock';
@@ -35,9 +37,10 @@ export interface BlockContext {
     onEditDefinitionSelection?: (blockKey: string) => void; // For Quote
     onManageDictionary?: () => void; // For Book
     onConnectionSearchPress?: (blockId: string) => void; // For Connection block
+    onAddQuote?: (pageY?: number) => void;
 
     // State
-    blockData?: Record<string, any>;
+    blockData?: BlockData;
 }
 
 interface BlockDispatcherProps {
@@ -54,7 +57,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         book, author, quote, savedQuotes, blockData,
         onUpdateBlockData, onBookPress, onAuthorPress, onQuotePress,
         onReviewAdded, onEditDefinitionSelection, onManageDictionary,
-        onConnectionSearchPress
+        onConnectionSearchPress, onAddQuote
     } = context;
 
     const { colors } = useTheme();
@@ -92,7 +95,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
                 <NotesBlock
                     blockKey="notes" // We might want to pass full blockId if we support multiple notes blocks?
                     // For now system supports unique note per 'notes' key effectively in storage unless key is unique
-                    content={blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? ''}
+                    content={(blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? '') as string}
                     onUpdate={(text) => onUpdateBlockData && onUpdateBlockData(blockId, text)}
                     onRemove={onRemove}
                 />
@@ -111,7 +114,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
 
         case 'savedQuotes':
             if (!savedQuotes) return null;
-            return <SavedQuotesBlock quotes={savedQuotes} onQuotePress={(q) => onQuotePress && onQuotePress(q)} onRemove={onRemove} />;
+            return <SavedQuotesBlock quotes={savedQuotes} onQuotePress={(q) => onQuotePress && onQuotePress(q)} onRemove={onRemove} onAddQuote={onAddQuote} />;
 
         case 'similarBooks':
             // Data might come from book or quote's fetched book
@@ -126,7 +129,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             // Quote Mode
             // We need to resolve definitions.
             // If manually edited, they are in blockData. If not, maybe in quote.definitions?
-            const defs = (blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? []) as any[];
+            const defs = (blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? []) as Definition[];
 
             return (
                 <DefinitionBlock
@@ -141,7 +144,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             return (
                 <ConnectionBlock
                     blockId={blockId}
-                    data={blockData?.[blockId] ?? quote?.blockData?.[blockId]}
+                    data={(blockData?.[blockId] ?? quote?.blockData?.[blockId]) as any}
                     onUpdate={(data) => onUpdateBlockData && onUpdateBlockData(blockId, data)}
                     onSearchPress={() => onConnectionSearchPress && onConnectionSearchPress(blockId)}
                     onNavigate={(type, id, uri) => {
@@ -178,7 +181,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             // Given complexity, let's assume the parent passes `visibleDefinitions` specifically for this block.
             // But the key is dynamic.
 
-            const visibleDefs = (context as any).visibleDefinitions || [];
+            const visibleDefs = (context as { visibleDefinitions?: Definition[] }).visibleDefinitions || [];
 
             return (
                 <DefinitionBlock

@@ -1,16 +1,17 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import BookDictionaryModal from '@/src/features/dictionary/ui/BookDictionaryModal';
-import AddBlockModal from '@/src/features/edit-book/ui/AddBlockModal';
-import ResourceSearchModal from '@/src/features/search/ui/ResourceSearchModal';
+import BookDictionaryModal from '@/src/shared/ui/modals/BookDictionaryModal';
+import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
+import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { Image } from 'expo-image';
-import { BookOpen, Calendar, Check, ChevronLeft, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
+import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
+import { useHaptics } from '@/src/shared/platform';
 import { createStyles } from './BookDetail.styles';
 import { BookDetailSkeleton } from './BookDetailSkeleton';
 import { useBookDetailController } from './useBookDetailController';
@@ -18,6 +19,7 @@ import { useBookDetailController } from './useBookDetailController';
 export default function BookDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const haptics = useHaptics();
   
   const {
     router,
@@ -31,6 +33,7 @@ export default function BookDetailScreen() {
     scrollableRef,
     isSaved,
     handleHeaderSavePress,
+    handleOpenStatusMenuWithId,
     handleShare,
     handleRemoveBlock,
     handleOrderChange,
@@ -53,6 +56,7 @@ export default function BookDetailScreen() {
     getStatusColor,
     getStatusLabel,
     DESCRIPTION_BLOCKS,
+    renderQuoteModals,
   } = useBookDetailController();
 
   const renderGridItem = useCallback(({ item }: { item: string }) => (
@@ -127,6 +131,15 @@ export default function BookDetailScreen() {
           </View>
         </View>
 
+        {bookInfo.isVerified === false && (
+          <View style={styles.unverifiedBanner}>
+            <Info size={14} color={colors.primary} />
+            <Text style={styles.unverifiedBannerText}>
+              {"Ce livre n'est pas encore vérifié."}
+            </Text>
+          </View>
+        )}
+
         <Animated.ScrollView
           ref={scrollableRef}
           style={styles.content}
@@ -172,14 +185,27 @@ export default function BookDetailScreen() {
                   )}
 
                   {bookInfo.readingStatus && (
-                    <View style={[styles.statusBadge, {
-                      backgroundColor: getStatusColor(bookInfo.readingStatus) + '15',
-                      borderColor: getStatusColor(bookInfo.readingStatus) + '40'
-                    }]}>
+                    <TouchableOpacity
+                      style={[styles.statusBadge, {
+                        backgroundColor: getStatusColor(bookInfo.readingStatus) + '15',
+                        borderColor: getStatusColor(bookInfo.readingStatus) + '40'
+                      }]}
+                      onLongPress={async () => {
+                        if (bookInfo.id) {
+                          try {
+                            await haptics.impactAsync('medium');
+                          } catch (err) {
+                            console.warn('Haptics failed', err);
+                          }
+                          handleOpenStatusMenuWithId(bookInfo.id);
+                        }
+                      }}
+                      delayLongPress={400}
+                    >
                       <Text style={[styles.statusText, { color: getStatusColor(bookInfo.readingStatus) }]}>
                         {getStatusLabel(bookInfo.readingStatus)}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   )}
 
                   {bookInfo.laureates?.map(laureate => (
@@ -284,6 +310,8 @@ export default function BookDetailScreen() {
           }}
           onSelect={handleResourceSelected}
         />
+
+        {renderQuoteModals()}
       </View>
     </SafeAreaView>
   );

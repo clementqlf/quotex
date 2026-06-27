@@ -136,14 +136,14 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
       interval = setInterval(async () => {
         try {
           const { data: fetchedData } = await supabase
-            .from(table)
+            .from(table as any)
             .select('*')
             .eq('id', id)
             .single();
           
           if (fetchedData) {
-            setData(fetchedData);
-            if (fetchedData[enrichingField] === false) {
+            setData(fetchedData as any);
+            if ((fetchedData as any)[enrichingField] === false) {
               if (interval) clearInterval(interval);
               console.log(`[Polling] ${table} ${id} enrichment complete, stopping polling`);
             }

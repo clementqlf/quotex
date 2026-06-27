@@ -2,6 +2,7 @@ import { quoteService } from '../src/entities/quote/api/QuoteService';
 import { SupabaseQuoteRepository } from '../src/entities/quote/api/SupabaseQuoteRepository';
 import { authService } from '../src/entities/user/api/AuthService';
 import { STORAGE_KEYS, StorageService } from '../src/shared/api/StorageService';
+import { httpClient } from '../src/shared/api/HttpClient';
 
 jest.mock('../src/entities/quote/api/QuoteService', () => ({
   quoteService: {
@@ -24,6 +25,10 @@ jest.mock('../src/shared/api/HttpClient', () => ({
     request: jest.fn(),
     post: jest.fn(),
     get: jest.fn(),
+    getSafe: jest.fn(),
+    put: jest.fn(),
+    patch: jest.fn(),
+    delete: jest.fn(),
     buildUrl: jest.fn().mockReturnValue('https://api.example.com/functions/v1/test'),
   },
 }));
@@ -40,7 +45,6 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (globalThis.fetch as jest.Mock).mockReset();
     
     // Configurer les mocks par défaut
     (StorageService.getItem as jest.Mock).mockResolvedValue(null);
@@ -48,15 +52,13 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
     (authService.getUser as jest.Mock).mockResolvedValue({ id: 'user-123', name: 'Test User' });
     (quoteService.getQuotes as jest.Mock).mockResolvedValue([]);
     
-    // On force l'instance à être recréée si besoin, bien que ce soit un singleton, 
-    // en js on peut utiliser (SupabaseQuoteRepository as any).instance = null
     (SupabaseQuoteRepository as any).instance = null;
     repository = SupabaseQuoteRepository.getInstance();
   });
 
   it('devrait échouer si hors-ligne', async () => {
-    // Simuler le fait d'être hors-ligne en faisant rejeter fetch
-    (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('Network request failed'));
+    // Simuler le fait d'être hors-ligne en faisant rejeter httpClient.post
+    (httpClient.post as jest.Mock).mockRejectedValue(new Error('Network request failed'));
 
     const text = 'Citation de test hors-ligne';
     
@@ -64,30 +66,34 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
       .rejects.toThrow('Network request failed');
   });
 
-  it('devrait synchroniser directement si en ligne', async () => {
-    // Simuler le fait d'être en ligne en résolvant fetch
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: jest.fn().mockResolvedValue({
-        syncedCount: 1,
-        corrections: [],
-        syncDetails: []
-      })
+  it('devrait synchroniser directement si en ligne et retourner le vrai ID serveur', async () => {
+    // Simuler le fait d'être en ligne en résolvant httpClient.post
+    (httpClient.post as jest.Mock).mockResolvedValue({
+      syncedCount: 1,
+      corrections: [],
+      syncDetails: [{
+        quoteId: 'temp-123',
+        id: 9999
+      }]
     });
 
     const text = 'Citation de test en ligne';
     
     const quote = await repository.createQuote(text, 'Livre Test', 'Auteur Test');
 
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/sync-quotes'),
+    expect(httpClient.post).toHaveBeenCalledWith(
+      '/sync-quotes',
       expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining(text)
+        offlineQuotes: [
+          expect.objectContaining({
+            text
+          })
+        ]
       })
     );
 
     expect(quote.wasSynced).toBe(true);
+    expect(quote.id).toBe(9999);
   });
 
   describe('updateQuote, deleteQuote, toggleLike', () => {
@@ -98,9 +104,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         return Promise.resolve(null);
       });
 
-      (globalThis.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-      });
+      (httpClient.patch as jest.Mock).mockResolvedValue({});
 
       const updated = await repository.updateQuote(1, { text: 'New', isLiked: true });
 
@@ -110,6 +114,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         STORAGE_KEYS.QUOTES,
         expect.arrayContaining([expect.objectContaining({ text: 'New' })])
       );
+      expect(httpClient.patch).toHaveBeenCalledWith('/quotes/1', expect.any(Object));
     });
 
     it('devrait lancer une erreur si la citation n\'existe pas (updateQuote)', async () => {
@@ -124,9 +129,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         return Promise.resolve(null);
       });
 
-      (globalThis.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-      });
+      (httpClient.delete as jest.Mock).mockResolvedValue({});
 
       await repository.deleteQuote(2);
 
@@ -138,6 +141,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
       const setItemCall = (StorageService.setItem as jest.Mock).mock.calls[0][1];
       expect(setItemCall).toHaveLength(1);
       expect(setItemCall[0].id).toBe(1);
+      expect(httpClient.delete).toHaveBeenCalledWith('/quotes/2');
     });
 
     it('devrait inverser l\'état de like et mettre à jour le compteur (toggleLike)', async () => {
@@ -147,11 +151,8 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         return Promise.resolve(null);
       });
 
-      (globalThis.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          isLiked: { isLiked: true, likesCount: 6 }
-        })
+      (httpClient.post as jest.Mock).mockResolvedValue({
+        isLiked: true
       });
 
       const result = await repository.toggleLike(1);
@@ -162,6 +163,7 @@ describe('SupabaseQuoteRepository Offline Queue', () => {
         STORAGE_KEYS.QUOTES,
         expect.arrayContaining([expect.objectContaining({ isLiked: true, likesCount: 6 })])
       );
+      expect(httpClient.post).toHaveBeenCalledWith('/quotes/1/like', {});
     });
   });
 });

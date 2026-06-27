@@ -1,18 +1,31 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
-import { Author, Book, Quote, User } from '@/src/shared/api/types';
+import { Author, Book, LiteraryPrize, Quote, User } from '@/src/shared/api/types';
+import { InventaireEntity } from '@/src/shared/api/InventaireService';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { httpClient } from '@/src/shared/api/HttpClient';
+
+// Type pour les prix littéraires Inventaire
+export interface InventairePrize {
+  uri: string;
+  label?: string;
+  name?: string;
+  description?: string;
+  image?: string;
+  year?: number | string;
+  founder?: string;
+  laureates?: unknown[];
+}
 
 export interface SearchResults {
     quotes: Quote[];
     authors: Author[];
     books: Book[];
     themes: string[];
-    prizes: any[];
+    prizes: LiteraryPrize[];
     users: User[];
-    inventaireWorks?: any[];
-    inventaireAuthors?: any[];
-    inventairePrizes?: any[];
+    inventaireWorks?: InventaireEntity[];
+    inventaireAuthors?: InventaireEntity[];
+    inventairePrizes?: InventairePrize[];
 }
 
 class SearchService {

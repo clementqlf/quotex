@@ -119,8 +119,21 @@ jest.mock('@react-native-community/netinfo', () => ({
 const { notifyManager } = require('@tanstack/react-query');
 notifyManager.setScheduler((fn) => fn());
 
-
-
-
-
-
+// Mock Supabase globally to prevent realtime connections from hanging in tests
+jest.mock('@/src/shared/api/supabase', () => {
+  const mockChannel = {
+    on: jest.fn().mockReturnThis(),
+    subscribe: jest.fn().mockReturnThis(),
+  };
+  return {
+    supabase: {
+      channel: jest.fn().mockReturnValue(mockChannel),
+      removeChannel: jest.fn(),
+      from: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: null, error: null }),
+      }),
+    },
+  };
+});

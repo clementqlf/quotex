@@ -1,4 +1,6 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { API_BASE_URL } from '@/src/shared/config/api';
+import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { Quote, User } from '@/src/shared/api/types';
 import { z } from 'zod';
 import { IQuoteRepository } from './IQuoteRepository';
@@ -6,7 +8,8 @@ import { IQuoteRepository } from './IQuoteRepository';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { globalQuotesDB, localQuotesDB } from '@/src/shared/api/staticData';
-import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
+import { OperationQueue, OperationType } from '@/src/shared/lib/offline/OperationQueue';
+import { QueuedOperationError } from '@/src/shared/lib/offline/QueuedOperationError';
 
 // Simulate API delay
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve as () => void, ms));
@@ -32,20 +35,6 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     return SupabaseQuoteRepository.instance;
   }
 
-  private readonly API_URL = `${httpClient['buildUrl']('')}/quotes`;
-
-  private async getHeaders(extraHeaders: Record<string, string> = {}) {
-    const token = await authService.getToken();
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...extraHeaders,
-    };
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
-  }
-
   private mapQuoteFromServer(q: any): Quote {
     return {
         id: q.id,
@@ -59,9 +48,10 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
         isSaved: q.isSaved || false,
         comments: q.comments || 0,
-        blockData: q.blockData ? (typeof q.blockData === 'string' ? JSON.parse(q.blockData) : q.blockData) : {},
+        blockData: parseJsonField<Record<string, any>>(q.blockData) || {},
         user: q.user,
         aiInterpretation: q.aiInterpretation,
+        isPublic: q.isPublic,
         savedAt: q.savedAt || q.AddedAt || null, // Date de sauvegarde depuis userquote.AddedAt
     };
   }
@@ -95,27 +85,19 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         const controller = new AbortController();
         timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const headers = await this.getHeaders();
-        const response = await fetch(this.API_URL!, {
-            signal: controller.signal,
-            headers
-        });
+        const serverQuotes = await httpClient.getSafe<Quote[]>('/quotes', { signal: controller.signal });
+        const mappedQuotes: Quote[] = serverQuotes ? serverQuotes.map((q: any) => this.mapQuoteFromServer(q)) : [];
 
-        if (response && response.ok) {
-            const serverQuotes = await response.json();
-            const mappedQuotes: Quote[] = serverQuotes.map((q: any) => this.mapQuoteFromServer(q));
+        // Preserve local pending quotes
+        const currentLocalQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const pendingFullQuotes = currentLocalQuotes.filter(q => q._isPending === true);
+        
+        const finalQuotes = [...pendingFullQuotes, ...mappedQuotes];
 
-            // Preserve local pending quotes
-            const currentLocalQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-            const pendingFullQuotes = currentLocalQuotes.filter(q => q._isPending === true);
-            
-            const finalQuotes = [...pendingFullQuotes, ...mappedQuotes];
+        // Update local cache
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, finalQuotes);
 
-            // Update local cache
-            await StorageService.setItem(STORAGE_KEYS.QUOTES, finalQuotes);
-
-            return finalQuotes;
-        }
+        return finalQuotes;
     } catch (error) {
         console.log('Server unreachable, using local storage:', error);
     } finally {
@@ -138,19 +120,15 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
   async getQuoteById(id: number): Promise<Quote | null> {
     try {
-        const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}`, { headers });
-        if (response && response.ok) {
-            const q = await response.json();
-            const mappedQuote = this.mapQuoteFromServer(q);
+        const q = await httpClient.get<any>(`/quotes/${id}`);
+        const mappedQuote = this.mapQuoteFromServer(q);
 
-            // Update this quote in local cache
-            const currentQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-            const updatedQuotes = currentQuotes.map(cq => cq.id === id ? mappedQuote : cq);
-            await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
+        // Update this quote in local cache
+        const currentQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+        const updatedQuotes = currentQuotes.map(cq => cq.id === id ? mappedQuote : cq);
+        await StorageService.setItem(STORAGE_KEYS.QUOTES, updatedQuotes);
 
-            return mappedQuote;
-        }
+        return mappedQuote;
     } catch (error) {
         console.log('Error fetching quote by ID, using local fallback:', error);
     }
@@ -182,32 +160,23 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
     const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
     
-    const headers = await this.getHeaders();
-    const SYNC_URL = `${httpClient['buildUrl']('')}/sync-quotes`;
-    
     // Use sync-quotes endpoint for matching
-    const response = await fetch(SYNC_URL, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            offlineQuotes: [{
-                id: String(tempId),
-                text,
-                author: cleanAuthor,
-                book: cleanBook,
-                theme: undefined,
-                createdAt,
-                userId: user.id
-            }]
-        }),
+    const result = await httpClient.post<{
+        syncedCount: number;
+        corrections?: any[];
+        syncDetails?: any[];
+    }>('/sync-quotes', {
+        offlineQuotes: [{
+            id: String(tempId),
+            text,
+            author: cleanAuthor,
+            book: cleanBook,
+            theme: undefined,
+            createdAt,
+            userId: user.id
+        }]
     });
 
-    if (!response || !response.ok) {
-        throw new Error(`Erreur serveur: ${response ? response.status : 'no response'}`);
-    }
-
-    const result = await response.json();
-    
     if (result.syncedCount === 0) {
         throw new Error('Server returned syncedCount: 0');
     }
@@ -222,10 +191,9 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     let finalBook: any = correction?.matchedBook || cleanBook;
     let finalAuthor: any = correction?.matchedAuthor || cleanAuthor;
     
-    const REST_BASE_URL = httpClient['buildUrl']('').replace('/functions/v1', '/rest/v1');
-    
     if (detail?.bookId) {
         try {
+            const REST_BASE_URL = API_BASE_URL.replace('/functions/v1', '/rest/v1');
             const bookRes = await httpClient.get<any[]>(`${REST_BASE_URL}/Book`, { 
                 params: { select: '*', id: `eq.${detail.bookId}` } 
             });
@@ -237,6 +205,7 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     
     if (detail?.authorId) {
         try {
+            const REST_BASE_URL = API_BASE_URL.replace('/functions/v1', '/rest/v1');
             const authorRes = await httpClient.get<any[]>(`${REST_BASE_URL}/Author`, { 
                 params: { select: '*', id: `eq.${detail.authorId}` } 
             });
@@ -255,11 +224,10 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         syncCorrections.book = { original: cleanBook || '', matched: typeof finalBook === 'string' ? finalBook : (finalBook?.title || correction.matchedBook) };
     }
 
-    // Server doesn't return the full quote object from /sync-quotes, 
-    // it returns syncedCount. So we construct the resulting quote:
-    // (QuoteUseCases will just use the returned ID to update its local version)
+    // Server returns the synced details including the real quote ID.
+    // So we construct the resulting quote using the server-returned ID:
     return {
-        id: tempId, // In reality, we should fetch the real ID, but sync-quotes uses the offline ID (tempId)
+        id: detail?.id ? Number(detail.id) : tempId,
         text,
         book: finalBook,
         author: finalAuthor,
@@ -327,20 +295,8 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
     try {
         console.log(`Updating quote ${id} on server...`, payload);
-        const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}`, {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify(payload),
-        });
-
-        if (response && response.ok) {
-            console.log('Quote updated on server successfully');
-        } else {
-            const errorText = response ? await response.text() : 'No response';
-            console.error('Failed to update quote on server:', errorText);
-            throw new Error(`Server returned ${response ? response.status : 'no response'}`);
-        }
+        await httpClient.patch(`/quotes/${id}`, payload);
+        console.log('Quote updated on server successfully');
     } catch (error) {
         console.error('Network error updating quote:', error);
         // Add to offline queue
@@ -369,17 +325,8 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
 
     try {
         console.log('Deleting quote on server:', id);
-        const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}`, {
-            method: 'DELETE',
-            headers
-        });
-
-        if (response && response.ok) {
-            console.log('Quote deleted on server');
-        } else {
-            throw new Error(`Server returned ${response ? response.status : 'no response'}`);
-        }
+        await httpClient.delete(`/quotes/${id}`);
+        console.log('Quote deleted on server');
     } catch (error) {
         console.error('Network error deleting quote:', error);
         // Add to offline queue
@@ -392,89 +339,39 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   async toggleLike(id: number): Promise<{ isLiked: boolean; likesCount: number }> {
-    // 1. Déterminer l'état actuel pour savoir si on like ou unlike
-    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-    const quoteIndex = quotes.findIndex(q => q.id === id);
-    const quote = quotes[quoteIndex];
-    const newIsLiked = !(quote?.isLiked);
-
-    // 2. Mise à jour optimiste locale
-    if (quote) {
-        quote.isLiked = newIsLiked;
-        quote.likesCount += newIsLiked ? 1 : -1;
-        quotes[quoteIndex] = quote;
-        await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-    }
-
-    // 3. Tenter l'appel serveur
-    try {
-        const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}/like`, {
-            method: 'POST',
-            headers
-        });
-        if (response && response.ok) {
-            const data = await response.json();
-            return data.isLiked;
-        }
-        throw new Error(`Server returned ${response ? response.status : 'no response'}`);
-    } catch (e) {
-        console.error('Error toggling like:', e);
-        // 4. En cas d'échec, ajouter à la queue offline
-        await OperationQueue.getInstance().enqueue({
-            type: newIsLiked ? 'LIKE' : 'UNLIKE',
-            entityType: 'quote',
-            entityId: id,
-        });
-        return { isLiked: newIsLiked, likesCount: quote?.likesCount || 0 };
-    }
+    return this.executeToggleOperation(
+      id,
+      (quote, newValue) => {
+        quote.isLiked = newValue;
+        quote.likesCount += newValue ? 1 : -1;
+      },
+      async () => {
+        await httpClient.post<{ isLiked: boolean }>(`/quotes/${id}/like`, {});
+      },
+      (newValue, quote) => ({ isLiked: newValue, likesCount: quote?.likesCount || 0 }),
+      { true: 'LIKE' as const, false: 'UNLIKE' as const },
+      'isLiked'
+    );
   }
 
   async toggleSave(id: number): Promise<{ isSaved: boolean; savedAt?: string | null }> {
-    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
-    const quoteIndex = quotes.findIndex(q => q.id === id);
-    const quote = quotes[quoteIndex];
-    const newIsSaved = !(quote?.isSaved);
-
-    if (quote) {
-        quote.isSaved = newIsSaved;
-        quote.savedAt = newIsSaved ? new Date().toISOString() : null;
-        quotes[quoteIndex] = quote;
-        await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
-    }
-
-    try {
-        const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}/toggle-save`, {
-            method: 'POST',
-            headers
-        });
-        if (response && response.ok) {
-            const data = await response.json();
-            return { isSaved: data.isSaved, savedAt: data.savedAt || null };
-        }
-        throw new Error(`Server returned ${response ? response.status : 'no response'}`);
-    } catch (e) {
-        console.error('Error toggling save:', e);
-        await OperationQueue.getInstance().enqueue({
-            type: newIsSaved ? 'SAVE' : 'UNSAVE',
-            entityType: 'quote',
-            entityId: id,
-        });
-        return { isSaved: newIsSaved, savedAt: newIsSaved ? new Date().toISOString() : null };
-    }
+    return this.executeToggleOperation(
+      id,
+      (quote, newValue) => {
+        quote.isSaved = newValue;
+        quote.savedAt = newValue ? new Date().toISOString() : null;
+      },
+      async () => {
+        await httpClient.post<{ isSaved: boolean; savedAt: string | null }>(`/quotes/${id}/toggle-save`, {});
+      },
+      (newValue, quote) => ({ isSaved: newValue, savedAt: newValue ? new Date().toISOString() : null }),
+      { true: 'SAVE' as const, false: 'UNSAVE' as const },
+      'isSaved'
+    );
   }
 
   async analyzeQuote(id: number): Promise<Quote> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${this.API_URL}/${id}/analyze`, {
-        method: 'POST',
-        headers
-    });
-    if (!response || !response.ok) {
-        throw new Error(`Failed to analyze quote: ${response ? await response.text() : 'no response'}`);
-    }
-    const q = await response.json();
+    const q = await httpClient.post<any>(`/quotes/${id}/analyze`, {});
     const mappedQuote = this.mapQuoteFromServer(q);
 
     // Update local cache
@@ -493,20 +390,14 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
         console.log(`[SupabaseQuoteRepository] Sending message to AI for quote ${id}...`);
-        const headers = await this.getHeaders();
-        const response = await fetch(`${this.API_URL}/${id}/chat`, {
+        const data = await httpClient.request<{ response: string }>(`/quotes/${id}/chat`, {
             method: 'POST',
-            headers,
-            body: JSON.stringify({ messages }),
-            signal: controller.signal
+            signal: controller.signal,
+            body: JSON.stringify({ messages })
         });
         clearTimeout(timeoutId);
-        if (response && response.ok) {
-            const data = AIResponseSchema.parse(await response.json());
-            return data.response;
-        } else {
-            console.warn(`Server returned error: ${response.status}. Using fallback response.`);
-        }
+        const parsed = AIResponseSchema.parse(data);
+        return parsed.response;
     } catch (error) {
         clearTimeout(timeoutId);
         console.warn('[SupabaseQuoteRepository] Network error chatting with AI, using fallback:', error);
@@ -532,6 +423,77 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     }
 
     return "C'est une excellente question. Cette formulation recèle en effet plusieurs niveaux de lecture. En la replaçant dans l'ensemble de l'œuvre, on comprend que l'auteur cherche avant tout à susciter une réflexion intime chez le lecteur plutôt qu'à imposer une vérité absolue.";
+  }
+
+  /**
+   * Helper pour exécuter des opérations toggle avec gestion de la queue offline.
+   * Centralise la logique commune entre toggleLike, toggleSave, etc.
+   * 
+   * @param id - ID de la citation
+   * @param quoteUpdater - Fonction pour mettre à jour la quote localement
+   * @param serverCall - Fonction pour faire l'appel serveur
+   * @param createResult - Fonction pour créer le résultat optimiste
+   * @param operationTypes - Types d'opération pour la queue (true/false)
+   * @param fieldName - Nom du champ booléen à toggler (ex: 'isLiked', 'isSaved')
+   */
+  private async executeToggleOperation<T extends { isLiked?: boolean; likesCount?: number; isSaved?: boolean; savedAt?: string | null }>(
+    id: number,
+    quoteUpdater: (quote: Quote, newValue: boolean) => void,
+    serverCall: () => Promise<void>,
+    createResult: (newValue: boolean, quote?: Quote) => T,
+    operationTypes: { true: OperationType; false: OperationType },
+    fieldName: keyof Quote
+  ): Promise<T> {
+    const quotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES) || [];
+    const quoteIndex = quotes.findIndex(q => q.id === id);
+    const quote = quotes[quoteIndex];
+
+    if (!quote) {
+      throw new Error(`Quote with id ${id} not found`);
+    }
+
+    // Determine new value based on current state
+    const oldValue = quote[fieldName] as boolean | undefined;
+    const newValue = !oldValue;
+
+    // Optimistic local update
+    quoteUpdater(quote, newValue);
+    quotes[quoteIndex] = quote;
+    await StorageService.setItem(STORAGE_KEYS.QUOTES, quotes);
+
+    const result = createResult(newValue, quote);
+
+    // Skip server call if quote is still pending sync
+    if (quote?._isPending) {
+      console.log(`[SupabaseQuoteRepository] Quote ${id} is pending, skipping server call.`);
+      throw new QueuedOperationError(result);
+    }
+
+    // Try server call
+    try {
+      await serverCall();
+      return result;
+    } catch (e: any) {
+      // 404 means the quote isn't on the server yet (pending sync)
+      if (e.message?.includes?.('404')) {
+        console.log(`[SupabaseQuoteRepository] Quote ${id} not found on server yet, queuing for later.`);
+        await OperationQueue.getInstance().enqueue({
+          type: newValue ? operationTypes.true : operationTypes.false,
+          entityType: 'quote',
+          entityId: id,
+        });
+        throw new QueuedOperationError(result);
+      }
+      
+      // Other network errors - also queue
+      console.error(`[SupabaseQuoteRepository] Error in toggle operation for quote ${id}:`, e);
+      await OperationQueue.getInstance().enqueue({
+        type: newValue ? operationTypes.true : operationTypes.false,
+        entityType: 'quote',
+        entityId: id,
+      });
+      throw new QueuedOperationError(result);
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {

@@ -3,10 +3,16 @@ import { Book } from '@/src/shared/api/types';
 import { BUY_STORES } from '@/src/shared/config/stores';
 import { ThemeColors } from '@/src/shared/theme';
 import { ChevronRight, ExternalLink, ShoppingCart, X } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Alert, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockWrapper } from './BlockWrapper';
+
+interface BuyLink {
+    store: string;
+    url: string;
+    price: string;
+}
 
 interface BuyLinkBlockProps {
     book: Book;
@@ -15,7 +21,7 @@ interface BuyLinkBlockProps {
 
 const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
     const [isModalVisible, setIsModalVisible] = useState(false);
 
     // Sanitize function for URL safety
@@ -67,7 +73,7 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
     const initialLinks = allLinks.slice(0, 2);
     const hasMore = allLinks.length > 2;
 
-    const renderLink = (link: any, idx: number, isCompact = false) => {
+    const renderLink = (link: BuyLink, idx: number, isCompact = false) => {
         const safeUrl = typeof link.url === 'string' && link.url.startsWith('http')
             ? link.url
             : 'https://quotex.app';
@@ -114,7 +120,7 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
     return (
         <BlockWrapper blockKey="buy" onRemove={onRemove}>
             <View style={styles.buyLinksList}>
-                {initialLinks.map((link, idx) => renderLink(link, idx))}
+                {initialLinks.map((link: BuyLink, idx: number) => renderLink(link, idx))}
                 
                 {hasMore && (
                     <TouchableOpacity 
@@ -151,7 +157,7 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
                         >
                             <Text style={styles.modalSubtitle}>Sélectionnez une boutique pour voir le prix et la disponibilité :</Text>
                             <View style={styles.modalGrid}>
-                                {allLinks.map((link, idx) => renderLink(link, idx, true))}
+                                {allLinks.map((link: BuyLink, idx: number) => renderLink(link, idx, true))}
                             </View>
                         </ScrollView>
                     </SafeAreaView>

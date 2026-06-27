@@ -2,19 +2,19 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
 import { Book as BookIcon } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
 interface SimilarBooksBlockProps {
-    books: (Book | any)[]; // Flexible type as sometimes it's partial data or just strings
+    books: Book[];
     onBookPress: (bookIdOrTitle: string | number, inventaireUri?: string) => void;
     onRemove?: () => void;
 }
 
 const SimilarBooksBlockUI: React.FC<SimilarBooksBlockProps> = ({ books, onBookPress, onRemove }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const hasBooks = books && books.length > 0;
 
@@ -30,8 +30,15 @@ const SimilarBooksBlockUI: React.FC<SimilarBooksBlockProps> = ({ books, onBookPr
 
     // Normalize data (handle string vs object)
     const normalizedBooks = books.map(b => {
-        if (typeof b === 'string') return { title: b, cover: null };
-        return b;
+        if (typeof b === 'string') {
+            return { title: b, cover: null, id: undefined, inventaireUri: undefined };
+        }
+        return {
+            title: b.title,
+            cover: b.cover,
+            id: b.id,
+            inventaireUri: b.inventaireUri
+        };
     });
 
     return (

@@ -291,14 +291,16 @@ serve(async (req: Request) => {
         ? bookData.pages
         : null;
       
+      const isVerified = !!(normalizedInventaireUri || bookData.googleId || bookData.openLibraryId);
+
       const newBookRows = await sql`
-        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks")
+        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks", "isVerified")
         VALUES (
           ${bookData.title}, ${bookData.googleId ?? null}, ${bookData.openLibraryId ?? null},
           ${normalizedInventaireUri ?? null},
           ${bookData.description || ''}, ${bookData.year || 0}, ${pagesValue},
           ${bookData.cover || ''}, ${bookData.genre || 'Unknown'}, ${author.id},
-          ${bookData.rating || 0}, ${buyLinksJson}
+          ${bookData.rating || 0}, ${buyLinksJson}, ${isVerified}
         )
         RETURNING *
       `;

@@ -21,7 +21,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { extractIsbn, useIsbnScanner } from '../model/useIsbnScanner';
+import { extractIsbn } from '@/src/shared/lib/validation/isbn';
+import { useIsbnScanner } from '../model/useIsbnScanner';
 
 type BarcodeScannerModalProps = {
     visible: boolean;

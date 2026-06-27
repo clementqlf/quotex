@@ -26,6 +26,6 @@ export function useUserProfile(usernameParam?: string) {
     // Injecter immédiatement les données de base en tant que placeholder si c'est notre propre profil
     // afin d'éviter tout flash ou temps de chargement, tout en forçant la récupération en arrière-plan
     placeholderData: isViewingOwnProfile && currentUser ? currentUser as User : undefined,
-    staleTime: 1000 * 60 * 5, // Garder en cache pendant 5 minutes
+    staleTime: 1000 * 5, // Garder en cache pendant 5 secondes pour une réactualisation rapide
   });
 }

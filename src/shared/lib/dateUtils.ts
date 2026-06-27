@@ -46,3 +46,26 @@ export const formatAbsoluteDate = (dateString: string | Date | undefined | null)
         return '';
     }
 };
+
+/**
+ * Format a date string flexibly, handling various formats:
+ * - Year only (YYYY) → returns as-is
+ * - ISO format (YYYY-MM-DD) → formats to fr-FR long date
+ * - Other date strings → attempts to parse and format
+ * - Invalid/empty → returns 'Inconnu'
+ */
+export const formatFlexibleDate = (dateStr?: string | null): string => {
+  if (!dateStr) return 'Inconnu';
+  if (/^\d{4}$/.test(dateStr)) return dateStr;
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime()) && (dateStr.includes('-') || dateStr.includes('/'))) {
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  return dateStr;
+};

@@ -1,6 +1,12 @@
 import { Author, Book } from '@/src/shared/api/types';
-import { getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { isNetworkError } from '@/src/shared/lib/offline/networkUtils';
+import { 
+  fetchInventaireEntities,
+  fetchInventaireEditions,
+  getInventaireImageUrl,
+  resolveInventaireEntity 
+} from '@/src/shared/api/InventaireService';
 import type { BookImportPayload } from './bookImport';
 import { buildBookImportPayload } from './bookImport';
 
@@ -17,14 +23,7 @@ const logWarn = (...args: any[]) => {
 };
 
 const buildFallbackBook = (inventaireUri: string, bookData?: string): Book => {
-  const parsedBookData = (() => {
-    if (!bookData) return null;
-    try {
-      return typeof bookData === 'string' ? JSON.parse(bookData) : bookData;
-    } catch {
-      return null;
-    }
-  })();
+  const parsedBookData = parseJsonField<any>(bookData);
 
   return {
     id: 0,
@@ -64,58 +63,6 @@ const shouldRefreshFromInventaire = (book: Book | null | undefined): boolean => 
   return !book.description || book.description.length < 50 || !book.pages || book.pages <= 0;
 };
 
-const INVENTAIRE_HEADERS = { 'User-Agent': 'QuotexApp/1.0' };
-const normalizeInventaireUri = (uri?: string | null): string => {
-  if (!uri) return '';
-  return uri.trim().toLowerCase().replace(/^wd:/, '');
-};
-
-const getInventaireImageUrl = (imageObj: any): string | null => {
-  if (!imageObj) return null;
-  if (typeof imageObj === 'string') return imageObj.startsWith('http') ? imageObj : (imageObj.startsWith('/img/') ? `https://inventaire.io${imageObj}` : null);
-  if (imageObj.url) return imageObj.url.startsWith('http') ? imageObj.url : `https://inventaire.io${imageObj.url}`;
-  if (imageObj.file) return imageObj.file.startsWith('http') ? imageObj.file : (imageObj.file.startsWith('/img/') ? `https://inventaire.io${imageObj.file}` : null);
-  return null;
-};
-
-const fetchInventaireEntities = async (uris: string[]): Promise<Record<string, any>> => {
-  if (!uris.length) return {};
-  const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(uris.join('|'))}&lang=fr`;
-  logDebug('Inventaire request', { uris });
-  const response = await fetch(url, { headers: INVENTAIRE_HEADERS });
-  if (!response.ok) return {};
-  const data = await response.json();
-  return data.entities || {};
-};
-
-const resolveInventaireEntity = (entities: Record<string, any>, uri: string): any | null => {
-  if (entities[uri]) return entities[uri];
-  const stripped = uri.replace(/^wd:/, '');
-  const fallbackKey = Object.keys(entities).find(key => key === stripped || key.endsWith(stripped));
-  if (fallbackKey) return entities[fallbackKey];
-  const firstKey = Object.keys(entities)[0];
-  return firstKey ? entities[firstKey] : null;
-};
-
-// Helper to fetch editions from Inventaire for a work
-const fetchInventaireEditions = async (workUri: string): Promise<any[]> => {
-  try {
-    const normalizedUri = normalizeInventaireUri(workUri);
-    const url = `https://inventaire.io/api/entities/${encodeURIComponent(normalizedUri)}/editions?lang=fr`;
-    logDebug('Fetching Inventaire editions', { workUri: normalizedUri, url });
-    const response = await fetch(url, { headers: INVENTAIRE_HEADERS });
-    if (!response.ok) {
-      logDebug('Inventaire editions request failed', { status: response.status });
-      return [];
-    }
-    const data = await response.json();
-    return Array.isArray(data?.editions) ? data.editions : [];
-  } catch (error) {
-    logDebug('Failed to fetch Inventaire editions:', error);
-    return [];
-  }
-};
-
 const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: string): Promise<Book | null> => {
   try {
     logDebug('Fetching external Inventaire book', { inventaireUri });
@@ -126,8 +73,11 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     if (!entity) return null;
 
     const claims = entity.claims || {};
-    const authorUris = Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : [];
-    const genreUris = Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])])).slice(0, 10);
+    const authorUris = (Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : []) as string[];
+    const genreUris = Array.from(new Set([
+      ...((claims['wdt:P136'] || []) as string[]),
+      ...((claims['wdt:P7937'] || []) as string[])
+    ])).slice(0, 10);
     
     // Batch all URIs in a single request
     const allUris = [inventaireUri, ...authorUris, ...genreUris];
@@ -136,14 +86,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     const mainEntity = resolveInventaireEntity(entities, inventaireUri);
     if (!mainEntity) return null;
 
-    const parsedBookData = (() => {
-      if (!bookData) return null;
-      try {
-        return typeof bookData === 'string' ? JSON.parse(bookData) : bookData;
-      } catch {
-        return null;
-      }
-    })();
+    const parsedBookData = parseJsonField<any>(bookData);
 
     const title = (mainEntity.labels && typeof mainEntity.labels === 'object' && mainEntity.labels['fr'])
       ? mainEntity.labels['fr']
@@ -152,7 +95,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     const description = (mainEntity.descriptions && typeof mainEntity.descriptions === 'object' && mainEntity.descriptions['fr'])
       ? mainEntity.descriptions['fr']
       : (mainEntity.descriptions?.['en'] || parsedBookData?.description || null);
-    const image = getInventaireImageUrl(mainEntity.image) || parsedBookData?.image || parsedBookData?.cover || null;
+    const image = getInventaireImageUrl(mainEntity.image ?? null) || parsedBookData?.image || parsedBookData?.cover || null;
     const yearRaw = claims['wdt:P577']?.[0];
     const year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
     
@@ -192,7 +135,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
         author = {
           name: authorLabels['fr'] || authorLabels['en'] || parsedBookData?.authors?.[0] || 'Auteur inconnu',
           description: authorDescriptions['fr'] || authorDescriptions['en'] || '',
-          image: getInventaireImageUrl(authorEntity.image) || '',
+          image: getInventaireImageUrl(authorEntity.image ?? null) || '',
           birthDate: '',
           nationality: '',
           inventaireUri: authorUris[0],

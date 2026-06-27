@@ -16,7 +16,7 @@ export const PrizeService = {
       .order('name');
 
     if (error) throw error;
-    return data || [];
+    return (data as any) || [];
   },
 
   async getById(id: number): Promise<LiteraryPrize | null> {
@@ -34,7 +34,7 @@ export const PrizeService = {
       .single();
 
     if (error) throw error;
-    return data;
+    return data as any;
   },
 
   async syncPrize(params: { prizeName?: string; prizeUri?: string; offset?: number; limit?: number }) {

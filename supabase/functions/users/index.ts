@@ -27,7 +27,7 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { username, name, bio, website, image } = await req.json();
+      const { username, name, bio, website, image, expoPushToken, notifyOnFollow, notifyOnLike } = await req.json();
       const data: Record<string, any> = {};
 
       if (username) {
@@ -43,6 +43,9 @@ serve(async (req: Request) => {
       if (bio !== undefined) data.bio = bio;
       if (website !== undefined) data.website = website;
       if (image !== undefined) data.image = image;
+      if (expoPushToken !== undefined) data.expoPushToken = expoPushToken;
+      if (notifyOnFollow !== undefined) data.notifyOnFollow = notifyOnFollow;
+      if (notifyOnLike !== undefined) data.notifyOnLike = notifyOnLike;
 
       if (Object.keys(data).length === 0) return error('Nothing to update', 400);
 
@@ -54,7 +57,7 @@ serve(async (req: Request) => {
 
       const rows = await sql`
         UPDATE "Profile" SET ${setClauses} WHERE id = ${authUser.id}
-        RETURNING id, username, name, image, bio, website, followers, following
+        RETURNING id, username, name, image, bio, website, followers, following, "expoPushToken", "notifyOnFollow", "notifyOnLike"
       `;
 
       return json(rows[0]);
@@ -94,7 +97,7 @@ serve(async (req: Request) => {
         if (authUser instanceof Response) return authUser;
         
         const userRows = await sql`
-          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following, u."isPublic"
+          SELECT u.id, u.username, u.name, u.image, u.bio, u.website, u.followers, u.following, u."isPublic", u."expoPushToken", u."notifyOnFollow", u."notifyOnLike"
           FROM "Profile" u WHERE u.id = ${authUser.id}::uuid LIMIT 1
         `;
         if (!userRows.length) return error('User not found', 404);

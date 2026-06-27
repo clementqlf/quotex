@@ -5,8 +5,10 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
-import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
+import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ThemeColors } from '@/src/shared/theme';
+import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -20,6 +22,7 @@ import {
   Animated,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,6 +32,7 @@ import {
 } from 'react-native';
 import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 
 
 
@@ -135,24 +139,14 @@ export const UserProfileSkeleton = ({ colors }: { colors: ThemeColors }) => {
   );
 };
 
-/**
- * Utility to convert base64 to ArrayBuffer for Supabase Storage
- * This is the most reliable way in React Native to avoid 0-byte uploads
- */
-const decodeBase64 = (base64: string) => {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
+
 
 export default function UserProfileScreen() {
   const router = useRouter();
   const { username } = useLocalSearchParams<{ username?: string }>();
   const { colors } = useTheme();
   const { user: currentUser, updateProfile } = useAuth();
+  const { quotes: allQuotes } = useQuote();
   const queryClient = useQueryClient();
 
   const { data: profileData, isLoading: isProfileLoading, isFetching } = useUserProfile(username);
@@ -169,14 +163,40 @@ export default function UserProfileScreen() {
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Quotes modal states
+  const [showAllQuotesModal, setShowAllQuotesModal] = useState(false);
+  const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = useState(false);
+  const [modalQuoteFilter, setModalQuoteFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
+
   const userQuotes = useMemo(() => {
+    if (isMe) {
+      return allQuotes
+        .filter(q => isUserQuote(q, currentUser?.id))
+        .sort((a, b) => {
+          const dateA = new Date(a.savedAt || a.date || 0).getTime();
+          const dateB = new Date(b.savedAt || b.date || 0).getTime();
+          return dateB - dateA;
+        });
+    }
+
     if (!profileData || !(profileData as any).quotes) return [];
     return (profileData as any).quotes.map((q: any) => ({
       ...q,
       user: profileData,
       time: q.date ? new Date(q.date).toLocaleDateString() : 'Récemment'
     }));
-  }, [profileData]);
+  }, [profileData, isMe, allQuotes, currentUser]);
+
+  const filteredModalQuotes = useMemo(() => {
+    if (!profileData) return [];
+    const targetOwnerId = profileData.id;
+    if (modalQuoteFilter === 'PUBLISHED') {
+      return userQuotes.filter((q: any) => q.user?.id === targetOwnerId || !q.user);
+    } else if (modalQuoteFilter === 'SAVED') {
+      return userQuotes.filter((q: any) => q.user && q.user?.id !== targetOwnerId && q.isSaved);
+    }
+    return userQuotes;
+  }, [userQuotes, modalQuoteFilter, profileData]);
 
   const userBooks = useMemo(() => {
     if (!profileData || !(profileData as any).library) return [];
@@ -195,6 +215,8 @@ export default function UserProfileScreen() {
   const [followModalTab, setFollowModalTab] = useState<'followers' | 'following'>('followers');
   const [followList, setFollowList] = useState<any[]>([]);
   const [isFollowListLoading, setIsFollowListLoading] = useState(false);
+
+
 
   const fetchFollowList = async (tab: 'followers' | 'following') => {
     if (!profileData?.id) return;
@@ -265,6 +287,7 @@ export default function UserProfileScreen() {
       } else {
         await authService.unfollowUser(profileData.id);
       }
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     } catch (error) {
       console.error('Error toggling follow:', error);
       // Revert in case of failure
@@ -446,6 +469,7 @@ export default function UserProfileScreen() {
         const profileQueryKey = isViewingOwnProfile ? `me_${currentUser?.id || 'none'}` : username;
         
         queryClient.setQueryData(['userProfile', profileQueryKey], updatedProfile);
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       }
 
       console.log("Profile updated successfully");
@@ -669,10 +693,22 @@ export default function UserProfileScreen() {
               <Text style={styles.statValue}>{profileData.following || 0}</Text>
               <Text style={styles.statLabel}>Abonnements</Text>
             </TouchableOpacity>
-            <View style={styles.statItem}>
+            <TouchableOpacity 
+              style={styles.statItem}
+              onPress={() => {
+                if (userQuotes.length > 0) {
+                  setHasRenderedQuotesModal(true);
+                  setShowAllQuotesModal(true);
+                }
+              }}
+              accessible={true}
+              accessibilityLabel="Voir la liste des citations"
+              accessibilityRole="button"
+              activeOpacity={0.7}
+            >
               <Text style={styles.statValue}>{userQuotes.length}</Text>
               <Text style={styles.statLabel}>Citations</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Bio */}
@@ -754,40 +790,29 @@ export default function UserProfileScreen() {
           </View>
 
           {/* User's Quotes */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Quote size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Citations partagées</Text>
-            </View>
-
-            {userQuotes.length > 0 ? (
-              <View style={styles.savedQuotesList}>
-                {userQuotes.map((quote: any) => (
-                    <TouchableOpacity
-                      key={quote.id}
-                      style={styles.savedQuoteCard}
-                      onPress={() => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
-                    >
-                    <Text style={styles.savedQuoteText} numberOfLines={3}>&quot;{quote.text}&quot;</Text>
-                    <View style={styles.savedQuoteMeta}>
-                      <View>
-                        <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
-                        <Text style={styles.savedQuoteBook}>{getBookTitle(quote.book)}</Text>
-                      </View>
-                      <Text style={styles.savedQuoteDate}>{quote.savedAt ? new Date(quote.savedAt).toLocaleDateString() : quote.time}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+          {(isProfileLoading || isFetching) ? (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Quote size={16} color={colors.primary} />
+                <Text style={styles.sectionTitle}>Citations partagées</Text>
               </View>
-            ) : (isProfileLoading || isFetching) ? (
               <View style={{ gap: 12 }}>
                 <QuoteSkeleton colors={colors} />
                 <QuoteSkeleton colors={colors} />
               </View>
-            ) : (
-              <Text style={styles.placeholderText}>Cet utilisateur n&apos;a pas encore partagé de citations.</Text>
-            )}
-          </View>
+            </View>
+          ) : (
+            <SavedQuotesBlock
+              quotes={userQuotes}
+              ownerId={profileData.id}
+              title="Citations partagées"
+              showBookTitle={true}
+              fallbackText="Aucunes citations partagées/enregistrées"
+              publishedFallbackText="Aucunes citations partagées"
+              savedFallbackText="Aucunes citations enregistrées"
+              onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+            />
+          )}
         </ScrollView>
       </View>
 
@@ -908,6 +933,117 @@ export default function UserProfileScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+
+      {/* Modal de toutes les citations */}
+      {hasRenderedQuotesModal && (
+        <Modal
+          visible={showAllQuotesModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowAllQuotesModal(false)}
+        >
+          <View style={styles.quotesModalContainer}>
+            <View style={styles.quotesModalHeader}>
+              <View style={styles.modalTabs}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    modalQuoteFilter === 'ALL' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => setModalQuoteFilter('ALL')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      modalQuoteFilter === 'ALL' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Tout
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    modalQuoteFilter === 'PUBLISHED' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => setModalQuoteFilter('PUBLISHED')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      modalQuoteFilter === 'PUBLISHED' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Publiés
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalTabButton,
+                    modalQuoteFilter === 'SAVED' && styles.modalTabButtonActive,
+                  ]}
+                  onPress={() => setModalQuoteFilter('SAVED')}
+                >
+                  <Text
+                    style={[
+                      styles.modalTabText,
+                      modalQuoteFilter === 'SAVED' && styles.modalTabTextActive,
+                    ]}
+                  >
+                    Partagées
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseButton} 
+                onPress={() => setShowAllQuotesModal(false)}
+                accessible={true}
+                accessibilityLabel="Fermer"
+                accessibilityRole="button"
+              >
+                <X size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <FlashList
+              data={filteredModalQuotes as any[]}
+              keyExtractor={(item: any) => String(item.id)}
+              getItemType={() => 'quote'}
+              removeClippedSubviews={true}
+              contentContainerStyle={styles.quotesModalListContent}
+              renderItem={({ item }) => {
+                const isQuoteMine = item.user?.id === currentUser?.id || !item.user;
+                return (
+                  <TouchableOpacity
+                    style={styles.quoteModalCard}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setShowAllQuotesModal(false);
+                      router.navigate({
+                        pathname: '/quote-detail',
+                        params: { quoteId: item.id }
+                      });
+                    }}
+                  >
+                    <Text style={styles.quoteModalText}>“ {item.text} ”</Text>
+                    <View style={styles.quoteModalMeta}>
+                      <Text style={styles.quoteModalBook}>{getBookTitle(item.book)}</Text>
+                      <Text style={styles.quoteModalUser}>
+                        Par {isQuoteMine ? 'Moi' : item.user?.name || `@${item.user?.username}`}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={styles.centered}>
+                  <Text style={styles.placeholderText}>Aucune citation trouvée.</Text>
+                </View>
+              }
+            />
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -1102,42 +1238,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 24,
   },
-  savedQuotesList: {
-    gap: 12,
-  },
-  savedQuoteCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    padding: 12,
-  },
-  savedQuoteText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.text,
-    fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  savedQuoteMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  savedQuoteAuthor: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  savedQuoteBook: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-  savedQuoteDate: {
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
+
   libraryContainer: {
     gap: 16,
   },
@@ -1341,5 +1442,67 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textTertiary,
     fontSize: 14,
     textAlign: 'center',
+  },
+  quotesModalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  quotesModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginTop: Platform.OS === 'ios' ? 0 : 20,
+  },
+  quotesModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  quotesModalListContent: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  quoteModalCard: {
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 12,
+  },
+  quoteModalText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    fontFamily: 'serif',
+  },
+  quoteModalMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+  },
+  quoteModalBook: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  quoteModalUser: {
+    fontSize: 11,
+    color: colors.textTertiary,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

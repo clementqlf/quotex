@@ -1,8 +1,8 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Author, Book } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { NativeSyntheticEvent, StyleSheet, Text, TextLayoutEventData, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
 interface AuthorBlockProps {
@@ -11,14 +11,36 @@ interface AuthorBlockProps {
     authorName?: string; // Fallback name
     onAuthorPress?: (authorName: string) => void;
     onRemove?: () => void;
+    hideName?: boolean;
 }
 
-const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove }) => {
+const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: nameOverride, onAuthorPress, onRemove, hideName }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     const authorName = nameOverride || (author?.name) || (typeof book?.author === 'string' ? book?.author : book?.author?.name);
     const description = author?.description;
+
+    const [isMeasured, setIsMeasured] = useState(false);
+    const [showMoreButton, setShowMoreButton] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [prevDescription, setPrevDescription] = useState(description);
+
+    if (description !== prevDescription) {
+        setPrevDescription(description);
+        setIsMeasured(false);
+        setShowMoreButton(false);
+        setIsExpanded(false);
+    }
+
+    const onTextLayout = useCallback((e: NativeSyntheticEvent<TextLayoutEventData>) => {
+        if (!isMeasured) {
+            if (e.nativeEvent.lines.length > 10) {
+                setShowMoreButton(true);
+            }
+            setIsMeasured(true);
+        }
+    }, [isMeasured]);
 
     const handlePress = () => {
         if (onAuthorPress && authorName) onAuthorPress(authorName);
@@ -36,13 +58,43 @@ const AuthorBlockUI: React.FC<AuthorBlockProps> = ({ author, book, authorName: n
 
     return (
         <BlockWrapper blockKey="author" onRemove={onRemove}>
-            <TouchableOpacity onPress={handlePress} disabled={!onAuthorPress}>
-                <Text style={styles.authorName}>{authorName}</Text>
-                {description && <Text style={styles.authorDesc}>{description}</Text>}
+            <TouchableOpacity onPress={handlePress} disabled={!onAuthorPress} activeOpacity={0.7}>
+                {!hideName && <Text style={styles.authorName}>{authorName}</Text>}
+                {description && (
+                    <View pointerEvents="box-none">
+                        {!isMeasured && (
+                            <Text
+                                style={[styles.authorDesc, { position: 'absolute', opacity: 0, left: 0, right: 0 }]}
+                                onTextLayout={onTextLayout}
+                            >
+                                {description}
+                            </Text>
+                        )}
+                        {isMeasured && (
+                            <Text
+                                style={styles.authorDesc}
+                                numberOfLines={isExpanded ? undefined : 10}
+                            >
+                                {description}
+                            </Text>
+                        )}
+                    </View>
+                )}
                 {!description && (
                     <Text style={styles.fallbackText}>Information détaillée non disponible.</Text>
                 )}
             </TouchableOpacity>
+            {showMoreButton && (
+                <TouchableOpacity
+                    style={styles.showMoreButton}
+                    onPress={() => setIsExpanded(!isExpanded)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.showMoreText}>
+                        {isExpanded ? 'Voir moins' : 'Voir plus'}
+                    </Text>
+                </TouchableOpacity>
+            )}
         </BlockWrapper>
     );
 };
@@ -71,5 +123,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         fontSize: 14,
         color: colors.textSecondary,
         lineHeight: 22,
+    },
+    showMoreButton: {
+        marginTop: 8,
+        alignSelf: 'flex-start',
+    },
+    showMoreText: {
+        color: colors.primary,
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

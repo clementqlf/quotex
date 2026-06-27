@@ -191,4 +191,36 @@ describe('OperationQueue', () => {
       expect(queue.getBackoffDelay(10)).toBe(60000);
     });
   });
+
+  describe('remapEntityId', () => {
+    it('should remap entityId in storage and memory', async () => {
+      const ops: PendingOperation[] = [
+        { id: '1', type: 'LIKE', entityType: 'quote', entityId: 123, retryCount: 0, maxRetries: 10, createdAt: '' },
+        { id: '2', type: 'SAVE', entityType: 'quote', entityId: 123, retryCount: 0, maxRetries: 10, createdAt: '' },
+        { id: '3', type: 'LIKE', entityType: 'book', entityId: 123, retryCount: 0, maxRetries: 10, createdAt: '' }
+      ];
+
+      (StorageService.getItem as jest.Mock).mockResolvedValue([...ops]);
+      (queue as any).currentPending = [...ops];
+
+      await queue.remapEntityId(123, 456, 'quote');
+
+      // Check storage call
+      expect(StorageService.setItem).toHaveBeenCalledWith(
+        STORAGE_KEYS.PENDING_OPERATIONS,
+        expect.arrayContaining([
+          expect.objectContaining({ id: '1', entityId: 456 }),
+          expect.objectContaining({ id: '2', entityId: 456 }),
+          expect.objectContaining({ id: '3', entityId: 123 })
+        ])
+      );
+
+      // Check memory update
+      expect((queue as any).currentPending).toEqual([
+        expect.objectContaining({ id: '1', entityId: 456 }),
+        expect.objectContaining({ id: '2', entityId: 456 }),
+        expect.objectContaining({ id: '3', entityId: 123 })
+      ]);
+    });
+  });
 });

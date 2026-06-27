@@ -87,7 +87,10 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
     onError: (err, id, ctx) => {
       if (ctx?.previousBooks) queryClient.setQueryData(['books'], ctx.previousBooks);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['books'] }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    },
   });
 
   const updateBookStatusMutation = useMutation({
@@ -107,7 +110,10 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
     onError: (err, variables, ctx) => {
       if (ctx?.previousBooks) queryClient.setQueryData(['books'], ctx.previousBooks);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['books'] }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    },
   });
 
   // Realtime updates pour les entités en cours d'enrichissement

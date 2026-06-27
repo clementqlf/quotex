@@ -3,6 +3,7 @@ import { ThemeColors } from '@/src/shared/theme';
 import { Camera, Edit3 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
+  Dimensions,
   Modal,
   Pressable,
   StyleSheet,
@@ -16,11 +17,28 @@ interface AddQuoteMenuProps {
   onClose: () => void;
   onScanPress: () => void;
   onManualAddPress: () => void;
+  triggerY?: number;
 }
 
-const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPress }: AddQuoteMenuProps) => {
+const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPress, triggerY }: AddQuoteMenuProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const menuStyle = useMemo(() => {
+    if (triggerY === undefined) {
+      return styles.actionMenuContainer;
+    }
+    const screenHeight = Dimensions.get('window').height;
+    const menuHeight = 120; // approximate height of the menu
+    let top = triggerY + 10;
+    if (top + menuHeight > screenHeight - 20) {
+      top = triggerY - menuHeight - 10;
+    }
+    if (top < 20) {
+      top = 20;
+    }
+    return [styles.actionMenuContainer, { top }];
+  }, [triggerY, styles.actionMenuContainer]);
 
   return (
     <Modal
@@ -30,7 +48,7 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <View style={styles.actionMenuContainer}>
+        <View style={menuStyle}>
           {/* Scan Option */}
           <TouchableOpacity
             style={styles.actionMenuItem}

@@ -11,6 +11,7 @@ jest.mock('lucide-react-native', () => ({
   X: () => 'X',
   Edit3: () => 'Edit3',
   Trash2: () => 'Trash2',
+  Bookmark: () => 'Bookmark',
 }));
 
 describe('QuoteActionModal Component', () => {
@@ -65,6 +66,15 @@ describe('QuoteActionModal Component', () => {
     fireEvent.press(getByText('Supprimer'));
     expect(mockOnDelete).toHaveBeenCalledTimes(1);
     expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('affiche le bouton Retirer de ma collection au lieu de Supprimer quand isSavedQuote est true', () => {
+    const { getByText, queryByText } = render(
+      <QuoteActionModal visible={true} onClose={mockOnClose} onEdit={mockOnEdit} onDelete={mockOnDelete} isSavedQuote={true} />
+    );
+    expect(queryByText('Modifier')).toBeNull();
+    expect(queryByText('Supprimer')).toBeNull();
+    expect(getByText('Retirer de ma collection')).toBeTruthy();
   });
 
   it('ne rend rien quand visible est false', () => {

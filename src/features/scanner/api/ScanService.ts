@@ -1,18 +1,44 @@
 import { authService } from '@/src/entities/user/api/AuthService';
+import { httpClient } from '@/src/shared/api/HttpClient';
+import { getExponentialBackoff } from '@/src/shared/lib/offline/backoff';
 import { recognizeText } from '@/src/features/scanner/model/mlKitParser';
-import { extractIsbn } from '@/src/features/scanner/model/useIsbnScanner';
-import { searchService } from '@/src/features/search/api/SearchService';
+import { extractIsbn, IsbnSchema } from '@/src/shared/lib/validation/isbn';
+import { searchServer } from '@/src/features/search/lib/useSearch';
 import { Quote } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { PlatformServices } from '@/src/shared/platform';
 import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
 import * as FileSystem from 'expo-file-system/legacy';
 import { PhotoFile } from 'react-native-vision-camera';
 import { z } from 'zod';
 
+// Types pour les résultats ML Kit (OCR)
+export interface MLKitTextBlock {
+  text: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  cornerPoints?: { x: number; y: number }[];
+}
+
+export interface MLKitTextElement {
+  text: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+}
+
+export interface MLKitResult {
+  textBlocks: MLKitTextBlock[];
+  textElements: MLKitTextElement[];
+}
+
+// Type pour les résultats d'analyse IA (Groq)
+export interface GroqAnalysisResult {
+  author?: { name: string; confidence: number };
+  title?: { name: string; confidence: number };
+  isbn?: { code: string; confidence: number };
+  error?: string;
+}
+
 const ImportPayloadSchema = z.object({
   title: z.string().min(1),
-  isbn: z.string().regex(/^(?:\d{10}|\d{13})$/),
+  isbn: IsbnSchema,
   year: z.number().int().positive().optional(),
   pages: z.number().int().positive().optional(),
   description: z.string().optional(),
@@ -133,8 +159,8 @@ export class ScanService {
         console.log('[ScanService] Valid ISBN detected:', isbn);
 
         try {
-            // Rechercher le livre via le service de recherche
-            const rawData = await searchService.search(isbn);
+            // Rechercher le livre via searchServer
+            const rawData = await searchServer(isbn);
             // Validate response with Zod
             const data = SearchResultsSchema.parse(rawData);
             
@@ -177,7 +203,7 @@ export class ScanService {
                 }
 
                 // Sinon, on import (mais une seule fois) pour enrichir les données
-                const token = await authService.getToken();
+                await authService.getToken();
                 
                 // Construire et valider le payload d'import avec Zod
                 const rawPayload = {
@@ -202,27 +228,16 @@ export class ScanService {
                 
                 for (let attempt = 1; attempt <= 3; attempt++) {
                     try {
-                        const importRes = await fetch(`${API_BASE_URL}/books/import`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-                            },
-                            body: JSON.stringify(importPayload),
-                        });
-
-                        if (importRes.ok) {
-                            imported = await importRes.json();
-                            importSuccess = true;
-                            break;
-                        }
+                        imported = await httpClient.post<Record<string, unknown>>('/books/import', importPayload);
+                        importSuccess = true;
+                        break;
                     } catch (importErr) {
                         if (attempt === 3) {
                             console.error('[ScanService] Import failed after 3 attempts:', importErr);
                             throw importErr;
                         }
                         console.warn(`[ScanService] Import attempt ${attempt} failed, retrying...`, importErr);
-                        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                        await new Promise(resolve => setTimeout(resolve, getExponentialBackoff(attempt - 1)));
                     }
                 }
                 
@@ -270,7 +285,7 @@ export class ScanService {
                 const book = data.books[0];
                 const authorName = typeof book.author === 'string'
                     ? book.author
-                    : (book.author as any)?.name || 'Auteur inconnu';
+                    : (book.author as { name?: string })?.name || 'Auteur inconnu';
                 
                 this.platformServices.haptics.notificationAsync("success");
                 
@@ -404,8 +419,10 @@ export class ScanService {
                 width: ocrResult.normalizedSize?.width || 0,
                 height: ocrResult.normalizedSize?.height || 0,
                 isRawPhoto: false,
-                metadata: { Orientation: 1 },
-            } as any as PhotoFile;
+                metadata: { Orientation: 1 } as any,
+                orientation: 'portrait' as const,
+                isMirrored: false,
+            } as PhotoFile;
 
             return {
                 success: true,
@@ -463,7 +480,7 @@ export class ScanService {
 
             // 2. Si rien trouvé, fallback sur les citations globales statiques
             if (candidates.length === 0) {
-                candidates = (globalQuotesDB as unknown as Quote[]).filter(
+                candidates = globalQuotesDB.filter(
                     (q: Quote) => q.user && q.user.id !== "1" && q.user.id !== currentUserId
                 );
             }
@@ -472,7 +489,7 @@ export class ScanService {
             if (candidates.length === 0) {
                 candidates = allQuotes.length > 0 
                     ? allQuotes 
-                    : [...(localQuotesDB as unknown as Quote[]), ...(globalQuotesDB as unknown as Quote[])];
+                    : [...localQuotesDB, ...globalQuotesDB];
             }
 
             if (candidates.length === 0) {

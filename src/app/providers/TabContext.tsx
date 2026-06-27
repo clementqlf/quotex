@@ -21,8 +21,8 @@ interface TabIndexContextType {
   tabIndex: number;
   setTabIndex: (index: number) => void;
   setPage?: (idx: number) => void;
-  pagerRef?: React.RefObject<any>;
-  onPageSelected?: (e: any) => void;
+  pagerRef?: React.RefObject<PagerView | null>;
+  onPageSelected?: (e: PageSelectedEvent) => void;
 }
 
 /**

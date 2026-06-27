@@ -3,6 +3,13 @@ import { Camera, CameraDevice, PhotoFile, useCameraDevice, useCameraPermission, 
 import { CaptureResult, IScanner, OnCodeScannedCallback, OnTextRecognizedCallback, ScannerOptions, ScannerState } from './IScanner';
 import { useLiveOCR } from './useLiveOCR';
 
+// Étendre le type Camera pour inclure la méthode setActive utilisée en interne
+declare module 'react-native-vision-camera' {
+  interface Camera {
+    setActive: (active: boolean) => Promise<void>;
+  }
+}
+
 /**
  * Implémentation du scanner avec Vision Camera
  * Utilise react-native-vision-camera et ML Kit pour la reconnaissance de texte
@@ -104,7 +111,7 @@ export class VisionCameraScanner implements IScanner {
     // ⚡ Désactiver la caméra native
     if (this.cameraRef.current) {
       try {
-        await (this.cameraRef.current as any)?.setActive?.(false);
+        await this.cameraRef.current?.setActive?.(false);
         this.cameraRef.current = null; // Libérer la référence
       } catch (e) {
         console.warn('[VisionCameraScanner] Error stopping camera:', e);

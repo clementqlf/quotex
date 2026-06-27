@@ -91,9 +91,9 @@ export const useScanState = ({
     const selectedWords = words.slice(
       Math.min(start, end),
       Math.max(start, end) + 1
-    );
+    ).filter(w => !excludedIndices.has(w.index));
     return selectedWords.map(w => w.text).join(' ');
-  }, [selectionRange, words]);
+  }, [selectionRange, words, excludedIndices]);
 
   // Toggle la sélection d'un mot
   const toggleWordSelection = useCallback((index: number) => {

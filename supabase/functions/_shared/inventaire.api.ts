@@ -636,7 +636,7 @@ export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<
         const searchQuery = chunk.map(id => `id:"${id}"`).join(' OR ');
         try {
             const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(searchQuery)}&limit=${chunk.length}&lang=fr`;
-            const response = await fetchWithAgent(url);
+            const response = await fetchWithAgent(url, {}, 15000);
             if (!response.ok) continue;
             const rawData = await response.json();
             const validated = InventaireSearchResponseSchema.safeParse(rawData);

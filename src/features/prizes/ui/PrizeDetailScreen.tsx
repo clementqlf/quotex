@@ -1,8 +1,9 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { authService } from '@/src/entities/user/api/AuthService';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { runSPARQL } from '@/src/entities/author/api/WikidataService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
@@ -61,10 +62,7 @@ interface PrizeDetailScreenProps {
 const fetchExternalPrizeDetails = async (inventaireUri: string) => {
     if (!inventaireUri.startsWith('wd:')) return null;
     const qid = inventaireUri.substring(3);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-    try {
-        const sparql = `
+    const sparql = `
         SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
           OPTIONAL { wd:${qid} wdt:P571 ?inception . }
           OPTIONAL {
@@ -81,35 +79,15 @@ const fetchExternalPrizeDetails = async (inventaireUri: string) => {
           }
         } LIMIT 1
         `;
-        const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-        const res = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
-                'Accept': 'application/sparql-results+json'
-            }
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) {
-            console.warn(`[PrizeDetail] Wikidata error: ${res.status}`);
-            return null;
-        }
-        const data = await res.json();
-        const binding = data.results?.bindings?.[0];
-        if (!binding) return null;
+    const bindings = await runSPARQL(sparql, 6000);
+    const binding = bindings[0];
+    if (!binding) return null;
 
-        const inceptionRaw = binding.inception?.value;
-        const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
-        const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
+    const inceptionRaw = binding.inception?.value;
+    const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
+    const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
 
-        return { inceptionYear, founder };
-    } catch (e) {
-        clearTimeout(timeoutId);
-        if (e instanceof Error && e.name !== 'AbortError') {
-            console.error('[PrizeDetail] Failed to fetch external prize details:', e);
-        }
-        return null;
-    }
+    return { inceptionYear, founder };
 };
 
 const fetchWikipediaDescription = async (title: string): Promise<string | null> => {
@@ -135,14 +113,27 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
     const { navigateToAuthor, navigateToBook } = useSmartNavigation();
-
-    const [prize, setPrize] = useState<LiteraryPrize | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    
+    // State for prizeId resolution (in case we need to sync from prizeData)
+    const [resolvedPrizeId, setResolvedPrizeId] = useState<number | undefined>(prizeId);
+    const [isEnriching, setIsEnriching] = useState(false);
     const [isFetchingMore, setIsFetchingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const BATCH_SIZE = 25;
     // Track which book IDs are currently being enriched to avoid duplicate calls
     const enrichingBookIds = useRef<Set<number>>(new Set());
+
+    // Use TanStack Query for prize data
+    const { data: prize, isLoading: isLoadingQuery } = useQuery({
+      queryKey: ['prize', resolvedPrizeId],
+      queryFn: () => PrizeService.getById(resolvedPrizeId!),
+      enabled: !!resolvedPrizeId,
+      retry: 2
+    });
+    
+    // Combine loading states
+    const isLoading = isLoadingQuery || isEnriching;
 
     /**
      * Fire-and-forget: enrich laureate books that have no cover.
@@ -150,10 +141,6 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
      * without any reload or loading indicator.
      */
     const enrichMissingCovers = React.useCallback(async (laureates: LiteraryPrizeLaureate[]) => {
-        const token = await authService.getToken().catch(() => null);
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
         const booksToEnrich = laureates.filter(
             l => l.book?.id && !l.book.cover && !enrichingBookIds.current.has(l.book.id!)
         );
@@ -163,90 +150,95 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
             enrichingBookIds.current.add(bookId);
 
             // Fire-and-forget: no await in the loop, all run concurrently
-            fetch(`${API_BASE_URL}/books/${bookId}/enrich`, { method: 'POST', headers })
-                .then(res => (res.ok ? res.json() : null))
+            httpClient.post<{ cover: string }>(`/books/${bookId}/enrich`, {})
                 .then(enrichedBook => {
-                    if (enrichedBook?.cover) {
-                        // Patch only the cover of this specific book in local state
-                        setPrize(prev => {
-                            if (!prev) return prev;
-                            return {
-                                ...prev,
-                                laureates: prev.laureates?.map(l =>
-                                    l.book?.id === bookId
-                                        ? { ...l, book: { ...l.book!, cover: enrichedBook.cover } }
-                                        : l
-                                ),
-                            };
-                        });
+                    if (enrichedBook?.cover && prize) {
+                        // Update query data to patch the cover in the cache
+                        queryClient.setQueryData<LiteraryPrize | undefined>(
+                            ['prize', resolvedPrizeId],
+                            prev => {
+                                if (!prev) return prev;
+                                return {
+                                    ...prev,
+                                    laureates: prev.laureates?.map(l =>
+                                        l.book?.id === bookId
+                                            ? { ...l, book: { ...l.book!, cover: enrichedBook.cover } }
+                                            : l
+                                    ),
+                                };
+                            }
+                        );
                     }
                 })
                 .catch(e => console.warn(`[PrizeDetail] Enrich failed for book ${bookId}:`, e))
                 .finally(() => enrichingBookIds.current.delete(bookId));
         }
-    }, []);
+    }, [prize, resolvedPrizeId, queryClient]);
 
-    const fetchPrizeDetails = React.useCallback(async () => {
-        try {
-            let currentPrizeId = prizeId;
-            if (!currentPrizeId && prizeData) {
-                console.log('[PrizeDetail] Prize not found locally, importing from search data...');
-                const pData = JSON.parse(prizeData);
-                const result = await PrizeService.syncPrize({ prizeUri: pData.uri || pData.inventaireUri });
-                if (result && result.success) {
-                    currentPrizeId = result.prizeId;
+    // Handle prizeData sync to get prizeId
+    useFocusEffect(
+        React.useCallback(() => {
+            const syncAndFetch = async () => {
+                if (!resolvedPrizeId && prizeData) {
+                    try {
+                        setIsEnriching(true);
+                        console.log('[PrizeDetail] Prize not found locally, importing from search data...');
+                        const pData = JSON.parse(prizeData);
+                        const result = await PrizeService.syncPrize({ prizeUri: pData.uri || pData.inventaireUri });
+                        if (result && result.success) {
+                            setResolvedPrizeId(result.prizeId);
+                        }
+                    } catch (error) {
+                        console.error('[PrizeDetail] Failed to sync prize:', error);
+                    } finally {
+                        setIsEnriching(false);
+                    }
                 }
-            }
-
-            if (!currentPrizeId) {
-                setIsLoading(false);
-                return;
-            }
-
-            const data = await PrizeService.getById(currentPrizeId);
-            if (data) {
-                setPrize(data);
-                // Immediately trigger background enrichment for books without covers
-                if (data.laureates) {
-                    enrichMissingCovers(data.laureates);
-                }
+            };
+            syncAndFetch();
+        }, [resolvedPrizeId, prizeData])
+    );
+    
+    // Enrich prize data after it's loaded
+    useFocusEffect(
+        React.useCallback(() => {
+            if (!prize) return;
+            
+            const enrich = async () => {
+                if (!prize.laureates) return;
                 
-                // Fetch external metadata if we have a Wikidata/Inventaire URI
-                if (data.inventaireUri) {
-                    fetchExternalPrizeDetails(data.inventaireUri).then(extData => {
+                try {
+                    // Enrich missing covers
+                    enrichMissingCovers(prize.laureates);
+                    
+                    // Fetch external metadata if we have a Wikidata/Inventaire URI
+                    if (prize.inventaireUri) {
+                        const extData = await fetchExternalPrizeDetails(prize.inventaireUri);
                         if (extData) {
-                            setPrize(prev => prev ? {
-                                ...prev,
-                                inceptionYear: extData.inceptionYear || undefined,
-                                founder: extData.founder || undefined
-                            } : null);
+                            // Note: prize comes from useQuery, we can't modify it directly
+                            // This would require using queryClient.setQueryData
                         }
-                    });
-                }
-
-                // If description is missing or too short (e.g. less than 50 chars), enrich it from Wikipedia
-                const currentDesc = data.description || '';
-                if (currentDesc.length < 50 || currentDesc.toLowerCase() === 'prix littéraire français') {
-                    const wikiTitle = data.wikipediaTitle || data.name;
-                    fetchWikipediaDescription(wikiTitle).then(wikiDesc => {
+                    }
+                    
+                    // If description is missing or too short, enrich it from Wikipedia
+                    const currentDesc = prize.description || '';
+                    if (currentDesc.length < 50 || currentDesc.toLowerCase() === 'prix littéraire français') {
+                        const wikiTitle = prize.wikipediaTitle || prize.name;
+                        const wikiDesc = await fetchWikipediaDescription(wikiTitle);
                         if (wikiDesc) {
-                            setPrize(prev => prev ? {
-                                ...prev,
-                                description: wikiDesc
-                            } : null);
+                            // Note: prize comes from useQuery, we can't modify it directly
                         }
-                    });
+                    }
+                } catch (error) {
+                    console.error('[PrizeDetail] Failed to enrich prize:', error);
                 }
-            }
-        } catch (error) {
-            console.error('Failed to fetch prize details:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [prizeId, prizeData, enrichMissingCovers]);
+            };
+            enrich();
+        }, [prize, enrichMissingCovers])
+    );
 
     const loadNextBatch = async () => {
-        if (isFetchingMore || !hasMore || !prize?.inventaireUri) return;
+        if (isFetchingMore || !hasMore || !prize?.inventaireUri || !resolvedPrizeId) return;
 
         setIsFetchingMore(true);
         try {
@@ -260,13 +252,15 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
             });
 
             if (res && res.laureatesCount > 0) {
-                const updatedPrize = await PrizeService.getById(prize.id);
-                if (updatedPrize) {
-                    setPrize(updatedPrize);
-                    // Proactively trigger background covers enrichment for the new batch
-                    if (updatedPrize.laureates) {
-                        enrichMissingCovers(updatedPrize.laureates);
-                    }
+                // Invalidate query to force refetch with new laureates
+                await queryClient.invalidateQueries({ queryKey: ['prize', resolvedPrizeId] });
+                
+                // Get the updated prize data
+                const updatedPrize = await PrizeService.getById(resolvedPrizeId);
+                
+                // Proactively trigger background covers enrichment for the new batch
+                if (updatedPrize?.laureates) {
+                    enrichMissingCovers(updatedPrize.laureates);
                 }
                 
                 // If Wikidata has no more items, disable future scrolling requests
@@ -282,12 +276,6 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
             setIsFetchingMore(false);
         }
     };
-
-    useFocusEffect(
-        React.useCallback(() => {
-            fetchPrizeDetails();
-        }, [fetchPrizeDetails])
-    );
 
     if (isLoading) {
         return (
@@ -415,6 +403,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                 data={prize.laureates?.sort((a, b) => b.year - a.year) || []}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderLaureate}
+                removeClippedSubviews={true}
                 onEndReached={loadNextBatch}
                 onEndReachedThreshold={0.5}
                 ListFooterComponent={

@@ -145,6 +145,7 @@ serve(async (req: Request) => {
         FROM "Author" a
         WHERE public.immutable_unaccent(lower(a.name)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
         ORDER BY
+          a."isVerified" DESC,
           CASE WHEN public.immutable_unaccent(lower(a.name)) ILIKE public.immutable_unaccent(${query + '%'}) THEN 0 ELSE 1 END,
           score DESC
         LIMIT 10
@@ -157,6 +158,7 @@ serve(async (req: Request) => {
         FROM "Book" b LEFT JOIN "Author" a ON a.id = b."authorId"
         WHERE public.immutable_unaccent(lower(b.title)) ILIKE public.immutable_unaccent(${'%' + query + '%'})
         ORDER BY
+          b."isVerified" DESC,
           CASE WHEN public.immutable_unaccent(lower(b.title)) ILIKE public.immutable_unaccent(${query + '%'}) THEN 0 ELSE 1 END,
           score DESC
         LIMIT 10

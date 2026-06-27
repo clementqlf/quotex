@@ -1,11 +1,11 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
+import { httpClient } from '@/src/shared/api/HttpClient';
 import { supabase } from '@/src/shared/api/supabase';
 import { User } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import { Session } from '@supabase/supabase-js';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 export interface AuthResponse {
     user: User | null;
@@ -146,22 +146,11 @@ class AuthService {
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) throw new Error('Not authenticated');
 
-        const response = await fetch(`${API_BASE_URL}/users/me`, {
-            method: 'DELETE',
-            headers: { 
-                'Authorization': `Bearer ${session.access_token}`
-            }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to delete account' }));
-            throw new Error(errorData.error || 'Failed to delete account');
-        }
-
+        await httpClient.delete('/users/me');
         await this.logout();
     }
 
-    async updateUser(data: { username?: string; name?: string; bio?: string; website?: string; image?: string }): Promise<User> {
+    async updateUser(data: { username?: string; name?: string; bio?: string; website?: string; image?: string; expoPushToken?: string | null; notifyOnFollow?: boolean | null; notifyOnLike?: boolean | null }): Promise<User> {
         const session = (await supabase.auth.getSession()).data.session;
         if (!session) throw new Error('Not authenticated');
 
@@ -171,21 +160,7 @@ class AuthService {
             sanitizedData.username = sanitizedData.username.slice(1);
         }
 
-        const response = await fetch(`${API_BASE_URL}/users/me`, {
-            method: 'PATCH',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify(sanitizedData),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to update profile' }));
-            throw new Error(errorData.error || 'Failed to update profile');
-        }
-
-        const updatedUser: User = await response.json();
+        const updatedUser = await httpClient.patch<User>('/users/me', sanitizedData);
         await StorageService.setItem(STORAGE_KEYS.USER_DATA, updatedUser);
         return updatedUser;
     }

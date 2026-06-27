@@ -1,6 +1,8 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { SearchResults, searchService } from '@/src/features/search/api/SearchService';
-import { Author, Book, Quote, User as UserType } from '@/src/shared/api/types';
+import { SearchResults, InventairePrize } from '@/src/features/search/api/SearchService';
+import { InventaireEntity, getInventaireImageUrl } from '@/src/shared/api/InventaireService';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { Author, Book, LiteraryPrize, Quote, User as UserType } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
@@ -8,6 +10,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
+import { useSearch } from '@/src/features/search/lib/useSearch';
 import {
   ActivityIndicator,
   SectionList,
@@ -19,15 +22,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Types étendus pour les items de recherche
+interface InventaireBookItem extends Omit<Partial<InventaireEntity>, 'authors'> {
+    type: 'book';
+    label: string;
+    authors?: string[];
+}
+
+interface InventaireAuthorItem extends Partial<InventaireEntity> {
+    type: 'author';
+    label: string;
+}
+
 type SearchSection =
     | { title: string; data: Quote[]; type: 'quote' }
     | { title: string; data: Book[]; type: 'book' }
     | { title: string; data: Author[]; type: 'author' }
     | { title: string; data: string[]; type: 'theme' }
-    | { title: string; data: any[]; type: 'prize' }
-    | { title: string; data: any[]; type: 'inventaire_book' }
-    | { title: string; data: any[]; type: 'inventaire_author' }
-    | { title: string; data: any[]; type: 'inventaire_prize' }
+    | { title: string; data: LiteraryPrize[]; type: 'prize' }
+    | { title: string; data: InventaireBookItem[]; type: 'inventaire_book' }
+    | { title: string; data: InventaireAuthorItem[]; type: 'inventaire_author' }
+    | { title: string; data: InventairePrize[]; type: 'inventaire_prize' }
     | { title: string; data: UserType[]; type: 'user' };
 
 export default function SearchScreen() {
@@ -39,9 +54,20 @@ export default function SearchScreen() {
 
     const [query, setQuery] = useState(q || '');
     const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes' | 'users'>('all');
-    const [isLoading, setIsLoading] = useState(false);
-    const [results, setResults] = useState<SearchResults>({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
+    const [debouncedQuery, setDebouncedQuery] = useState('');
     const inputRef = useRef<TextInput>(null);
+
+    const netInfo = useNetInfo();
+    const isOffline = netInfo.isConnected === false;
+
+    // Définir emptyResults pour réinitialiser
+    const emptyResults: SearchResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
+
+    // Utiliser le hook useSearch pour la recherche
+    const { data: serverResults, isLoading } = useSearch(debouncedQuery);
+    
+    // Gérer le fallback offline
+    const results = isOffline ? emptyResults : serverResults || emptyResults;
 
     useEffect(() => {
         // Focus input on mount
@@ -50,43 +76,29 @@ export default function SearchScreen() {
         }, 100);
     }, []);
 
-    const performSearch = async (text: string) => {
-        setIsLoading(true);
-        try {
-            const data = await searchService.search(text);
-            setResults(data);
-        } catch (error) {
-            console.error('Search error:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
+    // Debounce effect pour la query
     useEffect(() => {
-        const delayDebounceFn = setTimeout(async () => {
-            if (query.trim().length > 2) { // Search after 3 chars
-                performSearch(query);
-            } else {
-                setResults({ quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] });
-            }
-        }, 500); // 500ms debounce to reduce server load
+        const delayDebounceFn = setTimeout(() => {
+            setDebouncedQuery(query);
+        }, 500); // 500ms debounce
 
         return () => clearTimeout(delayDebounceFn);
     }, [query]);
 
-    const handleImportBook = (item: any) => {
+    const handleImportBook = (item: unknown) => {
+        const itemObj = item as Record<string, unknown>;
         router.push({
             pathname: '/book-detail',
             params: {
-                bookTitle: item.label,
-                inventaireUri: item.uri,
+                bookTitle: itemObj.label as string,
+                inventaireUri: itemObj.uri as string,
                 bookData: JSON.stringify(item),
                 skipCache: 'true'
             }
         });
     };
 
-    const handleImportPrize = (item: any) => {
+    const handleImportPrize = (item: unknown) => {
         router.push({
             pathname: '/prize-detail',
             params: {
@@ -103,9 +115,9 @@ export default function SearchScreen() {
             { title: 'Mes Livres', data: results.books || [], type: 'book' },
             { title: 'Prix Littéraires', data: results.prizes || [], type: 'prize' },
             { title: 'Citations', data: results.quotes || [], type: 'quote' },
-            { title: 'Prix (Inventaire)', data: (results as any).inventairePrizes || [], type: 'inventaire_prize' },
-            { title: 'Livres', data: results.inventaireWorks || [], type: 'inventaire_book' },
-            { title: 'Auteurs', data: results.inventaireAuthors || [], type: 'inventaire_author' },
+            { title: 'Prix (Inventaire)', data: results.inventairePrizes || [], type: 'inventaire_prize' },
+            { title: 'Livres', data: (results.inventaireWorks || []) as InventaireBookItem[], type: 'inventaire_book' },
+            { title: 'Auteurs', data: (results.inventaireAuthors || []) as InventaireAuthorItem[], type: 'inventaire_author' },
         ];
 
         return allSections.filter(section => {
@@ -119,7 +131,7 @@ export default function SearchScreen() {
         }) as SearchSection[];
     }, [results, activeTab]);
 
-    const renderItem = ({ item, section }: { item: any; section: SearchSection }) => {
+    const renderItem = <T extends SearchSection>({ item, section }: { item: T['data'][number]; section: T }) => {
         if (section.type === 'quote') {
             const quote = item as Quote;
             return (
@@ -190,7 +202,7 @@ export default function SearchScreen() {
                 </TouchableOpacity>
             );
         } else if (section.type === 'prize') {
-            const prize = item;
+            const prize = item as LiteraryPrize;
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
@@ -210,66 +222,71 @@ export default function SearchScreen() {
                 </TouchableOpacity>
             );
         } else if (section.type === 'inventaire_book') {
+            const invBook = item as InventaireBookItem;
+            const imageUrl = getInventaireImageUrl(invBook.image ?? null);
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => handleImportBook(item)}
+                    onPress={() => handleImportBook(invBook)}
                 >
-                    <View style={item.image ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-                        {item.image ? (
-                            <Image source={{ uri: item.image }} style={styles.bookCover} />
+                    <View style={imageUrl ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+                        {imageUrl ? (
+                            <Image source={{ uri: imageUrl }} style={styles.bookCover} />
                         ) : (
                             <BookOpen size={20} color={colors.primary} />
                         )}
                     </View>
                     <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={styles.itemTitle}>{item.label}</Text>
+                            <Text style={styles.itemTitle}>{invBook.label}</Text>
                         </View>
-                        <Text style={styles.subText} numberOfLines={1}>{item.authors && item.authors.length > 0 ? item.authors.join(', ') : 'Auteur inconnu'}</Text>
+                        <Text style={styles.subText} numberOfLines={1}>{invBook.authors && invBook.authors.length > 0 ? invBook.authors.join(', ') : 'Auteur inconnu'}</Text>
                     </View>
                 </TouchableOpacity>
             )
         } else if (section.type === 'inventaire_author') {
+            const invAuthor = item as InventaireAuthorItem;
+            const imageUrl = getInventaireImageUrl(invAuthor.image ?? null);
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => navigateToAuthor(item.label, item.uri)}
+                    onPress={() => navigateToAuthor(invAuthor.label, invAuthor.uri)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                        {item.image ? (
-                            <Image source={{ uri: item.image }} style={styles.authorImage} />
+                        {imageUrl ? (
+                            <Image source={{ uri: imageUrl }} style={styles.authorImage} />
                         ) : (
                             <User size={20} color="#10B981" />
                         )}
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{item.label}</Text>
-                        <Text style={styles.subText} numberOfLines={2}>{item.description || 'Auteur'}</Text>
+                        <Text style={styles.itemTitle}>{invAuthor.label}</Text>
+                        <Text style={styles.subText} numberOfLines={2}>{invAuthor.description || 'Auteur'}</Text>
                     </View>
                 </TouchableOpacity>
             )
         } else if (section.type === 'inventaire_prize') {
+            const invPrize = item as InventairePrize;
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
-                    onPress={() => handleImportPrize(item)}
+                    onPress={() => handleImportPrize(invPrize)}
                 >
                     <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                        {item.image ? (
-                            <Image source={{ uri: item.image }} style={styles.authorImage} />
+                        {invPrize.image ? (
+                            <Image source={{ uri: invPrize.image }} style={styles.authorImage} />
                         ) : (
                             <Award size={20} color="#F59E0B" />
                         )}
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{item.label}</Text>
-                        <Text style={styles.subText} numberOfLines={2}>{item.description || 'Importer ce prix'}</Text>
+                        <Text style={styles.itemTitle}>{invPrize.label}</Text>
+                        <Text style={styles.subText} numberOfLines={2}>{invPrize.description || 'Importer ce prix'}</Text>
                     </View>
                 </TouchableOpacity>
             );
         } else if (section.type === 'user') {
-            const profile = item;
+            const profile = item as UserType;
             return (
                 <TouchableOpacity
                     style={styles.resultItem}
@@ -358,7 +375,7 @@ export default function SearchScreen() {
                         <TouchableOpacity
                             key={tab.id}
                             style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-                            onPress={() => setActiveTab(tab.id as any)}
+                            onPress={() => setActiveTab(tab.id as 'all' | 'books' | 'authors' | 'prizes' | 'users')}
                             accessible={true}
                             accessibilityRole="tab"
                             accessibilityState={{ selected: activeTab === tab.id }}
@@ -377,8 +394,8 @@ export default function SearchScreen() {
                     <ActivityIndicator size="large" color={colors.primary} />
                 </View>
             ) : (
-                <SectionList
-                    sections={sections as any}
+                <SectionList<any, SearchSection>
+                    sections={sections}
                     keyExtractor={(item, index) => index.toString()}
                     renderItem={renderItem}
                     renderSectionHeader={({ section: { title } }) => (

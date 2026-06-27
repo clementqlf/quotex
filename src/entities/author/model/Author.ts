@@ -33,6 +33,7 @@ export interface Author {
   quotesCount?: number; // Nombre de citations
   followersCount?: number; // Nombre de followers
   laureates?: Laureate[]; // Prix littéraires reçus
+  isVerified?: boolean; // L'auteur est-il vérifié via une source de confiance
 }
 
 // DTO pour créer un auteur
@@ -44,6 +45,7 @@ export interface CreateAuthorDto {
   nationality?: string;
   openLibraryId?: string;
   inventaireUri?: string;
+  isVerified?: boolean;
 }
 
 // Fabrique pour créer des objets Author
@@ -61,6 +63,7 @@ export class AuthorFactory {
       isSaved: false,
       quotesCount: 0,
       followersCount: 0,
+      isVerified: dto.isVerified ?? false,
     };
   }
 
@@ -72,6 +75,7 @@ export class AuthorFactory {
       image: data.image || '',
       birthDate: data.birthDate || '',
       nationality: data.nationality || '',
+      isVerified: !!data.isVerified,
     };
   }
 }

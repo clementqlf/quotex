@@ -6,7 +6,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
-interface Definition {
+export interface Definition {
     term: string;
     genre: string;
     pronunciation?: string;
@@ -35,7 +35,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
     onRemove
 }) => {
     const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const styles = createStyles(colors);
 
     // Group definitions by term to show them in separate sections
     const groupedDefinitions = useMemo(() => {
@@ -82,7 +82,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
     return (
         <BlockWrapper blockKey={blockKey} onRemove={onRemove}>
             <View style={styles.container}>
-                {groupedDefinitions.map(([term, termDefs], groupIndex) => {
+                {groupedDefinitions.map(([term, termDefs]: [string, Definition[]], groupIndex: number) => {
                     const pronunciation = termDefs[0].pronunciation;
                     const synonyms = termDefs[0].synonyms;
 
@@ -102,7 +102,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
 
                             {/* Definitions Flow */}
                             <View style={styles.meaningsList}>
-                                {termDefs.map((dItem, index) => {
+                                {termDefs.map((dItem: Definition, index: number) => {
                                     // Extract context from definition if it starts with (xxx)
                                     const contextMatch = dItem.definition.match(/^(\([^)]+\))\s*(.*)/);
                                     const context = contextMatch ? contextMatch[1] : null;

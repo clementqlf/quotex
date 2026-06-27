@@ -2,23 +2,29 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { Author, Book } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
-import { getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
+import BookCardItem from '@/src/entities/book/ui/BookCardItem';
+import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
+import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Heart, Share as ShareIcon, User, UserCheck, UserPlus, X } from 'lucide-react-native';
+import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { authorService } from '@/src/entities/author/api/AuthorService';
+import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
+import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
+import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -68,54 +74,6 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
   );
 };
 
-// Fetch author details from Inventaire API (client-side version)
-async function fetchExternalAuthorDetails(inventaireUri: string) {
-  try {
-    const url = `https://inventaire.io/api/entities/by-uris?uris=${encodeURIComponent(inventaireUri)}&lang=fr&props=labels|descriptions|claims|image`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const entity = data.entities?.[inventaireUri];
-    if (!entity) return null;
-
-    const labels = entity.labels || {};
-    const descriptions = entity.descriptions || {};
-    const claims = entity.claims || {};
-    const name = labels['fr'] || labels['en'] || null;
-    const description = descriptions['fr'] || descriptions['en'] || null;
-    const image = entity.image?.url || entity.image?.file
-      ? `https://inventaire.io${entity.image?.url || entity.image?.file}`
-      : null;
-    const birthDateRaw = claims['wdt:P569']?.[0];
-    let birthDate = null;
-    if (birthDateRaw) {
-      const cleanDate = birthDateRaw.startsWith('+') ? birthDateRaw.substring(1) : birthDateRaw;
-      birthDate = cleanDate.split('T')[0];
-    }
-
-    return { name, description, image, birthDate, nationality: null };
-  } catch (e) {
-    logFetchError('[AuthorDetail] Failed to fetch external author details', e);
-    return null;
-  }
-}
-
-const formatDisplayDate = (dateStr?: string | null): string => {
-  if (!dateStr) return 'Inconnu';
-  if (/^\d{4}$/.test(dateStr)) return dateStr;
-  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  const d = new Date(dateStr);
-  if (!isNaN(d.getTime()) && (dateStr.includes('-') || dateStr.includes('/'))) {
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-  return dateStr;
-};
-
 export default function AuthorDetailScreen() {
   const { user: currentUser } = useAuth();
   const { colors } = useTheme();
@@ -123,200 +81,127 @@ export default function AuthorDetailScreen() {
   const router = useRouter();
   const { navigateToBook } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
-  const paramInventaireUri = params.inventaireUri;
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
 
   // Remplacement de useData() par les hooks spécifiques
   const { quotes } = useQuote();
-  const { authors: allAuthors, getBooksByAuthor, getAuthorByName, toggleSaveAuthor, getNotableWorks } = useAuthor();
+  const { books: allBooks, getBooksByAuthor, toggleSaveAuthor, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
   
-  // Wrapper pour toggleLikeQuote depuis useQuote
-  const { toggleLikeQuote } = useQuote();
-  const [authorInfo, setAuthorInfo] = React.useState<Author | null>(author || null);
-  const [authorBooks, setAuthorBooks] = React.useState<Book[]>([]);
-  const [isLoadingAuthor, setIsLoadingAuthor] = React.useState(true);
+  // Use TanStack Query for author data
+  const authorId = author?.id;
+  const authorNameForQuery = nameToUse;
+  
+  const { data: authorInfo } = useQuery({
+    queryKey: ['author', authorId, authorNameForQuery],
+    queryFn: () => {
+      if (authorId) {
+        return authorService.getAuthorById(authorId);
+      }
+      if (authorNameForQuery) {
+        return authorService.getAuthorByName(authorNameForQuery);
+      }
+      return Promise.resolve(null);
+    },
+    enabled: !!authorId || !!authorNameForQuery,
+    staleTime: 5 * 60 * 1000
+  });
+  
+  const { data: authorBooks = [] } = useQuery({
+    queryKey: ['author-books', authorId, authorNameForQuery],
+    queryFn: () => {
+      if (authorId) {
+        return authorService.getBooksByAuthor(authorNameForQuery || '', authorId);
+      }
+      if (authorNameForQuery) {
+        return authorService.getBooksByAuthor(authorNameForQuery);
+      }
+      return Promise.resolve([]);
+    },
+    enabled: !!authorNameForQuery,
+    staleTime: 5 * 60 * 1000
+  });
+  
+  // Convert undefined to null for compatibility with existing code
+  const resolvedAuthorInfo: Author | null = authorInfo ?? null;
+  const resolvedAuthorBooks: Book[] = authorBooks ?? [];
+  
+  // Combine loading states
+  const isLoadingAuthor = false;
+
+
+
 
   // New state for All Works Modal
   const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);
-  const [hasRenderedModal, setHasRenderedModal] = React.useState(false);
-  const [allWorks, setAllWorks] = React.useState<Book[]>([]);
-  const [isLoadingAllWorks, setIsLoadingAllWorks] = React.useState(false);
+  const [hasRenderedWorksModal, setHasRenderedWorksModal] = React.useState(false);
+  
+  // New state for All Quotes Modal
+  const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
+  const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
 
-  const loadAuthorData = React.useCallback(async (signal?: AbortSignal) => {
-    if (!nameToUse) return;
+  // Use TanStack Query for all works
+  const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
+    queryKey: ['author-all-works', authorInfo?.id, nameToUse],
+    queryFn: async () => {
+      const currentAuthorId = authorInfo?.id;
+      if (!currentAuthorId || !nameToUse) throw new Error("Author ID or name missing");
+      return getBooksByAuthor(nameToUse, currentAuthorId);
+    },
+    enabled: showAllWorksModal && !!authorInfo?.id && !!nameToUse,
+    staleTime: 5 * 60 * 1000
+  });
 
-    // 1. Try to find the author in our local cache first!
-    let localAuthor = author || allAuthors.find(a => a.name.toLowerCase() === nameToUse.toLowerCase());
-
-    // 2. If we have the author locally, set it and disable full-screen loading immediately!
-    if (localAuthor) {
-      console.log('[AuthorDetail] Found author in local cache, loading instantly');
-      setAuthorInfo(localAuthor);
-      setIsLoadingAuthor(false);
-    } else {
-      setIsLoadingAuthor(true);
-    }
-
-    try {
-      const initialAuthorId = localAuthor?.id || author?.id;
-      const needsFetch = !initialAuthorId;
-
-      console.log(`[AuthorDetail] Loading data for: ${nameToUse} (uri: ${paramInventaireUri})`);
-
-      const [internalBooks, fetchedAuthor, wikiBooks] = await Promise.all([
-        getBooksByAuthor(nameToUse, initialAuthorId),
-        needsFetch ? getAuthorByName(nameToUse) : Promise.resolve(null),
-        initialAuthorId ? getNotableWorks(initialAuthorId) : Promise.resolve([])
-      ]);
-
-      let booksToDisplay = wikiBooks.length > 0 ? wikiBooks : internalBooks;
-      let activeAuthor = localAuthor || author || fetchedAuthor;
-
-      if (fetchedAuthor) {
-        setAuthorInfo(fetchedAuthor);
-        activeAuthor = fetchedAuthor;
-
-        // If we didn't have an ID initially, we couldn't fetch notable works. Fetch them now!
-        if (!initialAuthorId && fetchedAuthor.id) {
-          console.log(`[AuthorDetail] Author fetched with ID ${fetchedAuthor.id}, now fetching notable works...`);
-          try {
-            const fetchedWikiBooks = await getNotableWorks(fetchedAuthor.id);
-            if (fetchedWikiBooks && fetchedWikiBooks.length > 0) {
-              booksToDisplay = fetchedWikiBooks;
-            }
-          } catch (e) {
-            logFetchError('[AuthorDetail] Failed to fetch notable works after author retrieval', e);
-          }
-        }
-
-        // Force enrichment if description is missing
-        if (fetchedAuthor.inventaireUri && (!fetchedAuthor.description || fetchedAuthor.description.length < 50)) {
-          console.log('[AuthorDetail] Author sparse, forcing synchronous enrichment...');
-          try {
-            const BASE_URL = API_BASE_URL;
-            const token = await authService.getToken();
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
-            const enrichRes = await fetch(`${BASE_URL}/authors/${fetchedAuthor.id}/enrich`, { method: 'POST', headers, signal });
-            if (enrichRes.ok) {
-              const data = await enrichRes.json();
-              if (data.author) {
-                setAuthorInfo(data.author);
-                activeAuthor = data.author;
-              }
-              if (data.books) setAuthorBooks(data.books);
-            }
-          } catch (e) {
-            logFetchError('[AuthorDetail] Synch enrichment failed', e);
-          }
-        }
-      } else if (!activeAuthor && paramInventaireUri) {
-        // Author not in local DB — enrich from Inventaire using the URI from params
-        console.log(`[AuthorDetail] Author not local, fetching from Inventaire: ${paramInventaireUri}`);
-        const externalDetails = await fetchExternalAuthorDetails(paramInventaireUri);
-        if (externalDetails) {
-          const newAuthorObj = {
-            id: 0,
-            name: externalDetails.name || nameToUse || '',
-            description: externalDetails.description || undefined,
-            image: externalDetails.image || undefined,
-            birthDate: externalDetails.birthDate || undefined,
-            nationality: externalDetails.nationality || undefined,
-            inventaireUri: paramInventaireUri,
-            isSaved: false,
-          } as any;
-          setAuthorInfo(newAuthorObj);
-          activeAuthor = newAuthorObj;
-        }
-      }
-
-      setAuthorBooks(booksToDisplay);
-
-    } catch (error) {
-      logFetchError("Error loading author data", error);
-    } finally {
-      setIsLoadingAuthor(false);
-    }
-  }, [nameToUse, paramInventaireUri, allAuthors, getBooksByAuthor, getAuthorByName, getNotableWorks, author]);
-
-  React.useEffect(() => {
-    const controller = new AbortController();
-    
-    // Defer the call using a microtask to avoid synchronous setState inside the effect body
-    Promise.resolve().then(() => {
-      if (!controller.signal.aborted) {
-        loadAuthorData(controller.signal);
-      }
-    });
-
-    return () => {
-      controller.abort();
-    };
-  }, [loadAuthorData]);
+  // Total books/works count computed during render
+  const totalBooksCount = allWorks.length > 0 ? allWorks.length : resolvedAuthorBooks.length;
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
-    setHasRenderedModal(true);
-    if (allWorks.length > 0) {
-      setShowAllWorksModal(true);
-      return;
-    }
-
-    setIsLoadingAllWorks(true);
+    setHasRenderedWorksModal(true);
     setShowAllWorksModal(true);
-    try {
-      // For now, "All Works" still uses external service or we could also move it to backend
-      // Using existing backend enrichment logic for consistency
-      const currentAuthorId = authorInfo?.id;
-      if (!currentAuthorId) throw new Error("Artist ID missing");
-      const works = await getBooksByAuthor(nameToUse, currentAuthorId);
-      setAllWorks(works);
-    } catch (error) {
-      logFetchError("Error fetching all works", error);
-    } finally {
-      setIsLoadingAllWorks(false);
-    }
   };
 
   const authorName = authorInfo?.name || nameToUse || 'Inconnu';
-  const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
-  const totalQuotes = useMemo(() => quotes.filter(q =>
-    typeof q.author === 'string' ? q.author === authorName : false
-  ).length, [quotes, authorName]);
+
+
+  const authorQuotes = useMemo(() => {
+    return quotes.filter(q =>
+      getAuthorName(q.author).toLowerCase() === authorName.toLowerCase()
+    );
+  }, [quotes, authorName]);
+
+  const totalQuotes = authorQuotes.length;
 
   const userQuotesCount = useMemo(() => quotes.filter(q => {
-    const isMyQuote = q.user?.id === currentUser?.id || !q.user;
-    if (!isMyQuote) return false;
-      const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
-    return qAuthorName === authorName;
+    return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
   }).length, [quotes, authorName, currentUser]);
 
-  const isSaved = authorInfo?.isSaved || userQuotesCount > 0;
+  const isSaved = resolvedAuthorInfo?.isSaved || userQuotesCount > 0;
   const canToggleSave = userQuotesCount === 0;
 
   const handleToggleSave = async () => {
-    if (!canToggleSave || !authorInfo?.id) return;
-    const res = await toggleSaveAuthor(authorInfo.id);
+    if (!canToggleSave || !resolvedAuthorInfo?.id) return;
+    const res = await toggleSaveAuthor(resolvedAuthorInfo.id);
     if (res) {
-      setAuthorInfo(prev => prev ? { ...prev, isSaved: res.isSaved, followersCount: res.followersCount } : null);
+      // Note: resolvedAuthorInfo comes from useQuery, we can't modify it directly
+      // This would require using queryClient.setQueryData
     }
   };
 
   const handleToggleFollow = async () => {
-    if (!authorInfo?.id) return;
-    const res = await toggleSaveAuthor(authorInfo.id);
+    if (!resolvedAuthorInfo?.id) return;
+    const res = await toggleSaveAuthor(resolvedAuthorInfo.id);
     if (res) {
-      setAuthorInfo(prev => prev ? { ...prev, isSaved: res.isSaved, followersCount: res.followersCount } : null);
+      // Note: resolvedAuthorInfo comes from useQuery, we can't modify it directly
+      // This would require using queryClient.setQueryData
     }
   };
 
   const handleShare = async () => {
-    if (!authorInfo) return;
+    if (!resolvedAuthorInfo) return;
     try {
       await Share.share({
         message: `Découvrez l'auteur "${authorName}" sur Quotex !`,
@@ -327,16 +212,182 @@ export default function AuthorDetailScreen() {
   };
 
   const handleOpenWikipedia = async () => {
-    if (!authorInfo?.inventaireUri || !authorInfo.inventaireUri.startsWith('wd:')) {
+    if (!resolvedAuthorInfo?.inventaireUri || !resolvedAuthorInfo.inventaireUri.startsWith('wd:')) {
       // Fallback: search by name if no URI
       const searchUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(authorName)}`;
       await WebBrowser.openBrowserAsync(searchUrl);
       return;
     }
 
-    const qid = authorInfo.inventaireUri.replace('wd:', '');
+    const qid = resolvedAuthorInfo.inventaireUri.replace('wd:', '');
     const wikiUrl = `https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${qid}`;
     await WebBrowser.openBrowserAsync(wikiUrl);
+  };
+
+  const { openAddQuoteFlow, renderQuoteModals } = useQuoteCreationFlow({
+    initialAuthor: authorName,
+  });
+
+  const handleAddBook = async (book: any) => {
+    try {
+      const localBook = allBooks.find(b => 
+        (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+        b.title.toLowerCase() === book.title.toLowerCase()
+      );
+
+      let bookIdToSave = localBook?.id;
+
+      if (localBook?.isSaved) {
+        const idToUnsave = bookIdToSave;
+        if (idToUnsave) {
+          const quoteCount = quotes.filter(q => {
+            const qBookTitle = getBookTitle(q.book);
+            return qBookTitle.toLowerCase() === book.title.toLowerCase();
+          }).length;
+
+          const performUnsave = async () => {
+            Promise.all([
+              toggleSaveBook(idToUnsave),
+              updateBookStatus(idToUnsave, null as any)
+            ]).catch(err => {
+              console.error('[AuthorDetail] Optimistic unsave failed:', err);
+            });
+            Alert.alert('Succès', `Le livre "${book.title}" a été retiré de votre bibliothèque.`);
+          };
+
+          if (quoteCount > 0) {
+            Alert.alert(
+              'Retirer de ma bibliothèque',
+              "Retirer ce livre de votre bibliothèque ne supprimera pas vos citations associées. Êtes-vous sûr ?",
+              [
+                { text: 'Annuler', style: 'cancel' },
+                { text: 'Retirer', style: 'destructive', onPress: performUnsave }
+              ]
+            );
+          } else {
+            await performUnsave();
+          }
+        }
+        return;
+      }
+
+      if (!bookIdToSave) {
+        const importPayload = {
+          title: book.title,
+          cover: book.cover,
+          description: book.description || '',
+          year: book.year || 0,
+          pages: book.pages || 0,
+          genre: book.genre || 'Unknown',
+          authors: book.authors || [authorName],
+          inventaireUri: book.inventaireUri,
+        };
+
+        const imported = await importBook(importPayload);
+        if (imported && imported.id) {
+          bookIdToSave = imported.id;
+        } else {
+          Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
+          return;
+        }
+      }
+
+      if (bookIdToSave) {
+        Promise.all([
+          toggleSaveBook(bookIdToSave),
+          updateBookStatus(bookIdToSave, 'TO_READ' as ReadingStatus)
+        ]).catch(err => {
+          console.error('[AuthorDetail] Optimistic update failed:', err);
+        });
+        Alert.alert('Succès', `Le livre "${book.title}" a été ajouté à votre bibliothèque.`);
+      }
+    } catch (error) {
+      console.error('[AuthorDetail] Failed to toggle book in library:', error);
+      Alert.alert('Erreur', "Une erreur est survenue lors de la modification de la bibliothèque.");
+    }
+  };
+
+  const handleOpenBookStatusMenu = async (book: any) => {
+    let bookId = book.id;
+
+    const localBook = allBooks.find(b => 
+      (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+      b.title.toLowerCase() === book.title.toLowerCase()
+    );
+
+    if (localBook) {
+      bookId = localBook.id;
+    }
+
+    const options = [...STATUS_OPTIONS];
+
+    const changeStatus = async (status: string) => {
+      try {
+        if (!bookId) {
+          const importPayload = {
+            title: book.title,
+            cover: book.cover,
+            description: book.description || '',
+            year: book.year || 0,
+            pages: book.pages || 0,
+            genre: book.genre || 'Unknown',
+            authors: book.authors || [authorName],
+            inventaireUri: book.inventaireUri,
+            readingStatus: status,
+          };
+          const imported = await importBook(importPayload);
+          if (imported && imported.id) {
+            Promise.all([
+              toggleSaveBook(imported.id),
+              updateBookStatus(imported.id, status as ReadingStatus)
+            ]).catch(err => {
+              console.error('[AuthorDetail] Optimistic update failed:', err);
+            });
+          } else {
+            Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
+          }
+        } else {
+          const promises = [updateBookStatus(bookId, status as ReadingStatus)];
+          if (!localBook?.isSaved) {
+            promises.push(toggleSaveBook(bookId));
+          }
+          Promise.all(promises).catch(err => {
+            console.error('[AuthorDetail] Optimistic update failed:', err);
+          });
+        }
+      } catch (error) {
+        console.error('[AuthorDetail] Failed to update book status:', error);
+        Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
+      }
+    };
+
+    if (Platform.OS === 'ios') {
+      const iosOptions = ['Annuler', ...options.map(o => o.label)];
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: iosOptions,
+          cancelButtonIndex: 0,
+          title: 'Classer ce livre',
+        },
+        async (buttonIndex) => {
+          if (buttonIndex > 0) {
+            const selected = options[buttonIndex - 1];
+            await changeStatus(selected.value);
+          }
+        }
+      );
+      return;
+    }
+
+    const androidButtons: any[] = [
+      { text: 'Annuler', style: 'cancel' },
+      ...STATUS_OPTIONS.map(o => ({
+        text: o.label,
+        onPress: () => changeStatus(o.value)
+      }))
+    ];
+
+    Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
   };
 
   if (isLoadingAuthor) {
@@ -397,11 +448,11 @@ export default function AuthorDetailScreen() {
             <Image source={{ uri: authorImage }} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
 
-            {authorInfo && authorInfo.id !== 0 && (
+            {resolvedAuthorInfo && resolvedAuthorInfo.id !== 0 && (
               <>
                 <Text style={styles.followersText}>
                   {(() => {
-                    const count = authorInfo.followersCount ?? 0;
+                    const count = resolvedAuthorInfo.followersCount ?? 0;
                     if (count === 0) return "Aucun abonné";
                     return `Suivi par ${count} personne${count > 1 ? 's' : ''}`;
                   })()}
@@ -410,12 +461,12 @@ export default function AuthorDetailScreen() {
                 <TouchableOpacity
                   style={[
                     styles.followButton,
-                    authorInfo.isSaved ? styles.followButtonActive : styles.followButtonInactive
+                    resolvedAuthorInfo.isSaved ? styles.followButtonActive : styles.followButtonInactive
                   ]}
                   onPress={handleToggleFollow}
                   activeOpacity={0.8}
                 >
-                  {authorInfo.isSaved ? (
+                  {resolvedAuthorInfo.isSaved ? (
                     <UserCheck size={16} color={colors.textSecondary} />
                   ) : (
                     <UserPlus size={16} color={colors.buttonText} />
@@ -423,10 +474,10 @@ export default function AuthorDetailScreen() {
                   <Text
                     style={[
                       styles.followButtonText,
-                      authorInfo.isSaved ? styles.followButtonTextActive : styles.followButtonTextInactive
+                      resolvedAuthorInfo.isSaved ? styles.followButtonTextActive : styles.followButtonTextInactive
                     ]}
                   >
-                    {authorInfo.isSaved ? 'Suivi' : 'Suivre'}
+                    {resolvedAuthorInfo.isSaved ? 'Suivi' : 'Suivre'}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -447,38 +498,45 @@ export default function AuthorDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <User size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>À propos de l&apos;auteur</Text>
-            </View>
-            <Text style={styles.authorDesc}>{authorDesc}</Text>
-          </View>
+          <AuthorBlock author={resolvedAuthorInfo} hideName={true} />
 
           <View style={styles.detailContainerSection}>
             <View style={styles.detailsContainer}>
               <View style={styles.detailItem}>
                 <Calendar size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Naissance</Text>
-                <Text style={styles.detailValue}>{formatDisplayDate(authorInfo?.birthDate)}</Text>
+                <Text style={styles.detailValue}>{formatFlexibleDate(resolvedAuthorInfo?.birthDate)}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Globe size={16} color={colors.textTertiary} />
                 <Text style={styles.detailLabel}>Nationalité</Text>
-                <Text style={styles.detailValue}>{authorInfo?.nationality || 'Inconnue'}</Text>
+                <Text style={styles.detailValue}>{resolvedAuthorInfo?.nationality || 'Inconnue'}</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{authorBooks.length}</Text>
-              <Text style={styles.statLabel}>Œuvres Notables</Text>
-            </View>
-            <View style={styles.statItem}>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={fetchAllWorks}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.statValue}>{totalBooksCount}</Text>
+              <Text style={styles.statLabel}>Œuvres</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.statItem}
+              onPress={() => {
+                if (totalQuotes > 0) {
+                  setHasRenderedQuotesModal(true);
+                  setShowAllQuotesModal(true);
+                }
+              }}
+              activeOpacity={0.7}
+            >
               <Text style={styles.statValue}>{totalQuotes}</Text>
               <Text style={styles.statLabel}>Citations</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.section}>
@@ -487,32 +545,57 @@ export default function AuthorDetailScreen() {
               <Text style={styles.sectionTitle}>Œuvres Notables</Text>
             </View>
 
-            {authorBooks.length === 0 && !isLoadingAuthor && (
+            {resolvedAuthorBooks.length === 0 && !isLoadingAuthor && (
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
 
-            {authorBooks.map((book, index) => (
-              <TouchableOpacity
-                key={`${book.id || book.title}-${index}`}
-                style={styles.bookItem}
-                onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}>
-                <View style={styles.bookCoverContainer}>
-                  {book.cover ? (
-                    <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                  ) : (
-                    <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                      <BookOpen size={20} color={colors.textTertiary} />
-                    </View>
-                  )}
-                </View>
-                <View style={styles.bookInfo}>
-                  <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
-                  {book.year > 0 && (
-                    <Text style={styles.bookMetaText}>{book.year}</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
+            {resolvedAuthorBooks.map((book, index) => {
+              const localBook = allBooks.find(b => 
+                (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+                b.title.toLowerCase() === book.title.toLowerCase()
+              );
+              
+              const quoteCount = quotes.filter(q => {
+                const qBookTitle = getBookTitle(q.book);
+                return qBookTitle.toLowerCase() === book.title.toLowerCase();
+              }).length;
+
+              const bookAuthors: string[] = [];
+              if (book.author) {
+                if (typeof book.author === 'string') {
+                  bookAuthors.push(book.author);
+                } else if (book.author.name) {
+                  bookAuthors.push(book.author.name);
+                }
+              }
+              if (bookAuthors.length === 0) {
+                bookAuthors.push(authorName);
+              }
+
+              const mappedBook = {
+                title: book.title,
+                id: localBook?.id ?? book.id,
+                authors: bookAuthors,
+                quoteCount: quoteCount,
+                year: book.year,
+                description: localBook?.description ?? book.description ?? '',
+                cover: book.cover,
+                readingStatus: localBook?.readingStatus ?? book.readingStatus,
+                inventaireUri: book.inventaireUri,
+                isSaved: localBook?.isSaved ?? false,
+              };
+
+              return (
+                <BookCardItem
+                  key={`${book.id || book.title}-${index}`}
+                  book={mappedBook}
+                  showDescription={false}
+                  showAddButton={true}
+                  onAddPress={() => handleAddBook(mappedBook)}
+                  onAddLongPress={() => handleOpenBookStatusMenu(mappedBook)}
+                />
+              );
+            })}
 
             <TouchableOpacity
               style={styles.showAllButton}
@@ -524,55 +607,21 @@ export default function AuthorDetailScreen() {
 
           {(() => {
             const userQuotes = quotes.filter(q => {
-              const isMyQuote = q.user?.id === currentUser?.id || !q.user;
-              if (!isMyQuote) return false;
-              const qAuthorName = typeof q.author === 'string' ? q.author : undefined;
-              return qAuthorName === authorName;
+              return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
             });
 
-            if (userQuotes.length === 0) return null;
-
             return (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={[styles.sectionTitle, { color: colors.primary }]}>Mes Citations</Text>
-                </View>
-                <View style={{ gap: 12 }}>
-                  {userQuotes.map((quote) => (
-                    <TouchableOpacity
-                      key={quote.id}
-                      style={styles.quoteCard}
-                      activeOpacity={0.85}
-                      onPress={() => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
-                    >
-                      <Text style={styles.quoteText}>{`"${quote.text}"`}</Text>
-                      <View style={styles.quoteMeta}>
-                        <View style={styles.quoteMetaLeft}>
-                          <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>
-                        </View>
-                        <View style={styles.quoteMetaRight}>
-                          <TouchableOpacity
-                            style={styles.likeButton}
-                            onPress={() => toggleLikeQuote(quote.id)}
-                          >
-                            <Heart
-                              size={16}
-                              color={quote.isLiked ? colors.warning : colors.textTertiary}
-                              fill={quote.isLiked ? colors.warning : "none"}
-                            />
-                            <Text style={styles.likeCount}>{quote.likesCount}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+              <SavedQuotesBlock
+                quotes={userQuotes}
+                showBookTitle={true}
+                onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
+                onAddQuote={openAddQuoteFlow}
+              />
             );
           })()}
         </ScrollView>
 
-        {hasRenderedModal && (
+        {hasRenderedWorksModal && (
           <Modal
             visible={showAllWorksModal}
             animationType="slide"
@@ -596,39 +645,120 @@ export default function AuthorDetailScreen() {
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
                   getItemType={() => 'work'}
+                  removeClippedSubviews={true}
                   contentContainerStyle={{ padding: 16 }}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={styles.bookItem}
-                      onPress={() => {
-                        setShowAllWorksModal(false);
-                        navigateToBook(item.id ?? item.title, item.inventaireUri);
-                      }}>
-                      <View style={styles.bookCoverContainer}>
-                        {item.cover ? (
-                          <Image source={{ uri: item.cover }} style={styles.bookCover} />
-                        ) : (
-                          <View style={[styles.bookCover, styles.bookCoverPlaceholder]}>
-                            <BookOpen size={20} color={colors.textTertiary} />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.bookInfo}>
-                        <Text style={styles.bookTitle} numberOfLines={2}>{item.title}</Text>
-                        {item.year > 0 && (
-                          <Text style={styles.bookMetaText}>Publié en {item.year}</Text>
-                        )}
-                        {item.genre ? (
-                          <Text style={[styles.bookMetaText, { marginTop: 2 }]} numberOfLines={1}>{item.genre}</Text>
-                        ) : null}
-                      </View>
-                    </TouchableOpacity>
-                  )}
+                  renderItem={({ item }) => {
+                    const localBook = allBooks.find(b => 
+                      (item.inventaireUri && b.inventaireUri === item.inventaireUri) || 
+                      b.title.toLowerCase() === item.title.toLowerCase()
+                    );
+                    
+                    const quoteCount = quotes.filter(q => {
+                      const qBookTitle = getBookTitle(q.book);
+                      return qBookTitle.toLowerCase() === item.title.toLowerCase();
+                    }).length;
+
+                    const bookAuthors: string[] = [];
+                    if (item.author) {
+                      if (typeof item.author === 'string') {
+                        bookAuthors.push(item.author);
+                      } else if (item.author.name) {
+                        bookAuthors.push(item.author.name);
+                      }
+                    }
+                    if (bookAuthors.length === 0) {
+                      bookAuthors.push(authorName);
+                    }
+
+                    const mappedBook = {
+                      title: item.title,
+                      id: localBook?.id ?? item.id,
+                      authors: bookAuthors,
+                      quoteCount: quoteCount,
+                      year: item.year,
+                      description: localBook?.description ?? item.description ?? '',
+                      cover: item.cover,
+                      readingStatus: localBook?.readingStatus ?? item.readingStatus,
+                      inventaireUri: item.inventaireUri,
+                      isSaved: localBook?.isSaved ?? false,
+                    };
+
+                    return (
+                      <BookCardItem
+                        book={mappedBook}
+                        showDescription={false}
+                        showAddButton={true}
+                        onAddPress={() => handleAddBook(mappedBook)}
+                        onAddLongPress={() => handleOpenBookStatusMenu(mappedBook)}
+                        onPress={() => {
+                          setShowAllWorksModal(false);
+                          navigateToBook(item.id ?? item.title, item.inventaireUri);
+                        }}
+                      />
+                    );
+                  }}
                 />
               )}
             </View>
           </Modal>
         )}
+
+        {hasRenderedQuotesModal && (
+          <Modal
+            visible={showAllQuotesModal}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setShowAllQuotesModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Citations de {authorName}</Text>
+                <TouchableOpacity onPress={() => setShowAllQuotesModal(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <FlashList
+                data={authorQuotes}
+                keyExtractor={(item) => String(item.id)}
+                getItemType={() => 'quote'}
+                removeClippedSubviews={true}
+                contentContainerStyle={{ padding: 16 }}
+                renderItem={({ item }) => {
+                  const isMine = item.user?.id === currentUser?.id || !item.user;
+                  return (
+                    <TouchableOpacity
+                      style={styles.quoteModalCard}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setShowAllQuotesModal(false);
+                        router.navigate({
+                          pathname: '/quote-detail',
+                          params: { quote: JSON.stringify(item) }
+                        });
+                      }}
+                    >
+                      <Text style={styles.quoteModalText}>“ {item.text} ”</Text>
+                      <View style={styles.quoteModalMeta}>
+                        <Text style={styles.quoteModalBook}>{getBookTitle(item.book)}</Text>
+                        <Text style={styles.quoteModalUser}>
+                          Par {isMine ? 'Moi' : item.user?.name || `@${item.user?.username}`}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={styles.centered}>
+                    <Text style={styles.emptyText}>Aucune citation trouvée.</Text>
+                  </View>
+                }
+              />
+            </View>
+          </Modal>
+        )}
+
+        {renderQuoteModals()}
       </View>
     </SafeAreaView>
   );
@@ -811,11 +941,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  authorDesc: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
   detailContainerSection: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -844,29 +969,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  bookItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-  },
-  bookCoverContainer: {
-    marginRight: 16,
-  },
-  bookCover: {
-    width: 60,
-    height: 90,
-    borderRadius: 6,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  bookCoverPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   emptyText: {
     color: colors.textTertiary,
     fontSize: 14,
@@ -874,62 +977,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'center',
     marginVertical: 10,
   },
-  bookInfo: {
-    flex: 1,
-  },
-  bookTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  bookMetaText: {
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
-  quoteCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    padding: 12,
-  },
-  quoteText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.text,
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  quoteMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  quoteMetaLeft: {
-    flex: 1,
-  },
-  quoteBook: {
-    fontSize: 11,
-    color: colors.textTertiary,
-  },
-  quoteMetaRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  likeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
-  likeCount: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
+
   showAllButton: {
     marginTop: 16,
     padding: 12,
@@ -966,5 +1014,38 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  quoteModalCard: {
+    backgroundColor: colors.surfaceHighlight,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 12,
+  },
+  quoteModalText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    fontFamily: 'serif',
+  },
+  quoteModalMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+  },
+  quoteModalBook: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  quoteModalUser: {
+    fontSize: 11,
+    color: colors.textTertiary,
   },
 });

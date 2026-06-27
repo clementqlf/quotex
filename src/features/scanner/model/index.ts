@@ -20,7 +20,7 @@ export {
 // Other scanner utilities
 export { recognizeText } from './mlKitParser';
 export * from './textReconstructor';
-export { extractIsbn } from './useIsbnScanner';
+export { extractIsbn } from '@/src/shared/lib/validation/isbn';
 export { useLiveOCR } from './useLiveOCR';
 
 // OCR Processor (logique métier)

@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">10.41% </span>
+                <span class="strong">11.36% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>5/48</span>
+                <span class='fraction'>5/44</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>0/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">10.86% </span>
+                <span class="strong">11.62% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>5/46</span>
+                <span class='fraction'>5/43</span>
             </div>
         
             
@@ -329,8 +329,7 @@
 <a name='L264'></a><a href='#L264'>264</a>
 <a name='L265'></a><a href='#L265'>265</a>
 <a name='L266'></a><a href='#L266'>266</a>
-<a name='L267'></a><a href='#L267'>267</a>
-<a name='L268'></a><a href='#L268'>268</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L267'></a><a href='#L267'>267</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -391,18 +390,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -410,16 +399,25 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -597,23 +595,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useEffect, useState, useMemo } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    Image,
-    TouchableOpacity,
-    ActivityIndicator,
-    StyleSheet,
-    Linking,
-} from 'react-native';
-import { BookCopy, ExternalLink } from 'lucide-react-native';
-import { BlockWrapper } from './BlockWrapper';
-import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
+import { httpClient } from '@/src/shared/api/HttpClient';
+import { ThemeColors } from '@/src/shared/theme';
+import { BookCopy, ExternalLink } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { BlockWrapper } from './BlockWrapper';
 &nbsp;
 interface Edition {
     id: number;
@@ -654,32 +652,32 @@ const resolveLanguage = <span class="fstat-no" title="function not covered" >(u<
 &nbsp;
 const EditionsBlockUI: React.FC&lt;EditionsBlockProps&gt; = <span class="fstat-no" title="function not covered" >({</span> book, onRemove }) =&gt; {
     const { colors } = <span class="cstat-no" title="statement not covered" >useTheme();</span>
-    const styles = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >createStyles(colors),</span> [colors]);</span>
+    const styles = <span class="cstat-no" title="statement not covered" >createStyles(colors);</span>
 &nbsp;
     const [editions, setEditions] = <span class="cstat-no" title="statement not covered" >useState&lt;Edition[]&gt;([]);</span>
     const [isLoading, setIsLoading] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
-    const [fetched, setFetched] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
+&nbsp;
+    // Ajuster l'état pendant le rendu quand le livre change
+    const [prevBookId, setPrevBookId] = <span class="cstat-no" title="statement not covered" >useState&lt;number | undefined&gt;(book?.id);</span>
+<span class="cstat-no" title="statement not covered" >    if (book?.id !== prevBookId) {</span>
+<span class="cstat-no" title="statement not covered" >        setPrevBookId(book?.id);</span>
+<span class="cstat-no" title="statement not covered" >        setEditions([]);</span>
+    }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    useEffect(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        if (!book?.id) {</span>
-<span class="cstat-no" title="statement not covered" >            setEditions([]);</span>
-<span class="cstat-no" title="statement not covered" >            setFetched(false);</span>
 <span class="cstat-no" title="statement not covered" >            return;</span>
         }
 &nbsp;
         const fetchEditions = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >            setIsLoading(true);</span>
 <span class="cstat-no" title="statement not covered" >            try {</span>
-                const response = <span class="cstat-no" title="statement not covered" >await fetch(`${API_BASE_URL}/books/${book.id}/editions`);</span>
-<span class="cstat-no" title="statement not covered" >                if (response.ok) {</span>
-                    const data = <span class="cstat-no" title="statement not covered" >await response.json();</span>
-<span class="cstat-no" title="statement not covered" >                    setEditions(data);</span>
-                }
+                const data = <span class="cstat-no" title="statement not covered" >await httpClient.get&lt;Edition[]&gt;(`/books/${book.id}/editions`);</span>
+<span class="cstat-no" title="statement not covered" >                setEditions(data);</span>
             } catch (e) {
 <span class="cstat-no" title="statement not covered" >                console.error('[EditionsBlock] Fetch error:', e);</span>
             } finally {
 <span class="cstat-no" title="statement not covered" >                setIsLoading(false);</span>
-<span class="cstat-no" title="statement not covered" >                setFetched(true);</span>
             }
         };
 &nbsp;
@@ -688,7 +686,6 @@ const EditionsBlockUI: React.FC&lt;EditionsBlockProps&gt; = <span class="fstat-n
         // Cleanup: reset states when book changes
 <span class="cstat-no" title="statement not covered" >        return <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >            setEditions([]);</span>
-<span class="cstat-no" title="statement not covered" >            setFetched(false);</span>
 <span class="cstat-no" title="statement not covered" >            setIsLoading(false);</span>
         };
     }, [book?.id]);
@@ -707,7 +704,7 @@ const EditionsBlockUI: React.FC&lt;EditionsBlockProps&gt; = <span class="fstat-n
     };
 &nbsp;
     // Nothing to show if no inventaireUri on the book
-    const hasInventaireUri = <span class="cstat-no" title="statement not covered" >!!(book as any)?.inventaireUri;</span>
+    const hasInventaireUri = <span class="cstat-no" title="statement not covered" >!!book?.inventaireUri;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    if (!hasInventaireUri &amp;&amp; !isLoading &amp;&amp; editions.length === 0) {</span>
 <span class="cstat-no" title="statement not covered" >        return null; </span>// Don't render the block if book has no Inventaire data
@@ -871,7 +868,7 @@ const createStyles = <span class="fstat-no" title="function not covered" >(c</sp
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-11T19:12:29.795Z
+                at 2026-06-27T18:13:04.371Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

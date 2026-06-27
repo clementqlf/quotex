@@ -1,10 +1,9 @@
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { quoteService } from '@/src/features/quote/api/QuoteService';
+import { httpClient } from '@/src/shared/api/HttpClient';
+import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
 import { Quote } from '@/src/shared/api/types';
-import { API_BASE_URL } from '@/src/shared/config/api';
 import { PlatformServices } from '@/src/shared/platform';
 import { useCallback } from 'react';
 
@@ -96,11 +95,7 @@ export const useQuoteActions = () => {
           const authorObj = newQuote.author;
           if (authorObj.inventaireUri && (!authorObj.description || authorObj.description.length < 50)) {
             console.log('[useQuoteActions] Background enriching author:', authorObj.id);
-            const token = await authService.getToken();
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-
-            fetch(`${API_BASE_URL}/authors/${authorObj.id}/enrich`, { method: 'POST', headers })
+            httpClient.post(`/authors/${authorObj.id}/enrich`, {})
               .then(() => refreshAuthors())
               .catch(err => console.error('[useQuoteActions] Background author enrichment failed:', err));
           }

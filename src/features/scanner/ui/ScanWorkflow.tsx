@@ -18,7 +18,7 @@ import { PlatformServices } from '@/src/shared/platform';
 import { useScanInteractions } from '../model/useScanInteractions';
 import { SelectionRange, useScanState } from '../model/useScanState';
 
-import ScanPreviewModal from './ScanPreviewModal';
+import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 
 type ScanWorkflowProps = {
   photo: PhotoFile;
@@ -67,6 +67,7 @@ const useScanWorkflowLogic = (
     setIsEraserMode: setEraserModeState,
     clearSelection,
     clearExclusions,
+    toggleWordExclusion,
   } = scanState;
 
   // Synchroniser isEraserMode avec useScanState
@@ -81,6 +82,7 @@ const useScanWorkflowLogic = (
     selectionRange: selectionRange,
     setSelectionRange: setSelectionRange as React.Dispatch<React.SetStateAction<SelectionRange | null>>,
     excludedIndices,
+    toggleWordExclusion,
     isEraserMode,
     imageDisplayInfo,
   });

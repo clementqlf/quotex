@@ -26,6 +26,7 @@ interface OfflineQuote {
 
 interface SyncResult {
   quoteId: string;
+  realQuoteId?: number;
   originalAuthor?: string;
   matchedAuthor?: string;
   originalBook?: string;
@@ -168,7 +169,7 @@ serve(async (req: Request) => {
             authorLookup = await matchAuthor(finalAuthorName, true);
             authorId = authorLookup?.id || null;
             if (authorId && inventaireMatch.authorUri) {
-              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true WHERE id = ${authorId}`;
+              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true, "isVerified" = true WHERE id = ${authorId}`;
             }
           }
         }
@@ -186,7 +187,7 @@ serve(async (req: Request) => {
             bookLookup = await matchBook(finalBookTitle, authorId, true);
             bookId = bookLookup?.id || null;
             if (bookId && inventaireMatch.workUri) {
-              await sql`UPDATE "Book" SET "inventaireUri" = ${inventaireMatch.workUri}, "isEnriching" = true WHERE id = ${bookId}`;
+              await sql`UPDATE "Book" SET "inventaireUri" = ${inventaireMatch.workUri}, "isEnriching" = true, "isVerified" = true WHERE id = ${bookId}`;
             }
           }
         }
@@ -224,6 +225,7 @@ serve(async (req: Request) => {
         // Record sync result with corrections
         syncResults.push({
           quoteId: offlineQuote.id,
+          realQuoteId: quoteRows[0].id,
           originalAuthor: offlineQuote.author,
           matchedAuthor: authorLookup?.wasCreated ? undefined : (authorLookup?.name || finalAuthorName),
           originalBook: offlineQuote.book,
@@ -255,6 +257,7 @@ serve(async (req: Request) => {
       created: syncResults.filter(r => r.authorCreated || r.bookCreated),
       syncDetails: syncResults.map(r => ({
         quoteId: r.quoteId,
+        id: r.realQuoteId,
         authorId: r.authorId,
         bookId: r.bookId,
         authorCreated: r.authorCreated,

@@ -8,6 +8,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { useQueryClient } from '@tanstack/react-query';
+import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import * as Linking from 'expo-linking';
 import {
   Bell,
   CheckCircle2,
@@ -39,9 +44,75 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import * as Linking from 'expo-linking';
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
-const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: any) => {
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
+  if (!Device.isDevice) {
+    Alert.alert(
+      "Simulateur détecté",
+      "Les notifications push ne sont pas prises en charge sur simulateur. Veuillez tester sur un appareil physique."
+    );
+    return null;
+  }
+
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      Alert.alert(
+        "Permissions refusées",
+        "Veuillez activer les permissions de notifications dans les réglages de votre appareil pour recevoir des notifications."
+      );
+      return null;
+    }
+
+    const token = (await Notifications.getExpoPushTokenAsync({
+      projectId: 'eaa0560e-b9b6-4344-a4ab-3d9283e277f9',
+    })).data;
+    console.log('[Notifications] Token retrieved:', token);
+
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    return token;
+  } catch (error) {
+    console.warn('[Notifications] Error registering for push notifications:', error);
+    return null;
+  }
+}
+
+interface SettingItemProps {
+  icon: React.FC<{ size?: number; color?: string }>;
+  title: string;
+  value?: boolean;
+  type?: 'chevron' | 'switch';
+  onPress?: () => void;
+  rightText?: string;
+}
+
+const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, rightText }: SettingItemProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -62,7 +133,12 @@ const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: an
         <Text style={styles.settingItemTitle}>{title}</Text>
       </View>
 
-      {type === 'chevron' && <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />}
+      {type === 'chevron' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {rightText && <Text style={{ color: colors.textTertiary, fontSize: 14 }}>{rightText}</Text>}
+          <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />
+        </View>
+      )}
       {type === 'switch' && (
         <Switch
           value={value}
@@ -80,16 +156,65 @@ const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress }: an
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
-  const { isDark, colors } = useTheme();
+  const { colors, themePreference, setThemePreference } = useTheme();
   const { refreshQuotes } = useQuote();
   const { refreshAuthors, refreshBooks } = useAuthor();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = React.useState(false);
+  const [isThemeModalVisible, setIsThemeModalVisible] = React.useState(false);
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
+
+  const [isNotificationsModalVisible, setIsNotificationsModalVisible] = React.useState(false);
+  const [globalNotificationsEnabled, setGlobalNotificationsEnabled] = React.useState(!!user?.expoPushToken);
+  const [notifyOnFollow, setNotifyOnFollow] = React.useState(user?.notifyOnFollow ?? true);
+  const [notifyOnLike, setNotifyOnLike] = React.useState(user?.notifyOnLike ?? true);
+  const [isSavingNotifications, setIsSavingNotifications] = React.useState(false);
+
+
+
+  const handleSaveNotifications = async () => {
+    if (isSavingNotifications) return;
+    setIsSavingNotifications(true);
+
+    try {
+      if (globalNotificationsEnabled) {
+        let token: string | null | undefined = user?.expoPushToken;
+        if (!token) {
+          token = await registerForPushNotificationsAsync();
+        }
+
+        if (token) {
+          await updateProfile({
+            expoPushToken: token,
+            notifyOnFollow,
+            notifyOnLike,
+          });
+          Alert.alert("Succès", "Vos préférences de notification ont été mises à jour.");
+          setIsNotificationsModalVisible(false);
+        } else {
+          setGlobalNotificationsEnabled(false);
+        }
+      } else {
+        await updateProfile({
+          expoPushToken: null,
+          notifyOnFollow,
+          notifyOnLike,
+        });
+        Alert.alert("Succès", "Vos notifications push ont été désactivées.");
+        setIsNotificationsModalVisible(false);
+      }
+    } catch (err) {
+      console.error('[SettingsScreen] Failed to save notifications:', err);
+      Alert.alert("Erreur", "Impossible d'enregistrer vos préférences de notification.");
+    } finally {
+      setIsSavingNotifications(false);
+    }
+  };
 
   const handleOpenLink = async (url: string) => {
     try {
@@ -118,8 +243,8 @@ export default function SettingsScreen() {
             try {
               await updateProfile({ username: newUsername });
               Alert.alert("Succès", "Votre nom d'utilisateur a été mis à jour.");
-            } catch (error: any) {
-              Alert.alert("Erreur", error.message || "Échec de la mise à jour");
+            } catch (error) {
+              Alert.alert("Erreur", (error as Error).message || "Échec de la mise à jour");
             } finally {
               setIsUpdating(false);
             }
@@ -148,8 +273,8 @@ export default function SettingsScreen() {
       setIsPasswordModalVisible(false);
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
-      Alert.alert("Erreur", error.message || "Échec de la mise à jour");
+    } catch (error) {
+      Alert.alert("Erreur", (error as Error).message || "Échec de la mise à jour");
     } finally {
       setIsUpdating(false);
     }
@@ -191,9 +316,9 @@ export default function SettingsScreen() {
               setIsUpdating(true);
               await deleteAccount();
               router.replace('/login');
-            } catch (error: any) {
+            } catch (error) {
               console.error("Delete account error", error);
-              Alert.alert("Erreur", error.message || "Impossible de supprimer le compte.");
+              Alert.alert("Erreur", (error as Error).message || "Impossible de supprimer le compte.");
             } finally {
               setIsUpdating(false);
             }
@@ -234,8 +359,12 @@ export default function SettingsScreen() {
               await StorageService.removeItem(STORAGE_KEYS.BLOCK_LAYOUTS);
               await StorageService.removeItem(STORAGE_KEYS.BLOCK_DATA);
               await StorageService.removeItem(STORAGE_KEYS.USER_DATA);
+              await OperationQueue.getInstance().clear();
 
-              // 4. Force data refresh in the provider to synchronize memory state
+              // 4. Clear React Query Cache to invalidate in-memory caches and active operations
+              queryClient.clear();
+
+              // 5. Force data refresh in the provider to synchronize memory state
               await Promise.all([
                 refreshQuotes(),
                 refreshAuthors(),
@@ -290,7 +419,12 @@ export default function SettingsScreen() {
               <SettingItem
                 icon={Bell}
                 title="Notifications"
-                onPress={() => { }}
+                onPress={() => {
+                  setGlobalNotificationsEnabled(!!user?.expoPushToken);
+                  setNotifyOnFollow(user?.notifyOnFollow ?? true);
+                  setNotifyOnLike(user?.notifyOnLike ?? true);
+                  setIsNotificationsModalVisible(true);
+                }}
               />
               <SettingItem
                 icon={Trash2}
@@ -307,9 +441,12 @@ export default function SettingsScreen() {
               <SettingItem
                 icon={Moon}
                 title="Mode Sombre"
-                type="switch"
-                value={isDark}
-                onPress={() => { }} // Hook theme toggle here if available
+                type="chevron"
+                rightText={
+                  themePreference === 'auto' ? 'Auto' :
+                  themePreference === 'dark' ? 'Sombre' : 'Clair'
+                }
+                onPress={() => setIsThemeModalVisible(true)}
               />
               <SettingItem
                 icon={CircleHelp}
@@ -473,6 +610,164 @@ export default function SettingsScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Notifications Preferences Modal */}
+      <Modal
+        visible={isNotificationsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsNotificationsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Préférences de Notifications</Text>
+
+            {/* Global Switch */}
+            <View style={styles.notificationPrefRow}>
+              <View style={styles.notificationPrefLeft}>
+                <Text style={styles.notificationPrefTitle}>Notifications Push</Text>
+                <Text style={styles.notificationPrefDesc}>Activer ou désactiver globalement</Text>
+              </View>
+              <Switch
+                value={globalNotificationsEnabled}
+                onValueChange={setGlobalNotificationsEnabled}
+                trackColor={{ false: '#767577', true: colors.primary }}
+                thumbColor={globalNotificationsEnabled ? '#FFFFFF' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Notify On Follow */}
+            <View style={[styles.notificationPrefRow, !globalNotificationsEnabled && { opacity: 0.5 }]}>
+              <View style={styles.notificationPrefLeft}>
+                <Text style={styles.notificationPrefTitle}>Nouveaux Abonnements</Text>
+                <Text style={styles.notificationPrefDesc}>{"Quand un utilisateur s'abonne à votre profil"}</Text>
+              </View>
+              <Switch
+                value={notifyOnFollow}
+                onValueChange={setNotifyOnFollow}
+                disabled={!globalNotificationsEnabled}
+                trackColor={{ false: '#767577', true: colors.primary }}
+                thumbColor={notifyOnFollow ? '#FFFFFF' : '#f4f3f4'}
+              />
+            </View>
+
+            {/* Notify On Like */}
+            <View style={[styles.notificationPrefRow, !globalNotificationsEnabled && { opacity: 0.5 }]}>
+              <View style={styles.notificationPrefLeft}>
+                <Text style={styles.notificationPrefTitle}>{"Mentions J'aime"}</Text>
+                <Text style={styles.notificationPrefDesc}>{"Quand un utilisateur aime l'une de vos citations"}</Text>
+              </View>
+              <Switch
+                value={notifyOnLike}
+                onValueChange={setNotifyOnLike}
+                disabled={!globalNotificationsEnabled}
+                trackColor={{ false: '#767577', true: colors.primary }}
+                thumbColor={notifyOnLike ? '#FFFFFF' : '#f4f3f4'}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setIsNotificationsModalVisible(false)}
+                accessible={true}
+                accessibilityLabel="Annuler"
+                accessibilityRole="button"
+                testID="notif-modal-cancel-button"
+              >
+                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalButtonSave,
+                  isSavingNotifications && styles.modalButtonDisabled
+                ]}
+                onPress={handleSaveNotifications}
+                disabled={isSavingNotifications}
+                accessible={true}
+                accessibilityLabel="Enregistrer les préférences"
+                accessibilityRole="button"
+                testID="notif-modal-save-button"
+              >
+                {isSavingNotifications ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text style={styles.modalButtonTextSave}>Enregistrer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Theme Selection Modal */}
+      <Modal
+        visible={isThemeModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsThemeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{"Mode d'affichage"}</Text>
+
+            <TouchableOpacity
+              style={styles.themeOptionRow}
+              onPress={async () => {
+                await setThemePreference('light');
+                setIsThemeModalVisible(false);
+              }}
+            >
+              <Text style={[styles.themeOptionText, themePreference === 'light' && styles.themeOptionTextSelected]}>Clair</Text>
+              {themePreference === 'light' && <CheckCircle2 size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.themeOptionRow}
+              onPress={async () => {
+                await setThemePreference('dark');
+                setIsThemeModalVisible(false);
+              }}
+            >
+              <Text style={[styles.themeOptionText, themePreference === 'dark' && styles.themeOptionTextSelected]}>Sombre</Text>
+              {themePreference === 'dark' && <CheckCircle2 size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <TouchableOpacity
+              style={styles.themeOptionRow}
+              onPress={async () => {
+                await setThemePreference('auto');
+                setIsThemeModalVisible(false);
+              }}
+            >
+              <View>
+                <Text style={[styles.themeOptionText, themePreference === 'auto' && styles.themeOptionTextSelected]}>Automatique</Text>
+                <Text style={styles.themeOptionDesc}>Utilise les paramètres du système</Text>
+              </View>
+              {themePreference === 'auto' && <CheckCircle2 size={20} color={colors.primary} />}
+            </TouchableOpacity>
+
+            <View style={{ height: 20 }} />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setIsThemeModalVisible(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -676,5 +971,51 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: '700',
+  },
+  notificationPrefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  notificationPrefLeft: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  notificationPrefTitle: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  notificationPrefDesc: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    lineHeight: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 12,
+  },
+  themeOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+  },
+  themeOptionText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  themeOptionTextSelected: {
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  themeOptionDesc: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
   },
 });
