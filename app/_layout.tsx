@@ -73,6 +73,7 @@ function RootLayoutNav() {
   // Navigation Logger avec typage
   const pathname = usePathname();
   const params = useGlobalSearchParams();
+  const paramsString = JSON.stringify(params);
 
   const insets = useSafeAreaInsets();
   const [isLayoutReady, setIsLayoutReady] = React.useState(false);
@@ -82,7 +83,7 @@ function RootLayoutNav() {
 
   useEffect(() => {
     console.log(`[Navigation] Opened Screen: ${pathname}`, params);
-  }, [pathname, params]);
+  }, [pathname, paramsString]);
 
   // Track if safe area is resolved
   useEffect(() => {
