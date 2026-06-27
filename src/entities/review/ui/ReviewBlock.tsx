@@ -27,7 +27,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     // Utilisation des hooks TanStack Query pour la gestion des reviews
-    const { data: fetchedReviews, isLoading, refetch } = useReviewsByBookId(bookId);
+    const { data: fetchedReviews, refetch } = useReviewsByBookId(bookId);
     const createReviewMutation = useCreateReview();
     const updateReviewMutation = useUpdateReview();
     const deleteReviewMutation = useDeleteReview();
@@ -201,7 +201,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
 
         try {
             if (myReview) {
-                const updatedReview = await updateReviewMutation.mutateAsync({
+                await updateReviewMutation.mutateAsync({
                     reviewId: myReview.id,
                     review: {
                         rating,

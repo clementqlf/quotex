@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { httpClient } from '@/src/shared/api/HttpClient';
-import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Author, Book, LiteraryPrize, Quote, User } from '@/src/shared/api/types';
 import { InventaireEntity } from '@/src/shared/api/InventaireService';

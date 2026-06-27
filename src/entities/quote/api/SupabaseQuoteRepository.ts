@@ -191,8 +191,6 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     let finalBook: any = correction?.matchedBook || cleanBook;
     let finalAuthor: any = correction?.matchedAuthor || cleanAuthor;
     
-    const REST_BASE_URL = httpClient['buildUrl']('').replace('/functions/v1', '/rest/v1');
-    
     if (detail?.bookId) {
         try {
             const REST_BASE_URL = API_BASE_URL.replace('/functions/v1', '/rest/v1');

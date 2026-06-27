@@ -126,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             unsubscribe();
             subscription.remove();
         };
-    }, [queryClient]);
+    }, [queryClient, setAuth, clearAuth, setLoading]);
 
     // ⚡ Memoize les actions pour éviter leur recréation à chaque render
     const login = useCallback(async (email: string, password: string) => {

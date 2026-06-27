@@ -5,7 +5,6 @@ import {
   fetchInventaireEntities,
   fetchInventaireEditions,
   getInventaireImageUrl,
-  normalizeInventaireUri,
   resolveInventaireEntity 
 } from '@/src/shared/api/InventaireService';
 import type { BookImportPayload } from './bookImport';

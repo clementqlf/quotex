@@ -2,22 +2,18 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { authService } from '@/src/entities/user/api/AuthService';
-import { httpClient } from '@/src/shared/api/HttpClient';
 import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
-import { fetchInventaireEntities, getInventaireImageUrl, resolveInventaireEntity } from '@/src/shared/api/InventaireService';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { logFetchError } from '@/src/shared/lib/offline/networkUtils';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
@@ -78,33 +74,6 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
   );
 };
 
-// Fetch author details from Inventaire API (client-side version)
-async function fetchExternalAuthorDetails(inventaireUri: string) {
-  try {
-    const entities = await fetchInventaireEntities([inventaireUri], 'labels|descriptions|claims|image');
-    const entity = resolveInventaireEntity(entities, inventaireUri);
-    if (!entity) return null;
-
-    const labels = entity.labels || {};
-    const descriptions = entity.descriptions || {};
-    const claims = entity.claims || {};
-    const name = labels['fr'] || labels['en'] || null;
-    const description = descriptions['fr'] || descriptions['en'] || null;
-    const image = getInventaireImageUrl(entity.image ?? null);
-    const birthDateRaw = claims['wdt:P569']?.[0];
-    let birthDate = null;
-    if (typeof birthDateRaw === 'string') {
-      const cleanDate = birthDateRaw.startsWith('+') ? birthDateRaw.substring(1) : birthDateRaw;
-      birthDate = cleanDate.split('T')[0];
-    }
-
-    return { name, description, image, birthDate, nationality: null };
-  } catch (e) {
-    logFetchError('[AuthorDetail] Failed to fetch external author details', e);
-    return null;
-  }
-}
-
 export default function AuthorDetailScreen() {
   const { user: currentUser } = useAuth();
   const { colors } = useTheme();
@@ -112,17 +81,13 @@ export default function AuthorDetailScreen() {
   const router = useRouter();
   const { navigateToBook } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
-  const paramInventaireUri = params.inventaireUri;
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
 
   // Remplacement de useData() par les hooks spécifiques
   const { quotes } = useQuote();
-  const { authors: allAuthors, books: allBooks, getBooksByAuthor, getAuthorByName, toggleSaveAuthor, getNotableWorks, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
-  
-  // Wrapper pour toggleLikeQuote depuis useQuote
-  const { toggleLikeQuote } = useQuote();
+  const { books: allBooks, getBooksByAuthor, toggleSaveAuthor, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
   
   // Use TanStack Query for author data
   const authorId = author?.id;
@@ -198,7 +163,6 @@ export default function AuthorDetailScreen() {
   };
 
   const authorName = authorInfo?.name || nameToUse || 'Inconnu';
-  const authorDesc = authorInfo?.description || `${authorName} est un auteur reconnu.`;
   const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
 
 

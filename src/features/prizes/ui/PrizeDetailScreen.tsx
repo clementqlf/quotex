@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';

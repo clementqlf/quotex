@@ -4,8 +4,6 @@
  * de données, réduisant ainsi les erreurs de payload.
  */
 
-import type { Quote } from '@/src/entities/quote/model/Quote';
-
 // Types pour les opérations offline
 export type OperationType = 'LIKE' | 'UNLIKE' | 'SAVE' | 'UNSAVE' | 'DELETE' | 'UPDATE' | 'CREATE';
 export type EntityType = 'QUOTE' | 'BOOK' | 'AUTHOR';

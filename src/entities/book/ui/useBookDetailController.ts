@@ -1,22 +1,17 @@
-import { useAuth } from '@/src/app/providers/AuthContext';
-import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { useBookActions } from '@/src/entities/book/lib/useBookActions';
 import { useBookData } from '@/src/entities/book/lib/useBookData';
 import { useBookLayout } from '@/src/entities/book/lib/useBookLayout';
-import { BlockService, type BlockData } from '@/src/shared/api/BlockService';
+import type { BlockData } from '@/src/shared/api/BlockService';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
-import { Author, Book, Quote } from '@/src/shared/api/types';
-import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
-import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
+import type { Book } from '@/src/shared/api/types';
+import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import type { Definition } from '@/src/shared/ui/blocks/DefinitionBlock';
-import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 type TabType = 'description' | 'my_sheet';
@@ -39,15 +34,11 @@ export const useBookDetailController = () => {
     bookInfo,
     authorInfo,
     isLoadingMetadata,
-    isImporting,
     bookId,
     bookTitleParam,
     inventaireUriParam,
-    bookCoverParam,
     setIsImporting,
     setBookInfo,
-    setAuthorInfo,
-    reloadBookData,
   } = bookData;
 
   const { quotes } = useQuote();
@@ -249,7 +240,7 @@ export const useBookDetailController = () => {
       manualDefinitions: Definition[];
       aggregatedDefinitions: Definition[];
     };
-  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router, navigateToBook, navigateToAuthor, openAddQuoteFlow]);
+  }, [enrichedBookInfo, authorInfo, savedQuotes, blockData, handleUpdateBlockData, router, navigateToBook, navigateToAuthor, openAddQuoteFlow, reloadRef]);
 
   // ========== GESTION DES ONGS ==========
   const { aggregatedDefinitions, hiddenTerms, manualDefinitions } = blockContext as BlockContext & {

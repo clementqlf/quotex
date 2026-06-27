@@ -4,7 +4,7 @@ import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -40,8 +40,7 @@ import { ThemeColors } from '@/src/shared/theme';
 
 // Entity components - OK to import from entities per FSD
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { ReadingStatus, Author } from '@/src/entities/author/model/Author';
-import { Book } from '@/src/entities/book/model/Book';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
 import AuthorCardItem, { AuthorCardData } from '@/src/entities/author/ui/AuthorCardItem';
 import BookCardItem, { BookCardData } from '@/src/entities/book/ui/BookCardItem';
 import ThemeCardItem, { ThemeCardData } from '@/src/entities/theme/ui/ThemeCardItem';
@@ -98,6 +97,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMode, prevMode]);
 
   const enterStyle = useAnimatedStyle(() => {
@@ -307,7 +307,7 @@ export default function MyQuotesScreen() {
 
   const { handleConfirmSave } = useQuoteActions();
   const { toggleSaveQuote } = useQuote();
-  const { tabIndex, setTabIndex, setPage } = useTabIndex();
+  const { tabIndex, setTabIndex } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
   const quotesListRef = useRef<FlashListRef<Quote> | null>(null);

@@ -1,6 +1,6 @@
 import { IQuoteRepository } from '@/src/entities/quote/api/IQuoteRepository';
 import { QuoteUseCases } from '@/src/entities/quote/model/QuoteUseCases';
-import { StorageService, STORAGE_KEYS } from '@/src/shared/api/StorageService';
+import { StorageService } from '@/src/shared/api/StorageService';
 
 jest.mock('@/src/shared/api/StorageService', () => ({
   StorageService: {

@@ -204,12 +204,6 @@ export const mockReviews: { [key: string]: { id: string; user: { name: string; i
   ]
 };
 
-const quotexUser = {
-  id: "00000000-0000-0000-0000-000000000000",
-  name: "Quotex",
-  username: "quotex",
-};
-
 export const localQuotesDB: Quote[] = [];
 
 export const globalQuotesDB: Quote[] = [];

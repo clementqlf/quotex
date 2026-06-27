@@ -10,8 +10,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { useSearch, searchLocal } from '@/src/features/search/lib/useSearch';
-import { isOffline } from '@/src/shared/lib/offline/networkUtils';
+import { useSearch } from '@/src/features/search/lib/useSearch';
 import {
   ActivityIndicator,
   SectionList,
@@ -65,7 +64,7 @@ export default function SearchScreen() {
     const emptyResults: SearchResults = { quotes: [], authors: [], books: [], themes: [], prizes: [], users: [], inventaireWorks: [], inventaireAuthors: [], inventairePrizes: [] };
 
     // Utiliser le hook useSearch pour la recherche
-    const { data: serverResults, isFetching, isLoading } = useSearch(debouncedQuery);
+    const { data: serverResults, isLoading } = useSearch(debouncedQuery);
     
     // Gérer le fallback offline
     const results = isOffline ? emptyResults : serverResults || emptyResults;

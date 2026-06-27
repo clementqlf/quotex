@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { Book } from '@/src/shared/api/types';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
@@ -25,7 +25,6 @@ export const useBookSearch = (query: string) => {
  * Hook pour importer un livre
  */
 export const useImportBook = () => {
-  const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (bookData: BookSearchResult) => {

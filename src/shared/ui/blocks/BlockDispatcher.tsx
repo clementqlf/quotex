@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import ReviewBlock from '@/src/entities/review/ui/ReviewBlock';
-import { BlockService, type BlockData } from '@/src/shared/api/BlockService';
+import type { BlockData } from '@/src/shared/api/BlockService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { BlockKey } from '@/src/shared/config/blocks';
 import React from 'react';

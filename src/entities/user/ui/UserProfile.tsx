@@ -5,7 +5,7 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
-import { getAuthorName, getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
+import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ThemeColors } from '@/src/shared/theme';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';

@@ -7,7 +7,7 @@ import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { Image } from 'expo-image';
 import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
-import { Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';

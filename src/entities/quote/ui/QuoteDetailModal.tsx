@@ -1,4 +1,4 @@
-import { TOUR_STEPS, TourStep, useAppTourState } from '@/src/shared/stores/appTourStore';
+import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Image } from 'expo-image';
@@ -46,7 +46,7 @@ import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { BlockService } from '@/src/shared/api/BlockService';
-import { Author, Book, Quote } from '@/src/shared/api/types';
+import { Quote } from '@/src/shared/api/types';
 import { BLOCK_CONFIGS, QUOTE_DETAIL_BLOCK_OPTIONS } from '@/src/shared/config/blocks';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';

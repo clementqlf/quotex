@@ -3,7 +3,7 @@ import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { Author, Book } from '@/src/shared/api/types';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { Dispatch, SetStateAction, useState, useEffect } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 
 export interface BookDataResult {
   bookInfo: Book | null;

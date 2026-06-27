@@ -1,7 +1,6 @@
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { authService } from '@/src/entities/user/api/AuthService';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
 import { Quote } from '@/src/shared/api/types';

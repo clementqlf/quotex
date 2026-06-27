@@ -32,7 +32,7 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
     const inputRef = useRef<TextInput>(null);
 
     // Utiliser le hook useSearch pour la recherche
-    const { data: serverResults, isLoading, isFetching } = useSearch(query);
+    const { data: serverResults, isLoading } = useSearch(query);
     
     // Gérer le fallback offline
     const [results, setResults] = useState<SearchResults | null>(null);

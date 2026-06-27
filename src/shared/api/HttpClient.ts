@@ -28,6 +28,7 @@ export class HttpClient {
   private tokenProvider: () => Promise<string | null> = async () => {
     try {
       // Dynamic import to break compile-time FSD check and require cycle
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { authService } = require('@/src/entities/user/api/AuthService');
       return await authService.getToken();
     } catch {

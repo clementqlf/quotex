@@ -203,7 +203,7 @@ export class ScanService {
                 }
 
                 // Sinon, on import (mais une seule fois) pour enrichir les données
-                const token = await authService.getToken();
+                await authService.getToken();
                 
                 // Construire et valider le payload d'import avec Zod
                 const rawPayload = {

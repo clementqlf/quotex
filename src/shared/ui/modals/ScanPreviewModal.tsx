@@ -6,7 +6,7 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { Book as BookIcon, Heart, Share2, User as UserIcon, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { searchServer, searchLocal } from '@/src/features/search/lib/useSearch';
+import { searchServer } from '@/src/features/search/lib/useSearch';
 import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 import {
   ActivityIndicator,
@@ -39,6 +39,8 @@ export type ScanPreviewModalProps = {
     confirmButtonText?: string;
 };
 
+const emptySearchResults = { books: [], inventaireWorks: [], authors: [], inventaireAuthors: [] };
+
 export default function ScanPreviewModal({
     visible,
     onClose,
@@ -54,9 +56,6 @@ export default function ScanPreviewModal({
     const styles = createStyles(colors);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const cannonConfettiRef = useRef<CannonConfettiMethods>(null);
-
-    // Définir emptyResults pour les recherches
-    const emptySearchResults = { books: [], inventaireWorks: [], authors: [], inventaireAuthors: [] };
 
     // State for editing
     const [isEditingBook, setIsEditingBook] = useState(false);

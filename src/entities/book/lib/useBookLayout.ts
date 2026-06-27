@@ -1,5 +1,5 @@
 import { BlockService, type BlockData } from '@/src/shared/api/BlockService';
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import React, { useCallback, useEffect, useState } from 'react';
 
 export interface BookLayoutResult {
