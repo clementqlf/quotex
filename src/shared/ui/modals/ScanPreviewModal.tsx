@@ -28,7 +28,7 @@ import {
 } from 'react-native-fast-confetti';
 import Svg, { Path } from 'react-native-svg';
 
-type ScanPreviewModalProps = {
+export type ScanPreviewModalProps = {
     visible: boolean;
     onClose: () => void;
     onConfirm: (quote: string, book: string, author: string) => void | Promise<void>;
@@ -259,7 +259,7 @@ export default function ScanPreviewModal({
             setIsLoadingSuggestions(true);
             try {
                 // Utiliser searchServer pour la recherche
-                const results = isOffline() ? emptySearchResults : await searchServer(editedBook).catch(() => emptySearchResults);
+                const results = await isOffline() ? emptySearchResults : await searchServer(editedBook).catch(() => emptySearchResults);
 
                 const dbItems: SuggestionItem[] = (results.books || []).map((b: any) => ({
                     type: 'database',
@@ -318,7 +318,7 @@ export default function ScanPreviewModal({
         const timer = setTimeout(async () => {
             setIsLoadingAuthorSuggestions(true);
             try {
-                const results = isOffline() ? emptySearchResults : await searchServer(editedAuthor).catch(() => emptySearchResults);
+                const results = await isOffline() ? emptySearchResults : await searchServer(editedAuthor).catch(() => emptySearchResults);
 
                 const dbItems: AuthorSuggestionItem[] = (results.authors || []).map((a: any) => ({
                     type: 'database' as const,

@@ -4,7 +4,7 @@ import { Check, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-interface WordSelectionModalProps {
+export interface WordSelectionModalProps {
     visible: boolean;
     onClose: () => void;
     onConfirm: (selectedWords: string[]) => void;

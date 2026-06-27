@@ -27,7 +27,7 @@ export interface BlockContext {
     savedQuotes?: Quote[];
 
     // Handlers
-    onUpdateBlockData?: (blockKey: string, data: BlockData) => void;
+    onUpdateBlockData?: (blockKey: string, data: any) => void;
     onBookPress?: (bookIdOrTitle: string | number, inventaireUri?: string) => void;
     onAuthorPress?: (authorName: string, inventaireUri?: string) => void;
     onQuotePress?: (quote: Quote) => void;
@@ -95,7 +95,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
                 <NotesBlock
                     blockKey="notes" // We might want to pass full blockId if we support multiple notes blocks?
                     // For now system supports unique note per 'notes' key effectively in storage unless key is unique
-                    content={blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? ''}
+                    content={(blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? '') as string}
                     onUpdate={(text) => onUpdateBlockData && onUpdateBlockData(blockId, text)}
                     onRemove={onRemove}
                 />
@@ -144,7 +144,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             return (
                 <ConnectionBlock
                     blockId={blockId}
-                    data={blockData?.[blockId] ?? quote?.blockData?.[blockId]}
+                    data={(blockData?.[blockId] ?? quote?.blockData?.[blockId]) as any}
                     onUpdate={(data) => onUpdateBlockData && onUpdateBlockData(blockId, data)}
                     onSearchPress={() => onConnectionSearchPress && onConnectionSearchPress(blockId)}
                     onNavigate={(type, id, uri) => {

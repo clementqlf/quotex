@@ -19,7 +19,7 @@ import {
 import { useSearch, searchLocal } from '@/src/features/search/lib/useSearch';
 import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 
-interface ResourceSearchModalProps {
+export interface ResourceSearchModalProps {
     visible: boolean;
     onClose: () => void;
     onSelect: (item: { type: 'book' | 'author'; id: string | number; title?: string; name?: string; image?: string; inventaireUri?: string }) => void;
@@ -39,18 +39,25 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
     
     useEffect(() => {
         if (query.trim().length < 2) {
-            setResults(null);
             return;
         }
+        let isMounted = true;
         
-        if (isOffline()) {
-            // Recherche locale en offline
-            searchLocal(query).then(setResults);
-        } else {
-            // Utiliser les résultats du serveur
-            setResults(serverResults || null);
-        }
-    }, [query, serverResults, isOffline]);
+        const checkOfflineAndSearch = async () => {
+            const offline = await isOffline();
+            if (!isMounted) return;
+            if (offline) {
+                const local = await searchLocal(query);
+                if (isMounted) setResults(local);
+            } else {
+                if (isMounted) setResults(serverResults || null);
+            }
+        };
+        
+        checkOfflineAndSearch();
+        
+        return () => { isMounted = false; };
+    }, [query, serverResults]);
 
     // Ajuster l'état de recherche pendant la phase de rendu
     const [prevVisible, setPrevVisible] = useState(visible);
@@ -167,7 +174,6 @@ export default function ResourceSearchModal({ visible, onClose, onSelect }: Reso
                                 data={flattenedResults}
                                 renderItem={renderItem}
                                 keyExtractor={(item, index) => `${item.type}-${item.id || index}`}
-                                estimatedItemSize={80}
                                 removeClippedSubviews={true}
                                 ListEmptyComponent={
                                     query.length > 1 ? (

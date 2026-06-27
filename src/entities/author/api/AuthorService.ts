@@ -148,7 +148,7 @@ class AuthorService {
         if (await isOffline()) {
             debugLog('getBookByInventaireUri: device is offline, using cache');
             const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-            return (storedBooks || []).find(b => this.normalizeInventaireUri(b.inventaireUri) === target);
+            return (storedBooks || []).find(b => normalizeInventaireUri(b.inventaireUri) === target);
         }
 
         try {

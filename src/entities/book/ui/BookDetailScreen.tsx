@@ -135,7 +135,7 @@ export default function BookDetailScreen() {
           <View style={styles.unverifiedBanner}>
             <Info size={14} color={colors.primary} />
             <Text style={styles.unverifiedBannerText}>
-              Ce livre n'est pas encore vérifié.
+              {"Ce livre n'est pas encore vérifié."}
             </Text>
           </View>
         )}

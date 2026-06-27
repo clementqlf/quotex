@@ -8,7 +8,7 @@ export interface BlockOption {
   label: string;
 }
 
-interface AddBlockModalProps {
+export interface AddBlockModalProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (key: string) => void;

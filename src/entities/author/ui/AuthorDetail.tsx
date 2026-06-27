@@ -90,10 +90,10 @@ async function fetchExternalAuthorDetails(inventaireUri: string) {
     const claims = entity.claims || {};
     const name = labels['fr'] || labels['en'] || null;
     const description = descriptions['fr'] || descriptions['en'] || null;
-    const image = getInventaireImageUrl(entity.image);
+    const image = getInventaireImageUrl(entity.image ?? null);
     const birthDateRaw = claims['wdt:P569']?.[0];
     let birthDate = null;
-    if (birthDateRaw) {
+    if (typeof birthDateRaw === 'string') {
       const cleanDate = birthDateRaw.startsWith('+') ? birthDateRaw.substring(1) : birthDateRaw;
       birthDate = cleanDate.split('T')[0];
     }
@@ -176,14 +176,6 @@ export default function AuthorDetailScreen() {
   const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
   const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
 
-  // Total books/works count state
-  const [totalBooksCount, setTotalBooksCount] = React.useState(0);
-  
-  // Update totalBooksCount when authorBooks changes
-  React.useEffect(() => {
-    setTotalBooksCount(resolvedAuthorBooks.length);
-  }, [resolvedAuthorBooks]);
-
   // Use TanStack Query for all works
   const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
     queryKey: ['author-all-works', authorInfo?.id, nameToUse],
@@ -196,12 +188,8 @@ export default function AuthorDetailScreen() {
     staleTime: 5 * 60 * 1000
   });
 
-  // Update total books count when allWorks is fetched
-  React.useEffect(() => {
-    if (allWorks.length > 0) {
-      setTotalBooksCount(allWorks.length);
-    }
-  }, [allWorks]);
+  // Total books/works count computed during render
+  const totalBooksCount = allWorks.length > 0 ? allWorks.length : resolvedAuthorBooks.length;
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
@@ -693,7 +681,6 @@ export default function AuthorDetailScreen() {
                   data={allWorks}
                   keyExtractor={(item, index) => `${item.id || item.title}-${index}`}
                   getItemType={() => 'work'}
-                  estimatedItemSize={150}
                   removeClippedSubviews={true}
                   contentContainerStyle={{ padding: 16 }}
                   renderItem={({ item }) => {
@@ -771,7 +758,6 @@ export default function AuthorDetailScreen() {
                 data={authorQuotes}
                 keyExtractor={(item) => String(item.id)}
                 getItemType={() => 'quote'}
-                estimatedItemSize={200}
                 removeClippedSubviews={true}
                 contentContainerStyle={{ padding: 16 }}
                 renderItem={({ item }) => {

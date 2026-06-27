@@ -30,8 +30,15 @@ const SimilarBooksBlockUI: React.FC<SimilarBooksBlockProps> = ({ books, onBookPr
 
     // Normalize data (handle string vs object)
     const normalizedBooks = books.map(b => {
-        if (typeof b === 'string') return { title: b, cover: null };
-        return b;
+        if (typeof b === 'string') {
+            return { title: b, cover: null, id: undefined, inventaireUri: undefined };
+        }
+        return {
+            title: b.title,
+            cover: b.cover,
+            id: b.id,
+            inventaireUri: b.inventaireUri
+        };
     });
 
     return (

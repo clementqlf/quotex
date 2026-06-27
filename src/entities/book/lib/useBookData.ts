@@ -65,23 +65,17 @@ export const useBookData = (): BookDataResult => {
     staleTime: 5 * 60 * 1000
   });
 
-  // Adjust state during render when book key changes to avoid visual flash and keep states synced
+  // Adjust state during render when book key or data changes to avoid visual flash and keep states synced
   const currentBookKey = `${bookId}_${bookTitleParam}_${inventaireUriParam}`;
   const [prevBookKey, setPrevBookKey] = useState<string | null>(null);
+  const [prevBookData, setPrevBookData] = useState<any>(null);
 
-  if (currentBookKey !== prevBookKey) {
+  if (currentBookKey !== prevBookKey || bookData !== prevBookData) {
     setPrevBookKey(currentBookKey);
+    setPrevBookData(bookData);
     setBookInfo(bookData?.book || null);
     setAuthorInfo(bookData?.author || null);
   }
-
-  // Update local state when query data changes
-  useEffect(() => {
-    if (bookData) {
-      setBookInfo(bookData.book);
-      setAuthorInfo(bookData.author);
-    }
-  }, [bookData]);
 
   const isLoadingMetadata = isLoadingQuery || isImporting;
 

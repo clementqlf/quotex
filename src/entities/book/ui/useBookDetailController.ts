@@ -96,6 +96,7 @@ export const useBookDetailController = () => {
   // ========== ÉTAT LOCAL ==========
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('description');
+  const [prevBookKey, setPrevBookKey] = useState<string | null>(null);
   const [isDictionaryModalVisible, setDictionaryModalVisible] = useState(false);
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = useState(false);
 
@@ -105,10 +106,15 @@ export const useBookDetailController = () => {
   const bookTitle = bookInfo?.title || bookTitleParam || (bookId ? allBooks.find(b => b.id === bookId)?.title : undefined);
   const currentBookKey = `${bookId}_${bookTitleParam}_${inventaireUriParam}`;
 
-  // Reset state when book key changes
+  // Reset state when book key changes (during render)
+  if (currentBookKey !== prevBookKey) {
+    setPrevBookKey(currentBookKey);
+    setActiveTab('description');
+  }
+
+  // Invalidate queries when book key changes
   useEffect(() => {
     if (currentBookKey) {
-      setActiveTab('description');
       queryClient.invalidateQueries({ queryKey: ['book-detail'] });
     }
   }, [currentBookKey, queryClient]);

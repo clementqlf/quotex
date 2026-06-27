@@ -3,7 +3,7 @@ import { Book } from '@/src/shared/api/types';
 import { BUY_STORES } from '@/src/shared/config/stores';
 import { ThemeColors } from '@/src/shared/theme';
 import { ChevronRight, ExternalLink, ShoppingCart, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Alert, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlockWrapper } from './BlockWrapper';
@@ -120,7 +120,7 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
     return (
         <BlockWrapper blockKey="buy" onRemove={onRemove}>
             <View style={styles.buyLinksList}>
-                {initialLinks.map((link, idx) => renderLink(link, idx))}
+                {initialLinks.map((link: BuyLink, idx: number) => renderLink(link, idx))}
                 
                 {hasMore && (
                     <TouchableOpacity 
@@ -157,7 +157,7 @@ const BuyLinkBlockUI: React.FC<BuyLinkBlockProps> = ({ book, onRemove }) => {
                         >
                             <Text style={styles.modalSubtitle}>Sélectionnez une boutique pour voir le prix et la disponibilité :</Text>
                             <View style={styles.modalGrid}>
-                                {allLinks.map((link, idx) => renderLink(link, idx, true))}
+                                {allLinks.map((link: BuyLink, idx: number) => renderLink(link, idx, true))}
                             </View>
                         </ScrollView>
                     </SafeAreaView>

@@ -1,7 +1,7 @@
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from 'expo-router/react-navigation';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -42,9 +42,9 @@ import { ThemeColors } from '@/src/shared/theme';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { ReadingStatus, Author } from '@/src/entities/author/model/Author';
 import { Book } from '@/src/entities/book/model/Book';
-import AuthorCardItem from '@/src/entities/author/ui/AuthorCardItem';
-import BookCardItem from '@/src/entities/book/ui/BookCardItem';
-import ThemeCardItem from '@/src/entities/theme/ui/ThemeCardItem';
+import AuthorCardItem, { AuthorCardData } from '@/src/entities/author/ui/AuthorCardItem';
+import BookCardItem, { BookCardData } from '@/src/entities/book/ui/BookCardItem';
+import ThemeCardItem, { ThemeCardData } from '@/src/entities/theme/ui/ThemeCardItem';
 import BookActionModal from '@/src/entities/book/ui/BookActionModal';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
 import FilterModal, { FilterType } from '@/src/entities/quote/ui/FilterModal';
@@ -57,7 +57,7 @@ import { useMyQuotes } from '../model/useMyQuotes';
 interface AnimatedHeaderTitleProps {
   viewMode: 'quotes' | 'books' | 'themes' | 'authors';
   colors: ThemeColors;
-  styles: StyleSheet.NamedStyles;
+  styles: any;
 }
 
 const TAB_INDEXES = {
@@ -75,20 +75,18 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
-  // Adjust state and shared values synchronously before paint when viewMode changes
-  useLayoutEffect(() => {
-    if (viewMode !== currentMode) {
-      const currentIdx = TAB_INDEXES[currentMode];
-      const newIdx = TAB_INDEXES[viewMode];
-      direction.value = newIdx >= currentIdx ? 1 : -1;
+  // Adjust state and shared values synchronously during render when viewMode changes
+  if (viewMode !== currentMode) {
+    const currentIdx = TAB_INDEXES[currentMode];
+    const newIdx = TAB_INDEXES[viewMode];
+    direction.value = newIdx >= currentIdx ? 1 : -1;
 
-      enterProgress.value = 0;
-      exitProgress.value = 0;
+    enterProgress.value = 0;
+    exitProgress.value = 0;
 
-      setPrevMode(currentMode);
-      setCurrentMode(viewMode);
-    }
-  }, [viewMode, currentMode, direction, enterProgress, exitProgress]);
+    setPrevMode(currentMode);
+    setCurrentMode(viewMode);
+  }
 
   // Trigger animations in response to currentMode / prevMode changes
   useEffect(() => {
@@ -100,7 +98,7 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         }
       });
     }
-  }, [currentMode, prevMode, enterProgress, exitProgress]);
+  }, [currentMode, prevMode]);
 
   const enterStyle = useAnimatedStyle(() => {
     return {
@@ -157,7 +155,7 @@ interface ListHeaderMemoProps {
   viewMode: 'quotes' | 'books' | 'authors' | 'themes';
   selectedStatus: string;
   colors: ThemeColors;
-  styles: StyleSheet.NamedStyles;
+  styles: any;
   removeFilter: (filter: { type: 'author' | 'book' | 'year' | 'status'; value: string | number }) => void;
   resetFilters: () => void;
   setSelectedStatus: (status: string) => void;
@@ -312,7 +310,7 @@ export default function MyQuotesScreen() {
   const { tabIndex, setTabIndex, setPage } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
-  const quotesListRef = useRef<FlashList<Quote> | null>(null);
+  const quotesListRef = useRef<FlashListRef<Quote> | null>(null);
 
   const scrollToQuotesTop = useCallback(() => {
     setViewMode('quotes');
@@ -335,19 +333,20 @@ export default function MyQuotesScreen() {
   const [actionMenuQuote, setActionMenuQuote] = useState<Quote | null>(null);
   
   const { updateBookStatus, toggleSaveBook } = useAuthor();
-  const [actionMenuBook, setActionMenuBook] = useState<Book | null>(null);
+  const [actionMenuBook, setActionMenuBook] = useState<BookCardData | null>(null);
 
-  const handleOpenBookMenu = useCallback((book: Book) => {
+  const handleOpenBookMenu = useCallback((book: BookCardData) => {
     setActionMenuBook(book);
   }, []);
 
-  const handleOpenBookStatusMenu = useCallback((book: Book) => {
-    if (!book.id) return;
+  const handleOpenBookStatusMenu = useCallback((book: BookCardData) => {
+    const bookId = book.id;
+    if (!bookId) return;
     const options = [...STATUS_OPTIONS];
 
     const changeStatus = async (status: string) => {
       try {
-        await updateBookStatus(book.id, status as ReadingStatus);
+        await updateBookStatus(bookId, status as ReadingStatus);
       } catch {
         Alert.alert('Erreur', 'Impossible de mettre à jour le statut du livre.');
       }
@@ -382,7 +381,7 @@ export default function MyQuotesScreen() {
     Alert.alert('Classer ce livre', 'Choisissez une catégorie', androidButtons);
   }, [updateBookStatus]);
 
-  const handleDeleteBook = useCallback(async (book: Book) => {
+  const handleDeleteBook = useCallback(async (book: BookCardData) => {
     const performDelete = async () => {
       try {
         // 1. Delete all quotes associated with this book
@@ -611,7 +610,7 @@ export default function MyQuotesScreen() {
     return card;
   }, [toggleLikeQuoteStable, handleOpenMenu]);
 
-  const renderBookItem = useCallback(({ item, index }: { item: Book; index: number }) => {
+  const renderBookItem = useCallback(({ item, index }: { item: BookCardData; index: number }) => {
     const card = <BookCardItem book={item} onOpenMenu={handleOpenBookMenu} />;
     if (index === 0) {
       return (
@@ -631,7 +630,7 @@ export default function MyQuotesScreen() {
     return card;
   }, [handleOpenBookMenu]);
 
-  const renderAuthorItem = useCallback(({ item, index }: { item: Author; index: number }) => {
+  const renderAuthorItem = useCallback(({ item, index }: { item: AuthorCardData; index: number }) => {
     const card = <AuthorCardItem author={item} />;
     if (index === 0) {
       return (
@@ -651,7 +650,7 @@ export default function MyQuotesScreen() {
     return card;
   }, []);
 
-  const renderThemeItem = useCallback(({ item, index }: { item: string; index: number }) => {
+  const renderThemeItem = useCallback(({ item, index }: { item: ThemeCardData; index: number }) => {
     const card = <ThemeCardItem theme={item} />;
     if (index === 0) {
       return (
@@ -672,9 +671,9 @@ export default function MyQuotesScreen() {
   }, []);
 
   const quoteKeyExtractor = useCallback((item: Quote) => item.id.toString(), []);
-  const bookKeyExtractor = useCallback((item: Book) => item.title, []);
-  const authorKeyExtractor = useCallback((item: Author) => item.name, []);
-  const themeKeyExtractor = useCallback((item: string) => item, []);
+  const bookKeyExtractor = useCallback((item: BookCardData) => item.title, []);
+  const authorKeyExtractor = useCallback((item: AuthorCardData) => item.name, []);
+  const themeKeyExtractor = useCallback((item: ThemeCardData) => item.theme, []);
   const statsContent = (
     <>
       <TouchableOpacity
@@ -817,7 +816,6 @@ export default function MyQuotesScreen() {
             renderItem={renderBookItem}
             keyExtractor={bookKeyExtractor}
             getItemType={() => 'book'}
-            estimatedItemSize={150}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}
@@ -846,7 +844,6 @@ export default function MyQuotesScreen() {
             renderItem={renderAuthorItem}
             keyExtractor={authorKeyExtractor}
             getItemType={() => 'author'}
-            estimatedItemSize={80}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}
@@ -875,7 +872,6 @@ export default function MyQuotesScreen() {
             renderItem={renderThemeItem}
             keyExtractor={themeKeyExtractor}
             getItemType={() => 'theme'}
-            estimatedItemSize={60}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}
@@ -905,7 +901,6 @@ export default function MyQuotesScreen() {
             renderItem={renderQuoteItem}
             keyExtractor={quoteKeyExtractor}
             getItemType={() => 'quote'}
-            estimatedItemSize={200}
             removeClippedSubviews={true}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical={true}

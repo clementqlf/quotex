@@ -1006,10 +1006,9 @@ export default function UserProfileScreen() {
             </View>
 
             <FlashList
-              data={filteredModalQuotes}
-              keyExtractor={(item) => String(item.id)}
+              data={filteredModalQuotes as any[]}
+              keyExtractor={(item: any) => String(item.id)}
               getItemType={() => 'quote'}
-              estimatedItemSize={200}
               removeClippedSubviews={true}
               contentContainerStyle={styles.quotesModalListContent}
               renderItem={({ item }) => {

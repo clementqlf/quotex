@@ -5,7 +5,7 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { ThemeColors } from '@/src/shared/theme';
 import { Plus } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -96,7 +96,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
                 </Text>
             ) : (
                 <View style={styles.savedQuotesList}>
-                    {filteredQuotes.map(quote => (
+                    {filteredQuotes.map((quote: Quote) => (
                         <TouchableOpacity
                             key={quote.id}
                             style={styles.savedQuoteCard}

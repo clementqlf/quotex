@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookOpen, X } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -82,7 +82,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
     return (
         <BlockWrapper blockKey={blockKey} onRemove={onRemove}>
             <View style={styles.container}>
-                {groupedDefinitions.map(([term, termDefs], groupIndex) => {
+                {groupedDefinitions.map(([term, termDefs]: [string, Definition[]], groupIndex: number) => {
                     const pronunciation = termDefs[0].pronunciation;
                     const synonyms = termDefs[0].synonyms;
 
@@ -102,7 +102,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
 
                             {/* Definitions Flow */}
                             <View style={styles.meaningsList}>
-                                {termDefs.map((dItem, index) => {
+                                {termDefs.map((dItem: Definition, index: number) => {
                                     // Extract context from definition if it starts with (xxx)
                                     const contextMatch = dItem.definition.match(/^(\([^)]+\))\s*(.*)/);
                                     const context = contextMatch ? contextMatch[1] : null;

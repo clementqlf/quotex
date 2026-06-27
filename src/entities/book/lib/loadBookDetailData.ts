@@ -24,7 +24,7 @@ const logWarn = (...args: any[]) => {
 };
 
 const buildFallbackBook = (inventaireUri: string, bookData?: string): Book => {
-  const parsedBookData = parseJsonField(bookData);
+  const parsedBookData = parseJsonField<any>(bookData);
 
   return {
     id: 0,
@@ -74,8 +74,11 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     if (!entity) return null;
 
     const claims = entity.claims || {};
-    const authorUris = Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : [];
-    const genreUris = Array.from(new Set([...(claims['wdt:P136'] || []), ...(claims['wdt:P7937'] || [])])).slice(0, 10);
+    const authorUris = (Array.isArray(claims['wdt:P50']) ? claims['wdt:P50'] : []) as string[];
+    const genreUris = Array.from(new Set([
+      ...((claims['wdt:P136'] || []) as string[]),
+      ...((claims['wdt:P7937'] || []) as string[])
+    ])).slice(0, 10);
     
     // Batch all URIs in a single request
     const allUris = [inventaireUri, ...authorUris, ...genreUris];
@@ -84,7 +87,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     const mainEntity = resolveInventaireEntity(entities, inventaireUri);
     if (!mainEntity) return null;
 
-    const parsedBookData = parseJsonField(bookData);
+    const parsedBookData = parseJsonField<any>(bookData);
 
     const title = (mainEntity.labels && typeof mainEntity.labels === 'object' && mainEntity.labels['fr'])
       ? mainEntity.labels['fr']
@@ -93,7 +96,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     const description = (mainEntity.descriptions && typeof mainEntity.descriptions === 'object' && mainEntity.descriptions['fr'])
       ? mainEntity.descriptions['fr']
       : (mainEntity.descriptions?.['en'] || parsedBookData?.description || null);
-    const image = getInventaireImageUrl(mainEntity.image) || parsedBookData?.image || parsedBookData?.cover || null;
+    const image = getInventaireImageUrl(mainEntity.image ?? null) || parsedBookData?.image || parsedBookData?.cover || null;
     const yearRaw = claims['wdt:P577']?.[0];
     const year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
     
@@ -133,7 +136,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
         author = {
           name: authorLabels['fr'] || authorLabels['en'] || parsedBookData?.authors?.[0] || 'Auteur inconnu',
           description: authorDescriptions['fr'] || authorDescriptions['en'] || '',
-          image: getInventaireImageUrl(authorEntity.image) || '',
+          image: getInventaireImageUrl(authorEntity.image ?? null) || '',
           birthDate: '',
           nationality: '',
           inventaireUri: authorUris[0],
