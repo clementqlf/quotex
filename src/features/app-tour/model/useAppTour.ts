@@ -2,7 +2,7 @@ import { useTabIndex } from '@/src/app/providers/TabContext';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef } from 'react';
-import { TOUR_STEPS, useAppTourState } from './useAppTourState';
+import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
 
 /**
  * Hook useAppTour
