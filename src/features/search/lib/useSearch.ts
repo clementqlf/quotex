@@ -4,6 +4,7 @@ import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Author, Book, LiteraryPrize, Quote, User } from '@/src/shared/api/types';
 import { InventaireEntity } from '@/src/shared/api/InventaireService';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 export interface InventairePrize {
   uri: string;
@@ -63,10 +64,13 @@ export const searchServer = async (query: string): Promise<SearchResults> => {
  * Gère automatiquement le fallback offline avec recherche locale
  */
 export const useSearch = (query: string) => {
+  const netInfo = useNetInfo();
+  const isOfflineStatus = netInfo.isConnected === false;
+
   return useQuery({
-    queryKey: ['search', query],
+    queryKey: ['search', query, isOfflineStatus],
     queryFn: () => searchServer(query),
-    enabled: !!query.trim() && !isOffline(),
+    enabled: !!query.trim() && !isOfflineStatus,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
