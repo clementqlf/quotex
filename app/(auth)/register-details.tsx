@@ -14,9 +14,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Animated
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 export default function RegisterDetailsScreen() {
@@ -24,6 +27,28 @@ export default function RegisterDetailsScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
   const { colors } = useTheme();
   const { register } = useAuth();
+  const insets = useSafeAreaInsets();
+
+  const [slideAnim] = useState(() => new Animated.Value(600));
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  }, [slideAnim]);
+
+  const handleBack = () => {
+    Animated.timing(slideAnim, {
+      toValue: 600,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      router.back();
+    });
+  };
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -129,140 +154,151 @@ export default function RegisterDetailsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={() => router.back()}
-      >
-        <ArrowLeft size={24} color={colors.text} />
-      </TouchableOpacity>
-
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Bienvenue</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Créons votre compte pour {email}
-            </Text>
-          </View>
+        <SafeAreaView style={styles.topArea} edges={['top', 'left', 'right']}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleBack}
+          >
+            <ArrowLeft size={24} color={colors.text} />
+          </TouchableOpacity>
+        </SafeAreaView>
 
-          <View style={styles.form}>
-            <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Nom et prénom (ex: Jean Dupont)"
-                placeholderTextColor={colors.textTertiary}
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
-            </View>
-
-            <View style={[
-              styles.inputContainer, 
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              usernameAvailable === true && { borderColor: '#10B981' },
-              usernameAvailable === false && { borderColor: '#EF4444' }
-            ]}>
-              <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Nom d'utilisateur (ex: @jean)"
-                placeholderTextColor={colors.textTertiary}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
-              {isCheckingUsername && (
-                <ActivityIndicator size="small" color={colors.primary} />
-              )}
-              {usernameAvailable !== null && !isCheckingUsername && (
-                <View style={styles.validationIcon}>
-                  {usernameAvailable ? (
-                    <CheckCircle2 size={18} color="#10B981" />
-                  ) : (
-                    <XCircle size={18} color="#EF4444" />
-                  )}
-                </View>
-              )}
-            </View>
-
-            {usernameAvailable === false && (
-              <Text style={styles.errorText}>
-                {username.startsWith('@') && username.slice(1).length < 3 || username.length < 3 
-                  ? "Le nom d'utilisateur doit contenir au moins 3 caractères"
-                  : "Ce nom d'utilisateur est déjà utilisé"}
+        <Animated.View style={[
+          styles.modalContainer,
+          {
+            backgroundColor: colors.surface,
+            paddingBottom: Math.max(insets.bottom, 24) + 16,
+            transform: [{ translateY: slideAnim }],
+          }
+        ]}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <View style={styles.header}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Bienvenue à bord !</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                Créons votre compte pour {email}
               </Text>
-            )}
-
-            <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Mot de passe (6+ caractères)"
-                placeholderTextColor={colors.textTertiary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
             </View>
 
-            <View style={[
-              styles.inputContainer, 
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              passwordsMatch && { borderColor: '#10B981' },
-              passwordsMismatch && { borderColor: '#EF4444' }
-            ]}>
-              <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Confirmer le mot de passe"
-                placeholderTextColor={colors.textTertiary}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
-              {password.length > 0 && confirmPassword.length > 0 && (
-                <View style={styles.validationIcon}>
-                  {passwordsMatch ? (
-                    <CheckCircle2 size={18} color="#10B981" />
-                  ) : (
-                    <XCircle size={18} color="#EF4444" />
-                  )}
-                </View>
+            <View style={styles.form}>
+              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Nom et prénom (ex: Jean Dupont)"
+                  placeholderTextColor={colors.textTertiary}
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={[
+                styles.inputContainer, 
+                { backgroundColor: colors.background, borderColor: colors.border },
+                usernameAvailable === true && { borderColor: '#10B981' },
+                usernameAvailable === false && { borderColor: '#EF4444' }
+              ]}>
+                <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Nom d'utilisateur (ex: @jean)"
+                  placeholderTextColor={colors.textTertiary}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                />
+                {isCheckingUsername && (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                )}
+                {usernameAvailable !== null && !isCheckingUsername && (
+                  <View style={styles.validationIcon}>
+                    {usernameAvailable ? (
+                      <CheckCircle2 size={18} color="#10B981" />
+                    ) : (
+                      <XCircle size={18} color="#EF4444" />
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {usernameAvailable === false && (
+                <Text style={styles.errorText}>
+                  {username.startsWith('@') && username.slice(1).length < 3 || username.length < 3 
+                    ? "Le nom d'utilisateur doit contenir au moins 3 caractères"
+                    : "Ce nom d'utilisateur est déjà utilisé"}
+                </Text>
               )}
+
+              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Mot de passe (6+ caractères)"
+                  placeholderTextColor={colors.textTertiary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
+
+              <View style={[
+                styles.inputContainer, 
+                { backgroundColor: colors.background, borderColor: colors.border },
+                passwordsMatch && { borderColor: '#10B981' },
+                passwordsMismatch && { borderColor: '#EF4444' }
+              ]}>
+                <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Confirmer le mot de passe"
+                  placeholderTextColor={colors.textTertiary}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                />
+                {password.length > 0 && confirmPassword.length > 0 && (
+                  <View style={styles.validationIcon}>
+                    {passwordsMatch ? (
+                      <CheckCircle2 size={18} color="#10B981" />
+                    ) : (
+                      <XCircle size={18} color="#EF4444" />
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {passwordsMismatch && (
+                <Text style={styles.errorText}>Les mots de passe ne correspondent pas</Text>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.registerButton, 
+                  { backgroundColor: colors.primary },
+                  (!name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true) && { opacity: 0.6 }
+                ]}
+                onPress={handleRegister}
+                disabled={isLoading || !name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Text style={styles.registerButtonText}>Créer mon compte</Text>
+                    <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
-
-            {passwordsMismatch && (
-              <Text style={styles.errorText}>Les mots de passe ne correspondent pas</Text>
-            )}
-
-            <TouchableOpacity
-              style={[
-                styles.registerButton, 
-                { backgroundColor: colors.primary },
-                (!name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true) && { opacity: 0.6 }
-              ]}
-              onPress={handleRegister}
-              disabled={isLoading || !name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <>
-                  <Text style={styles.registerButtonText}>Créer mon compte</Text>
-                  <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </Animated.View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -270,9 +306,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topArea: {
+    paddingBottom: 8,
+    paddingHorizontal: 24,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    minHeight: 56,
+  },
   backButton: {
-    padding: 16,
-    zIndex: 10,
+    padding: 8,
+    marginLeft: -8,
   },
   content: {
     flex: 1,
@@ -281,22 +324,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
     flexGrow: 1,
-    justifyContent: 'center',
   },
   header: {
     alignItems: 'flex-start',
-    marginBottom: 40,
+    marginBottom: 20,
   },
-  title: {
-    fontSize: 42,
+  modalTitle: {
+    fontSize: 28,
     fontWeight: '800',
-    marginTop: 0,
     marginBottom: 8,
   },
-  subtitle: {
+  modalSubtitle: {
     fontSize: 16,
     textAlign: 'left',
     lineHeight: 24,
+    marginBottom: 0,
+  },
+  modalContainer: {
+    flex: 1,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 32,
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    // Elevation for Android
+    elevation: 8,
   },
   form: {
     gap: 16,

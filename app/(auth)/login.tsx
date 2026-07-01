@@ -1,6 +1,7 @@
-import { useRouter } from 'expo-router';
-import { ArrowRight, Mail } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { ArrowLeft, ArrowRight, Lock, Mail } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { useAuth } from '@/src/app/providers/AuthContext';
 import {
   ActivityIndicator,
   Alert,
@@ -9,9 +10,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Animated
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
@@ -22,8 +28,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export default function LoginScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { login } = useAuth();
 
+  const [step, setStep] = useState<'email' | 'password'>('email');
+  const [anim] = useState(() => new Animated.Value(0));
+  const [slideAnim] = useState(() => new Animated.Value(600));
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   React.useEffect(() => {
@@ -33,6 +45,17 @@ export default function LoginScreen() {
       offlineAccess: true,
     });
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    }, [slideAnim])
+  );
 
   const handleContinue = async () => {
     if (!email) {
@@ -52,14 +75,30 @@ export default function LoginScreen() {
       const exists = await authService.checkEmailExists(email);
 
       if (exists) {
-        router.push({
-          pathname: '/login-password',
-          params: { email }
+        Animated.timing(slideAnim, {
+          toValue: 600,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          setStep('password');
+          anim.setValue(1);
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: true,
+          }).start();
         });
       } else {
-        router.push({
-          pathname: '/register-details',
-          params: { email }
+        Animated.timing(slideAnim, {
+          toValue: 600,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(() => {
+          router.push({
+            pathname: '/register-details',
+            params: { email }
+          });
         });
       }
     } catch (error: any) {
@@ -68,6 +107,54 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLogin = async () => {
+    if (!password) {
+      Alert.alert('Erreur', 'Veuillez entrer votre mot de passe');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      // Navigation handled by auth redirect in layout
+    } catch (error: any) {
+      Alert.alert('Erreur de connexion', error.message || 'Identifiants incorrects');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Erreur', 'Veuillez entrer votre email');
+      return;
+    }
+    
+    try {
+      await authService.resetPassword(email);
+      Alert.alert('Succès', 'Un email de réinitialisation a été envoyé.');
+    } catch (error: any) {
+      Alert.alert('Erreur', error.message || 'Impossible d\'envoyer l\'email de réinitialisation');
+    }
+  };
+
+  const handleBack = () => {
+    Animated.timing(slideAnim, {
+      toValue: 600,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setStep('email');
+      anim.setValue(0);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
   const handleSocialLogin = async (platform: 'google' | 'apple') => {
@@ -91,74 +178,151 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <QuotexLogo width={SCREEN_WIDTH * 1.5} height={SCREEN_WIDTH * 1.5 * (150 / 400)} />
-        </View>
-
-        <View style={styles.form}>
-          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Mail size={20} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Email"
-              placeholderTextColor={colors.textTertiary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              returnKeyType="next"
-              onSubmitEditing={handleContinue}
-              autoFocus
-              autoCorrect={false}
-              spellCheck={false}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.loginButton, { backgroundColor: colors.primary }]}
-            onPress={handleContinue}
-            disabled={isLoading}
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+      <Animated.View style={[
+        styles.topArea, 
+        {
+          height: anim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [220 + insets.top, 56 + insets.top]
+          }),
+          paddingTop: insets.top,
+        }
+      ]}>
+        {step === 'password' ? (
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleBack}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <>
-                <Text style={styles.loginButtonText}>Continuer</Text>
-                <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
-              </>
-            )}
+            <ArrowLeft size={24} color={colors.text} />
           </TouchableOpacity>
-
-          <View style={styles.dividerContainer}>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <Text style={[styles.dividerText, { color: colors.textSecondary }]}>ou</Text>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        ) : (
+          <View style={styles.header}>
+            <QuotexLogo width={SCREEN_WIDTH * 1.2} height={SCREEN_WIDTH * 1.2 * (150 / 400)} />
           </View>
+        )}
+      </Animated.View>
 
-          <View style={styles.socialButtons}>
-            <TouchableOpacity
-              style={[styles.socialButton, { backgroundColor: isDark ? '#333' : '#F5F5F5', borderColor: colors.border }]}
-              onPress={() => handleSocialLogin('google')}
-            >
+      <Animated.View style={[
+        styles.modalContainer, 
+        { 
+          backgroundColor: colors.surface,
+          paddingBottom: Math.max(insets.bottom, 24) + 16,
+          transform: [{ translateY: slideAnim }],
+        }
+      ]}>
+        <View style={styles.form}>
+          {step === 'email' ? (
+            <>
+              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Mail size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Email"
+                  placeholderTextColor={colors.textTertiary}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  onSubmitEditing={handleContinue}
+                  autoCorrect={false}
+                  spellCheck={false}
+                />
+              </View>
 
-              <Text style={[styles.socialButtonText, { color: colors.text }]}>Continuer avec Google</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.loginButton, { backgroundColor: colors.primary }]}
+                onPress={handleContinue}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Text style={styles.loginButtonText}>Continuer</Text>
+                    <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
+                  </>
+                )}
+              </TouchableOpacity>
 
-            {/* 
-            <TouchableOpacity 
-              style={[styles.socialButton, { backgroundColor: isDark ? '#333' : '#F5F5F5', borderColor: colors.border }]}
-              onPress={() => handleSocialLogin('apple')}
-            >
+              <View style={styles.dividerContainer}>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>ou</Text>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              </View>
 
-              <Text style={[styles.socialButtonText, { color: colors.text }]}>Continuer avec Apple</Text>
-            </TouchableOpacity>
-            */}
-          </View>
+              <View style={styles.socialButtons}>
+                <TouchableOpacity
+                  style={[styles.socialButton, { backgroundColor: isDark ? '#333' : '#F5F5F5', borderColor: colors.border }]}
+                  onPress={() => handleSocialLogin('google')}
+                >
+                  <Text style={[styles.socialButtonText, { color: colors.text }]}>Continuer avec Google</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 8 }]}>Ravi de vous revoir !</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                Renseignez votre mot de passe pour continuer.
+              </Text>
+
+              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border, opacity: 0.6 }]}>
+                <Mail size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.textSecondary }]}
+                  value={email}
+                  editable={false}
+                />
+              </View>
+
+              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Mot de passe"
+                  placeholderTextColor={colors.textTertiary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  onSubmitEditing={handleLogin}
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.forgotPasswordContainer}
+                onPress={handleForgotPassword}
+              >
+                <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+                  Mot de passe oublié ?
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.loginButton, { backgroundColor: colors.primary }]}
+                onPress={handleLogin}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Text style={styles.loginButtonText}>Se connecter</Text>
+                    <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
-      </View>
-    </SafeAreaView>
+      </Animated.View>
+    </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -166,15 +330,50 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40, // Push content slightly from top
+  topArea: {
+    justifyContent: 'center',
+    width: '100%',
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: 16,
+    alignSelf: 'flex-start',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40, // Reduced from 80 to keep form higher
-    marginHorizontal: -24,
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    marginBottom: 20,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 0,
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    // Elevation for Android
+    elevation: 8,
   },
   form: {
     gap: 16,
