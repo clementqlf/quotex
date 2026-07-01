@@ -8,7 +8,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
-import { getInventaireEntities, resolveImageUrl, getBatchInventaireSearchMetadata, getBestNativeCovers } from '../_shared/inventaire.api.ts';
+import { getInventaireEntities, resolveImageUrl, getBatchInventaireSearchMetadata, getBestNativeCovers, fetchWikipediaSynopsis } from '../_shared/inventaire.api.ts';
 import { getPrizeLaureates } from '../_shared/wikidata.ts';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -35,6 +35,48 @@ const getClaimValue = (entity: any, prop: string): string | null => {
   const values = entity?.claims?.[prop];
   return values?.[0] || null;
 };
+
+async function getPrizeWikidataDetails(qid: string): Promise<{ inceptionYear: number | null, founder: string | null } | null> {
+  try {
+    const sparql = `
+        SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
+          OPTIONAL { wd:${qid} wdt:P571 ?inception . }
+          OPTIONAL {
+            wd:${qid} wdt:P1027 ?conferredBy .
+            OPTIONAL { ?conferredBy rdfs:label ?lblFr. FILTER(LANG(?lblFr) = "fr") }
+            OPTIONAL { ?conferredBy rdfs:label ?lblEn. FILTER(LANG(?lblEn) = "en") }
+            BIND(COALESCE(?lblFr, ?lblEn) AS ?conferredByLabel)
+          }
+          OPTIONAL {
+            wd:${qid} wdt:P112 ?founder .
+            OPTIONAL { ?founder rdfs:label ?lblFounderFr. FILTER(LANG(?lblFounderFr) = "fr") }
+            OPTIONAL { ?founder rdfs:label ?lblFounderEn. FILTER(LANG(?lblFounderEn) = "en") }
+            BIND(COALESCE(?lblFounderFr, ?lblFounderEn) AS ?founderLabel)
+          }
+        } LIMIT 1
+    `;
+    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
+        'Accept': 'application/sparql-results+json'
+      }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const binding = data.results?.bindings?.[0];
+    if (!binding) return null;
+
+    const inceptionRaw = binding.inception?.value;
+    const inceptionYear = inceptionRaw ? parseInt(inceptionRaw.substring(0, 4)) : null;
+    const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
+
+    return { inceptionYear, founder };
+  } catch (e) {
+    console.error(`[sync-prizes] Error fetching SPARQL details for ${qid}:`, e);
+    return null;
+  }
+}
 
 // Batch fetch from Inventaire in chunks of 50
 async function batchFetchEntities(uris: string[]): Promise<Record<string, any>> {
@@ -83,16 +125,49 @@ serve(async (req: Request) => {
     if (!prizeEntity) return error('Prize entity not found on Inventaire', 404);
 
     const prizeName_ = getLabel(prizeEntity) || 'Unknown Prize';
-    const prizeDesc = getDescription(prizeEntity);
     const prizeImage = resolveEntityImage(prizeEntity);
 
+    // 2a. Resolve Wikipedia synopsis if possible
+    const sitelinks = prizeEntity?.sitelinks || {};
+    const wikipediaTitle = sitelinks['frwiki']?.title || sitelinks['enwiki']?.title || null;
+    let prizeDesc = getDescription(prizeEntity);
+
+    if (wikipediaTitle) {
+      try {
+        console.log(`[sync-prizes] Fetching Wikipedia synopsis for: ${wikipediaTitle}`);
+        const wikiSynopsis = await fetchWikipediaSynopsis(wikipediaTitle, 'fr');
+        if (wikiSynopsis) {
+          prizeDesc = wikiSynopsis;
+        }
+      } catch (e) {
+        console.warn(`[sync-prizes] Failed to fetch Wikipedia synopsis for ${wikipediaTitle}:`, e);
+      }
+    }
+
+    // 2b. Fetch Wikidata details (inceptionYear, founder)
+    let inceptionYear: number | null = null;
+    let founder: string | null = null;
+    try {
+      console.log(`[sync-prizes] Fetching Wikidata SPARQL details for: ${qid}`);
+      const extDetails = await getPrizeWikidataDetails(qid);
+      if (extDetails) {
+        inceptionYear = extDetails.inceptionYear;
+        founder = extDetails.founder;
+      }
+    } catch (e) {
+      console.warn(`[sync-prizes] Failed to fetch external Wikidata details for ${qid}:`, e);
+    }
+
     const [prize] = await sql`
-      INSERT INTO "LiteraryPrize" (name, description, image, "inventaireUri")
-      VALUES (${prizeName_}, ${prizeDesc}, ${prizeImage}, ${uri})
+      INSERT INTO "LiteraryPrize" (name, description, image, "inventaireUri", "wikipediaTitle", "inceptionYear", "founder")
+      VALUES (${prizeName_}, ${prizeDesc}, ${prizeImage}, ${uri}, ${wikipediaTitle}, ${inceptionYear}, ${founder})
       ON CONFLICT ("inventaireUri") DO UPDATE SET
         name = EXCLUDED.name,
         description = EXCLUDED.description,
-        image = EXCLUDED.image
+        image = EXCLUDED.image,
+        "wikipediaTitle" = EXCLUDED."wikipediaTitle",
+        "inceptionYear" = EXCLUDED."inceptionYear",
+        "founder" = EXCLUDED."founder"
       RETURNING id
     `;
     console.log(`[sync-prizes] Prize upserted: "${prizeName_}" (id=${prize.id})`);

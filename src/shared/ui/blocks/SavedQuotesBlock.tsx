@@ -6,6 +6,7 @@ import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { ThemeColors } from '@/src/shared/theme';
 import { Plus } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -105,11 +106,28 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
                         >
                             <Text style={styles.savedQuoteText}>{quote.text}</Text>
                             <View style={styles.savedQuoteMeta}>
-                                {showBookTitle ? (
-                                    <Text style={styles.savedQuoteAuthor}>{getBookTitle(quote.book)}</Text>
-                                ) : (
-                                    <Text style={styles.savedQuoteAuthor}>{getAuthorName(quote.author)}</Text>
-                                )}
+                                <View style={styles.savedQuoteAuthorContainer}>
+                                    {showBookTitle ? (
+                                        <Text numberOfLines={1} ellipsizeMode="clip" style={styles.savedQuoteAuthor}>
+                                            {getBookTitle(quote.book)}
+                                        </Text>
+                                    ) : (
+                                        <Text numberOfLines={1} ellipsizeMode="clip" style={styles.savedQuoteAuthor}>
+                                            {getAuthorName(quote.author)}
+                                        </Text>
+                                    )}
+                                    <View style={styles.fadeOverlayContainer} pointerEvents="none">
+                                        <Svg width={24} height="100%">
+                                            <Defs>
+                                                <LinearGradient id={`fade-${quote.id}`} x1="0" y1="0" x2="1" y2="0">
+                                                    <Stop offset="0" stopColor={colors.surfaceHighlight} stopOpacity="0" />
+                                                    <Stop offset="1" stopColor={colors.surfaceHighlight} stopOpacity="1" />
+                                                </LinearGradient>
+                                            </Defs>
+                                            <Rect width={24} height="100%" fill={`url(#fade-${quote.id})`} />
+                                        </Svg>
+                                    </View>
+                                </View>
                                 <Text style={styles.savedQuoteDate}>{formatAbsoluteDate(quote.savedAt || quote.date)}</Text>
                             </View>
                         </TouchableOpacity>
@@ -166,14 +184,30 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         borderTopColor: colors.border,
         paddingTop: 8,
     },
+    savedQuoteAuthorContainer: {
+        flex: 1,
+        marginRight: 12,
+        position: 'relative',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
     savedQuoteAuthor: {
         fontSize: 12,
         color: colors.textSecondary,
         fontWeight: '600',
+        flex: 1,
+    },
+    fadeOverlayContainer: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: 24,
     },
     savedQuoteDate: {
         fontSize: 10,
         color: colors.textTertiary,
+        flexShrink: 0,
     },
     tabsContainer: {
         flexDirection: 'row',

@@ -4,7 +4,7 @@ import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -74,18 +74,25 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
   const exitProgress = useSharedValue(0);
   const direction = useSharedValue(1); // 1 = forward (slide left), -1 = backward (slide right)
 
-  // Adjust state and shared values synchronously during render when viewMode changes
+  /* eslint-disable react-hooks/immutability */
+
+  // Adjust state synchronously during render when viewMode changes
   if (viewMode !== currentMode) {
-    const currentIdx = TAB_INDEXES[currentMode];
-    const newIdx = TAB_INDEXES[viewMode];
-    direction.value = newIdx >= currentIdx ? 1 : -1;
-
-    enterProgress.value = 0;
-    exitProgress.value = 0;
-
     setPrevMode(currentMode);
     setCurrentMode(viewMode);
   }
+
+  // Adjust shared values synchronously when currentMode / prevMode changes
+  useLayoutEffect(() => {
+    if (prevMode !== null) {
+      const currentIdx = TAB_INDEXES[currentMode];
+      const prevIdx = TAB_INDEXES[prevMode];
+      direction.value = currentIdx >= prevIdx ? 1 : -1;
+
+      enterProgress.value = 0;
+      exitProgress.value = 0;
+    }
+  }, [currentMode, prevMode, direction, enterProgress, exitProgress]);
 
   // Trigger animations in response to currentMode / prevMode changes
   useEffect(() => {
@@ -99,6 +106,8 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMode, prevMode]);
+
+  /* eslint-enable react-hooks/immutability */
 
   const enterStyle = useAnimatedStyle(() => {
     return {

@@ -3,7 +3,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
-import { runSPARQL } from '@/src/entities/author/api/WikidataService';
+import { AboutBlock } from '@/src/shared/ui/blocks/AboutBlock';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
@@ -59,54 +59,7 @@ interface PrizeDetailScreenProps {
     prizeData?: string;
 }
 
-const fetchExternalPrizeDetails = async (inventaireUri: string) => {
-    if (!inventaireUri.startsWith('wd:')) return null;
-    const qid = inventaireUri.substring(3);
-    const sparql = `
-        SELECT ?inception ?conferredByLabel ?founderLabel WHERE {
-          OPTIONAL { wd:${qid} wdt:P571 ?inception . }
-          OPTIONAL {
-            wd:${qid} wdt:P1027 ?conferredBy .
-            OPTIONAL { ?conferredBy rdfs:label ?lblFr. FILTER(LANG(?lblFr) = "fr") }
-            OPTIONAL { ?conferredBy rdfs:label ?lblEn. FILTER(LANG(?lblEn) = "en") }
-            BIND(COALESCE(?lblFr, ?lblEn) AS ?conferredByLabel)
-          }
-          OPTIONAL {
-            wd:${qid} wdt:P112 ?founder .
-            OPTIONAL { ?founder rdfs:label ?lblFounderFr. FILTER(LANG(?lblFounderFr) = "fr") }
-            OPTIONAL { ?founder rdfs:label ?lblFounderEn. FILTER(LANG(?lblFounderEn) = "en") }
-            BIND(COALESCE(?lblFounderFr, ?lblFounderEn) AS ?founderLabel)
-          }
-        } LIMIT 1
-        `;
-    const bindings = await runSPARQL(sparql, 6000);
-    const binding = bindings[0];
-    if (!binding) return null;
-
-    const inceptionRaw = binding.inception?.value;
-    const inceptionYear = inceptionRaw ? inceptionRaw.substring(0, 4) : null;
-    const founder = binding.conferredByLabel?.value || binding.founderLabel?.value || null;
-
-    return { inceptionYear, founder };
-};
-
-const fetchWikipediaDescription = async (title: string): Promise<string | null> => {
-    try {
-        const url = `https://fr.wikipedia.org/w/api.php?action=query&prop=extracts&exsentences=6&explaintext=1&exintro=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
-        const res = await fetch(url);
-        if (!res.ok) return null;
-        const data = await res.json();
-        const pages = data.query?.pages;
-        if (!pages) return null;
-        const pageId = Object.keys(pages)[0];
-        if (pageId === '-1') return null;
-        const extract = pages[pageId]?.extract;
-        return extract && extract.trim().length > 0 ? extract.trim() : null;
-    } catch (e) {
-        console.warn('[PrizeDetail] Failed to fetch Wikipedia description:', e);
-        return null;
-    }
-};
+// Wikipedia and Wikidata enrichment are handled on the server side via syncPrize
 
 export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScreenProps) {
     const router = useRouter();
@@ -211,30 +164,26 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                     // Enrich missing covers
                     enrichMissingCovers(prize.laureates);
                     
-                    // Fetch external metadata if we have a Wikidata/Inventaire URI
-                    if (prize.inventaireUri) {
-                        const extData = await fetchExternalPrizeDetails(prize.inventaireUri);
-                        if (extData) {
-                            // Note: prize comes from useQuery, we can't modify it directly
-                            // This would require using queryClient.setQueryData
-                        }
-                    }
-                    
-                    // If description is missing or too short, enrich it from Wikipedia
+                    // If description is missing/too short, or metadata is missing, sync in background
                     const currentDesc = prize.description || '';
-                    if (currentDesc.length < 50 || currentDesc.toLowerCase() === 'prix littéraire français') {
-                        const wikiTitle = prize.wikipediaTitle || prize.name;
-                        const wikiDesc = await fetchWikipediaDescription(wikiTitle);
-                        if (wikiDesc) {
-                            // Note: prize comes from useQuery, we can't modify it directly
-                        }
+                    const needsDescription = currentDesc.length < 50 || currentDesc.toLowerCase() === 'prix littéraire français';
+                    const needsMetadata = !prize.inceptionYear || !prize.founder;
+
+                    if (resolvedPrizeId && prize.inventaireUri && (needsDescription || needsMetadata)) {
+                        console.log('[PrizeDetail] Prize missing full metadata or description in DB, triggering backend sync...');
+                        PrizeService.syncPrize({ prizeUri: prize.inventaireUri })
+                            .then(() => {
+                                console.log('[PrizeDetail] Sync completed, invalidating query cache...');
+                                queryClient.invalidateQueries({ queryKey: ['prize', resolvedPrizeId] });
+                            })
+                            .catch(e => console.warn('[PrizeDetail] Background sync for metadata enrichment failed:', e));
                     }
                 } catch (error) {
                     console.error('[PrizeDetail] Failed to enrich prize:', error);
                 }
             };
             enrich();
-        }, [prize, enrichMissingCovers])
+        }, [prize, enrichMissingCovers, resolvedPrizeId, queryClient])
     );
 
     const loadNextBatch = async () => {
@@ -426,30 +375,10 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                             <Text style={styles.prizeName}>{prize.name}</Text>
                         </View>
 
-                        {prize.description && (
-                            <View style={styles.section}>
-                                <View style={styles.sectionHeader}>
-                                    <Award size={16} color={colors.primary} />
-                                    <Text style={styles.sectionTitle}>À propos du prix</Text>
-                                </View>
-                                <Text style={styles.prizeDesc}>{prize.description}</Text>
-                            </View>
-                        )}
-
-                        <View style={styles.detailContainerSection}>
-                            <View style={styles.detailsContainer}>
-                                <View style={styles.detailItem}>
-                                    <Calendar size={16} color={colors.textTertiary} />
-                                    <Text style={styles.detailLabel}>Création</Text>
-                                    <Text style={styles.detailValue}>{prize.inceptionYear || 'Inconnu'}</Text>
-                                </View>
-                                <View style={styles.detailItem}>
-                                    <User size={16} color={colors.textTertiary} />
-                                    <Text style={styles.detailLabel}>Créateur</Text>
-                                    <Text style={styles.detailValue}>{prize.founder || 'Inconnu'}</Text>
-                                </View>
-                            </View>
-                        </View>
+                        <AboutBlock
+                            type="prize"
+                            prize={prize}
+                        />
                         
                         <View style={styles.divider} />
                         <Text style={styles.palmaresTitle}>Palmarès</Text>
