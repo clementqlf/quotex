@@ -344,18 +344,21 @@ function QuoteDetailContent() {
     initialQuote?.blockData ? JSON.stringify(initialQuote.blockData) : '{}'
   );
 
+  const resolvedBookId = quote?.bookId || (typeof quote?.book === 'object' && quote?.book !== null ? quote.book.id : undefined);
+  const resolvedAuthorId = quote?.authorId || (typeof quote?.author === 'object' && quote?.author !== null ? quote.author.id : undefined);
+
   // State for rich data - using TanStack Query
   const { data: fetchedBook } = useQuery({
-    queryKey: ['book', quote?.bookId],
-    queryFn: () => authorService.getBookById(quote!.bookId!),
-    enabled: !!quote?.bookId,
+    queryKey: ['book', resolvedBookId],
+    queryFn: () => authorService.getBookById(resolvedBookId!),
+    enabled: !!resolvedBookId,
     staleTime: 5 * 60 * 1000
   });
   
   const { data: fetchedAuthor } = useQuery({
-    queryKey: ['author', quote?.authorId],
-    queryFn: () => authorService.getAuthorById(quote!.authorId!),
-    enabled: !!quote?.authorId,
+    queryKey: ['author', resolvedAuthorId],
+    queryFn: () => authorService.getAuthorById(resolvedAuthorId!),
+    enabled: !!resolvedAuthorId,
     staleTime: 5 * 60 * 1000
   });
 

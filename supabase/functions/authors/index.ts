@@ -15,6 +15,52 @@ import {
 import { getNotableWorksDetailed } from '../_shared/notableWorks.ts';
 import { enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
 
+async function getAuthorDetails(id: number, userId: string | null) {
+  return await sql`
+    WITH author_detail AS (
+      SELECT * FROM "Author" WHERE id = ${id} LIMIT 1
+    )
+    SELECT ad.*,
+      COALESCE((SELECT json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+      json_build_object(
+        'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = ad.id)::int,
+        'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id)::int
+      ) as "_count",
+      COALESCE((
+        SELECT json_agg(sa_res) FROM (
+          SELECT S.id, S.name, S.image, S."inventaireUri", S.description, S.nationality,
+                 (
+                   COALESCE((
+                     SELECT COUNT(*)*8 
+                     FROM "Laureate" l1 
+                     JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId" 
+                     WHERE l1."authorId" = ad.id AND l2."authorId" = S.id
+                   ), 0) +
+                   COALESCE((
+                     SELECT COUNT(*)*5 
+                     FROM "Book" b1 
+                     JOIN "Book" b2 ON b1.genre = b2.genre 
+                     WHERE b1."authorId" = ad.id AND b2."authorId" = S.id 
+                       AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
+                   ), 0) +
+                   COALESCE((
+                     SELECT COUNT(*)*4 
+                     FROM "UserAuthor" ua1 
+                     JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId" 
+                     WHERE ua1."authorId" = ad.id AND ua2."authorId" = S.id
+                   ), 0) +
+                   (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END)
+                 ) as score
+          FROM "Author" S
+          WHERE S.id != ad.id
+          ORDER BY score DESC, S.name ASC
+          LIMIT 10
+        ) sa_res
+      ), '[]'::json) as "similarAuthors"
+    FROM author_detail ad
+  `;
+}
+
 serve(async (req: Request) => {
   const corsResp = handleCors(req);
   if (corsResp) return corsResp;
@@ -337,13 +383,47 @@ serve(async (req: Request) => {
     // GET /authors/:id
     if (req.method === 'GET' && idParam && !subAction) {
       const authorRows = await sql`
-        SELECT a.*,
-          COALESCE((SELECT json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) FROM "UserAuthor" ua WHERE ua."authorId" = a.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
+        WITH author_detail AS (
+          SELECT * FROM "Author" WHERE id = ${idParam} LIMIT 1
+        )
+        SELECT ad.*,
+          COALESCE((SELECT json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
           json_build_object(
-            'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = a.id)::int,
-            'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = a.id)::int
-          ) as "_count"
-        FROM "Author" a WHERE a.id = ${idParam} LIMIT 1
+            'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = ad.id)::int,
+            'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id)::int
+          ) as "_count",
+          COALESCE((
+            SELECT json_agg(sa_res) FROM (
+              SELECT S.id, S.name, S.image, S."inventaireUri", S.description, S.nationality,
+                     (
+                       COALESCE((
+                         SELECT COUNT(*)*8 
+                         FROM "Laureate" l1 
+                         JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId" 
+                         WHERE l1."authorId" = ad.id AND l2."authorId" = S.id
+                       ), 0) +
+                       COALESCE((
+                         SELECT COUNT(*)*5 
+                         FROM "Book" b1 
+                         JOIN "Book" b2 ON b1.genre = b2.genre 
+                         WHERE b1."authorId" = ad.id AND b2."authorId" = S.id 
+                           AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
+                       ), 0) +
+                       COALESCE((
+                         SELECT COUNT(*)*4 
+                         FROM "UserAuthor" ua1 
+                         JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId" 
+                         WHERE ua1."authorId" = ad.id AND ua2."authorId" = S.id
+                       ), 0) +
+                       (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END)
+                     ) as score
+              FROM "Author" S
+              WHERE S.id != ad.id
+              ORDER BY score DESC, S.name ASC
+              LIMIT 10
+            ) sa_res
+          ), '[]'::json) as "similarAuthors"
+        FROM author_detail ad
       `;
       if (!authorRows.length) return error('Author not found', 404);
       const author = authorRows[0];

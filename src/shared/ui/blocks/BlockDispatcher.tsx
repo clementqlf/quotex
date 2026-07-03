@@ -15,8 +15,7 @@ import { DefinitionBlock } from './DefinitionBlock';
 import { EditionsBlock } from './EditionsBlock';
 import { NotesBlock } from './NotesBlock';
 import { SavedQuotesBlock } from './SavedQuotesBlock';
-import { SimilarAuthorsBlock } from './SimilarAuthorsBlock';
-import { SimilarBooksBlock } from './SimilarBooksBlock';
+import { SimilarBlock } from './SimilarBlock';
 
 // Defined context interface to pass necessary data to blocks
 export interface BlockContext {
@@ -119,11 +118,28 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
         case 'similarBooks':
             // Data might come from book or quote's fetched book
             const similarBooks = book?.similarBooks || [];
-            return <SimilarBooksBlock books={similarBooks} onBookPress={(idOrTitle, uri) => onBookPress && onBookPress(idOrTitle, uri)} onRemove={onRemove} />;
+            const mappedBooks = similarBooks.map(b => {
+                if (typeof b === 'string') {
+                    return { title: b, image: null, id: undefined, inventaireUri: undefined };
+                }
+                return {
+                    title: b.title,
+                    image: b.cover,
+                    id: b.id,
+                    inventaireUri: b.inventaireUri
+                };
+            });
+            return <SimilarBlock type="book" items={mappedBooks} onPress={(idOrTitle, uri) => onBookPress && onBookPress(idOrTitle, uri)} onRemove={onRemove} />;
 
         case 'similarAuthors':
             const similarAuthors = author?.similarAuthors || [];
-            return <SimilarAuthorsBlock authors={similarAuthors} onAuthorPress={(n, uri) => onAuthorPress && onAuthorPress(n, uri)} onRemove={onRemove} />;
+            const mappedAuthors = similarAuthors.map(a => ({
+                title: a.name,
+                image: a.image,
+                id: a.id,
+                inventaireUri: a.inventaireUri
+            }));
+            return <SimilarBlock type="author" items={mappedAuthors} onPress={(n, uri) => onAuthorPress && onAuthorPress(n as string, uri)} onRemove={onRemove} />;
 
         case 'definition':
             // Quote Mode
