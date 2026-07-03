@@ -1,6 +1,8 @@
 // notableWorks.ts — no Prisma dependency, pure HTTP
 // Copied from server/src/services/notableWorks.ts — no changes needed
 
+import { getWorkEditions } from './inventaire.api.ts';
+
 export interface NotableWork {
   title: string;
   uri: string;
@@ -37,7 +39,22 @@ export const getNotableWorksDetailed = async (authorName: string): Promise<Notab
         uniqueWorks.set(title, { title, uri });
       }
     }
-    return Array.from(uniqueWorks.values());
+
+    const works = Array.from(uniqueWorks.values());
+    const worksWithEditions: NotableWork[] = [];
+
+    for (const work of works) {
+      try {
+        const editions = await getWorkEditions(work.uri);
+        if (editions.length > 0) {
+          worksWithEditions.push(work);
+        }
+      } catch (editionErr) {
+        console.error(`[NotableWorks] Failed to verify editions for ${work.uri}:`, editionErr);
+      }
+    }
+
+    return worksWithEditions;
   } catch (e) {
     console.error('[NotableWorks] Wikidata error:', e);
     return [];

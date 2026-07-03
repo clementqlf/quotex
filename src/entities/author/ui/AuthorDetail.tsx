@@ -127,6 +127,10 @@ export default function AuthorDetailScreen() {
   // Convert undefined to null for compatibility with existing code
   const resolvedAuthorInfo: Author | null = authorInfo ?? null;
   const resolvedAuthorBooks: Book[] = authorBooks ?? [];
+  const notableWorks = useMemo(
+    () => resolvedAuthorBooks.filter((book) => book.isNotable),
+    [resolvedAuthorBooks]
+  );
 
   const enrichingAuthors = useMemo(() => {
     if (!resolvedAuthorInfo) return [];
@@ -575,11 +579,11 @@ export default function AuthorDetailScreen() {
               <Text style={styles.sectionTitle}>Œuvres Notables</Text>
             </View>
 
-            {resolvedAuthorBooks.length === 0 && !isLoadingAuthor && (
+            {notableWorks.length === 0 && !isLoadingAuthor && (
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
 
-            {resolvedAuthorBooks.slice(0, 7).map((book, index) => {
+            {notableWorks.slice(0, 7).map((book, index) => {
               const localBook = allBooks.find(b => 
                 (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
                 b.title.toLowerCase() === book.title.toLowerCase()
@@ -627,7 +631,7 @@ export default function AuthorDetailScreen() {
               );
             })}
 
-            {(allWorks.length > resolvedAuthorBooks.length || resolvedAuthorBooks.length > 7) && (
+            {(allWorks.length > notableWorks.length || notableWorks.length > 7) && (
               <TouchableOpacity
                 style={styles.showAllButton}
                 onPress={fetchAllWorks}
