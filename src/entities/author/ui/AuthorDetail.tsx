@@ -131,7 +131,7 @@ export default function AuthorDetailScreen() {
 
   const enrichingAuthors = useMemo(() => {
     if (!resolvedAuthorInfo) return [];
-    const needsEnrichment = !resolvedAuthorInfo.description || resolvedAuthorInfo.description.length < 50 || !resolvedAuthorInfo.image;
+    const needsEnrichment = !resolvedAuthorInfo.description || resolvedAuthorInfo.description.length < 200 || !resolvedAuthorInfo.image;
     if (needsEnrichment || resolvedAuthorInfo.isEnriching) {
       return [resolvedAuthorInfo];
     }

@@ -203,7 +203,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
     inventaireUri: nativeUri,
     authorUris: details.authorUris,
     wikipediaTitle: details.wikipediaTitle,
-    description: details.description || null,
+    description: null,
     pages: 0,
     authors: [],
   };
@@ -237,7 +237,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
 
   if (details.wikipediaTitle) {
     const synopsis = await api.fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
-    if (synopsis && synopsis.length > (result.description?.length || 0)) {
+    if (synopsis) {
       result.description = synopsis;
     }
   }
@@ -302,7 +302,7 @@ export const syncAuthorProfile = async (
 
       const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
       const lastEnriched = author.lastEnrichedAt ? new Date(author.lastEnrichedAt).getTime() : 0;
-      if (Date.now() - lastEnriched < SEVEN_DAYS && author.description && author.description.length > 50) {
+      if (Date.now() - lastEnriched < SEVEN_DAYS && author.description && author.description.length > 200) {
         console.log(`[Inventaire] Author ${author.name} freshly enriched. Skipping.`);
         return author;
       }
@@ -378,9 +378,9 @@ export const syncAuthorProfile = async (
       }
 
       const isNewEntity = uri !== author.inventaireUri;
-      let biography = isNewEntity ? (details.description || null) : (author.description || details.description || null);
+      let biography = author.description || null;
 
-      if (details.wikipediaTitle && (!biography || biography.length < 100)) {
+      if (details.wikipediaTitle && (!biography || biography.length < 200)) {
         console.log(`[Inventaire] Fetching Wikipedia synopsis for: ${details.wikipediaTitle}`);
         const synopsis = await api.fetchWikipediaSynopsis(details.wikipediaTitle, 'fr');
         if (synopsis) biography = synopsis;

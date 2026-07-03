@@ -214,16 +214,14 @@ serve(async (req: Request) => {
 
         // Upsert Author into shared catalogue
         const authorName = getLabel(authorEntity) || l.authorName;
-        const authorDesc = getDescription(authorEntity);
         const authorImage = resolveEntityImage(authorEntity);
         const birthDate = getClaimValue(authorEntity, 'wdt:P569')?.substring(0, 4) || null;
 
         const [author] = await sql`
-          INSERT INTO "Author" (name, description, image, "birthDate", "inventaireUri")
-          VALUES (${authorName}, ${authorDesc}, ${authorImage}, ${birthDate}, ${authorUri})
+          INSERT INTO "Author" (name, image, "birthDate", "inventaireUri")
+          VALUES (${authorName}, ${authorImage}, ${birthDate}, ${authorUri})
           ON CONFLICT ("inventaireUri") DO UPDATE SET
             name        = COALESCE(EXCLUDED.name, "Author".name),
-            description = COALESCE(EXCLUDED.description, "Author".description),
             image       = COALESCE(EXCLUDED.image, "Author".image),
             "birthDate" = COALESCE(EXCLUDED."birthDate", "Author"."birthDate")
           RETURNING id
@@ -236,7 +234,6 @@ serve(async (req: Request) => {
           const workUri = `wd:${l.workQid}`;
           const workEntity = workEntities[workUri];
           const bookTitle = getLabel(workEntity) || l.workTitle || null;
-          const bookDesc = getDescription(workEntity);
           // Use the same cover priority as enrichWorkMetadata:
           // 1. Best native edition cover (FR edition + /img/entities/ scan preferred)
           // 2. Search metadata image (fallback)
@@ -253,11 +250,10 @@ serve(async (req: Request) => {
 
           if (bookTitle) {
             const [book] = await sql`
-              INSERT INTO "Book" (title, description, cover, year, "authorId", "inventaireUri")
-              VALUES (${bookTitle}, ${bookDesc}, ${bookCover}, ${bookYear}, ${author.id}, ${workUri})
+              INSERT INTO "Book" (title, cover, year, "authorId", "inventaireUri")
+              VALUES (${bookTitle}, ${bookCover}, ${bookYear}, ${author.id}, ${workUri})
               ON CONFLICT ("inventaireUri") DO UPDATE SET
                 title       = COALESCE(EXCLUDED.title, "Book".title),
-                description = COALESCE(EXCLUDED.description, "Book".description),
                 cover       = COALESCE("Book".cover, EXCLUDED.cover),
                 year        = COALESCE(EXCLUDED.year, "Book".year)
               RETURNING id

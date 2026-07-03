@@ -205,7 +205,7 @@ serve(async (req: Request) => {
       const a = authorRows[0];
 
       // Trigger background enrichment if data is sparse or too short
-      if (a.inventaireUri && (!a.description || a.description.length < 50 || !a.image)) {
+      if (a.inventaireUri && (!a.description || a.description.length < 200 || !a.image)) {
         a.isEnriching = true;
         // @ts-ignore deno
         if (typeof EdgeRuntime !== 'undefined') {
@@ -433,7 +433,7 @@ serve(async (req: Request) => {
       const author = authorRows[0];
 
       // Trigger background enrichment if data is sparse
-      if (author.inventaireUri && (!author.description || author.description.length < 50 || !author.image)) {
+      if (author.inventaireUri && (!author.description || author.description.length < 200 || !author.image)) {
         author.isEnriching = true;
         // @ts-ignore deno
         if (typeof EdgeRuntime !== 'undefined') {
