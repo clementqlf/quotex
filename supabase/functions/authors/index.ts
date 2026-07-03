@@ -18,7 +18,39 @@ import { enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
 async function getAuthorDetails(id: number, userId: string | null) {
   return await sql`
     WITH author_detail AS (
-      SELECT * FROM "Author" WHERE id = ${id} LIMIT 1
+      SELECT id, nationality FROM "Author" WHERE id = ${id} LIMIT 1
+    ),
+    laureate_scores AS (
+      SELECT l2."authorId", COUNT(*)*8 as score
+      FROM "Laureate" l1
+      JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId"
+      WHERE l1."authorId" = (SELECT id FROM author_detail)
+      GROUP BY l2."authorId"
+    ),
+    genre_scores AS (
+      SELECT b2."authorId", COUNT(*)*5 as score
+      FROM "Book" b1
+      JOIN "Book" b2 ON b1.genre = b2.genre
+      WHERE b1."authorId" = (SELECT id FROM author_detail)
+        AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
+      GROUP BY b2."authorId"
+    ),
+    follower_scores AS (
+      SELECT ua2."authorId", COUNT(*)*4 as score
+      FROM "UserAuthor" ua1
+      JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId"
+      WHERE ua1."authorId" = (SELECT id FROM author_detail)
+      GROUP BY ua2."authorId"
+    ),
+    combined_scores AS (
+      SELECT author_id, SUM(score) as score FROM (
+        SELECT "authorId" as author_id, score FROM laureate_scores
+        UNION ALL
+        SELECT "authorId" as author_id, score FROM genre_scores
+        UNION ALL
+        SELECT "authorId" as author_id, score FROM follower_scores
+      ) t
+      GROUP BY author_id
     )
     SELECT ad.*,
       COALESCE((SELECT json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
@@ -29,35 +61,16 @@ async function getAuthorDetails(id: number, userId: string | null) {
       COALESCE((
         SELECT json_agg(sa_res) FROM (
           SELECT S.id, S.name, S.image, S."inventaireUri", S.description, S.nationality,
-                 (
-                   COALESCE((
-                     SELECT COUNT(*)*8 
-                     FROM "Laureate" l1 
-                     JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId" 
-                     WHERE l1."authorId" = ad.id AND l2."authorId" = S.id
-                   ), 0) +
-                   COALESCE((
-                     SELECT COUNT(*)*5 
-                     FROM "Book" b1 
-                     JOIN "Book" b2 ON b1.genre = b2.genre 
-                     WHERE b1."authorId" = ad.id AND b2."authorId" = S.id 
-                       AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
-                   ), 0) +
-                   COALESCE((
-                     SELECT COUNT(*)*4 
-                     FROM "UserAuthor" ua1 
-                     JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId" 
-                     WHERE ua1."authorId" = ad.id AND ua2."authorId" = S.id
-                   ), 0) +
-                   (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END)
-                 ) as score
+                 (COALESCE(cs.score, 0) + (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END))::int as score
           FROM "Author" S
+          LEFT JOIN combined_scores cs ON cs.author_id = S.id
           WHERE S.id != ad.id
           ORDER BY score DESC, S.name ASC
           LIMIT 10
         ) sa_res
       ), '[]'::json) as "similarAuthors"
-    FROM author_detail ad
+    FROM "Author" ad
+    WHERE ad.id = ${id} LIMIT 1
   `;
 }
 
@@ -105,7 +118,39 @@ serve(async (req: Request) => {
       // ✅ CORRECTION: Recherche insensible à la casse et aux espaces
       let authorRows = await sql`
         WITH author_detail AS (
-          SELECT * FROM "Author" WHERE LOWER(TRIM(name)) = LOWER(TRIM(${name})) LIMIT 1
+          SELECT id, nationality FROM "Author" WHERE LOWER(TRIM(name)) = LOWER(TRIM(${name})) LIMIT 1
+        ),
+        laureate_scores AS (
+          SELECT l2."authorId", COUNT(*)*8 as score
+          FROM "Laureate" l1
+          JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId"
+          WHERE l1."authorId" = (SELECT id FROM author_detail)
+          GROUP BY l2."authorId"
+        ),
+        genre_scores AS (
+          SELECT b2."authorId", COUNT(*)*5 as score
+          FROM "Book" b1
+          JOIN "Book" b2 ON b1.genre = b2.genre
+          WHERE b1."authorId" = (SELECT id FROM author_detail)
+            AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
+          GROUP BY b2."authorId"
+        ),
+        follower_scores AS (
+          SELECT ua2."authorId", COUNT(*)*4 as score
+          FROM "UserAuthor" ua1
+          JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId"
+          WHERE ua1."authorId" = (SELECT id FROM author_detail)
+          GROUP BY ua2."authorId"
+        ),
+        combined_scores AS (
+          SELECT author_id, SUM(score) as score FROM (
+            SELECT "authorId" as author_id, score FROM laureate_scores
+            UNION ALL
+            SELECT "authorId" as author_id, score FROM genre_scores
+            UNION ALL
+            SELECT "authorId" as author_id, score FROM follower_scores
+          ) t
+          GROUP BY author_id
         )
         SELECT ad.*,
           COALESCE((SELECT json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
@@ -116,35 +161,16 @@ serve(async (req: Request) => {
           COALESCE((
             SELECT json_agg(sa_res) FROM (
               SELECT S.id, S.name, S.image, S."inventaireUri", S.description, S.nationality,
-                     (
-                       COALESCE((
-                         SELECT COUNT(*)*8 
-                         FROM "Laureate" l1 
-                         JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId" 
-                         WHERE l1."authorId" = ad.id AND l2."authorId" = S.id
-                       ), 0) +
-                       COALESCE((
-                         SELECT COUNT(*)*5 
-                         FROM "Book" b1 
-                         JOIN "Book" b2 ON b1.genre = b2.genre 
-                         WHERE b1."authorId" = ad.id AND b2."authorId" = S.id 
-                           AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
-                       ), 0) +
-                       COALESCE((
-                         SELECT COUNT(*)*4 
-                         FROM "UserAuthor" ua1 
-                         JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId" 
-                         WHERE ua1."authorId" = ad.id AND ua2."authorId" = S.id
-                       ), 0) +
-                       (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END)
-                     ) as score
+                     (COALESCE(cs.score, 0) + (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END))::int as score
               FROM "Author" S
+              LEFT JOIN combined_scores cs ON cs.author_id = S.id
               WHERE S.id != ad.id
               ORDER BY score DESC, S.name ASC
               LIMIT 10
             ) sa_res
           ), '[]'::json) as "similarAuthors"
-        FROM author_detail ad
+        FROM "Author" ad
+        WHERE ad.id = (SELECT id FROM author_detail) LIMIT 1
       `;
 
       if (!authorRows.length) {
@@ -177,6 +203,18 @@ serve(async (req: Request) => {
 
       if (!authorRows.length) return error('Author not found', 404);
       const a = authorRows[0];
+
+      // Trigger background enrichment if data is sparse or too short
+      if (a.inventaireUri && (!a.description || a.description.length < 50 || !a.image)) {
+        a.isEnriching = true;
+        // @ts-ignore deno
+        if (typeof EdgeRuntime !== 'undefined') {
+          console.log(`[authors] Triggering background enrichment for author ${a.id}`);
+          // @ts-ignore deno
+          EdgeRuntime.waitUntil(enrichAuthorWithInventaire(a.id));
+        }
+      }
+
       return json(formatAuthor(a, userId));
     }
 
@@ -395,7 +433,8 @@ serve(async (req: Request) => {
       const author = authorRows[0];
 
       // Trigger background enrichment if data is sparse
-      if (author.inventaireUri && (!author.description || !author.image)) {
+      if (author.inventaireUri && (!author.description || author.description.length < 50 || !author.image)) {
+        author.isEnriching = true;
         // @ts-ignore deno
         if (typeof EdgeRuntime !== 'undefined') {
           console.log(`[authors] Triggering background enrichment for author ${idParam}`);

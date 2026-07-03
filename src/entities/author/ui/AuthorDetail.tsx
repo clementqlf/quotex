@@ -19,12 +19,14 @@ import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
+import { useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -93,7 +95,7 @@ export default function AuthorDetailScreen() {
   const authorId = author?.id;
   const authorNameForQuery = nameToUse;
   
-  const { data: authorInfo } = useQuery({
+  const { data: authorInfo, refetch: refetchAuthor } = useQuery({
     queryKey: ['author', authorId, authorNameForQuery],
     queryFn: () => {
       if (authorId) {
@@ -105,10 +107,10 @@ export default function AuthorDetailScreen() {
       return Promise.resolve(null);
     },
     enabled: !!authorId || !!authorNameForQuery,
-    staleTime: 5 * 60 * 1000
+    staleTime: 10 * 1000 // 10 seconds to allow rapid background updates to sync
   });
   
-  const { data: authorBooks = [] } = useQuery({
+  const { data: authorBooks = [], refetch: refetchBooks } = useQuery({
     queryKey: ['author-books', authorId, authorNameForQuery],
     queryFn: () => {
       if (authorId) {
@@ -120,18 +122,40 @@ export default function AuthorDetailScreen() {
       return Promise.resolve([]);
     },
     enabled: !!authorNameForQuery,
-    staleTime: 5 * 60 * 1000
+    staleTime: 10 * 1000 // 10 seconds to allow rapid background updates to sync
   });
   
   // Convert undefined to null for compatibility with existing code
   const resolvedAuthorInfo: Author | null = authorInfo ?? null;
   const resolvedAuthorBooks: Book[] = authorBooks ?? [];
+
+  const enrichingAuthors = useMemo(() => {
+    if (!resolvedAuthorInfo) return [];
+    const needsEnrichment = !resolvedAuthorInfo.description || resolvedAuthorInfo.description.length < 50 || !resolvedAuthorInfo.image;
+    if (needsEnrichment || resolvedAuthorInfo.isEnriching) {
+      return [resolvedAuthorInfo];
+    }
+    return [];
+  }, [resolvedAuthorInfo]);
+
+  useRealtimeAuthors(enrichingAuthors, () => {
+    console.log('[Realtime] Author updated, refetching details...');
+    refetchAuthor();
+    refetchBooks();
+  });
   
   // Combine loading states
   const isLoadingAuthor = false;
 
-
-
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refetchAuthor(),
+      refetchBooks()
+    ]);
+    setRefreshing(false);
+  }, [refetchAuthor, refetchBooks]);
 
   // New state for All Works Modal
   const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);
@@ -443,6 +467,14 @@ export default function AuthorDetailScreen() {
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
         >
           <View style={styles.profileHeader}>
             <Image source={{ uri: authorImage }} style={styles.authorImage} />

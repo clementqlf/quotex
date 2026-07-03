@@ -45,7 +45,7 @@ const SimilarBlockUI: React.FC<SimilarBlockProps> = ({ type, items, onPress, onR
                         <TouchableOpacity
                             key={item.id || item.title || index}
                             style={styles.item}
-                            onPress={() => onPress(item.id ?? item.title, item.inventaireUri)}
+                            onPress={() => onPress(type === 'book' ? (item.id ?? item.title) : item.title, item.inventaireUri)}
                         >
                             {imageUrl ? (
                                 <Image source={{ uri: imageUrl }} style={styles.image} />
