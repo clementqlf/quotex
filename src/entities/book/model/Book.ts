@@ -28,6 +28,7 @@ export interface Book {
   laureates?: Laureate[]; // Prix littéraires reçus
   lastEnrichedAt?: string; // Date du dernier enrichissement
   isVerified?: boolean; // Le livre est-il vérifié via une source de confiance
+  isNotable?: boolean; // Œuvre notable selon Wikidata (wdt:P800) × Inventaire — calculé lors de l'enrichissement de l'auteur
 }
 
 // DTO pour créer un livre

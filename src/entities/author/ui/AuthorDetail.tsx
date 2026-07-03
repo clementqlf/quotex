@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
+import { SimilarBlock } from '@/src/shared/ui/blocks/SimilarBlock';
 import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import { useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import {
@@ -81,7 +82,7 @@ export default function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { navigateToBook } = useSmartNavigation();
+  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
@@ -109,20 +110,18 @@ export default function AuthorDetailScreen() {
     enabled: !!authorId || !!authorNameForQuery,
     staleTime: 10 * 1000 // 10 seconds to allow rapid background updates to sync
   });
-  
+  const resolvedAuthorId = authorInfo?.id || authorId;
+
   const { data: authorBooks = [], refetch: refetchBooks } = useQuery({
-    queryKey: ['author-books', authorId, authorNameForQuery],
+    queryKey: ['author-books', resolvedAuthorId],
     queryFn: () => {
-      if (authorId) {
-        return authorService.getBooksByAuthor(authorNameForQuery || '', authorId);
-      }
-      if (authorNameForQuery) {
-        return authorService.getBooksByAuthor(authorNameForQuery);
+      if (resolvedAuthorId) {
+        return authorService.getNotableWorks(resolvedAuthorId);
       }
       return Promise.resolve([]);
     },
-    enabled: !!authorNameForQuery,
-    staleTime: 10 * 1000 // 10 seconds to allow rapid background updates to sync
+    enabled: !!resolvedAuthorId,
+    staleTime: 10 * 1000
   });
   
   // Convert undefined to null for compatibility with existing code
@@ -165,15 +164,14 @@ export default function AuthorDetailScreen() {
   const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
   const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
 
-  // Use TanStack Query for all works
+  // Use TanStack Query for all works (all books in DB for this author)
   const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
-    queryKey: ['author-all-works', authorInfo?.id, nameToUse],
+    queryKey: ['author-all-works', resolvedAuthorId, nameToUse],
     queryFn: async () => {
-      const currentAuthorId = authorInfo?.id;
-      if (!currentAuthorId || !nameToUse) throw new Error("Author ID or name missing");
-      return getBooksByAuthor(nameToUse, currentAuthorId);
+      if (!resolvedAuthorId || !nameToUse) throw new Error('Author ID or name missing');
+      return getBooksByAuthor(nameToUse, resolvedAuthorId);
     },
-    enabled: showAllWorksModal && !!authorInfo?.id && !!nameToUse,
+    enabled: !!resolvedAuthorId && !!nameToUse,
     staleTime: 5 * 60 * 1000
   });
 
@@ -581,7 +579,7 @@ export default function AuthorDetailScreen() {
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
 
-            {resolvedAuthorBooks.map((book, index) => {
+            {resolvedAuthorBooks.slice(0, 7).map((book, index) => {
               const localBook = allBooks.find(b => 
                 (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
                 b.title.toLowerCase() === book.title.toLowerCase()
@@ -629,12 +627,14 @@ export default function AuthorDetailScreen() {
               );
             })}
 
-            <TouchableOpacity
-              style={styles.showAllButton}
-              onPress={fetchAllWorks}
-            >
-              <Text style={styles.showAllButtonText}>Afficher toutes les œuvres</Text>
-            </TouchableOpacity>
+            {(allWorks.length > resolvedAuthorBooks.length || resolvedAuthorBooks.length > 7) && (
+              <TouchableOpacity
+                style={styles.showAllButton}
+                onPress={fetchAllWorks}
+              >
+                <Text style={styles.showAllButtonText}>Afficher toutes les œuvres</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {(() => {
@@ -651,6 +651,19 @@ export default function AuthorDetailScreen() {
               />
             );
           })()}
+
+          {resolvedAuthorInfo?.similarAuthors && resolvedAuthorInfo.similarAuthors.length > 0 && (
+            <SimilarBlock
+              type="author"
+              items={resolvedAuthorInfo.similarAuthors.map(simAuthor => ({
+                id: simAuthor.id,
+                title: simAuthor.name,
+                image: simAuthor.image,
+                inventaireUri: simAuthor.inventaireUri,
+              }))}
+              onPress={(idOrTitle, inventaireUri) => navigateToAuthor(idOrTitle, inventaireUri)}
+            />
+          )}
         </ScrollView>
 
         {hasRenderedWorksModal && (

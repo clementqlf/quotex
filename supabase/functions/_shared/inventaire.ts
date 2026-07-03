@@ -533,6 +533,34 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
 
     console.log(`[Inventaire] Discovery complete for author ${author.name}`);
     await sql`UPDATE "Author" SET "lastDiscoveredAt" = now() WHERE id = ${authorId}`.catch(() => {});
+
+    // ─── Mark notable works ───────────────────────────────────────────────────
+    // Cross-reference Wikidata P800 notable works list with books now in DB.
+    // Books at the intersection are marked isNotable = true.
+    try {
+      const { getNotableWorksDetailed } = await import('./notableWorks.ts');
+      const notableWorks = await getNotableWorksDetailed(author.name);
+      if (notableWorks.length > 0) {
+        const notableUris = notableWorks.map((w: { uri: string; title: string }) => w.uri);
+        const notableTitles = notableWorks.map((w: { uri: string; title: string }) => w.title.toLowerCase());
+
+        // Reset all to false first, then mark the notable ones
+        await sql`UPDATE "Book" SET "isNotable" = false WHERE "authorId" = ${authorId}`.catch(() => {});
+        await sql`
+          UPDATE "Book"
+          SET "isNotable" = true
+          WHERE "authorId" = ${authorId}
+            AND (
+              "inventaireUri" = ANY(${notableUris})
+              OR LOWER(title) = ANY(${notableTitles})
+            )
+        `.catch(() => {});
+
+        console.log(`[Inventaire] Marked notable works for author ${author.name} (${notableUris.length} P800 candidates)`);
+      }
+    } catch (notableErr) {
+      console.error(`[Inventaire] Failed to mark notable works:`, notableErr);
+    }
   } catch (e) {
     console.error(`[Inventaire] Author discovery error:`, e);
   }

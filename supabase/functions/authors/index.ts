@@ -8,12 +8,7 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatAuthor, formatBook } from '../_shared/formatters.ts';
-import {
-  enrichAuthorWithInventaire,
-  enrichWorkMetadata,
-} from '../_shared/inventaire.ts';
-import { getNotableWorksDetailed } from '../_shared/notableWorks.ts';
-import { enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
+import { enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
 
 async function getAuthorDetails(id: number, userId: string | null) {
   return await sql`
@@ -265,116 +260,16 @@ serve(async (req: Request) => {
     }
 
     // GET /authors/:id/notable-works
+    // Returns books marked isNotable=true in DB (set during author enrichment).
+    // Fast SQL-only query — no live calls to Wikidata or Inventaire.
     if (req.method === 'GET' && idParam && subAction === 'notable-works') {
-      const authorRows = await sql`SELECT * FROM "Author" WHERE id = ${idParam} LIMIT 1`;
-      if (!authorRows.length) return error('Author not found', 404);
-      const author = authorRows[0];
-
-      const notableWorks = await getNotableWorksDetailed(author.name);
-      if (!notableWorks.length) return json([]);
-
-      // 1. Fetch all existing books for this author to avoid N+1 queries
-      const existingBooksRows = await sql`
+      const notableBooks = await sql`
         SELECT b.*, row_to_json(a) as author FROM "Book" b
         LEFT JOIN "Author" a ON a.id = b."authorId"
-        WHERE b."authorId" = ${idParam}
+        WHERE b."authorId" = ${idParam} AND b."isNotable" = true
+        ORDER BY b.year ASC
       `;
-      const existingBooksByUri = new Map(existingBooksRows.map((b: any) => [b.inventaireUri, b]));
-
-      const results = [];
-      const missingWorks = [];
-
-      // 2. Separate existing works from missing works
-      for (const work of notableWorks) {
-        const existing = existingBooksByUri.get(work.uri) || existingBooksRows.find((b: any) => b.title === work.title);
-        
-        if (existing) {
-          results.push(formatBook(existing));
-          
-          if (existing.inventaireUri && (!existing.description || existing.description.length < 50 || !existing.cover)) {
-            // @ts-ignore deno
-            if (typeof EdgeRuntime !== 'undefined') {
-              // @ts-ignore deno
-              EdgeRuntime.waitUntil(enrichBookWithInventaire(existing.id));
-            }
-          }
-        } else {
-          missingWorks.push(work);
-        }
-      }
-
-      // 3. Verify missing works on Inventaire.io in parallel
-      if (missingWorks.length > 0) {
-        // Step A: Fetch reverse-claims to check if the work has editions in Inventaire.io
-        // Doing this in parallel avoids hitting Wikipedia or fetching full metadata for non-literary entities.
-        const workEditionChecks = await Promise.all(
-          missingWorks.map(async (work) => {
-            try {
-              const url = `https://inventaire.io/api/entities?action=reverse-claims&property=wdt:P629&value=${encodeURIComponent(work.uri)}`;
-              const res = await fetch(url, {
-                headers: {
-                  'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
-                },
-              });
-              if (!res.ok) return { work, hasEditions: false };
-              const data = await res.json();
-              const hasEditions = Array.isArray(data.uris) && data.uris.length > 0;
-              return { work, hasEditions };
-            } catch (err) {
-              console.error(`[NotableWorks] Failed checking editions for ${work.uri}`, err);
-              return { work, hasEditions: false };
-            }
-          })
-        );
-
-        // Step B: Only enrich works that actually have editions in Inventaire.io
-        const literaryWorks = workEditionChecks.filter(c => c.hasEditions).map(c => c.work);
-
-        // Print rejected non-literary works to log
-        workEditionChecks.forEach(c => {
-          if (!c.hasEditions) {
-            console.log(`[NotableWorks] Rejected non-literary/empty work (no editions on Inventaire): ${c.work.title}`);
-          }
-        });
-
-        if (literaryWorks.length > 0) {
-          const enrichedWorks = await Promise.all(
-            literaryWorks.map(async (work) => {
-              try {
-                const metadata = await enrichWorkMetadata(work.uri);
-                return { work, metadata };
-              } catch (err) {
-                console.error(`[NotableWorks] Error enriching ${work.uri}`, err);
-                return { work, metadata: null };
-              }
-            })
-          );
-
-          // 4. Insert successfully verified works
-          for (const { work, metadata } of enrichedWorks) {
-            if (!metadata) continue;
-
-            const newBookRows = await sql`
-              INSERT INTO "Book" (title, "authorId", "inventaireUri", genre, description, cover, year, pages)
-              VALUES (
-                ${metadata.title || work.title}, 
-                ${idParam}, 
-                ${work.uri}, 
-                ${metadata.genre || ''}, 
-                ${metadata.description || ''}, 
-                ${metadata.image || null}, 
-                ${metadata.year || 0}, 
-                ${metadata.pages || 0}
-              )
-              RETURNING *, (SELECT row_to_json(a) FROM "Author" a WHERE a.id = ${idParam}) as author
-            `;
-            
-            results.push(formatBook(newBookRows[0]));
-          }
-        }
-      }
-
-      return json(results);
+      return json(notableBooks.map((b: Record<string, unknown>) => formatBook(b)));
     }
 
     // POST /authors/:id/enrich
