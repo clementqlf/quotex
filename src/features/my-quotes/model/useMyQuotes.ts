@@ -170,16 +170,28 @@ export const useMyQuotes = () => {
     const grouped: Record<string, { books: Set<string>; quoteCount: number }> = {};
     
     myQuotes.forEach(q => {
-      const theme = q.theme || 'Thème non renseigné';
-      if (!grouped[theme]) {
-        grouped[theme] = { books: new Set(), quoteCount: 0 };
+      const qThemes = q.themes && q.themes.length > 0
+        ? q.themes
+        : [q.theme, ...(q.blockData?.additionalThemes || [])].filter(Boolean) as string[];
+      const allThemes = Array.from(new Set(qThemes));
+      
+      if (allThemes.length === 0) {
+        allThemes.push('Thème non renseigné');
       }
       
       const bookTitle = typeof q.book === 'object' && q.book !== null 
         ? q.book.title 
         : q.book as string;
-      grouped[theme].books.add(bookTitle);
-      grouped[theme].quoteCount += 1;
+      
+      allThemes.forEach(theme => {
+        if (!grouped[theme]) {
+          grouped[theme] = { books: new Set(), quoteCount: 0 };
+        }
+        if (bookTitle) {
+          grouped[theme].books.add(bookTitle);
+        }
+        grouped[theme].quoteCount += 1;
+      });
     });
 
     return Object.entries(grouped)

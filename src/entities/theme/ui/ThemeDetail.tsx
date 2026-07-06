@@ -36,9 +36,10 @@ export default function ThemeDetailScreen() {
 
   // Filtrer les citations par thème (sur toutes les citations dynamiques incluant les thèmes secondaires)
   const themeQuotes = allQuotes.filter(q => {
-    const qTheme = q.theme;
-    const additionalThemes = q.blockData?.additionalThemes || [];
-    const allThemes = Array.from(new Set([qTheme, ...additionalThemes].filter(Boolean)));
+    const qThemes = q.themes && q.themes.length > 0
+      ? q.themes
+      : [q.theme, ...(q.blockData?.additionalThemes || [])].filter(Boolean) as string[];
+    const allThemes = Array.from(new Set(qThemes));
     if (allThemes.length === 0) {
       allThemes.push('Thème non renseigné');
     }

@@ -17,6 +17,38 @@ import { waitUntil } from '../_shared/waitUntil.ts';
 
 // ─── DB query helpers ─────────────────────────────────────────────────────────
 
+async function updateQuoteThemes(quoteId: number, themes: string[]) {
+  const cleanThemes = Array.from(new Set(themes.map(t => t.trim()).filter(Boolean)));
+  
+  // 1. Delete existing relations
+  await sql`DELETE FROM "QuoteTheme" WHERE "quoteId" = ${quoteId}`;
+  
+  if (cleanThemes.length === 0) return;
+  
+  // 2. Ensure all themes exist in Theme table
+  for (const t of cleanThemes) {
+    await sql`
+      INSERT INTO "Theme" ("name") 
+      VALUES (${t}) 
+      ON CONFLICT ("name") DO NOTHING
+    `;
+  }
+  
+  // 3. Fetch IDs of the themes
+  const themeRows = await sql`
+    SELECT id FROM "Theme" WHERE "name" = ANY(${cleanThemes})
+  `;
+  
+  // 4. Link themes to the quote
+  for (const row of themeRows) {
+    await sql`
+      INSERT INTO "QuoteTheme" ("quoteId", "themeId") 
+      VALUES (${quoteId}, ${row.id})
+      ON CONFLICT DO NOTHING
+    `;
+  }
+}
+
 async function fetchQuotes(userId: string | null, quoteId?: number) {
   const where = quoteId ? sql`AND q."id" = ${quoteId}` : sql``;
 
@@ -42,7 +74,13 @@ async function fetchQuotes(userId: string | null, quoteId?: number) {
         FROM "UserQuote" s 
         WHERE s."quoteId" = q.id AND s."userId" = ${userId}::uuid
         LIMIT 1
-      ), NULL) as "savedAt"
+      ), NULL) as "savedAt",
+      COALESCE((
+        SELECT json_agg(t.name)
+        FROM "QuoteTheme" qt
+        JOIN "Theme" t ON t.id = qt."themeId"
+        WHERE qt."quoteId" = q.id
+      ), '[]'::json) as "themes"
     FROM "Quote" q
     LEFT JOIN "Profile" u ON u.id = q."userId"
     LEFT JOIN "Author" a ON a."id" = q."authorId"
@@ -336,7 +374,7 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { text, author, book, theme, blockData, isPublic } = await req.json();
+      const { text, author, book, theme, themes, blockData, isPublic } = await req.json();
       if (!text) return error('Missing required field: text', 400);
 
       const hasAuthor = author && typeof author === 'string' && author.trim() !== '' && author.trim() !== 'Auteur inconnu';
@@ -516,12 +554,30 @@ serve(async (req: Request) => {
       const authorIdToInsert = authorRecord ? authorRecord.id : null;
       const bookIdToInsert = bookRecord ? bookRecord.id : null;
 
+      // Extract themes, fallback to [theme] or additionalThemes
+      let finalThemes: string[] = [];
+      if (Array.isArray(themes)) {
+        finalThemes = themes;
+      } else if (theme) {
+        finalThemes = [theme];
+      }
+      if (blockData?.additionalThemes && Array.isArray(blockData.additionalThemes)) {
+        finalThemes = [...finalThemes, ...blockData.additionalThemes];
+      }
+      finalThemes = Array.from(new Set(finalThemes.map(t => t.trim()).filter(Boolean)));
+      
+      const themeToInsert = finalThemes[0] || null;
+
       const quoteRows = await sql`
         INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData", "isPublic")
-        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${theme ?? null}, 0, ${blockData ? JSON.stringify(blockData) : null}, ${isPublic !== false})
+        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${themeToInsert}, 0, ${blockData ? JSON.stringify(blockData) : null}, ${isPublic !== false})
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;
+
+      if (finalThemes.length > 0) {
+        await updateQuoteThemes(newQuoteId, finalThemes);
+      }
 
       // Background AI analysis
       // @ts-ignore deno
@@ -650,7 +706,7 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { text, author, book, theme, blockData, isPublic } = await req.json();
+      const { text, author, book, theme, themes, blockData, isPublic } = await req.json();
       const existingRows = await sql`
         SELECT q.*, row_to_json(a) as author, row_to_json(b) as book,
                (SELECT row_to_json(u_row) FROM (SELECT u.id, u.username, u.name, u.image FROM "Profile" u WHERE u.id = q."userId") u_row) as "user"
@@ -863,9 +919,36 @@ serve(async (req: Request) => {
 
       // 3. Update the Quote
 
+      let finalThemes: string[] | undefined = undefined;
+      let themeToUpdate: string | null | undefined = undefined;
+      
+      if (themes !== undefined || theme !== undefined || (blockData !== undefined && blockData?.additionalThemes !== undefined)) {
+        if (Array.isArray(themes)) {
+          finalThemes = themes;
+        } else {
+          const currentTheme = theme !== undefined ? theme : existing.theme;
+          let currentBlockData = blockData !== undefined ? blockData : existing.blockData;
+          if (typeof currentBlockData === 'string') {
+            try {
+              currentBlockData = JSON.parse(currentBlockData);
+            } catch (e) {
+              currentBlockData = {};
+            }
+          }
+          const currentAdditional = currentBlockData?.additionalThemes || [];
+          
+          finalThemes = [];
+          if (currentTheme) finalThemes.push(currentTheme);
+          if (Array.isArray(currentAdditional)) finalThemes.push(...currentAdditional);
+        }
+        
+        finalThemes = Array.from(new Set(finalThemes.map(t => t.trim()).filter(Boolean)));
+        themeToUpdate = finalThemes[0] || null;
+      }
+
       console.log('[DEBUG PATCH]', {
         text: text !== undefined ? text : existing.text,
-        theme: theme !== undefined ? theme : existing.theme,
+        theme: themeToUpdate !== undefined ? themeToUpdate : existing.theme,
         authorId,
         bookId,
         blockData: blockData !== undefined ? blockData : existing.blockData,
@@ -881,13 +964,17 @@ serve(async (req: Request) => {
       await sql`
         UPDATE "Quote" SET
           "text" = ${text !== undefined ? text : (existing.text ?? null)},
-          "theme" = ${theme !== undefined ? theme : (existing.theme ?? null)},
+          "theme" = ${themeToUpdate !== undefined ? themeToUpdate : (existing.theme ?? null)},
           "authorId" = ${authorId ?? null},
           "bookId" = ${bookId ?? null},
           "blockData" = ${blockData !== undefined ? (blockData ? JSON.stringify(blockData) : null) : (existing.blockData ?? null)},
           "isPublic" = ${isPublic !== undefined ? isPublic : (existing.isPublic ?? true)}
         WHERE "id" = ${idParam}
       `;
+
+      if (finalThemes !== undefined) {
+        await updateQuoteThemes(idParam, finalThemes);
+      }
 
       const updatedRows = await fetchQuotes(authUser.id, idParam);
       return json(formatQuote(updatedRows[0], authUser.id));

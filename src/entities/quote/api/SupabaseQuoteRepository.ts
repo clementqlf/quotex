@@ -36,6 +36,8 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   private mapQuoteFromServer(q: any): Quote {
+    const parsedBlockData = parseJsonField<Record<string, any>>(q.blockData) || {};
+    const fallbackThemes = q.theme ? [q.theme, ...(parsedBlockData.additionalThemes || [])].filter(Boolean) : [];
     return {
         id: q.id,
         text: q.text,
@@ -44,13 +46,14 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
         bookId: q.bookId || q.book_id || (q.book && typeof q.book === 'object' ? q.book.id : undefined),
         authorId: q.authorId || q.author_id || (q.author && typeof q.author === 'object' ? q.author.id : undefined),
         theme: q.theme,
+        themes: q.themes || fallbackThemes,
         likesCount: q.likesCount || 0,
         isLiked: q.isLiked || false,
         date: q.date || new Date().toISOString(),
         time: q.date ? new Date(q.date).toLocaleDateString() : "Aujourd'hui",
         isSaved: q.isSaved || false,
         comments: q.comments || 0,
-        blockData: parseJsonField<Record<string, any>>(q.blockData) || {},
+        blockData: parsedBlockData,
         user: q.user,
         aiInterpretation: q.aiInterpretation,
         isPublic: q.isPublic,
@@ -61,23 +64,29 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   private async seedDataIfNeeded(): Promise<void> {
     const storedQuotes = await StorageService.getItem<Quote[]>(STORAGE_KEYS.QUOTES);
     if (!storedQuotes) {
-        const initialQuotes = [...localQuotesDB, ...globalQuotesDB].map(q => ({
-            id: q.id,
-            text: q.text,
-            book: q.book,
-            author: q.author,
-            bookId: (q as any).bookId || (q.book && typeof q.book === 'object' ? (q.book as any).id : undefined),
-            authorId: (q as any).authorId || (q.author && typeof q.author === 'object' ? (q.author as any).id : undefined),
-            theme: (q as any).theme || undefined,
-            likesCount: (q as any).likesCount || ((q as any).likes && typeof (q as any).likes === 'number' ? (q as any).likes : 0),
-            likes: [],
-            isLiked: q.isLiked,
-            user: (q as any).user || { id: "00000000-0000-0000-0000-000000000000", name: "Quotex", username: "quotex" },
-            date: (q as any).date || (q as any).time,
-            isSaved: (q as any).isSaved,
-            comments: (q as any).comments,
-            blockData: (q as any).blockData || {},
-        } as Quote));
+        const initialQuotes = [...localQuotesDB, ...globalQuotesDB].map(q => {
+            const blockData = (q as any).blockData || {};
+            const theme = (q as any).theme || undefined;
+            const themes = (q as any).themes || (theme ? [theme, ...(blockData.additionalThemes || [])].filter(Boolean) : []);
+            return {
+                id: q.id,
+                text: q.text,
+                book: q.book,
+                author: q.author,
+                bookId: (q as any).bookId || (q.book && typeof q.book === 'object' ? (q.book as any).id : undefined),
+                authorId: (q as any).authorId || (q.author && typeof q.author === 'object' ? (q.author as any).id : undefined),
+                theme,
+                themes,
+                likesCount: (q as any).likesCount || ((q as any).likes && typeof (q as any).likes === 'number' ? (q as any).likes : 0),
+                likes: [],
+                isLiked: q.isLiked,
+                user: (q as any).user || { id: "00000000-0000-0000-0000-000000000000", name: "Quotex", username: "quotex" },
+                date: (q as any).date || (q as any).time,
+                isSaved: (q as any).isSaved,
+                comments: (q as any).comments,
+                blockData,
+            } as Quote;
+        });
         await StorageService.setItem(STORAGE_KEYS.QUOTES, initialQuotes);
     }
   }

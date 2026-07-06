@@ -49,6 +49,7 @@ export interface Quote {
   bookId?: number; // ID du livre associé (pour la base de données)
   authorId?: number; // ID de l'auteur associé (pour la base de données)
   theme?: string; // Thème de la citation
+  themes?: string[]; // Liste de thèmes de la citation (Many-to-Many)
   date?: string; // Date de création de la quote
   savedAt?: string | null; // Date où l'utilisateur a sauvegardé la quote (userquote.AddedAt)
   likesCount: number; // Nombre de likes
@@ -78,6 +79,7 @@ export interface CreateQuoteDto {
   book?: string | null;
   author?: string | null;
   theme?: string;
+  themes?: string[];
 }
 
 // DTO pour mettre à jour une citation

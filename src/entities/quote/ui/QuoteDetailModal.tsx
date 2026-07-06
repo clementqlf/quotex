@@ -373,96 +373,59 @@ function QuoteDetailContent() {
   const [customThemeText, setCustomThemeText] = React.useState('');
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
+  const updateThemesList = async (newThemes: string[]) => {
+    if (!quote) return;
+    const uniqueThemes = Array.from(new Set(newThemes.map(t => t.trim()).filter(Boolean)));
+    const newPrimaryTheme = uniqueThemes[0] || undefined;
+    const newAdditionalThemes = uniqueThemes.slice(1);
+    const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditionalThemes };
+    
+    const updatedQuote: Quote = {
+      ...quote,
+      theme: newPrimaryTheme,
+      themes: uniqueThemes,
+      blockData: newBlockData
+    };
+    
+    setQuote(updatedQuote);
+    if (quote.id) {
+      const payload = {
+        theme: newPrimaryTheme,
+        themes: uniqueThemes,
+        blockData: newBlockData
+      };
+      await quoteService.updateQuote(quote.id, payload);
+      if (updateQuote) updateQuote(quote.id, payload);
+    }
+  };
+
   const removeTheme = async (themeToRemove: string) => {
     if (!quote) return;
-    const currentTheme = quote.theme;
-    const currentAdditional = quote.blockData?.additionalThemes || [];
-
-    if (currentTheme === themeToRemove) {
-      if (currentAdditional.length > 0) {
-        const newTheme = currentAdditional[0];
-        const newAdditional = currentAdditional.slice(1);
-        const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditional };
-        const updatedQuote = { ...quote, theme: newTheme, blockData: newBlockData };
-        setQuote(updatedQuote);
-        if (quote.id) {
-          await quoteService.updateQuote(quote.id, { theme: newTheme, blockData: newBlockData });
-          if (updateQuote) updateQuote(quote.id, { theme: newTheme, blockData: newBlockData });
-        }
-      } else {
-        const updatedQuote = { ...quote, theme: undefined };
-        setQuote(updatedQuote);
-        if (quote.id) {
-          await quoteService.updateQuote(quote.id, { theme: undefined });
-          if (updateQuote) updateQuote(quote.id, { theme: undefined });
-        }
-      }
-    } else {
-      const newAdditional = currentAdditional.filter((t: string) => t !== themeToRemove);
-      const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditional };
-      const updatedQuote = { ...quote, blockData: newBlockData };
-      setQuote(updatedQuote);
-      if (quote.id) {
-        await quoteService.updateQuote(quote.id, { blockData: newBlockData });
-        if (updateQuote) updateQuote(quote.id, { blockData: newBlockData });
-      }
-    }
+    const currentThemes = quote.themes && quote.themes.length > 0
+      ? quote.themes
+      : [quote.theme, ...(quote.blockData?.additionalThemes || [])].filter(Boolean) as string[];
+    const newThemes = currentThemes.filter((t: string) => t !== themeToRemove);
+    await updateThemesList(newThemes);
   };
 
   const addTheme = async (themeToAdd: string) => {
     if (!quote) return;
-    const currentTheme = quote.theme;
-    const currentAdditional = quote.blockData?.additionalThemes || [];
-
-    if (!currentTheme || currentTheme === 'Thème non renseigné') {
-      const updatedQuote = { ...quote, theme: themeToAdd };
-      setQuote(updatedQuote);
-      if (quote.id) {
-        await quoteService.updateQuote(quote.id, { theme: themeToAdd });
-        if (updateQuote) updateQuote(quote.id, { theme: themeToAdd });
-      }
-    } else {
-      if (currentTheme === themeToAdd || currentAdditional.includes(themeToAdd)) return;
-      const newAdditional = [...currentAdditional, themeToAdd];
-      const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditional };
-      const updatedQuote = { ...quote, blockData: newBlockData };
-      setQuote(updatedQuote);
-      if (quote.id) {
-        await quoteService.updateQuote(quote.id, { blockData: newBlockData });
-        if (updateQuote) updateQuote(quote.id, { blockData: newBlockData });
-      }
-    }
+    const currentThemes = quote.themes && quote.themes.length > 0
+      ? quote.themes
+      : [quote.theme, ...(quote.blockData?.additionalThemes || [])].filter(Boolean) as string[];
+    if (currentThemes.includes(themeToAdd)) return;
+    const newThemes = [...currentThemes, themeToAdd];
+    await updateThemesList(newThemes);
   };
 
   const replaceTheme = async (oldTheme: string, newTheme: string) => {
     if (!quote) return;
-
-    let newPrimaryTheme = quote.theme;
-    let newAdditionalThemes = [...(quote.blockData?.additionalThemes || [])];
-
-    if (newPrimaryTheme === oldTheme) {
-      newPrimaryTheme = newTheme;
-    } else {
-      const index = newAdditionalThemes.indexOf(oldTheme);
-      if (index > -1) {
-        newAdditionalThemes[index] = newTheme;
-      } else {
-        newAdditionalThemes.push(newTheme);
-      }
-    }
-
-    const allUnique = Array.from(new Set([newPrimaryTheme, ...newAdditionalThemes].filter(Boolean) as string[]));
-    newPrimaryTheme = allUnique[0] || undefined;
-    newAdditionalThemes = allUnique.slice(1);
-
-    const newBlockData = { ...(quote.blockData || {}), additionalThemes: newAdditionalThemes };
-    const updatedQuote = { ...quote, theme: newPrimaryTheme, blockData: newBlockData };
-
-    setQuote(updatedQuote);
-    if (quote.id) {
-      await quoteService.updateQuote(quote.id, { theme: newPrimaryTheme, blockData: newBlockData });
-      if (updateQuote) updateQuote(quote.id, { theme: newPrimaryTheme, blockData: newBlockData });
-    }
+    const currentThemes = quote.themes && quote.themes.length > 0
+      ? quote.themes
+      : [quote.theme, ...(quote.blockData?.additionalThemes || [])].filter(Boolean) as string[];
+    
+    const newThemes = currentThemes.map((t: string) => t === oldTheme ? newTheme : t);
+    await updateThemesList(newThemes);
   };
 
   const handleThemeLongPress = (themeStr: string) => {
@@ -605,7 +568,8 @@ function QuoteDetailContent() {
   }, [quote?.blockData?.recommendedBooks, books]);
   const quoteTheme = quote?.theme;
   const additionalThemes = quote?.blockData?.additionalThemes || [];
-  const allThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean) as string[]));
+  const legacyThemes = Array.from(new Set([quoteTheme, ...additionalThemes].filter(Boolean) as string[]));
+  const allThemes = quote?.themes && quote.themes.length > 0 ? quote.themes : legacyThemes;
   if (allThemes.length === 0) {
     allThemes.push('Thème non renseigné');
   }
