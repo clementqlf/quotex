@@ -1205,7 +1205,7 @@ function QuoteDetailContent() {
             </View>
 
             {activeTab === 'description' ? (
-              <View style={{ gap: 10 }}>
+              <View style={{ gap: 6 }}>
                 {DESCRIPTION_BLOCKS.map(blockKey => (
                   <BlockDispatcher
                     key={blockKey}
@@ -1220,8 +1220,8 @@ function QuoteDetailContent() {
                   columns={1}
                   data={currentTabBlocks}
                   renderItem={renderGridItem}
-                  rowGap={10}
-                  columnGap={10}
+                  rowGap={6}
+                  columnGap={6}
                   scrollableRef={scrollableRef}
                   autoScrollEnabled={true}
                   autoScrollActivationOffset={75}

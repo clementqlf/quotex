@@ -5,6 +5,7 @@ import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 const entityCache = new Map<string, Promise<Record<string, InventaireEntity>>>();
 const wikipediaCache = new Map<string, Promise<string | null>>();
 const searchCache = new Map<string, Promise<InventaireSearchResult[]>>();
+const workEditionUrisCache = new Map<string, Promise<string[]>>();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -700,7 +701,7 @@ export const getInventaireAuthorDetails = async (uri: string): Promise<Inventair
     return { uri, name, image: imageUrl, birthDate, nationality: nationalityUri, wikipediaTitle, description };
 };
 
-export const fetchWikipediaSynopsis = async (title: string, lang: string = 'fr'): Promise<string | null> => {
+export const fetchWikipediaSynopsis = (title: string, lang: string = 'fr'): Promise<string | null> => {
     if (!title) return null;
     
     const cacheKey = `${lang}:${title}`;
@@ -751,17 +752,28 @@ export const getBatchInventaireDetails = async (uris: string[]): Promise<Record<
 
 // ─── API: Editions ───────────────────────────────────────────────────────────
 
-export const getWorkEditionUris = async (workUri: string): Promise<string[]> => {
-    try {
-        const url = `${INVENTAIRE_BASE}/api/entities?action=reverse-claims&property=wdt:P629&value=${encodeURIComponent(workUri)}`;
-        const response = await fetchWithAgent(url);
-        if (!response.ok) throw new Error(`Inventaire reverse-claims error: ${response.status}`);
-        const data = await response.json();
-        return data.uris || [];
-    } catch (e) {
-        console.error('[Inventaire API] Error fetching edition URIs:', e);
-        return [];
+export const getWorkEditionUris = (workUri: string): Promise<string[]> => {
+    if (workEditionUrisCache.has(workUri)) {
+        return workEditionUrisCache.get(workUri)!;
     }
+    const fetchPromise = (async () => {
+        try {
+            const url = `${INVENTAIRE_BASE}/api/entities?action=reverse-claims&property=wdt:P629&value=${encodeURIComponent(workUri)}`;
+            const response = await fetchWithAgent(url);
+            if (!response.ok) throw new Error(`Inventaire reverse-claims error: ${response.status}`);
+            const data = await response.json();
+            return data.uris || [];
+        } catch (e) {
+            console.error('[Inventaire API] Error fetching edition URIs:', e);
+            return [];
+        }
+    })();
+
+    workEditionUrisCache.set(workUri, fetchPromise);
+    // Clean cache after 5 minutes
+    setTimeout(() => workEditionUrisCache.delete(workUri), 300000);
+
+    return fetchPromise;
 };
 
 export const getAuthorWorkUris = async (authorUri: string): Promise<string[]> => {

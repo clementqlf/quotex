@@ -74,6 +74,7 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
+    marginTop: 6,
   },
   placeholderIcon: { marginBottom: 8 },
   placeholderText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },

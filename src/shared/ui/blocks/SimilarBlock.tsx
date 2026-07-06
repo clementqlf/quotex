@@ -25,6 +25,10 @@ const SimilarBlockUI: React.FC<SimilarBlockProps> = ({ type, items, onPress, onR
 
     const hasItems = items && items.length > 0;
 
+    const displayedItems = React.useMemo(() => {
+        return (items || []).slice(0, 10);
+    }, [items]);
+
     if (!hasItems) {
         return (
             <BlockWrapper blockKey={type === 'book' ? 'similarBooks' : 'similarAuthors'} onRemove={onRemove}>
@@ -38,7 +42,7 @@ const SimilarBlockUI: React.FC<SimilarBlockProps> = ({ type, items, onPress, onR
     return (
         <BlockWrapper blockKey={type === 'book' ? 'similarBooks' : 'similarAuthors'} onRemove={onRemove}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.container}>
-                {items.map((item, index) => {
+                {displayedItems.map((item, index) => {
                     const imageUrl = item.image || (type === 'author' ? 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop' : null);
 
                     return (

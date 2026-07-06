@@ -112,6 +112,17 @@ export default function AuthorDetailScreen() {
   });
   const resolvedAuthorId = authorInfo?.id || authorId;
 
+  // Use TanStack Query for all works (all books in DB for this author)
+  const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
+    queryKey: ['author-all-works', resolvedAuthorId, nameToUse],
+    queryFn: async () => {
+      if (!resolvedAuthorId || !nameToUse) throw new Error('Author ID or name missing');
+      return getBooksByAuthor(nameToUse, resolvedAuthorId);
+    },
+    enabled: !!resolvedAuthorId && !!nameToUse,
+    staleTime: 5 * 60 * 1000
+  });
+
   const { data: authorBooks = [], refetch: refetchBooks } = useQuery({
     queryKey: ['author-books', resolvedAuthorId],
     queryFn: () => {
@@ -128,8 +139,14 @@ export default function AuthorDetailScreen() {
   const resolvedAuthorInfo: Author | null = authorInfo ?? null;
   const resolvedAuthorBooks: Book[] = authorBooks ?? [];
   const notableWorks = useMemo(
-    () => resolvedAuthorBooks.filter((book) => book.isNotable),
-    [resolvedAuthorBooks]
+    () => {
+      const notable = resolvedAuthorBooks.filter((book) => book.isNotable);
+      if (notable.length > 0) {
+        return notable;
+      }
+      return allWorks.slice(0, 7);
+    },
+    [resolvedAuthorBooks, allWorks]
   );
 
   const enrichingAuthors = useMemo(() => {
@@ -168,16 +185,7 @@ export default function AuthorDetailScreen() {
   const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
   const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
 
-  // Use TanStack Query for all works (all books in DB for this author)
-  const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
-    queryKey: ['author-all-works', resolvedAuthorId, nameToUse],
-    queryFn: async () => {
-      if (!resolvedAuthorId || !nameToUse) throw new Error('Author ID or name missing');
-      return getBooksByAuthor(nameToUse, resolvedAuthorId);
-    },
-    enabled: !!resolvedAuthorId && !!nameToUse,
-    staleTime: 5 * 60 * 1000
-  });
+
 
   // Total books/works count computed during render
   const totalBooksCount = allWorks.length > 0 ? allWorks.length : resolvedAuthorBooks.length;
@@ -532,7 +540,9 @@ export default function AuthorDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <AuthorBlock author={resolvedAuthorInfo} hideName={true} />
+          <View style={styles.authorBlockWrapper}>
+            <AuthorBlock author={resolvedAuthorInfo} hideName={true} />
+          </View>
 
           <View style={styles.detailContainerSection}>
             <View style={styles.detailsContainer}>
@@ -579,7 +589,7 @@ export default function AuthorDetailScreen() {
               <Text style={styles.sectionTitle}>Œuvres Notables</Text>
             </View>
 
-            {notableWorks.length === 0 && !isLoadingAuthor && (
+            {notableWorks.length === 0 && !isLoadingAuthor && !isLoadingAllWorks && (
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
 
@@ -641,32 +651,36 @@ export default function AuthorDetailScreen() {
             )}
           </View>
 
-          {(() => {
-            const userQuotes = quotes.filter(q => {
-              return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
-            });
+          <View style={styles.blockWrapper}>
+            {(() => {
+              const userQuotes = quotes.filter(q => {
+                return isUserQuote(q, currentUser?.id) && getAuthorName(q.author).toLowerCase() === authorName.toLowerCase();
+              });
 
-            return (
-              <SavedQuotesBlock
-                quotes={userQuotes}
-                showBookTitle={true}
-                onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
-                onAddQuote={openAddQuoteFlow}
-              />
-            );
-          })()}
+              return (
+                <SavedQuotesBlock
+                  quotes={userQuotes}
+                  showBookTitle={true}
+                  onQuotePress={(quote) => router.navigate({ pathname: '/quote-detail', params: { quote: JSON.stringify(quote) } })}
+                  onAddQuote={openAddQuoteFlow}
+                />
+              );
+            })()}
+          </View>
 
           {resolvedAuthorInfo?.similarAuthors && resolvedAuthorInfo.similarAuthors.length > 0 && (
-            <SimilarBlock
-              type="author"
-              items={resolvedAuthorInfo.similarAuthors.map(simAuthor => ({
-                id: simAuthor.id,
-                title: simAuthor.name,
-                image: simAuthor.image,
-                inventaireUri: simAuthor.inventaireUri,
-              }))}
-              onPress={(idOrTitle, inventaireUri) => navigateToAuthor(idOrTitle, inventaireUri)}
-            />
+            <View style={styles.blockWrapper}>
+              <SimilarBlock
+                type="author"
+                items={resolvedAuthorInfo.similarAuthors.map(simAuthor => ({
+                  id: simAuthor.id,
+                  title: simAuthor.name,
+                  image: simAuthor.image,
+                  inventaireUri: simAuthor.inventaireUri,
+                }))}
+                onPress={(idOrTitle, inventaireUri) => navigateToAuthor(idOrTitle, inventaireUri)}
+              />
+            </View>
           )}
         </ScrollView>
 
@@ -855,7 +869,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   profileHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   authorImage: {
     width: 100,
@@ -949,7 +963,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statItem: {
     flex: 1,
@@ -977,7 +991,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -990,13 +1004,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  authorBlockWrapper: {
+    marginBottom: 6, // Compense le marginBottom de 10px du BlockWrapper pour atteindre 16px
+  },
+  blockWrapper: {
+    marginBottom: 6, // Compense le marginBottom de 10px du BlockWrapper pour atteindre 16px
+  },
   detailContainerSection: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.surfaceHighlight,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   detailsContainer: {
     flexDirection: 'row',

@@ -4,10 +4,11 @@ import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { ThemeColors } from '@/src/shared/theme';
-import { Plus } from 'lucide-react-native';
+import { Plus, X } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { BlockWrapper } from './BlockWrapper';
 
 interface SavedQuotesBlockProps {
@@ -39,6 +40,8 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
     const { user: currentUser } = useAuth();
     const styles = createStyles(colors);
     const [quoteSubFilter, setQuoteSubFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
+    const [showAllQuotesModal, setShowAllQuotesModal] = useState(false);
+    const [modalQuoteFilter, setModalQuoteFilter] = useState<'ALL' | 'PUBLISHED' | 'SAVED'>('ALL');
 
     const filteredQuotes = useMemo(() => {
         if (!quotes) return [];
@@ -50,6 +53,21 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
         }
         return quotes;
     }, [quotes, quoteSubFilter, currentUser, ownerId]);
+
+    const displayedQuotes = useMemo(() => {
+        return filteredQuotes.slice(0, 5);
+    }, [filteredQuotes]);
+
+    const filteredModalQuotes = useMemo(() => {
+        if (!quotes) return [];
+        const targetOwnerId = ownerId || currentUser?.id;
+        if (modalQuoteFilter === 'PUBLISHED') {
+            return quotes.filter(q => q.user?.id === targetOwnerId || !q.user);
+        } else if (modalQuoteFilter === 'SAVED') {
+            return quotes.filter(q => q.user && q.user?.id !== targetOwnerId && q.isSaved);
+        }
+        return quotes;
+    }, [quotes, modalQuoteFilter, currentUser, ownerId]);
 
     const rightElement = onAddQuote ? (
         <TouchableOpacity onPress={(e) => onAddQuote(e.nativeEvent.pageY)} style={{ padding: 4 }} testID="add-quote-block-btn">
@@ -86,7 +104,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
                 </TouchableOpacity>
             </View>
 
-            {filteredQuotes.length === 0 ? (
+            {displayedQuotes.length === 0 ? (
                 <Text style={styles.fallbackText}>
                     {quoteSubFilter === 'ALL' 
                         ? (fallbackText || (showBookTitle ? "Aucune citation sauvegardée pour cet auteur." : "Aucune citation sauvegardée pour ce livre."))
@@ -97,7 +115,7 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
                 </Text>
             ) : (
                 <View style={styles.savedQuotesList}>
-                    {filteredQuotes.map((quote: Quote) => (
+                    {displayedQuotes.map((quote: Quote) => (
                         <TouchableOpacity
                             key={quote.id}
                             style={styles.savedQuoteCard}
@@ -134,6 +152,127 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
                     ))}
                 </View>
             )}
+
+            {filteredQuotes.length > 5 && (
+                <TouchableOpacity
+                    style={styles.showAllButton}
+                    onPress={() => {
+                        setModalQuoteFilter(quoteSubFilter);
+                        setShowAllQuotesModal(true);
+                    }}
+                >
+                    <Text style={styles.showAllButtonText}>Afficher toutes les citations ({filteredQuotes.length})</Text>
+                </TouchableOpacity>
+            )}
+
+            <Modal
+                visible={showAllQuotesModal}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowAllQuotesModal(false)}
+            >
+                <View style={styles.quotesModalContainer}>
+                    <View style={styles.quotesModalHeader}>
+                        <View style={styles.modalTabs}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalTabButton,
+                                    modalQuoteFilter === 'ALL' && styles.modalTabButtonActive,
+                                ]}
+                                onPress={() => setModalQuoteFilter('ALL')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modalTabText,
+                                        modalQuoteFilter === 'ALL' && styles.modalTabTextActive,
+                                    ]}
+                                >
+                                    Tout
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalTabButton,
+                                    modalQuoteFilter === 'PUBLISHED' && styles.modalTabButtonActive,
+                                ]}
+                                onPress={() => setModalQuoteFilter('PUBLISHED')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modalTabText,
+                                        modalQuoteFilter === 'PUBLISHED' && styles.modalTabTextActive,
+                                    ]}
+                                >
+                                    Publiés
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalTabButton,
+                                    modalQuoteFilter === 'SAVED' && styles.modalTabButtonActive,
+                                ]}
+                                onPress={() => setModalQuoteFilter('SAVED')}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modalTabText,
+                                        modalQuoteFilter === 'SAVED' && styles.modalTabTextActive,
+                                    ]}
+                                >
+                                    Partagées
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity 
+                            style={styles.modalCloseButton} 
+                            onPress={() => setShowAllQuotesModal(false)}
+                            accessible={true}
+                            accessibilityLabel="Fermer"
+                            accessibilityRole="button"
+                        >
+                            <X size={20} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <FlashList
+                        data={filteredModalQuotes}
+                        keyExtractor={(item) => String(item.id)}
+                        getItemType={() => 'quote'}
+                        removeClippedSubviews={true}
+                        contentContainerStyle={styles.quotesModalListContent}
+                        renderItem={({ item }) => {
+                            const isQuoteMine = item.user?.id === currentUser?.id || !item.user;
+                            return (
+                                <TouchableOpacity
+                                    style={styles.quoteModalCard}
+                                    activeOpacity={0.8}
+                                    onPress={() => {
+                                        setShowAllQuotesModal(false);
+                                        onQuotePress(item);
+                                    }}
+                                >
+                                    <Text style={styles.quoteModalText}>“ {item.text} ”</Text>
+                                    <View style={styles.quoteModalMeta}>
+                                        {showBookTitle ? (
+                                            <Text style={styles.quoteModalBook}>{getBookTitle(item.book)}</Text>
+                                        ) : (
+                                            <Text style={styles.quoteModalBook}>{getAuthorName(item.author)}</Text>
+                                        )}
+                                        <Text style={styles.quoteModalUser}>
+                                            Par {isQuoteMine ? 'Moi' : item.user?.name || `@${item.user?.username}`}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        }}
+                        ListEmptyComponent={
+                            <View style={styles.centered}>
+                                <Text style={styles.emptyText}>Aucune citation trouvée.</Text>
+                            </View>
+                        }
+                    />
+                </View>
+            </Modal>
         </BlockWrapper>
     );
 };
@@ -235,5 +374,110 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     activeTabText: {
         color: colors.primary,
         fontWeight: '600',
+    },
+    showAllButton: {
+        marginTop: 16,
+        padding: 12,
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        alignItems: 'center',
+    },
+    showAllButtonText: {
+        color: colors.primary,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    quotesModalContainer: {
+        flex: 1,
+        backgroundColor: colors.background,
+    },
+    quotesModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        marginTop: Platform.OS === 'ios' ? 0 : 20,
+    },
+    quotesModalListContent: {
+        padding: 16,
+        paddingBottom: 32,
+    },
+    modalTabs: {
+        flexDirection: 'row',
+        gap: 16,
+    },
+    modalTabButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+    },
+    modalTabButtonActive: {
+        backgroundColor: colors.primaryLight,
+        borderColor: colors.primary,
+    },
+    modalTabText: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        fontWeight: '500',
+    },
+    modalTabTextActive: {
+        color: colors.primary,
+        fontWeight: '600',
+    },
+    modalCloseButton: {
+        padding: 8,
+    },
+    quoteModalCard: {
+        backgroundColor: colors.surfaceHighlight,
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        marginBottom: 12,
+    },
+    quoteModalText: {
+        fontSize: 15,
+        color: colors.text,
+        lineHeight: 22,
+        fontStyle: 'italic',
+        marginBottom: 12,
+        fontFamily: 'serif',
+    },
+    quoteModalMeta: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        paddingTop: 8,
+    },
+    quoteModalBook: {
+        fontSize: 12,
+        color: colors.primary,
+        fontWeight: '600',
+    },
+    quoteModalUser: {
+        fontSize: 11,
+        color: colors.textTertiary,
+    },
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyText: {
+        color: colors.textTertiary,
+        fontSize: 14,
+        fontStyle: 'italic',
+        textAlign: 'center',
     },
 });

@@ -497,11 +497,32 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
 
     for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
       const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
-      console.log(`[Inventaire] Fetching details for works chunk ${i/CHUNK_SIZE + 1}`);
       
+      // Fetch edition URIs in parallel for the current chunk of works
+      const editionUrisPerWork = await Promise.all(
+        chunk.map(async (wUri) => {
+          const edUris = await api.getWorkEditionUris(wUri);
+          return { wUri, hasEditions: edUris.length > 0 };
+        })
+      );
+
+      // Keep only works with at least one edition
+      const filteredChunk = editionUrisPerWork
+        .filter((x) => x.hasEditions)
+        .map((x) => x.wUri);
+
+      if (filteredChunk.length === 0) {
+        console.log(`[Inventaire] No works in chunk ${i / CHUNK_SIZE + 1} have editions. Skipping chunk.`);
+        continue;
+      }
+
+      console.log(
+        `[Inventaire] Fetching details for works chunk ${i / CHUNK_SIZE + 1} (${filteredChunk.length}/${chunk.length} have editions)`
+      );
+
       const [workEntities, bestCovers] = await Promise.all([
-        api.getBatchInventaireDetails(chunk),
-        api.getBestNativeCovers(chunk)
+        api.getBatchInventaireDetails(filteredChunk),
+        api.getBestNativeCovers(filteredChunk),
       ]);
 
       for (const [wUri, details] of Object.entries(workEntities)) {
