@@ -1,6 +1,7 @@
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { Author, Book } from '@/src/shared/api/types';
+import { useBookRealtime, useAuthorRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { Dispatch, SetStateAction, useState, useEffect } from 'react';
@@ -91,9 +92,28 @@ export const useBookData = (): BookDataResult => {
   const resolvedBookInfo = bookInfo || bookData?.book || null;
   const resolvedAuthorInfo = authorInfo || bookData?.author || null;
 
+  // Subscribe to realtime entity changes to catch asynchronous server enrichment updates
+  const realtimeBook = useBookRealtime(resolvedBookInfo?.id, resolvedBookInfo);
+  const realtimeAuthor = useAuthorRealtime(resolvedAuthorInfo?.id, resolvedAuthorInfo);
+
+  // Invalidate query when enrichment completes to sync TanStack query cache
+  useEffect(() => {
+    if (realtimeBook && !realtimeBook.isEnriching && resolvedBookInfo?.isEnriching) {
+      console.log('[Realtime] Book enrichment complete, refetching query data...');
+      refetch();
+    }
+  }, [realtimeBook?.isEnriching, resolvedBookInfo?.isEnriching, refetch]);
+
+  useEffect(() => {
+    if (realtimeAuthor && !realtimeAuthor.isEnriching && resolvedAuthorInfo?.isEnriching) {
+      console.log('[Realtime] Author enrichment complete, refetching query data...');
+      refetch();
+    }
+  }, [realtimeAuthor?.isEnriching, resolvedAuthorInfo?.isEnriching, refetch]);
+
   return {
-    bookInfo: resolvedBookInfo,
-    authorInfo: resolvedAuthorInfo,
+    bookInfo: realtimeBook || resolvedBookInfo,
+    authorInfo: realtimeAuthor || resolvedAuthorInfo,
     isLoadingMetadata,
     isImporting,
     bookId,
