@@ -11,7 +11,7 @@ import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, isUserQuot
 import { BlockContext } from '@/src/shared/ui/blocks/BlockDispatcher';
 import type { Definition } from '@/src/shared/ui/blocks/DefinitionBlock';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 type TabType = 'description' | 'my_sheet';
@@ -103,12 +103,7 @@ export const useBookDetailController = () => {
     setActiveTab('description');
   }
 
-  // Invalidate queries when book key changes
-  useEffect(() => {
-    if (currentBookKey) {
-      queryClient.invalidateQueries({ queryKey: ['book-detail'] });
-    }
-  }, [currentBookKey, queryClient]);
+
 
   // ========== QUOTES UTILISATEUR ==========
   const userQuotesCountForThisBook = useMemo(() => {
@@ -337,6 +332,7 @@ export const useBookDetailController = () => {
     getAuthorName,
     DESCRIPTION_BLOCKS,
     MYSHEET_BLOCKS,
+    reloadBookData: bookData.reloadBookData,
     colors: useMemo(() => ({} as Record<string, string>), []),
     styles: undefined,
   };

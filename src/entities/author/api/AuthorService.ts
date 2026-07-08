@@ -104,7 +104,23 @@ class AuthorService {
                 : `/books?authorName=${encodeURIComponent(authorName)}`;
 
             const books = await httpClient.get<any[]>(path);
-            return books.map((b: any) => this.mapBookFromServer(b));
+            const mappedBooks = books.map((b: any) => this.mapBookFromServer(b));
+
+            // Sync offline cache for this author's books to handle deletions/updates
+            try {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS) || [];
+                const filteredBooks = storedBooks.filter(b => {
+                    const isSameAuthorId = authorId && typeof b.author === 'object' && b.author !== null && b.author.id === authorId;
+                    const bAuthorName = typeof b.author === 'string' ? b.author : b.author?.name;
+                    const isSameAuthorName = bAuthorName && authorName && bAuthorName.toLowerCase() === authorName.toLowerCase();
+                    return !(isSameAuthorId || isSameAuthorName);
+                });
+                await StorageService.setItem(STORAGE_KEYS.BOOKS, [...filteredBooks, ...mappedBooks]);
+            } catch (cacheError) {
+                debugLog('Error updating local cache in getBooksByAuthor', cacheError);
+            }
+
+            return mappedBooks;
         } catch (error) {
             logFetchError('Error fetching author books from server', error);
         }

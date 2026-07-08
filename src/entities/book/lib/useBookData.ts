@@ -3,7 +3,7 @@ import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
 import { Author, Book } from '@/src/shared/api/types';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useState, useEffect } from 'react';
 
 export interface BookDataResult {
   bookInfo: Book | null;
@@ -45,6 +45,7 @@ export const useBookData = (): BookDataResult => {
   const [bookInfo, setBookInfo] = useState<Book | null>(null);
   const [authorInfo, setAuthorInfo] = useState<Author | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   // Load book and author data using TanStack Query
   const { data: bookData, isLoading: isLoadingQuery, refetch } = useQuery({
@@ -77,7 +78,15 @@ export const useBookData = (): BookDataResult => {
     setAuthorInfo(bookData?.author || null);
   }
 
-  const isLoadingMetadata = isLoadingQuery || isImporting;
+  // Set isNavigationReady to true on next tick to allow params to be resolved
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsNavigationReady(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isLoadingMetadata = !isNavigationReady || isLoadingQuery || isImporting;
 
   const resolvedBookInfo = bookInfo || bookData?.book || null;
   const resolvedAuthorInfo = authorInfo || bookData?.author || null;

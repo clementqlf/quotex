@@ -131,6 +131,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
                   originalText={quote.syncCorrections?.book?.original}
                   isCorrected={!!quote.syncCorrections?.book}
                   style={[styles.bookTitle, { color: colors.text }]}
+                  resetKey={quote.id + '-book'}
                 />
               )}
 
@@ -142,6 +143,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
                   originalText={quote.syncCorrections?.author?.original}
                   isCorrected={!!quote.syncCorrections?.author}
                   style={[styles.authorName, { color: colors.primary }]}
+                  resetKey={quote.id + '-author'}
                 />
               )}
             </View>

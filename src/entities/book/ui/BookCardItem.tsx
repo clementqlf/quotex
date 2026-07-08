@@ -78,7 +78,7 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
         )}
         <View style={[styles.bookCardInfo, (onOpenMenu || showAddButton) ? { paddingRight: 28 } : null]}>
           <View style={styles.bookCardHeader}>
-            <TypingText style={styles.bookCardTitle} text={book.title} />
+            <TypingText style={styles.bookCardTitle} text={book.title} resetKey={book.id} />
             {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
           </View>
           <View style={styles.authorRow}>
@@ -86,6 +86,7 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
               style={styles.bookCardAuthor} 
               numberOfLines={1}
               text={book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
+              resetKey={book.id}
             />
             {book.readingStatus && statusStyle && (
               <View style={[styles.statusBadge, statusStyle]}>

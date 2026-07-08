@@ -10,6 +10,7 @@ import {
   Alert,
   Dimensions,
   Modal,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -348,19 +349,42 @@ function QuoteDetailContent() {
   const resolvedAuthorId = quote?.authorId || (typeof quote?.author === 'object' && quote?.author !== null ? quote.author.id : undefined);
 
   // State for rich data - using TanStack Query
-  const { data: fetchedBook } = useQuery({
+  const { data: fetchedBook, refetch: refetchBook } = useQuery({
     queryKey: ['book', resolvedBookId],
     queryFn: () => authorService.getBookById(resolvedBookId!),
     enabled: !!resolvedBookId,
     staleTime: 5 * 60 * 1000
   });
   
-  const { data: fetchedAuthor } = useQuery({
+  const { data: fetchedAuthor, refetch: refetchAuthor } = useQuery({
     queryKey: ['author', resolvedAuthorId],
     queryFn: () => authorService.getAuthorById(resolvedAuthorId!),
     enabled: !!resolvedAuthorId,
     staleTime: 5 * 60 * 1000
   });
+
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (quoteId) {
+        const qId = parseInt(quoteId);
+        const freshQuote = await quoteService.getQuoteById(qId);
+        if (freshQuote) {
+          lastSavedBlockData.current = freshQuote.blockData ? JSON.stringify(freshQuote.blockData) : '{}';
+          setQuote(freshQuote);
+        }
+      }
+      await Promise.all([
+        refetchBook(),
+        refetchAuthor()
+      ]);
+    } catch (err) {
+      console.log('Failed to refresh quote detail:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [quoteId, refetchBook, refetchAuthor]);
 
   // Convert undefined to null for compatibility with existing code
   const resolvedFetchedBook = fetchedBook ?? null;
@@ -859,6 +883,14 @@ function QuoteDetailContent() {
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
         >
           {/* Header */}
           <View style={styles.header}>

@@ -7,7 +7,7 @@ import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { Image } from 'expo-image';
 import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
@@ -57,7 +57,20 @@ export default function BookDetailScreen() {
     getStatusLabel,
     DESCRIPTION_BLOCKS,
     renderQuoteModals,
+    reloadBookData,
   } = useBookDetailController();
+
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await reloadBookData();
+    } catch (err) {
+      console.error('[BookDetail] Failed to refresh book data:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [reloadBookData]);
 
   const renderGridItem = useCallback(({ item }: { item: string }) => (
     <BlockDispatcher
@@ -145,6 +158,14 @@ export default function BookDetailScreen() {
           style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
         >
           <View style={styles.section}>
             <View style={styles.bookContainer}>

@@ -96,7 +96,7 @@ export default function AuthorDetailScreen() {
   const authorId = author?.id;
   const authorNameForQuery = nameToUse;
   
-  const { data: authorInfo, refetch: refetchAuthor } = useQuery({
+  const { data: authorInfo, isLoading: isLoadingAuthorInfo, refetch: refetchAuthor } = useQuery({
     queryKey: ['author', authorId, authorNameForQuery],
     queryFn: () => {
       if (authorId) {
@@ -113,14 +113,14 @@ export default function AuthorDetailScreen() {
   const resolvedAuthorId = authorInfo?.id || authorId;
 
   // Use TanStack Query for all works (all books in DB for this author)
-  const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
+  const { data: allWorks = [], isLoading: isLoadingAllWorks, refetch: refetchAllWorks } = useQuery({
     queryKey: ['author-all-works', resolvedAuthorId, nameToUse],
     queryFn: async () => {
       if (!resolvedAuthorId || !nameToUse) throw new Error('Author ID or name missing');
       return getBooksByAuthor(nameToUse, resolvedAuthorId);
     },
     enabled: !!resolvedAuthorId && !!nameToUse,
-    staleTime: 5 * 60 * 1000
+    staleTime: 30 * 1000 // 30 seconds to be more reactive to database changes
   });
 
   const { data: authorBooks = [], refetch: refetchBooks } = useQuery({
@@ -162,20 +162,31 @@ export default function AuthorDetailScreen() {
     console.log('[Realtime] Author updated, refetching details...');
     refetchAuthor();
     refetchBooks();
+    refetchAllWorks();
   });
   
+  const [isNavigationReady, setIsNavigationReady] = React.useState(false);
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsNavigationReady(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Combine loading states
-  const isLoadingAuthor = false;
+  const isParamsLoading = !isNavigationReady || (!authorId && !authorNameForQuery);
+  const isLoadingAuthor = isLoadingAuthorInfo || isLoadingAllWorks || isParamsLoading;
 
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
       refetchAuthor(),
-      refetchBooks()
+      refetchBooks(),
+      refetchAllWorks()
     ]);
     setRefreshing(false);
-  }, [refetchAuthor, refetchBooks]);
+  }, [refetchAuthor, refetchBooks, refetchAllWorks]);
 
   // New state for All Works Modal
   const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);

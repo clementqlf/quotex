@@ -11,6 +11,7 @@ interface TypingTextProps {
     containerStyle?: ViewStyle;
     highlightColor?: string;
     numberOfLines?: number;
+    resetKey?: string | number;
 }
 
 /**
@@ -26,12 +27,14 @@ export const TypingText: React.FC<TypingTextProps> = ({
     containerStyle,
     highlightColor = colors.dark.primary,
     numberOfLines,
+    resetKey,
 }) => {
     const [displayText, setDisplayText] = useState<string>(isCorrected && originalText ? originalText : text);
     const [showCursor, setShowCursor] = useState<boolean>(false);
     const [cursorVisible, setCursorVisible] = useState<boolean>(true);
 
     const prevTextRef = useRef<string>(text);
+    const prevResetKeyRef = useRef<string | number | undefined>(resetKey);
     const timersRef = useRef<{
         timeout?: ReturnType<typeof setTimeout>;
         interval?: ReturnType<typeof setInterval>;
@@ -66,6 +69,18 @@ export const TypingText: React.FC<TypingTextProps> = ({
     useEffect(() => {
         const prevText = prevTextRef.current;
         prevTextRef.current = text; // Update ref for next render
+
+        const prevResetKey = prevResetKeyRef.current;
+        prevResetKeyRef.current = resetKey; // Update ref for next render
+
+        // If the reset key changed (e.g. component recycled in list), do NOT animate
+        if (resetKey !== prevResetKey) {
+            setDisplayText(text);
+            setShowCursor(false);
+            setCursorVisible(false);
+            clearAllTimers();
+            return;
+        }
 
         // Determine if we need to animate a correction
         let original: string | undefined = undefined;
