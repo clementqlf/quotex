@@ -129,7 +129,7 @@ serve(async (req: Request) => {
             SELECT b.*, 
               (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
               row_to_json(a) as author,
-              COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
+              COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users,
               COALESCE((
                 SELECT json_agg(json_build_object(
                   'id', l.id,
@@ -149,7 +149,7 @@ serve(async (req: Request) => {
             SELECT b.*, 
               (SELECT e.isbn FROM "Edition" e WHERE e."bookId" = b.id AND e.isbn IS NOT NULL LIMIT 1) as isbn,
               row_to_json(a) as author,
-              COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}), '[]'::json) as users,
+              COALESCE((SELECT json_agg(json_build_object('userId', ub."userId", 'bookId', ub."bookId", 'status', ub.status, 'addedAt', ub."addedAt", 'addedViaQuote', ub."addedViaQuote")) FROM "UserBook" ub WHERE ub."bookId" = b.id AND ub."userId" = ${userId}::uuid), '[]'::json) as users,
               COALESCE((
                 SELECT json_agg(json_build_object(
                   'id', l.id,
@@ -430,13 +430,13 @@ serve(async (req: Request) => {
       if (authUser instanceof Response) return authUser;
 
       const existing = await sql`
-        SELECT 1 FROM "UserBook" WHERE "userId" = ${authUser.id} AND "bookId" = ${idParam} LIMIT 1
+        SELECT 1 FROM "UserBook" WHERE "userId" = ${authUser.id}::uuid AND "bookId" = ${idParam} LIMIT 1
       `;
       if (existing.length) {
-        await sql`DELETE FROM "UserBook" WHERE "userId" = ${authUser.id} AND "bookId" = ${idParam}`;
+        await sql`DELETE FROM "UserBook" WHERE "userId" = ${authUser.id}::uuid AND "bookId" = ${idParam}`;
         return json({ isSaved: false });
       } else {
-        await sql`INSERT INTO "UserBook" ("userId", "bookId", "addedAt") VALUES (${authUser.id}, ${idParam}, now())`;
+        await sql`INSERT INTO "UserBook" ("userId", "bookId", "addedAt") VALUES (${authUser.id}::uuid, ${idParam}, now())`;
         return json({ isSaved: true });
       }
     }
@@ -467,7 +467,7 @@ serve(async (req: Request) => {
 
       await sql`
         INSERT INTO "UserBook" ("userId", "bookId", "status", "addedViaQuote", "addedAt")
-        VALUES (${authUser.id}, ${idParam}, ${readingStatus}, false, now())
+        VALUES (${authUser.id}::uuid, ${idParam}, ${readingStatus}, false, now())
         ON CONFLICT ("userId", "bookId") DO UPDATE SET 
           "status" = EXCLUDED.status,
           "addedViaQuote" = false

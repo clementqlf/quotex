@@ -291,10 +291,7 @@ export default function AuthorDetailScreen() {
           }).length;
 
           const performUnsave = async () => {
-            Promise.all([
-              toggleSaveBook(idToUnsave),
-              updateBookStatus(idToUnsave, null as any)
-            ]).catch(err => {
+            toggleSaveBook(idToUnsave).catch(err => {
               console.error('[AuthorDetail] Optimistic unsave failed:', err);
             });
             Alert.alert('Succès', `Le livre "${book.title}" a été retiré de votre bibliothèque.`);

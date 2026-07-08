@@ -67,7 +67,68 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
   const toggleSaveAuthorMutation = useMutation({
     mutationKey: ['authors', 'toggleSave'],
     mutationFn: (id: number) => authorRepository.toggleSaveAuthor(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['authors'] }),
+    onMutate: async (id: number) => {
+      await queryClient.cancelQueries({ queryKey: ['authors'] });
+      await queryClient.cancelQueries({ queryKey: ['author'] });
+
+      const previousAuthors = queryClient.getQueryData<Author[]>(['authors']);
+      
+      // Update global authors list optimistically
+      if (previousAuthors) {
+        queryClient.setQueryData<Author[]>(['authors'], old => {
+          if (!old) return [];
+          return old.map(a => {
+            if (a.id === id) {
+              const isSaved = !a.isSaved;
+              const followersCount = (a.followersCount ?? 0) + (isSaved ? 1 : -1);
+              return { ...a, isSaved, followersCount: Math.max(0, followersCount) };
+            }
+            return a;
+          });
+        });
+      }
+
+      // Update specific author queries optimistically
+      queryClient.setQueriesData<Author | null | undefined>({ queryKey: ['author'] }, old => {
+        if (!old) return old;
+        if (old.id === id) {
+          const isSaved = !old.isSaved;
+          const followersCount = (old.followersCount ?? 0) + (isSaved ? 1 : -1);
+          return { ...old, isSaved, followersCount: Math.max(0, followersCount) };
+        }
+        return old;
+      });
+
+      return { previousAuthors };
+    },
+    onError: (err, id, ctx) => {
+      if (ctx?.previousAuthors) {
+        queryClient.setQueryData(['authors'], ctx.previousAuthors);
+      }
+    },
+    onSuccess: (data, id) => {
+      if (data) {
+        // Sync with actual server data for global authors list
+        queryClient.setQueryData<Author[]>(['authors'], old => {
+          if (!old) return [];
+          return old.map(a => a.id === id ? { ...a, isSaved: data.isSaved, followersCount: data.followersCount } : a);
+        });
+        
+        // Sync with actual server data for specific author queries
+        queryClient.setQueriesData<Author | null | undefined>({ queryKey: ['author'] }, old => {
+          if (!old) return old;
+          if (old.id === id) {
+            return { ...old, isSaved: data.isSaved, followersCount: data.followersCount };
+          }
+          return old;
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['authors'] });
+      queryClient.invalidateQueries({ queryKey: ['author'] });
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    },
   });
 
   const toggleSaveBookMutation = useMutation({
@@ -79,7 +140,7 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
       if (previousBooks) {
         queryClient.setQueryData<Book[]>(['books'], old => {
           if (!old) return [];
-          return old.map(b => b.id === id ? { ...b, isSaved: !b.isSaved } : b);
+          return old.map(b => b.id === id ? { ...b, isSaved: !b.isSaved, readingStatus: !b.isSaved ? b.readingStatus : null } : b);
         });
       }
       return { previousBooks };
