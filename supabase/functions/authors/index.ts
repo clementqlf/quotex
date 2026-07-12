@@ -8,7 +8,8 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatAuthor, formatBook } from '../_shared/formatters.ts';
-import { enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
+import { enrichAuthorWithInventaire, discoverAuthorWorks } from '../_shared/inventaire.ts';
+import { waitUntil } from '../_shared/waitUntil.ts';
 
 async function getAuthorDetails(id: number, userId: string | null) {
   return await sql`
@@ -191,7 +192,15 @@ serve(async (req: Request) => {
             INSERT INTO "Author" (name) VALUES (${name.trim()}) RETURNING *
           `;
           const newAuthorId = created[0].id;
-          await enrichAuthorWithInventaire(newAuthorId);
+          
+          // Synchronous profile enrichment (fast, skips discovery)
+          const author = await enrichAuthorWithInventaire(newAuthorId, undefined, undefined, true);
+          
+          // Background discovery (slow)
+          if (author?.inventaireUri) {
+            waitUntil(discoverAuthorWorks(newAuthorId, author.inventaireUri));
+          }
+          
           authorRows = await getAuthorDetails(newAuthorId, userId);
         }
       }
@@ -202,12 +211,8 @@ serve(async (req: Request) => {
       // Trigger background enrichment if data is sparse or too short
       if (a.inventaireUri && (!a.description || a.description.length < 200 || !a.image)) {
         a.isEnriching = true;
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          console.log(`[authors] Triggering background enrichment for author ${a.id}`);
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(enrichAuthorWithInventaire(a.id));
-        }
+        console.log(`[authors] Triggering background enrichment for author ${a.id}`);
+        waitUntil(enrichAuthorWithInventaire(a.id));
       }
 
       return json(formatAuthor(a, userId));
@@ -237,7 +242,14 @@ serve(async (req: Request) => {
       if (books.length <= 1) {
         const authorRows = await sql`SELECT * FROM "Author" WHERE id = ${idParam} LIMIT 1`;
         if (authorRows.length) {
-          await enrichAuthorWithInventaire(authorRows[0].id);
+          // Synchronous profile enrichment (fast, skips discovery)
+          const author = await enrichAuthorWithInventaire(authorRows[0].id, undefined, undefined, true);
+          
+          // Background discovery (slow)
+          if (author?.inventaireUri) {
+            waitUntil(discoverAuthorWorks(authorRows[0].id, author.inventaireUri));
+          }
+          
           books = await sql`
             SELECT b.*,
               COALESCE((
@@ -330,12 +342,8 @@ serve(async (req: Request) => {
       // Trigger background enrichment if data is sparse
       if (author.inventaireUri && (!author.description || author.description.length < 200 || !author.image)) {
         author.isEnriching = true;
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          console.log(`[authors] Triggering background enrichment for author ${idParam}`);
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(enrichAuthorWithInventaire(idParam));
-        }
+        console.log(`[authors] Triggering background enrichment for author ${idParam}`);
+        waitUntil(enrichAuthorWithInventaire(idParam));
       }
 
       return json(formatAuthor(author, userId));

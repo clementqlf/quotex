@@ -235,14 +235,31 @@ export const loadBookDetailData = async ({
     book,
   });
 
+  const hasRealInventaireUri = !!(importPayload?.inventaireUri && !importPayload.inventaireUri.startsWith('googlebooks:'));
+
   if (!importPayload?.inventaireUri) {
     logDebug('No import payload available');
   }
 
+  // If we don't have the book in local database, and it's a Google Books result, import it directly!
+  if (!book && importPayload?.googleId) {
+    logDebug('Importing Google Books entry directly', { title: importPayload.title, googleId: importPayload.googleId });
+    try {
+      const importedBook = await importBook(importPayload);
+      if (importedBook?.id) {
+        book = importedBook;
+        resolutionSource = 'importedRefresh';
+        logDebug('Imported Google Books entry successfully', { id: book.id, title: book.title });
+      }
+    } catch (importErr) {
+      logWarn('Failed to import Google Books entry:', importErr);
+    }
+  }
+
   // If we have an existing book with inventaireUri, try to get fresh data from server
-  if (book && importPayload?.inventaireUri && shouldRefreshFromInventaire(book)) {
+  if (book && hasRealInventaireUri && shouldRefreshFromInventaire(book)) {
     logDebug('Refreshing existing book by inventaireUri', { bookId: book.id, inventaireUri: importPayload.inventaireUri });
-    const refreshedBook = await getBookByInventaireUri(importPayload.inventaireUri);
+    const refreshedBook = await getBookByInventaireUri(importPayload.inventaireUri!);
     if (refreshedBook) {
       book = refreshedBook;
       resolutionSource = 'inventaireUri';
@@ -251,9 +268,9 @@ export const loadBookDetailData = async ({
   }
 
   // Try direct lookup by inventaireUri
-  if ((!book || shouldRefreshFromInventaire(book)) && importPayload?.inventaireUri) {
+  if ((!book || shouldRefreshFromInventaire(book)) && hasRealInventaireUri) {
     logDebug('Looking up by inventaireUri', { inventaireUri: importPayload.inventaireUri });
-    book = await getBookByInventaireUri(importPayload.inventaireUri);
+    book = await getBookByInventaireUri(importPayload.inventaireUri!);
     if (book) {
       resolutionSource = 'inventaireUri';
       logDebug('Found by inventaireUri', { id: book.id, title: book.title, pages: book.pages });
@@ -261,9 +278,9 @@ export const loadBookDetailData = async ({
   }
 
   // If still no book or book needs enrichment, fetch from Inventaire
-  if ((!book || shouldRefreshFromInventaire(book)) && importPayload?.inventaireUri) {
+  if ((!book || shouldRefreshFromInventaire(book)) && hasRealInventaireUri) {
     logDebug('Fetching from external Inventaire', { inventaireUri: importPayload.inventaireUri });
-    const externalBook = await fetchExternalInventaireBook(importPayload.inventaireUri, bookData);
+    const externalBook = await fetchExternalInventaireBook(importPayload.inventaireUri!, bookData);
     
     if (externalBook) {
       resolutionSource = 'externalInventaire';
@@ -273,7 +290,7 @@ export const loadBookDetailData = async ({
         bookData,
         book: externalBook,
       });
-
+      
       if (importData) {
         logDebug('Importing book', {
           title: importData.title,
@@ -314,12 +331,12 @@ export const loadBookDetailData = async ({
             });
             
             // Final fallback: if pages still 0 after all retries, fetch from Inventaire directly
-            if ((!refreshedBook.pages || refreshedBook.pages === 0) && importPayload?.inventaireUri) {
+            if ((!refreshedBook.pages || refreshedBook.pages === 0) && hasRealInventaireUri) {
               logDebug('Pages still 0 after retries, fetching from Inventaire as final fallback', {
                 id: refreshedBook.id,
                 inventaireUri: importPayload.inventaireUri,
               });
-              const finalExternalBook = await fetchExternalInventaireBook(importPayload.inventaireUri);
+              const finalExternalBook = await fetchExternalInventaireBook(importPayload.inventaireUri!);
               if (finalExternalBook?.pages && finalExternalBook.pages > 0) {
                 logDebug('Final fallback: using Inventaire pages', {
                   id: refreshedBook.id,

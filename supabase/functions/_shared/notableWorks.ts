@@ -21,12 +21,20 @@ export const getNotableWorksDetailed = async (authorName: string): Promise<Notab
       ORDER BY ?oeuvreLabel
     `;
     const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
-        'Accept': 'application/sparql-results+json',
-      },
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: {
+          'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
+          'Accept': 'application/sparql-results+json',
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     if (!res.ok) throw new Error(`SPARQL failed: ${res.status}`);
     const data = await res.json();
     const results = data.results.bindings;

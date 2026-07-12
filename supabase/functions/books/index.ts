@@ -11,12 +11,16 @@ import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatBook, generateBuyLinks } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, getWorkEditions, InventaireEdition } from '../_shared/inventaire.ts';
 import { enrichBookWithInventaire, discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
+import { waitUntil } from '../_shared/waitUntil.ts';
 
 function normalizeInventaireUri(uri?: string | null): string | null {
   if (!uri) return null;
   const trimmed = String(uri).trim();
   if (!trimmed) return null;
   const lowered = trimmed.toLowerCase();
+  if (lowered.startsWith('googlebooks:')) {
+    return null;
+  }
   if (lowered.startsWith('wd:')) {
     return `wd:${trimmed.slice(3).trim()}`;
   }
@@ -245,24 +249,14 @@ serve(async (req: Request) => {
 
         if (existing.author?.id) {
           const authorUri = bookData.authorUris?.[0];
-          // @ts-ignore deno
-          if (typeof EdgeRuntime !== 'undefined') {
-            // @ts-ignore deno
-            EdgeRuntime.waitUntil(enrichAuthorWithInventaire(existing.author.id, undefined, authorUri));
-          }
+          waitUntil(enrichAuthorWithInventaire(existing.author.id, undefined, authorUri));
         }
 
         // Trigger detailed book enrichment if we have an inventaireUri
         const uriToEnrich = bookData.inventaireUri || existing.inventaireUri;
         const normalizedUriToEnrich = normalizeInventaireUri(uriToEnrich);
         if (normalizedUriToEnrich) {
-          // @ts-ignore deno
-          if (typeof EdgeRuntime !== 'undefined') {
-            // @ts-ignore deno
-            EdgeRuntime.waitUntil(enrichBookWithInventaire(existing.id));
-          } else {
-            await enrichBookWithInventaire(existing.id);
-          }
+          waitUntil(enrichBookWithInventaire(existing.id));
         }
 
         const updated = await fetchBook(existing.id, userId);
@@ -326,34 +320,18 @@ serve(async (req: Request) => {
           id: newBook.id,
           inventaireUri: newBook.inventaireUri,
         });
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(
-            enrichBookWithInventaire(newBook.id)
-              .then(() => console.warn('[books/import] inventaire enrichment finished', { id: newBook.id }))
-              .catch((err: any) => console.error('[books/import] inventaire enrichment failed', { id: newBook.id, err }))
-          );
-        } else {
-          void enrichBookWithInventaire(newBook.id)
+        waitUntil(
+          enrichBookWithInventaire(newBook.id)
             .then(() => console.warn('[books/import] inventaire enrichment finished', { id: newBook.id }))
-            .catch((err: any) => console.error('[books/import] inventaire enrichment failed', { id: newBook.id, err }));
-        }
+            .catch((err: any) => console.error('[books/import] inventaire enrichment failed', { id: newBook.id, err }))
+        );
       } else {
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(discoverAndEnrichBook(newBook.id));
-        }
+        waitUntil(discoverAndEnrichBook(newBook.id));
       }
 
       if (author.id) {
         const authorUri = bookData.authorUris?.[0];
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(enrichAuthorWithInventaire(author.id, undefined, authorUri));
-        }
+        waitUntil(enrichAuthorWithInventaire(author.id, undefined, authorUri));
       }
 
       const fullBook = await fetchBook(newBook.id, userId);
@@ -372,16 +350,11 @@ serve(async (req: Request) => {
 
       // Trigger background enrichment if data is sparse
       if (book.inventaireUri && (!book.description || book.description.length < 50 || !book.cover || !book.genre || book.genre === 'Unknown' || book.genre === '')) {
-        // @ts-ignore deno
-        if (typeof EdgeRuntime !== 'undefined') {
-          console.log(`[books] Triggering background enrichment for book ${idParam}`);
-          // @ts-ignore deno
-          EdgeRuntime.waitUntil(enrichBookWithInventaire(idParam));
-          
-          if (book.authorId) {
-            // @ts-ignore deno
-            EdgeRuntime.waitUntil(enrichAuthorWithInventaire(book.authorId));
-          }
+        console.log(`[books] Triggering background enrichment for book ${idParam}`);
+        waitUntil(enrichBookWithInventaire(idParam));
+        
+        if (book.authorId) {
+          waitUntil(enrichAuthorWithInventaire(book.authorId));
         }
       }
 

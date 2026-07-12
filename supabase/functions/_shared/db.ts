@@ -9,7 +9,7 @@ const connectionString = Deno.env.get('DATABASE_URL') ||
   '';
 
 export const sql = postgres(connectionString, {
-  max: 1,
+  max: 3,
   idle_timeout: 10,
   connect_timeout: 10,
   ssl: 'require',

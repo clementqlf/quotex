@@ -5,6 +5,7 @@
  */
 import { sql } from './db.ts';
 import * as api from './inventaire.api.ts';
+import { searchAuthorQid } from './wikidata.ts';
 
 export * from './inventaire.api.ts';
 
@@ -315,21 +316,41 @@ export const syncAuthorProfile = async (
         console.log(`[Inventaire] Searching for better URI for author: "${nameToSearch}" (Current: ${uri || 'none'})`);
         const searchResults = await api.searchInventaireAuthors(nameToSearch, 5);
         if (searchResults.length > 0) {
-          // Prefer WD URI if available among results with same name
-          const bestMatch = searchResults.find(
-            (r: any) => r.label.toLowerCase().trim() === nameToSearch.toLowerCase().trim() && r.uri.startsWith('wd:')
-          ) || searchResults.find(
-            (r: any) => r.label.toLowerCase().trim() === nameToSearch.toLowerCase().trim()
-          ) || searchResults[0];
-          
-          if (bestMatch.uri.startsWith('wd:') || !uri) {
-            console.log(`[Inventaire] Selected best URI for "${nameToSearch}": ${bestMatch.uri} (replacing ${uri || 'none'})`);
-            uri = bestMatch.uri;
+          // Filter results that actually match the author name
+          const matchingResults = searchResults.filter(
+            (r: any) => api.compareAuthorNames(r.label, nameToSearch)
+          );
+
+          if (matchingResults.length > 0) {
+            // Prefer WD URI if available among matching results
+            const bestMatch = matchingResults.find((r: any) => r.uri.startsWith('wd:')) || matchingResults[0];
+            
+            if (bestMatch.uri.startsWith('wd:') || !uri) {
+              console.log(`[Inventaire] Selected best URI for "${nameToSearch}": ${bestMatch.uri} (replacing ${uri || 'none'})`);
+              uri = bestMatch.uri;
+            } else {
+              console.log(`[Inventaire] Keeping existing URI for "${nameToSearch}": ${uri}`);
+            }
           } else {
-            console.log(`[Inventaire] Keeping existing URI for "${nameToSearch}": ${uri}`);
+            console.log(`[Inventaire] No matching search results found for author: "${nameToSearch}" (checked ${searchResults.length} candidates, first was "${searchResults[0].label}")`);
           }
         } else {
           console.log(`[Inventaire] No search results found for author: "${nameToSearch}"`);
+        }
+
+        // Fallback: If we still don't have a valid wd: URI, try Wikidata's search API directly
+        if (!uri || uri.startsWith('inv:')) {
+          console.log(`[Inventaire] Fallback: Searching Wikidata directly for author: "${nameToSearch}"`);
+          const wdResult = await searchAuthorQid(nameToSearch);
+          if (wdResult && api.compareAuthorNames(wdResult.label, nameToSearch)) {
+            const wikidataUri = `wd:${wdResult.id}`;
+            console.log(`[Inventaire] Found Wikidata URI via fallback for "${nameToSearch}": ${wikidataUri} (${wdResult.label})`);
+            uri = wikidataUri;
+          } else if (wdResult) {
+            console.log(`[Inventaire] Fallback found Wikidata result "${wdResult.label}" for "${nameToSearch}", but name comparison failed.`);
+          } else {
+            console.log(`[Inventaire] Fallback found no Wikidata results for "${nameToSearch}"`);
+          }
         }
       }
 

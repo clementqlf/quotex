@@ -7,24 +7,34 @@ export interface WikidataWork {
     genres?: string;
 }
 
-/**
- * Searches for an author's Wikidata QID by name.
- */
-export const searchAuthorQid = async (authorName: string): Promise<string | null> => {
+export interface WikidataSearchResult {
+    id: string;
+    label: string;
+}
+
+export const searchAuthorQid = async (authorName: string): Promise<WikidataSearchResult | null> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
         const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(authorName)}&language=fr&format=json&origin=*&type=item`;
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)' }
+            headers: { 'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)' },
+            signal: controller.signal
         });
         if (!res.ok) return null;
         const data = await res.json();
         if (data.search && data.search.length > 0) {
-            return data.search[0].id;
+            return {
+                id: data.search[0].id,
+                label: data.search[0].label || data.search[0].display?.label?.value || ''
+            };
         }
         return null;
     } catch (e) {
         console.error(`[Wikidata] Error searching QID for ${authorName}:`, e);
         return null;
+    } finally {
+        clearTimeout(timeoutId);
     }
 };
 

@@ -14,6 +14,8 @@ import {
   searchInventaire,
   getInventaireBookByIsbn,
 } from '../_shared/inventaire.api.ts';
+import { searchGoogleBooks } from '../_shared/googlebooks.ts';
+
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -99,7 +101,27 @@ serve(async (req: Request) => {
         console.error('[search] Inventaire ISBN lookup failed:', invError);
       }
 
-      // If it is an ISBN but wasn't found in local DB or Inventaire, return empty immediately
+      console.log(`[search] ISBN "${cleanQ}" not found on Inventaire. Searching on Google Books.`);
+      try {
+        const googleResults = await searchGoogleBooks(`isbn:${cleanQ}`, 1);
+        if (googleResults.length > 0) {
+          return json({
+            quotes: [],
+            authors: [],
+            books: [],
+            prizes: [],
+            themes: [],
+            inventaireWorks: [googleResults[0]],
+            inventaireAuthors: [],
+            inventairePrizes: [],
+            users: [],
+          });
+        }
+      } catch (googleError) {
+        console.error('[search] Google Books ISBN lookup failed:', googleError);
+      }
+
+      // If it is an ISBN but wasn't found in any source, return empty
       return json({
         quotes: [],
         authors: [],
@@ -289,10 +311,42 @@ serve(async (req: Request) => {
             return Array.isArray(results) ? results : [];
           } catch { return []; }
         }
-        const fresh = await searchInventaireWorks(query, 10);
+        
+        // Fetch both in parallel
+        const [freshInventaire, freshGoogle] = await Promise.all([
+          searchInventaireWorks(query, 10).catch((err: any) => {
+            console.error('[search] Inventaire search failed:', err);
+            return [];
+          }),
+          searchGoogleBooks(query, 10).catch((err: any) => {
+            console.error('[search] Google Books search failed:', err);
+            return [];
+          })
+        ]);
+
+        // Merge and deduplicate by title + author
+        const seen = new Set<string>();
+        const merged: any[] = [];
+
+        // Inventaire works have priority
+        for (const item of freshInventaire) {
+          const key = `${(item.label || '').toLowerCase()}:${(item.authors || []).join(',').toLowerCase()}`;
+          seen.add(key);
+          merged.push(item);
+        }
+
+        // Add Google Books works if not already present
+        for (const item of freshGoogle) {
+          const key = `${(item.label || '').toLowerCase()}:${(item.authors || []).join(',').toLowerCase()}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(item);
+          }
+        }
+
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'sujets', ${JSON.stringify(fresh)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
-        return fresh;
+        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'sujets', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err: any) => console.error('[search] Cache write error', err));
+        return merged;
       })(),
       (async () => {
         const cached = await sql`SELECT results, "expiresAt" FROM "SearchCache" WHERE query = ${query} AND type = 'humans' LIMIT 1`.catch(() => []);
@@ -302,10 +356,78 @@ serve(async (req: Request) => {
             return Array.isArray(results) ? results : [];
           } catch { return []; }
         }
-        const fresh = await searchInventaireAuthors(query, 10);
+
+        // Fetch from both Inventaire and Wikidata in parallel
+        const [freshInventaire, freshWikidata] = await Promise.all([
+          searchInventaireAuthors(query, 10).catch((err) => {
+            console.error('[search] Inventaire author search failed:', err);
+            return [];
+          }),
+          (async () => {
+            try {
+              const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=fr&format=json&origin=*&type=item&limit=15`;
+              const searchRes = await fetch(searchUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+              const searchData = await searchRes.json();
+              const results = searchData.search || [];
+              if (results.length === 0) return [];
+
+              const qids = results.map((r: any) => r.id);
+              const propsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qids.join('|')}&props=claims&format=json&origin=*`;
+              const propsRes = await fetch(propsUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+              const propsData = await propsRes.json();
+
+              return results
+                .filter((r: any) => {
+                  const entity = propsData.entities?.[r.id];
+                  const p31Claims = entity?.claims?.P31 || [];
+                  const instanceOfIds = p31Claims.map((c: any) => c.mainsnak?.datavalue?.value?.id);
+                  return instanceOfIds.includes('Q5');
+                })
+                .map((r: any) => {
+                  const entity = propsData.entities?.[r.id];
+                  const p18Claims = entity?.claims?.P18 || [];
+                  const p18Value = p18Claims[0]?.mainsnak?.datavalue?.value;
+                  const image = p18Value ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(p18Value)}?width=250` : null;
+
+                  return {
+                    id: r.id,
+                    uri: `wd:${r.id}`,
+                    type: 'humans',
+                    label: r.label || '',
+                    description: r.description || '',
+                    image
+                  };
+                });
+            } catch (e) {
+              console.error('[search] Wikidata author search error:', e);
+              return [];
+            }
+          })()
+        ]);
+
+        // Merge and deduplicate by URI
+        const seen = new Set<string>();
+        const merged: any[] = [];
+
+        // Inventaire authors have priority
+        for (const item of freshInventaire) {
+          const key = item.uri;
+          seen.add(key);
+          merged.push(item);
+        }
+
+        // Add Wikidata authors if not already present
+        for (const item of freshWikidata) {
+          const key = item.uri;
+          if (!seen.has(key)) {
+            seen.add(key);
+            merged.push(item);
+          }
+        }
+
         const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(fresh)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
-        return fresh;
+        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
+        return merged;
       })(),
       (async () => {
         // High-performance hybrid search (Search Index + Property Filter)
