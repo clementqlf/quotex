@@ -10,7 +10,9 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { sql } from '../_shared/db.ts';
 import { matchAuthor, matchBook, AuthorMatchResult, BookMatchResult } from '../_shared/entityMatcher.ts';
-import { findWorkUriByTitleAndAuthor, searchInventaireAuthors, getInventaireWorkDetails, getInventaireAuthorDetails, enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
+import { compareAuthorNames, findWorkUriByTitleAndAuthor, searchInventaireAuthors, getInventaireWorkDetails, getInventaireAuthorDetails, enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
+import { searchGoogleBooks } from '../_shared/googlebooks.ts';
+import { selectBestGoogleBookMatch } from '../_shared/googlebooks.match.ts';
 import { enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
 
@@ -35,6 +37,7 @@ interface SyncResult {
   bookCreated?: boolean;
   inventaireMatch?: boolean;
   inventaireUri?: string;
+  matchSource?: 'local' | 'inventaire' | 'google-books';
   authorId?: number | null;
   bookId?: number | null;
 }
@@ -44,6 +47,74 @@ interface InventaireMatch {
   authorName?: string;
   workUri?: string;
   workTitle?: string;
+}
+
+interface SequentialWorkMatch {
+  source: 'inventaire' | 'google-books';
+  workId?: string;
+  workUri?: string;
+  title: string;
+  authorName: string;
+  googleId?: string;
+  cover?: string | null;
+  description?: string | null;
+  year?: number | null;
+  pages?: number | null;
+  genre?: string | null;
+}
+
+async function findSequentialWorkMatch(title: string, authorName: string): Promise<SequentialWorkMatch | null> {
+  const cleanTitle = title?.trim();
+  const cleanAuthor = authorName?.trim();
+
+  if (!cleanTitle || !cleanAuthor) return null;
+
+  const inventaireUri = await findWorkUriByTitleAndAuthor(cleanTitle, cleanAuthor);
+  if (inventaireUri) {
+    const workDetails = await getInventaireWorkDetails(inventaireUri);
+    let resolvedAuthorName = cleanAuthor;
+
+    if (workDetails?.authorUris && workDetails.authorUris.length > 0) {
+      const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
+      if (authorDetails?.name) {
+        resolvedAuthorName = authorDetails.name;
+      }
+    }
+
+    return {
+      source: 'inventaire',
+      workId: inventaireUri,
+      workUri: inventaireUri,
+      title: workDetails?.title || cleanTitle,
+      authorName: resolvedAuthorName,
+    };
+  }
+
+  try {
+    const googleCandidates = await searchGoogleBooks(`"${cleanTitle}"`, 10, false);
+    const bestCandidate = selectBestGoogleBookMatch(googleCandidates, cleanTitle, cleanAuthor);
+    if (!bestCandidate) return null;
+
+    const matchedAuthorName = bestCandidate.authors?.find((candidateAuthor) =>
+      compareAuthorNames(candidateAuthor, cleanAuthor)
+    ) || bestCandidate.authors?.[0] || cleanAuthor;
+
+    return {
+      source: 'google-books',
+      workId: `googlebooks:${bestCandidate.googleId || bestCandidate.id}`,
+      title: bestCandidate.title || cleanTitle,
+      authorName: matchedAuthorName,
+      googleId: bestCandidate.googleId || bestCandidate.id,
+      cover: bestCandidate.cover || null,
+      description: bestCandidate.description || null,
+      year: bestCandidate.year ?? null,
+      pages: bestCandidate.pages ?? null,
+      genre: bestCandidate.genre ?? null,
+    };
+  } catch (err) {
+    console.warn('[sync-quotes] Google Books fallback failed:', err);
+    return null;
+  }
 }
 
 /// <reference path="../_shared/edge-runtime.d.ts" />
@@ -105,27 +176,36 @@ serve(async (req: Request) => {
         // 2. If missing in DB, check Inventaire
         const inventaireMatch: InventaireMatch = {};
         let hasInventaireMatch = false;
+        let matchSource: 'local' | 'inventaire' | 'google-books' = 'local';
+        let workMatch: SequentialWorkMatch | null = null;
 
         if ((offlineQuote.author && !authorId) || (offlineQuote.book && !bookId)) {
           console.log(`[sync-quotes] Entity missing in DB. Checking Inventaire for: author="${offlineQuote.author}", book="${offlineQuote.book}"`);
           
           if (offlineQuote.book && offlineQuote.author) {
-            const workUri = await findWorkUriByTitleAndAuthor(offlineQuote.book, offlineQuote.author);
-            if (workUri) {
-              inventaireMatch.workUri = workUri;
+            workMatch = await findSequentialWorkMatch(offlineQuote.book, offlineQuote.author);
+            if (workMatch) {
               hasInventaireMatch = true;
-              console.log(`[sync-quotes] Inventaire work match found: ${workUri}`);
-              
-              const workDetails = await getInventaireWorkDetails(workUri);
-              if (workDetails) {
-                inventaireMatch.workTitle = workDetails.title;
-                if (workDetails.authorUris && workDetails.authorUris.length > 0) {
-                  const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
-                  if (authorDetails) {
-                    inventaireMatch.authorUri = workDetails.authorUris[0];
-                    inventaireMatch.authorName = authorDetails.name;
+              inventaireMatch.workTitle = workMatch.title;
+              inventaireMatch.authorName = workMatch.authorName;
+              matchSource = workMatch.source;
+
+              if (workMatch.source === 'inventaire') {
+                inventaireMatch.workUri = workMatch.workUri;
+                console.log(`[sync-quotes] Work match found on Inventaire: title="${workMatch.title}", id="${workMatch.workId || workMatch.workUri || 'unknown'}"`);
+
+                if (workMatch.workUri) {
+                  const workDetails = await getInventaireWorkDetails(workMatch.workUri);
+                  if (workDetails?.authorUris && workDetails.authorUris.length > 0) {
+                    const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
+                    if (authorDetails) {
+                      inventaireMatch.authorUri = workDetails.authorUris[0];
+                      inventaireMatch.authorName = authorDetails.name;
+                    }
                   }
                 }
+              } else {
+                console.log(`[sync-quotes] Work match found on Google Books: title="${workMatch.title}", id="${workMatch.workId || 'unknown'}"`);
               }
             } else {
               const authorResults = await searchInventaireAuthors(offlineQuote.author, 5);
@@ -149,10 +229,10 @@ serve(async (req: Request) => {
 
         // Log corrections if using Inventaire names
         if (offlineQuote.author && inventaireMatch.authorName && inventaireMatch.authorName !== offlineQuote.author) {
-          console.log(`[sync-quotes] Using Inventaire author correction: "${offlineQuote.author}" -> "${finalAuthorName}"`);
+          console.log(`[sync-quotes] Using ${matchSource} author correction: "${offlineQuote.author}" -> "${finalAuthorName}"`);
         }
         if (offlineQuote.book && inventaireMatch.workTitle && inventaireMatch.workTitle !== offlineQuote.book) {
-          console.log(`[sync-quotes] Using Inventaire book correction: "${offlineQuote.book}" -> "${finalBookTitle}"`);
+          console.log(`[sync-quotes] Using ${matchSource} book correction: "${offlineQuote.book}" -> "${finalBookTitle}"`);
         }
 
         // 3. Create missing entities (using Inventaire data if available)
@@ -192,6 +272,22 @@ serve(async (req: Request) => {
           }
         }
 
+        if (bookId && workMatch?.source === 'google-books') {
+          await sql`
+            UPDATE "Book"
+            SET
+              "googleId" = COALESCE(${workMatch.googleId ?? null}, "googleId"),
+              cover = COALESCE(${workMatch.cover ?? null}, cover),
+              description = COALESCE(${workMatch.description ?? null}, description),
+              year = COALESCE(${workMatch.year ?? null}, year),
+              pages = COALESCE(${workMatch.pages ?? null}, pages),
+              genre = COALESCE(${workMatch.genre ?? null}, genre),
+              "isVerified" = true
+            WHERE id = ${bookId}
+          `;
+          console.log(`[sync-quotes] Persisted Google Books metadata for book ${bookId}: title="${workMatch.title}", googleId="${workMatch.googleId || 'unknown'}"`);
+        }
+
         // Only create the quote if we found an Inventaire match
         // Create the quote with matched IDs
         const quoteRows = await sql`
@@ -218,8 +314,12 @@ serve(async (req: Request) => {
         }
 
         if (bookLookup?.wasCreated && bookId) {
-          console.log(`[sync-quotes] Triggering book enrichment for ${bookId}`);
-          waitUntil(enrichBookWithInventaire(bookId));
+          if (inventaireMatch.workUri) {
+            console.log(`[sync-quotes] Triggering book enrichment for ${bookId}`);
+            waitUntil(enrichBookWithInventaire(bookId));
+          } else {
+            console.log(`[sync-quotes] Skipping Inventaire enrichment for book ${bookId}: no inventaireUri (source=${matchSource})`);
+          }
         }
 
         // Record sync result with corrections
@@ -234,6 +334,7 @@ serve(async (req: Request) => {
           bookCreated: bookLookup?.wasCreated,
           inventaireMatch: hasInventaireMatch || !!inventaireMatch.authorUri,
           inventaireUri: inventaireMatch.workUri || inventaireMatch.authorUri,
+          matchSource,
           authorId: authorId,
           bookId: bookId,
         });

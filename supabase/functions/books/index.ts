@@ -11,6 +11,8 @@ import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatBook, generateBuyLinks } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, getWorkEditions, InventaireEdition } from '../_shared/inventaire.ts';
 import { enrichBookWithInventaire, discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
+import type { GoogleBookSearchResult } from '../_shared/googlebooks.ts';
+import { selectBestGoogleBookMatch } from '../_shared/googlebooks.match.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
 
 function normalizeInventaireUri(uri?: string | null): string | null {
@@ -112,12 +114,9 @@ serve(async (req: Request) => {
       if (!title) return error('Missing title parameter', 400);
 
       const { searchGoogleBooks } = await import('../_shared/googlebooks.ts');
-      const normalizeText = (t: string) =>
-        t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
-      const normalizedTitle = normalizeText(title);
 
       // Strategy 1: exact title + author
-      let candidates: any[] = [];
+      let candidates: GoogleBookSearchResult[] = [];
       if (author) {
         try {
           candidates = await searchGoogleBooks(`"${title}" inauthor:"${author}"`, 10, false);
@@ -131,17 +130,10 @@ serve(async (req: Request) => {
         } catch { /* ignore */ }
       }
 
-      // Pick the best match: same title (normalized) + most data (cover + description)
-      const scored = candidates
-        .filter(c => normalizeText(c.title) === normalizedTitle)
-        .map(c => ({
-          ...c,
-          _score: (c.cover ? 4 : 0) + (c.description ? 2 : 0) + (c.pages ? 1 : 0),
-        }))
-        .sort((a, b) => b._score - a._score);
+      // Pick the best match with shared title/author filtering and scoring
+      const best = selectBestGoogleBookMatch(candidates, title, author || undefined);
 
-      if (scored.length > 0) {
-        const { _score, ...best } = scored[0];
+      if (best) {
         return json(best);
       }
 

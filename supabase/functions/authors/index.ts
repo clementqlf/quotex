@@ -9,6 +9,7 @@ import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatAuthor, formatBook } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, discoverAuthorWorks } from '../_shared/inventaire.ts';
+import { selectBestGoogleBookRichMetadataMatch } from '../_shared/googlebooks.match.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
 
 async function getAuthorDetails(id: number, userId: string | null) {
@@ -294,39 +295,12 @@ serve(async (req: Request) => {
         // Try to fetch richer metadata for books missing cover/description by searching their exact title
         const incompleteBooksToEnrich = googleResults.filter(b => !b.cover || !b.description);
         if (incompleteBooksToEnrich.length > 0) {
-          const normalizeText = (t: string) =>
-            t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim();
-
           const enrichPromises = incompleteBooksToEnrich.slice(0, 8).map(async (book) => {
             try {
               const exactTitleQuery = `"${book.title}"`;
               const titleResults = await searchGoogleBooks(exactTitleQuery, 8, false);
-              
-              const normalizedBookTitle = normalizeText(book.title);
 
-              // First try: same title + author matches
-              let bestMatch = titleResults.find(r =>
-                normalizeText(r.title) === normalizedBookTitle &&
-                r.authors.some(a =>
-                  a.toLowerCase().includes(authorName.toLowerCase()) ||
-                  authorName.toLowerCase().includes(a.toLowerCase())
-                ) &&
-                (r.cover || r.description)
-              );
-
-              // Fallback: same title, any result with richer data (cover or description)
-              // This handles the case where two Google Books entries exist for the same book,
-              // and the richer one isn't linked to the author.
-              if (!bestMatch) {
-                bestMatch = titleResults
-                  .filter(r => normalizeText(r.title) === normalizedBookTitle && (r.cover || r.description))
-                  .sort((a, b) => {
-                    // Prioritize entries with both cover and description
-                    const scoreA = (a.cover ? 2 : 0) + (a.description ? 1 : 0);
-                    const scoreB = (b.cover ? 2 : 0) + (b.description ? 1 : 0);
-                    return scoreB - scoreA;
-                  })[0] ?? null;
-              }
+              const bestMatch = selectBestGoogleBookRichMetadataMatch(titleResults, book.title, authorName);
 
               if (bestMatch) {
                 // Merge all missing fields from the richer entry

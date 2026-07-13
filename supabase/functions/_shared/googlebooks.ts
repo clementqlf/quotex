@@ -15,6 +15,19 @@ export interface GoogleBookSearchResult {
   genre: string | null;
 }
 
+const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
+const MAX_RETRY_ATTEMPTS = 2;
+const RETRY_BASE_DELAY_MS = 200;
+
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+const computeRetryDelayMs = (attempt: number): number => {
+  const exponential = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+  const jitter = Math.floor(Math.random() * 150);
+  return exponential + jitter;
+};
+
 /**
  * Searches Google Books API using the configured secret key.
  * Strictly requires the GOOGLE_BOOKS_API_KEY environment variable.
@@ -30,72 +43,100 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
     return [];
   }
 
-  try {
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${limit}&langRestrict=fr&key=${apiKey}`;
-    console.log(`[GoogleBooks] Searching for "${query}" (limit: ${limit})`);
-    
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "QuotexApp/1.0 (contact: support@quotex.app)"
-      }
-    });
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${limit}&langRestrict=fr&key=${apiKey}`;
+  console.log(`[GoogleBooks] Searching for "${query}" (limit: ${limit})`);
 
-    if (!res.ok) {
-      console.warn(`[GoogleBooks] API warning: ${res.status} ${res.statusText}`);
-      if (throwOnError) throw new Error(`Google Books API error: ${res.status}`);
+  for (let attempt = 0; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+    const attemptNumber = attempt + 1;
+    const totalAttempts = MAX_RETRY_ATTEMPTS + 1;
+
+    try {
+      console.log(`[GoogleBooks] Attempt ${attemptNumber}/${totalAttempts} for query "${query}"`);
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "QuotexApp/1.0 (contact: support@quotex.app)"
+        }
+      });
+
+      if (!res.ok) {
+        const retryable = RETRYABLE_STATUS_CODES.has(res.status);
+        const hasRetryLeft = attempt < MAX_RETRY_ATTEMPTS;
+
+        if (retryable && hasRetryLeft) {
+          const delayMs = computeRetryDelayMs(attempt);
+          console.warn(`[GoogleBooks] Transient HTTP ${res.status} on attempt ${attemptNumber}/${totalAttempts}. Retrying in ${delayMs}ms.`);
+          await wait(delayMs);
+          continue;
+        }
+
+        console.warn(`[GoogleBooks] API warning: ${res.status} ${res.statusText} (attempt ${attemptNumber}/${totalAttempts})`);
+        if (throwOnError) throw new Error(`Google Books API error: ${res.status}`);
+        return [];
+      }
+
+      const data = await res.json();
+      const items = data.items || [];
+      console.log(`[GoogleBooks] Success on attempt ${attemptNumber}/${totalAttempts}. Results: ${items.length}`);
+
+      return items.map((item: any) => {
+        const info = item.volumeInfo || {};
+
+        // Parse ISBN
+        let isbn: string | null = null;
+        if (Array.isArray(info.industryIdentifiers)) {
+          // Prefer ISBN_13, fallback to ISBN_10
+          const isbn13 = info.industryIdentifiers.find((id: any) => id.type === "ISBN_13");
+          const isbn10 = info.industryIdentifiers.find((id: any) => id.type === "ISBN_10");
+          isbn = isbn13?.identifier || isbn10?.identifier || null;
+        }
+
+        // Parse publication year
+        let year: number | null = null;
+        if (info.publishedDate) {
+          const match = String(info.publishedDate).match(/^(\d{4})/);
+          if (match) {
+            year = parseInt(match[1]);
+          }
+        }
+
+        // Cover image URL (convert to HTTPS if HTTP is returned)
+        let coverUrl = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
+        if (coverUrl && coverUrl.startsWith("http://")) {
+          coverUrl = coverUrl.replace("http://", "https://");
+        }
+
+        return {
+          id: item.id,
+          uri: `googlebooks:${item.id}`,
+          type: "work",
+          label: info.title || "Livre sans titre",
+          title: info.title || "Livre sans titre",
+          image: coverUrl,
+          cover: coverUrl,
+          authors: Array.isArray(info.authors) ? info.authors : [],
+          description: info.description || "",
+          googleId: item.id,
+          isbn: isbn,
+          year: year,
+          pages: info.pageCount || null,
+          genre: Array.isArray(info.categories) && info.categories.length > 0 ? info.categories[0] : null,
+        };
+      });
+    } catch (e) {
+      const hasRetryLeft = attempt < MAX_RETRY_ATTEMPTS;
+
+      if (hasRetryLeft) {
+        const delayMs = computeRetryDelayMs(attempt);
+        console.warn(`[GoogleBooks] Network/unknown error on attempt ${attemptNumber}/${totalAttempts}. Retrying in ${delayMs}ms.`, e);
+        await wait(delayMs);
+        continue;
+      }
+
+      if (throwOnError) throw e;
+      console.error(`[GoogleBooks] Unexpected error during search after ${totalAttempts} attempts:`, e);
       return [];
     }
-
-    const data = await res.json();
-    const items = data.items || [];
-
-    return items.map((item: any) => {
-      const info = item.volumeInfo || {};
-      
-      // Parse ISBN
-      let isbn: string | null = null;
-      if (Array.isArray(info.industryIdentifiers)) {
-        // Prefer ISBN_13, fallback to ISBN_10
-        const isbn13 = info.industryIdentifiers.find((id: any) => id.type === "ISBN_13");
-        const isbn10 = info.industryIdentifiers.find((id: any) => id.type === "ISBN_10");
-        isbn = isbn13?.identifier || isbn10?.identifier || null;
-      }
-
-      // Parse publication year
-      let year: number | null = null;
-      if (info.publishedDate) {
-        const match = String(info.publishedDate).match(/^(\d{4})/);
-        if (match) {
-          year = parseInt(match[1]);
-        }
-      }
-
-      // Cover image URL (convert to HTTPS if HTTP is returned)
-      let coverUrl = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || null;
-      if (coverUrl && coverUrl.startsWith("http://")) {
-        coverUrl = coverUrl.replace("http://", "https://");
-      }
-
-      return {
-        id: item.id,
-        uri: `googlebooks:${item.id}`,
-        type: "work",
-        label: info.title || "Livre sans titre",
-        title: info.title || "Livre sans titre",
-        image: coverUrl,
-        cover: coverUrl,
-        authors: Array.isArray(info.authors) ? info.authors : [],
-        description: info.description || "",
-        googleId: item.id,
-        isbn: isbn,
-        year: year,
-        pages: info.pageCount || null,
-        genre: Array.isArray(info.categories) && info.categories.length > 0 ? info.categories[0] : null,
-      };
-    });
-  } catch (e) {
-    if (throwOnError) throw e;
-    console.error("[GoogleBooks] Unexpected error during search:", e);
-    return [];
   }
+
+  return [];
 };
