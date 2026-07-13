@@ -40,3 +40,24 @@ export interface LiteraryPrize {
   founder?: string | null;
   laureates?: LiteraryPrizeLaureate[];
 }
+
+/**
+ * Résultat d'une recherche Google Books (mirror de GoogleBookSearchResult côté Edge Function).
+ * Utilisé par resolveGoogleBook et getExternalBooksByAuthor.
+ */
+export interface ExternalBookResult {
+  id: string;
+  uri: string;
+  type: string;
+  label: string;
+  title: string;
+  image: string | null;
+  cover: string | null;
+  authors: string[];
+  description: string;
+  googleId: string;
+  isbn: string | null;
+  year: number | null;
+  pages: number | null;
+  genre: string | null;
+}

@@ -5,9 +5,15 @@
  */
 import { sql } from './db.ts';
 import * as api from './inventaire.api.ts';
-import { searchAuthorQid } from './wikidata.ts';
+import { searchAuthorQid, getAuthorWorks } from './wikidata.ts';
+import { authorEnrichmentService } from './authorProviders.ts';
 
 export * from './inventaire.api.ts';
+
+// Wrapper with Wikidata fallback for external imports
+export const getInventaireAuthorDetails = (uri: string) => {
+  return authorEnrichmentService.getAuthorDetails(uri);
+};
 
 // ─── Deduplication ───────────────────────────────────────────────────────────
 export const activeAuthorEnrichments = new Map<number, Promise<any>>();
@@ -291,6 +297,7 @@ export const syncAuthorProfile = async (
 
   let resolvedUri: string | undefined = authorUri;
 
+  const enrichmentContext = { promise: null as Promise<any> | null };
   const enrichmentPromise = (async () => {
     try {
       await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${authorId}`.catch(() => {});
@@ -363,7 +370,7 @@ export const syncAuthorProfile = async (
 
       // URI deduplication: if another enrichment is processing this URI, await it
       const activeUriPromise = activeUriEnrichments.get(uri);
-      if (activeUriPromise && activeUriPromise !== enrichmentPromise) {
+      if (activeUriPromise && activeUriPromise !== enrichmentContext.promise) {
         console.log(`[Inventaire] Awaiting active concurrent enrichment for URI ${uri}...`);
         await activeUriPromise;
         // After awaiting, this author might have been merged/deleted
@@ -381,7 +388,9 @@ export const syncAuthorProfile = async (
           return await syncAuthorProfile(existingWithUri[0].id, authorName, uri);
         }
       } else {
-        activeUriEnrichments.set(uri, enrichmentPromise);
+        if (enrichmentContext.promise) {
+          activeUriEnrichments.set(uri, enrichmentContext.promise);
+        }
       }
 
       // Check conflict
@@ -392,9 +401,9 @@ export const syncAuthorProfile = async (
         return await syncAuthorProfile(existingWithUri[0].id, authorName, uri);
       }
 
-      const details = await api.getInventaireAuthorDetails(uri);
+      const details = await authorEnrichmentService.getAuthorDetails(uri);
       if (!details) {
-        console.error(`[Inventaire] Failed to fetch details from API for author URI: ${uri}`);
+        console.error(`[Inventaire] Failed to fetch details from any provider for author URI: ${uri}`);
         return null;
       }
 
@@ -487,6 +496,7 @@ export const syncAuthorProfile = async (
     }
   })();
 
+  enrichmentContext.promise = enrichmentPromise;
   activeAuthorEnrichments.set(authorId, enrichmentPromise);
   return enrichmentPromise;
 };
@@ -508,67 +518,132 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
       return;
     }
 
+    // Ensure database records the isEnriching state
+    await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${authorId}`.catch(() => {});
+
     console.log(`[Inventaire] Starting discovery for author ${author.name} (${uri})`);
-    const workUris = await api.getAuthorWorkUris(uri);
-    console.log(`[Inventaire] Found ${workUris.length} works for author ${author.name}`);
-    if (!workUris.length) return;
+    let workUris: string[] = [];
+    try {
+      workUris = await api.getAuthorWorkUris(uri);
+    } catch (e) {
+      console.warn(`[Inventaire] Failed to fetch author work URIs from Inventaire for ${author.name}:`, e);
+    }
 
-    const limitedUris = workUris.slice(0, 50); // Reduced limit for safety
-    const CHUNK_SIZE = 10; // Smaller chunks
-
-    for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
-      const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
-      
-      // Fetch edition URIs in parallel for the current chunk of works
-      const editionUrisPerWork = await Promise.all(
-        chunk.map(async (wUri) => {
-          const edUris = await api.getWorkEditionUris(wUri);
-          return { wUri, hasEditions: edUris.length > 0 };
-        })
-      );
-
-      // Keep only works with at least one edition
-      const filteredChunk = editionUrisPerWork
-        .filter((x) => x.hasEditions)
-        .map((x) => x.wUri);
-
-      if (filteredChunk.length === 0) {
-        console.log(`[Inventaire] No works in chunk ${i / CHUNK_SIZE + 1} have editions. Skipping chunk.`);
-        continue;
-      }
-
-      console.log(
-        `[Inventaire] Fetching details for works chunk ${i / CHUNK_SIZE + 1} (${filteredChunk.length}/${chunk.length} have editions)`
-      );
-
-      const [workEntities, bestCovers] = await Promise.all([
-        api.getBatchInventaireDetails(filteredChunk),
-        api.getBestNativeCovers(filteredChunk),
-      ]);
-
-      for (const [wUri, details] of Object.entries(workEntities)) {
-        if (!details || !(details as any).title) continue;
-        const bookTitle = ((details as any).title as string).trim();
-        const finalCover = bestCovers[wUri] || (details as any).image || null;
-
-        const existing = await sql`
-          SELECT id, "inventaireUri" FROM "Book"
-          WHERE "inventaireUri" = ${wUri}
-          OR (title = ${bookTitle} AND "authorId" = ${authorId})
-          LIMIT 1
-        `;
-
-        if (!existing.length) {
-          try {
-            await sql`
-              INSERT INTO "Book" (title, "authorId", "inventaireUri", cover, year, description, genre)
-              VALUES (${bookTitle}, ${authorId}, ${wUri}, ${finalCover}, ${(details as any).year ?? 0}, '', '')
-            `;
-          } catch (err: any) {
-            if (err.code !== '23505') console.error(`[Inventaire] Failed to create book ${bookTitle}:`, err);
+    if (!workUris.length && uri.startsWith('wd:')) {
+      console.log(`[Inventaire] Falling back to Wikidata SPARQL to discover works for QID: ${uri}`);
+      try {
+        const qid = uri.substring(3);
+        const wdWorks = await getAuthorWorks(qid);
+        console.log(`[Inventaire] Found ${wdWorks.length} works on Wikidata for author ${author.name}`);
+        
+        for (const w of wdWorks) {
+          const wUri = `wd:${w.qid}`;
+          const bookTitle = w.title.trim();
+          let year = 0;
+          if (w.date) {
+            const match = w.date.match(/^(\d{4})/);
+            if (match) year = parseInt(match[1]);
           }
-        } else if (!existing[0].inventaireUri) {
-          await sql`UPDATE "Book" SET "inventaireUri" = ${wUri} WHERE id = ${existing[0].id}`.catch(() => {});
+          
+          let cover = null;
+          if (w.cover) {
+            cover = w.cover.replace('http://', 'https://');
+          }
+
+          const existing = await sql`
+            SELECT id, "inventaireUri", "openLibraryId" FROM "Book"
+            WHERE "inventaireUri" = ${wUri}
+            OR (title = ${bookTitle} AND "authorId" = ${authorId})
+            LIMIT 1
+          `;
+
+          if (!existing.length) {
+            try {
+              await sql`
+                INSERT INTO "Book" (title, "authorId", "inventaireUri", cover, year, description, genre, "openLibraryId")
+                VALUES (${bookTitle}, ${authorId}, ${wUri}, ${cover}, ${year}, '', ${w.genres || ''}, ${w.openLibraryId || null})
+              `;
+            } catch (err) {
+              const pgErr = err as { code?: string };
+              if (pgErr.code !== '23505') console.error(`[Inventaire] Failed to create book ${bookTitle} from Wikidata fallback:`, err);
+            }
+          } else {
+            const updates: Record<string, any> = {};
+            if (!existing[0].inventaireUri) updates.inventaireUri = wUri;
+            if (!existing[0].openLibraryId && w.openLibraryId) updates.openLibraryId = w.openLibraryId;
+            
+            if (Object.keys(updates).length > 0) {
+              await sql`UPDATE "Book" SET ${sql(updates)} WHERE id = ${existing[0].id}`.catch(() => {});
+            }
+          }
+        }
+      } catch (wdErr) {
+        console.error(`[Inventaire] Wikidata-based discovery failed for author ${author.name}:`, wdErr);
+      }
+    } else if (workUris.length > 0) {
+      const limitedUris = workUris.slice(0, 50); // Reduced limit for safety
+      const CHUNK_SIZE = 10; // Smaller chunks
+
+      for (let i = 0; i < limitedUris.length; i += CHUNK_SIZE) {
+        const chunk = limitedUris.slice(i, i + CHUNK_SIZE);
+        
+        // Fetch edition URIs in parallel for the current chunk of works
+        const editionUrisPerWork = await Promise.all(
+          chunk.map(async (wUri) => {
+            let edUris: string[] = [];
+            try {
+              edUris = await api.getWorkEditionUris(wUri);
+            } catch {
+              // ignore individual errors
+            }
+            return { wUri, hasEditions: edUris.length > 0 };
+          })
+        );
+
+        // Keep only works with at least one edition
+        const filteredChunk = editionUrisPerWork
+          .filter((x) => x.hasEditions)
+          .map((x) => x.wUri);
+
+        if (filteredChunk.length === 0) {
+          console.log(`[Inventaire] No works in chunk ${i / CHUNK_SIZE + 1} have editions. Skipping chunk.`);
+          continue;
+        }
+
+        console.log(
+          `[Inventaire] Fetching details for works chunk ${i / CHUNK_SIZE + 1} (${filteredChunk.length}/${chunk.length} have editions)`
+        );
+
+        const [workEntities, bestCovers] = await Promise.all([
+          api.getBatchInventaireDetails(filteredChunk).catch(() => ({})),
+          api.getBestNativeCovers(filteredChunk).catch(() => ({} as Record<string, string | null>)),
+        ]);
+
+        for (const [wUri, details] of Object.entries(workEntities)) {
+          if (!details || !(details as any).title) continue;
+          const bookTitle = ((details as any).title as string).trim();
+          const finalCover = bestCovers[wUri] || (details as any).image || null;
+
+          const existing = await sql`
+            SELECT id, "inventaireUri" FROM "Book"
+            WHERE "inventaireUri" = ${wUri}
+            OR (title = ${bookTitle} AND "authorId" = ${authorId})
+            LIMIT 1
+          `;
+
+          if (!existing.length) {
+            try {
+              await sql`
+                INSERT INTO "Book" (title, "authorId", "inventaireUri", cover, year, description, genre)
+                VALUES (${bookTitle}, ${authorId}, ${wUri}, ${finalCover}, ${(details as any).year ?? 0}, '', '')
+              `;
+            } catch (err) {
+              const pgErr = err as { code?: string };
+              if (pgErr.code !== '23505') console.error(`[Inventaire] Failed to create book ${bookTitle}:`, err);
+            }
+          } else if (!existing[0].inventaireUri) {
+            await sql`UPDATE "Book" SET "inventaireUri" = ${wUri} WHERE id = ${existing[0].id}`.catch(() => {});
+          }
         }
       }
     }
@@ -577,8 +652,6 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
     await sql`UPDATE "Author" SET "lastDiscoveredAt" = now() WHERE id = ${authorId}`.catch(() => {});
 
     // ─── Mark notable works ───────────────────────────────────────────────────
-    // Cross-reference Wikidata P800 notable works list with books now in DB.
-    // Books at the intersection are marked isNotable = true.
     try {
       const { getNotableWorksDetailed } = await import('./notableWorks.ts');
       const notableWorks = await getNotableWorksDetailed(author.name);
@@ -605,6 +678,9 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
     }
   } catch (e) {
     console.error(`[Inventaire] Author discovery error:`, e);
+  } finally {
+    // Always ensure the isEnriching flag is reset when done
+    await sql`UPDATE "Author" SET "isEnriching" = false WHERE id = ${authorId}`.catch(() => {});
   }
 };
 

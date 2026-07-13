@@ -1,6 +1,6 @@
 import { useRepositories } from '@/src/app/providers/RepositoriesProvider';
 import { ReadingStatus } from '@/src/entities/author/model/Author';
-import { Author, Book } from '@/src/shared/api/types';
+import { Author, Book, ExternalBookResult } from '@/src/shared/api/types';
 import { useRealtimeAuthors, useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { createContext, ReactNode, useCallback, useContext, useMemo } from 'react';
@@ -23,6 +23,8 @@ type AuthorContextType = {
   updateBookStatus: (id: number, status: ReadingStatus) => Promise<void>;
   getNotableWorks: (authorId: number) => Promise<any[]>;
   importBook: (bookData: any) => Promise<any>;
+  getExternalBooksByAuthor: (authorId: number) => Promise<ExternalBookResult[]>;
+  resolveGoogleBook: (title: string, author?: string) => Promise<ExternalBookResult | null>;
 };
 
 const AuthorContext = createContext<AuthorContextType | undefined>(undefined);
@@ -199,6 +201,8 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
     updateBookStatus: async (id: number, status: ReadingStatus) => { await updateBookStatusMutation.mutateAsync({ id, status }); },
     getNotableWorks: (authorId: number) => authorRepository.getNotableWorks(authorId),
     importBook: (bookData: any) => authorRepository.importBook(bookData),
+    getExternalBooksByAuthor: (authorId: number) => authorRepository.getExternalBooksByAuthor(authorId),
+    resolveGoogleBook: (title: string, author?: string) => authorRepository.resolveGoogleBook(title, author),
   }), [
     authors,
     books,

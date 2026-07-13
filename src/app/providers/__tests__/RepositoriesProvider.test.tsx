@@ -44,6 +44,7 @@ describe('RepositoriesProvider', () => {
     updateBookStatus: jest.fn(),
     getNotableWorks: jest.fn(),
     importBook: jest.fn(),
+    getExternalBooksByAuthor: jest.fn(),
   } as unknown as IAuthorRepository;
 
   const mockedQuoteRepositoryGetInstance = jest.requireMock('@/src/entities/quote/api/SupabaseQuoteRepository').SupabaseQuoteRepository.getInstance as jest.Mock;

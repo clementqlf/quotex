@@ -41,7 +41,7 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
     });
 
     if (!res.ok) {
-      console.error(`[GoogleBooks] API error: ${res.status} ${res.statusText}`);
+      console.warn(`[GoogleBooks] API warning: ${res.status} ${res.statusText}`);
       if (throwOnError) throw new Error(`Google Books API error: ${res.status}`);
       return [];
     }
@@ -94,8 +94,8 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
       };
     });
   } catch (e) {
-    console.error("[GoogleBooks] Unexpected error during search:", e);
     if (throwOnError) throw e;
+    console.error("[GoogleBooks] Unexpected error during search:", e);
     return [];
   }
 };

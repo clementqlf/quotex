@@ -5,11 +5,27 @@ export interface WikidataWork {
     date?: string;
     openLibraryId?: string;
     genres?: string;
+    cover?: string;
 }
 
 export interface WikidataSearchResult {
     id: string;
     label: string;
+}
+
+export interface SPARQLBinding {
+    [key: string]: {
+        type?: string;
+        value?: string;
+    } | undefined;
+}
+
+export interface WikidataLaureate {
+    year: number | null;
+    authorQid: string | undefined;
+    authorName: string | undefined;
+    workQid: string | undefined;
+    workTitle: string | undefined;
 }
 
 export const searchAuthorQid = async (authorName: string): Promise<WikidataSearchResult | null> => {
@@ -89,12 +105,13 @@ export const getAuthorWorks = async (qid: string): Promise<WikidataWork[]> => {
         const results = data.results.bindings;
         console.log(`[Wikidata] Found ${results.length} works for QID: ${qid}`);
 
-        return results.map((b: any) => ({
-            qid: b.oeuvre.value.split('/').pop() || '',
+        return results.map((b: SPARQLBinding) => ({
+            qid: b.oeuvre?.value?.split('/').pop() || '',
             title: b.title?.value || 'Sans titre',
             date: b.pubDate?.value,
             openLibraryId: b.openLibraryID?.value,
-            genres: b.genres?.value
+            genres: b.genres?.value,
+            cover: b.cover?.value || undefined
         }));
     } catch (e) {
         console.error(`[Wikidata] Error fetching works for ${qid}:`, e);
@@ -134,7 +151,7 @@ export const getAuthorNationality = async (qid: string): Promise<string | null> 
 /**
  * Fetches laureates for a given prize QID.
  */
-export const getPrizeLaureates = async (prizeQid: string): Promise<any[]> => {
+export const getPrizeLaureates = async (prizeQid: string): Promise<WikidataLaureate[]> => {
     try {
         const sparql = `
         SELECT DISTINCT ?year ?laureate ?laureateLabel ?work ?workLabel WHERE {
@@ -159,11 +176,11 @@ export const getPrizeLaureates = async (prizeQid: string): Promise<any[]> => {
 
         if (!res.ok) return [];
         const data = await res.json();
-        return data.results.bindings.map((b: any) => ({
+        return data.results.bindings.map((b: SPARQLBinding) => ({
             year: b.year?.value ? parseInt(b.year.value) : null,
-            authorQid: b.laureate?.value.split('/').pop(),
+            authorQid: b.laureate?.value?.split('/').pop(),
             authorName: b.laureateLabel?.value,
-            workQid: b.work?.value.split('/').pop(),
+            workQid: b.work?.value?.split('/').pop(),
             workTitle: b.workLabel?.value,
         }));
     } catch (e) {
@@ -171,3 +188,4 @@ export const getPrizeLaureates = async (prizeQid: string): Promise<any[]> => {
         return [];
     }
 };
+

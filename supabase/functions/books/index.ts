@@ -104,6 +104,55 @@ serve(async (req: Request) => {
   const userId = user?.id ?? null;
 
   try {
+    // GET /books/google-resolve?title=...&author=...
+    // Searches Google Books by title (and optionally author) to get the richest result (cover + description)
+    if (req.method === 'GET' && parts[0] === 'google-resolve') {
+      const title = url.searchParams.get('title');
+      const author = url.searchParams.get('author');
+      if (!title) return error('Missing title parameter', 400);
+
+      const { searchGoogleBooks } = await import('../_shared/googlebooks.ts');
+      const normalizeText = (t: string) =>
+        t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').trim();
+      const normalizedTitle = normalizeText(title);
+
+      // Strategy 1: exact title + author
+      let candidates: any[] = [];
+      if (author) {
+        try {
+          candidates = await searchGoogleBooks(`"${title}" inauthor:"${author}"`, 10, false);
+        } catch { /* ignore */ }
+      }
+
+      // Strategy 2: exact title only
+      if (candidates.length === 0) {
+        try {
+          candidates = await searchGoogleBooks(`"${title}"`, 10, false);
+        } catch { /* ignore */ }
+      }
+
+      // Pick the best match: same title (normalized) + most data (cover + description)
+      const scored = candidates
+        .filter(c => normalizeText(c.title) === normalizedTitle)
+        .map(c => ({
+          ...c,
+          _score: (c.cover ? 4 : 0) + (c.description ? 2 : 0) + (c.pages ? 1 : 0),
+        }))
+        .sort((a, b) => b._score - a._score);
+
+      if (scored.length > 0) {
+        const { _score, ...best } = scored[0];
+        return json(best);
+      }
+
+      // Fallback: return the first candidate even if title doesn't match exactly
+      if (candidates.length > 0) {
+        return json(candidates[0]);
+      }
+
+      return error('No result found', 404);
+    }
+
     // GET /books/by-inventaire/:uri
     if (req.method === 'GET' && parts[0] === 'by-inventaire' && parts[1]) {
       const rawUri = decodeURIComponent(parts.slice(1).join('/'));

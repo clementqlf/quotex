@@ -1,5 +1,5 @@
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
-import { Author, Book } from '@/src/shared/api/types';
+import { Author, Book, ExternalBookResult } from '@/src/shared/api/types';
 import { authorService } from '../api/AuthorService';
 import { IAuthorRepository } from './IAuthorRepository';
 
@@ -34,6 +34,14 @@ export class SupabaseAuthorRepository implements IAuthorRepository {
 
   async getBooksByAuthor(authorName: string, authorId?: number): Promise<Book[]> {
     return await authorService.getBooksByAuthor(authorName, authorId);
+  }
+
+  async getExternalBooksByAuthor(authorId: number): Promise<ExternalBookResult[]> {
+    return await authorService.getExternalBooksByAuthor(authorId);
+  }
+
+  async resolveGoogleBook(title: string, author?: string): Promise<ExternalBookResult | null> {
+    return await authorService.resolveGoogleBook(title, author);
   }
 
   async getBookByTitle(title: string): Promise<Book | undefined> {

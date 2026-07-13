@@ -222,7 +222,7 @@ export default function SearchScreen() {
                 </TouchableOpacity>
             );
         } else if (section.type === 'inventaire_book') {
-            const invBook = item as InventaireBookItem;
+            const invBook = item as InventaireBookItem & { source?: string };
             const imageUrl = getInventaireImageUrl(invBook.image ?? null);
             return (
                 <TouchableOpacity
@@ -238,14 +238,19 @@ export default function SearchScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={styles.itemTitle}>{invBook.label}</Text>
+                            <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invBook.label}</Text>
+                            {__DEV__ && invBook.source && (
+                                <View style={styles.debugBadge}>
+                                    <Text style={styles.debugBadgeText}>{invBook.source}</Text>
+                                </View>
+                            )}
                         </View>
                         <Text style={styles.subText} numberOfLines={1}>{invBook.authors && invBook.authors.length > 0 ? invBook.authors.join(', ') : 'Auteur inconnu'}</Text>
                     </View>
                 </TouchableOpacity>
             )
         } else if (section.type === 'inventaire_author') {
-            const invAuthor = item as InventaireAuthorItem;
+            const invAuthor = item as InventaireAuthorItem & { source?: string };
             const imageUrl = getInventaireImageUrl(invAuthor.image ?? null);
             return (
                 <TouchableOpacity
@@ -260,7 +265,14 @@ export default function SearchScreen() {
                         )}
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{invAuthor.label}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invAuthor.label}</Text>
+                            {__DEV__ && invAuthor.source && (
+                                <View style={styles.debugBadge}>
+                                    <Text style={styles.debugBadgeText}>{invAuthor.source}</Text>
+                                </View>
+                            )}
+                        </View>
                         <Text style={styles.subText} numberOfLines={2}>{invAuthor.description || 'Auteur'}</Text>
                     </View>
                 </TouchableOpacity>
@@ -560,5 +572,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
+    },
+    debugBadge: {
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderWidth: 1,
+        borderRadius: 4,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        marginLeft: 8,
+    },
+    debugBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#2563EB',
     }
 });

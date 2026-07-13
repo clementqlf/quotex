@@ -16,6 +16,28 @@ import {
 import { searchGoogleBooks } from '../_shared/googlebooks.ts';
 
 
+function calculateRelevance(text: string, query: string): number {
+  const normText = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const normQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+  if (normText === normQuery) return 100;
+  if (normText.startsWith(normQuery)) return 80;
+  if (normText.includes(normQuery)) return 60;
+
+  const queryWords = normQuery.split(/\s+/).filter(w => w.length > 2);
+  if (queryWords.length > 0) {
+    let matchCount = 0;
+    for (const word of queryWords) {
+      if (normText.includes(word)) {
+        matchCount++;
+      }
+    }
+    return (matchCount / queryWords.length) * 40;
+  }
+
+  return 0;
+}
+
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 serve(async (req: Request) => {
@@ -314,16 +336,20 @@ serve(async (req: Request) => {
         // Fetch both in parallel
         let apiFailed = false;
         const [freshInventaire, freshGoogle] = await Promise.all([
-          searchInventaireWorks(query, 10, true).catch((err: any) => {
-            console.error('[search] Inventaire search failed:', err);
-            apiFailed = true;
-            return [];
-          }),
-          searchGoogleBooks(query, 10, true).catch((err: any) => {
-            console.error('[search] Google Books search failed:', err);
-            apiFailed = true;
-            return [];
-          })
+          searchInventaireWorks(query, 10, true)
+            .then(res => res.map(r => ({ ...r, source: 'Inventaire' })))
+            .catch((err: any) => {
+              console.warn(`[search] Inventaire search failed: ${err.message || err}`);
+              apiFailed = true;
+              return [];
+            }),
+          searchGoogleBooks(query, 10, true)
+            .then(res => res.map(r => ({ ...r, source: 'Google Books' })))
+            .catch((err: any) => {
+              console.warn(`[search] Google Books search failed: ${err.message || err}`);
+              apiFailed = true;
+              return [];
+            })
         ]);
 
         // Merge and deduplicate by title + author
@@ -346,6 +372,13 @@ serve(async (req: Request) => {
           }
         }
 
+        // Sort merged books by relevance
+        merged.sort((a, b) => {
+          const scoreA = calculateRelevance(`${a.label || a.title || ''} ${(a.authors || []).join(' ')}`, query);
+          const scoreB = calculateRelevance(`${b.label || b.title || ''} ${(b.authors || []).join(' ')}`, query);
+          return scoreB - scoreA;
+        });
+
         if (!apiFailed) {
           const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
           await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'sujets', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err: any) => console.error('[search] Cache write error', err));
@@ -366,11 +399,13 @@ serve(async (req: Request) => {
         // Fetch from both Inventaire and Wikidata in parallel
         let apiFailed = false;
         const [freshInventaire, freshWikidata] = await Promise.all([
-          searchInventaireAuthors(query, 10, true).catch((err) => {
-            console.error('[search] Inventaire author search failed:', err);
-            apiFailed = true;
-            return [];
-          }),
+          searchInventaireAuthors(query, 10, true)
+            .then(res => res.map(r => ({ ...r, source: 'Inventaire' })))
+            .catch((err) => {
+              console.error('[search] Inventaire author search failed:', err);
+              apiFailed = true;
+              return [];
+            }),
           (async () => {
             try {
               const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=fr&format=json&origin=*&type=item&limit=15`;
@@ -397,13 +432,14 @@ serve(async (req: Request) => {
                   const p18Value = p18Claims[0]?.mainsnak?.datavalue?.value;
                   const image = p18Value ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(p18Value)}?width=250` : null;
 
-                  return {
+                   return {
                     id: r.id,
                     uri: `wd:${r.id}`,
                     type: 'humans',
                     label: r.label || '',
                     description: r.description || '',
-                    image
+                    image,
+                    source: 'Wikidata'
                   };
                 });
             } catch (e) {
@@ -433,6 +469,13 @@ serve(async (req: Request) => {
             merged.push(item);
           }
         }
+
+        // Sort merged authors by relevance
+        merged.sort((a, b) => {
+          const scoreA = calculateRelevance(a.label || a.name || '', query);
+          const scoreB = calculateRelevance(b.label || b.name || '', query);
+          return scoreB - scoreA;
+        });
 
         if (!apiFailed) {
           const expiresAt = new Date(Date.now() + CACHE_TTL_MS);

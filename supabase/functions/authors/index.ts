@@ -198,6 +198,8 @@ serve(async (req: Request) => {
           
           // Background discovery (slow)
           if (author?.inventaireUri) {
+            // Set isEnriching to true in DB before launching background discovery to avoid race conditions
+            await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${newAuthorId}`.catch(() => {});
             waitUntil(discoverAuthorWorks(newAuthorId, author.inventaireUri));
           }
           
@@ -208,11 +210,18 @@ serve(async (req: Request) => {
       if (!authorRows.length) return error('Author not found', 404);
       const a = authorRows[0];
 
-      // Trigger background enrichment if data is sparse or too short
-      if (a.inventaireUri && (!a.description || a.description.length < 200 || !a.image)) {
+      const needsProfileEnrichment = a.inventaireUri && (!a.description || a.description.length < 200 || !a.image);
+      const needsDiscovery = a.inventaireUri && !a.lastDiscoveredAt;
+
+      if (needsProfileEnrichment || needsDiscovery) {
         a.isEnriching = true;
-        console.log(`[authors] Triggering background enrichment for author ${a.id}`);
-        waitUntil(enrichAuthorWithInventaire(a.id));
+        console.log(`[authors] Triggering background enrichment/discovery for author ${a.id}`);
+        if (needsProfileEnrichment) {
+          waitUntil(enrichAuthorWithInventaire(a.id));
+        } else {
+          await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${a.id}`.catch(() => {});
+          waitUntil(discoverAuthorWorks(a.id, a.inventaireUri));
+        }
       }
 
       return json(formatAuthor(a, userId));
@@ -247,6 +256,7 @@ serve(async (req: Request) => {
           
           // Background discovery (slow)
           if (author?.inventaireUri) {
+            await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${authorRows[0].id}`.catch(() => {});
             waitUntil(discoverAuthorWorks(authorRows[0].id, author.inventaireUri));
           }
           
@@ -269,6 +279,87 @@ serve(async (req: Request) => {
         }
       }
       return json(books.map((b: any) => formatBook(b)));
+    }
+
+    // GET /authors/:id/external-books
+    if (req.method === 'GET' && idParam && subAction === 'external-books') {
+      const authorRows = await sql`SELECT name FROM "Author" WHERE id = ${idParam} LIMIT 1`;
+      if (!authorRows.length) return error('Author not found', 404);
+      const authorName = authorRows[0].name;
+
+      const { searchGoogleBooks } = await import('../_shared/googlebooks.ts');
+      try {
+        const googleResults = await searchGoogleBooks(`inauthor:"${authorName}"`, 20, true);
+        
+        // Try to fetch richer metadata for books missing cover/description by searching their exact title
+        const incompleteBooksToEnrich = googleResults.filter(b => !b.cover || !b.description);
+        if (incompleteBooksToEnrich.length > 0) {
+          const normalizeText = (t: string) =>
+            t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim();
+
+          const enrichPromises = incompleteBooksToEnrich.slice(0, 8).map(async (book) => {
+            try {
+              const exactTitleQuery = `"${book.title}"`;
+              const titleResults = await searchGoogleBooks(exactTitleQuery, 8, false);
+              
+              const normalizedBookTitle = normalizeText(book.title);
+
+              // First try: same title + author matches
+              let bestMatch = titleResults.find(r =>
+                normalizeText(r.title) === normalizedBookTitle &&
+                r.authors.some(a =>
+                  a.toLowerCase().includes(authorName.toLowerCase()) ||
+                  authorName.toLowerCase().includes(a.toLowerCase())
+                ) &&
+                (r.cover || r.description)
+              );
+
+              // Fallback: same title, any result with richer data (cover or description)
+              // This handles the case where two Google Books entries exist for the same book,
+              // and the richer one isn't linked to the author.
+              if (!bestMatch) {
+                bestMatch = titleResults
+                  .filter(r => normalizeText(r.title) === normalizedBookTitle && (r.cover || r.description))
+                  .sort((a, b) => {
+                    // Prioritize entries with both cover and description
+                    const scoreA = (a.cover ? 2 : 0) + (a.description ? 1 : 0);
+                    const scoreB = (b.cover ? 2 : 0) + (b.description ? 1 : 0);
+                    return scoreB - scoreA;
+                  })[0] ?? null;
+              }
+
+              if (bestMatch) {
+                // Merge all missing fields from the richer entry
+                if (!book.cover && bestMatch.cover) {
+                  book.cover = bestMatch.cover;
+                  book.image = bestMatch.cover;
+                }
+                if (!book.description && bestMatch.description) {
+                  book.description = bestMatch.description;
+                }
+                if ((!book.pages || book.pages === 0) && bestMatch.pages) {
+                  book.pages = bestMatch.pages;
+                }
+                if (!book.isbn && bestMatch.isbn) {
+                  book.isbn = bestMatch.isbn;
+                }
+                if ((!book.year || book.year === 0) && bestMatch.year) {
+                  book.year = bestMatch.year;
+                }
+                console.log(`[authors] Enriched "${book.title}" with richer Google Books entry (cover: ${!!book.cover}, desc: ${!!book.description})`);
+              }
+            } catch (err) {
+              console.warn(`[authors] Metadata enrichment failed for "${book.title}":`, err);
+            }
+          });
+          await Promise.all(enrichPromises);
+        }
+
+        return json(googleResults);
+      } catch (e: any) {
+        console.error('[authors] Failed to fetch external books from Google Books:', e);
+        return error(e.message || 'Failed to fetch from Google Books', 502);
+      }
     }
 
     // GET /authors/:id/notable-works
@@ -339,19 +430,26 @@ serve(async (req: Request) => {
       if (!authorRows.length) return error('Author not found', 404);
       const author = authorRows[0];
 
-      // Trigger background enrichment if data is sparse
-      if (author.inventaireUri && (!author.description || author.description.length < 200 || !author.image)) {
+      const needsProfileEnrichment = author.inventaireUri && (!author.description || author.description.length < 200 || !author.image);
+      const needsDiscovery = author.inventaireUri && !author.lastDiscoveredAt;
+
+      if (needsProfileEnrichment || needsDiscovery) {
         author.isEnriching = true;
-        console.log(`[authors] Triggering background enrichment for author ${idParam}`);
-        waitUntil(enrichAuthorWithInventaire(idParam));
+        console.log(`[authors] Triggering background enrichment/discovery for author ${idParam}`);
+        if (needsProfileEnrichment) {
+          waitUntil(enrichAuthorWithInventaire(idParam));
+        } else {
+          await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${idParam}`.catch(() => {});
+          waitUntil(discoverAuthorWorks(idParam, author.inventaireUri));
+        }
       }
 
       return json(formatAuthor(author, userId));
     }
 
     return error('Not found', 404);
-  } catch (e) {
-    console.error('[authors]', e);
-    return error('Internal server error');
+  } catch (e: any) {
+    console.error('[authors] TOP-LEVEL CRASH:', e);
+    return error(JSON.stringify({ error: e.message, stack: e.stack }), 500);
   }
 });

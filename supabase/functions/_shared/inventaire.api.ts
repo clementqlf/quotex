@@ -705,7 +705,7 @@ export const getInventaireAuthorDetails = async (uri: string): Promise<Inventair
 };
 
 export const fetchWikipediaSynopsis = (title: string, lang: string = 'fr'): Promise<string | null> => {
-    if (!title) return null;
+    if (!title) return Promise.resolve(null);
     
     const cacheKey = `${lang}:${title}`;
     

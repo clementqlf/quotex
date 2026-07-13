@@ -3,7 +3,7 @@ import { httpClient } from '@/src/shared/api/HttpClient';
 import { normalizeInventaireUri } from '@/src/shared/api/InventaireService';
 import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
-import { Author, Book } from '@/src/shared/api/types';
+import { Author, Book, ExternalBookResult } from '@/src/shared/api/types';
 import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
 
 // Debug flag - set to false to disable debug logs in production
@@ -129,6 +129,34 @@ class AuthorService {
         return (storedBooks || []).filter(b =>
             (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
         );
+    }
+
+    async getExternalBooksByAuthor(authorId: number): Promise<ExternalBookResult[]> {
+        if (await isOffline()) {
+            return [];
+        }
+
+        try {
+            return await httpClient.get<ExternalBookResult[]>(`/authors/${authorId}/external-books`);
+        } catch (error) {
+            logFetchError('Error fetching author external books from server', error);
+            return [];
+        }
+    }
+
+    async resolveGoogleBook(title: string, author?: string): Promise<ExternalBookResult | null> {
+        if (await isOffline()) {
+            return null;
+        }
+
+        try {
+            const params = new URLSearchParams({ title });
+            if (author) params.set('author', author);
+            return await httpClient.get<ExternalBookResult>(`/books/google-resolve?${params.toString()}`);
+        } catch (error) {
+            logFetchError('Error resolving Google Book by title', error);
+            return null;
+        }
     }
 
     async getBookByTitle(title: string): Promise<Book | undefined> {

@@ -1,4 +1,4 @@
-import { Author, Book } from '@/src/shared/api/types';
+import { Author, Book, ExternalBookResult } from '@/src/shared/api/types';
 
 /**
  * Interface du Repository pour les Authors
@@ -12,6 +12,8 @@ export interface IAuthorRepository {
   // Books
   getBooks(): Promise<Book[]>;
   getBooksByAuthor(authorName: string, authorId?: number): Promise<Book[]>;
+  getExternalBooksByAuthor(authorId: number): Promise<ExternalBookResult[]>;
+  resolveGoogleBook(title: string, author?: string): Promise<ExternalBookResult | null>;
   getBookByTitle(title: string): Promise<Book | undefined>;
   getBookById(id: number): Promise<Book | undefined>;
   getBookByInventaireUri(inventaireUri: string): Promise<Book | undefined>;

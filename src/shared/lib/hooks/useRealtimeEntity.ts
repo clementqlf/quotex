@@ -2,6 +2,7 @@ import { supabase } from '@/src/shared/api/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Author, Book } from '@/src/shared/api/types';
+import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 
 // Type pour les payloads de changes Supabase
 interface SupabaseRealtimePayload<T> {
@@ -24,6 +25,8 @@ export interface RealtimeEntityOptions<T extends Record<string, unknown>> {
   enrichingField?: keyof T;
   /** Intervalle de polling en ms si Realtime échoue (par défaut: 2000) */
   pollingInterval?: number;
+  /** Fonction de mapping/parsing pour adapter les données brutes de la base */
+  mapData?: (data: any) => T;
 }
 
 /**
@@ -43,8 +46,8 @@ export interface RealtimeEntityOptions<T extends Record<string, unknown>> {
 export function useRealtimeEntity<T extends Record<string, unknown>>(
   options: RealtimeEntityOptions<T>
 ): T | null | undefined {
-  const { id, initialData, table, enrichingField = 'isEnriching' as keyof T, pollingInterval = 2000 } = options;
-  const [data, setData] = useState<T | null | undefined>(initialData);
+  const { id, initialData, table, enrichingField = 'isEnriching' as keyof T, pollingInterval = 2000, mapData } = options;
+  const [data, setData] = useState<T | null | undefined>(initialData ? (mapData ? mapData(initialData) : initialData) : initialData);
   const [useFallback, setUseFallback] = useState(false);
   const fallbackTriggeredRef = React.useRef(false);
 
@@ -64,7 +67,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
                     initialIsEnriching === true;
                     
     if (!isStale) {
-      setData(initialData);
+      setData(initialData ? (mapData ? mapData(initialData) : initialData) : initialData);
     }
   }
 
@@ -98,7 +101,8 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
             },
             (payload: SupabaseRealtimePayload<T>) => {
               console.log(`[Realtime] ${table} ${id} updated`, payload.new?.[enrichingField as keyof T]);
-              setData(payload.new);
+              const mapped = payload.new ? (mapData ? mapData(payload.new) : payload.new) : payload.new;
+              setData(mapped);
               
               // Si l'enrichissement est terminé, on se désabonne
               if (payload.new?.[enrichingField as keyof T] === false) {
@@ -142,7 +146,8 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
             .single();
           
           if (fetchedData) {
-            setData(fetchedData as any);
+            const mapped = mapData ? mapData(fetchedData) : fetchedData;
+            setData(mapped as any);
             if ((fetchedData as any)[enrichingField] === false) {
               if (interval) clearInterval(interval);
               console.log(`[Polling] ${table} ${id} enrichment complete, stopping polling`);
@@ -184,7 +189,15 @@ export function useBookRealtime(bookId: number | null | undefined, initialBook: 
     id: bookId,
     initialData: initialBook as (Book & Record<string, unknown>) | null | undefined,
     table: 'Book',
-    enrichingField: 'isEnriching'
+    enrichingField: 'isEnriching',
+    mapData: (b) => {
+      if (!b) return b;
+      return {
+        ...b,
+        buyLinks: parseJsonField<any[]>(b.buyLinks) || [],
+        similarBooks: b.similarBooks || [],
+      };
+    }
   });
 }
 
@@ -212,6 +225,10 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
       .sort((a, b) => a - b);
   }, [books]);
 
+  // Stabilise le callback via ref pour ne pas le mettre en dépendance de l'effet
+  const callbackRef = React.useRef(refreshCallback);
+  React.useLayoutEffect(() => { callbackRef.current = refreshCallback; });
+
   // S'abonner à tous les livres en enrichissement avec UN SEUL canal
   useEffect(() => {
     if (!enrichingBookIds.length) return;
@@ -231,8 +248,10 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
         },
         (payload: SupabaseRealtimePayload<Book>) => {
           console.log(`[Realtime] Book ${payload.new?.id} updated in modal`, payload.new?.isEnriching);
-          // Rafraîchir le callback parent si fourni
-          refreshCallback?.();
+          // N'appeler le callback que lorsque l'enrichissement est terminé
+          if (payload.new?.isEnriching === false) {
+            callbackRef.current?.();
+          }
         }
       )
       .subscribe();
@@ -241,7 +260,8 @@ export function useRealtimeBooks(books: Book[], refreshCallback?: () => void) {
       console.log(`[Cleanup] Unsubscribing from books batch channel`);
       supabase.removeChannel(channel);
     };
-  }, [enrichingBookIds, refreshCallback]);
+  // refreshCallback intentionnellement absent des dépendances (stabilisé via ref)
+  }, [enrichingBookIds]);
 }
 
 /**
@@ -255,6 +275,10 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
       .map(a => a.id as number)
       .sort((a, b) => a - b);
   }, [authors]);
+
+  // Stabilise le callback via ref pour ne pas le mettre en dépendance de l'effet
+  const callbackRef = React.useRef(refreshCallback);
+  React.useLayoutEffect(() => { callbackRef.current = refreshCallback; });
 
   useEffect(() => {
     if (!enrichingAuthorIds.length) return;
@@ -274,7 +298,10 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
         },
         (payload: SupabaseRealtimePayload<Author>) => {
           console.log(`[Realtime] Author ${payload.new?.id} updated in modal`, payload.new?.isEnriching);
-          refreshCallback?.();
+          // N'appeler le callback que lorsque l'enrichissement est terminé
+          if (payload.new?.isEnriching === false) {
+            callbackRef.current?.();
+          }
         }
       )
       .subscribe();
@@ -283,5 +310,6 @@ export function useRealtimeAuthors(authors: Author[], refreshCallback?: () => vo
       console.log(`[Cleanup] Unsubscribing from authors batch channel`);
       supabase.removeChannel(channel);
     };
-  }, [enrichingAuthorIds, refreshCallback]);
+  // refreshCallback intentionnellement absent des dépendances (stabilisé via ref)
+  }, [enrichingAuthorIds]);
 }
