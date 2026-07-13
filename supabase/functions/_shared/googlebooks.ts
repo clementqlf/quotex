@@ -19,7 +19,7 @@ export interface GoogleBookSearchResult {
  * Searches Google Books API using the configured secret key.
  * Strictly requires the GOOGLE_BOOKS_API_KEY environment variable.
  */
-export const searchGoogleBooks = async (query: string, limit = 10): Promise<GoogleBookSearchResult[]> => {
+export const searchGoogleBooks = async (query: string, limit = 10, throwOnError = false): Promise<GoogleBookSearchResult[]> => {
   const apiKey = Deno.env.get("GOOGLE_BOOKS_API_KEY");
   if (!apiKey) {
     console.error("[GoogleBooks] Error: GOOGLE_BOOKS_API_KEY environment variable is not set.");
@@ -42,6 +42,7 @@ export const searchGoogleBooks = async (query: string, limit = 10): Promise<Goog
 
     if (!res.ok) {
       console.error(`[GoogleBooks] API error: ${res.status} ${res.statusText}`);
+      if (throwOnError) throw new Error(`Google Books API error: ${res.status}`);
       return [];
     }
 
@@ -94,6 +95,7 @@ export const searchGoogleBooks = async (query: string, limit = 10): Promise<Goog
     });
   } catch (e) {
     console.error("[GoogleBooks] Unexpected error during search:", e);
+    if (throwOnError) throw e;
     return [];
   }
 };

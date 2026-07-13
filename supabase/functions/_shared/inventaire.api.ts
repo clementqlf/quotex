@@ -187,7 +187,7 @@ export const formatInventaireWork = (entity: InventaireEntity, uri?: string): Pa
 
 // ─── API: Search ─────────────────────────────────────────────────────────────
 
-export const searchInventaire = async (query: string, types: string = 'works', limit = 10): Promise<InventaireSearchResult[]> => {
+export const searchInventaire = async (query: string, types: string = 'works', limit = 10, throwOnError = false): Promise<InventaireSearchResult[]> => {
     if (!query.trim()) return [];
     
     const cacheKey = `${query}:${types}:${limit}`;
@@ -281,6 +281,8 @@ export const searchInventaire = async (query: string, types: string = 'works', l
         return sortedResults;
     } catch (e) {
         console.error('[Inventaire API] Error searching:', e);
+        searchCache.delete(cacheKey);
+        if (throwOnError) throw e;
         return [];
     }
     })();
@@ -292,8 +294,8 @@ export const searchInventaire = async (query: string, types: string = 'works', l
     return fetchPromise;
 };
 
-export const searchInventaireWorks = async (query: string, limit = 10): Promise<InventaireSearchResult[]> => {
-    return searchInventaire(query, 'works,genres,movements', limit);
+export const searchInventaireWorks = async (query: string, limit = 10, throwOnError = false): Promise<InventaireSearchResult[]> => {
+    return searchInventaire(query, 'works,genres,movements', limit, throwOnError);
 };
 
 export interface InventaireBookByIsbnResult {
@@ -407,8 +409,8 @@ export const getInventaireBookByIsbn = async (isbn: string): Promise<InventaireB
     }
 };
 
-export const searchInventaireAuthors = async (query: string, limit = 10): Promise<InventaireSearchResult[]> => {
-    return searchInventaire(query, 'humans', limit);
+export const searchInventaireAuthors = async (query: string, limit = 10, throwOnError = false): Promise<InventaireSearchResult[]> => {
+    return searchInventaire(query, 'humans', limit, throwOnError);
 };
 
 export const capitalizeFirstLetter = (str: string): string => {
@@ -609,6 +611,7 @@ export const getInventaireEntities = async (uris: string[]): Promise<Record<stri
             return data.entities || {};
         } catch (e) {
             console.error('[Inventaire API] Error fetching entities:', e);
+            entityCache.delete(cacheKey);
             return {};
         }
     })();
@@ -728,6 +731,7 @@ export const fetchWikipediaSynopsis = (title: string, lang: string = 'fr'): Prom
             return extract.trim();
         } catch (e) {
             console.error('[Wikipedia API] Error fetching synopsis:', e);
+            wikipediaCache.delete(cacheKey);
             return null;
         }
     })();
@@ -765,6 +769,7 @@ export const getWorkEditionUris = (workUri: string): Promise<string[]> => {
             return data.uris || [];
         } catch (e) {
             console.error('[Inventaire API] Error fetching edition URIs:', e);
+            workEditionUrisCache.delete(workUri);
             return [];
         }
     })();

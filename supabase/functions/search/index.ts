@@ -11,7 +11,6 @@ import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts'
 import {
   searchInventaireWorks,
   searchInventaireAuthors,
-  searchInventaire,
   getInventaireBookByIsbn,
 } from '../_shared/inventaire.api.ts';
 import { searchGoogleBooks } from '../_shared/googlebooks.ts';
@@ -313,13 +312,16 @@ serve(async (req: Request) => {
         }
         
         // Fetch both in parallel
+        let apiFailed = false;
         const [freshInventaire, freshGoogle] = await Promise.all([
-          searchInventaireWorks(query, 10).catch((err: any) => {
+          searchInventaireWorks(query, 10, true).catch((err: any) => {
             console.error('[search] Inventaire search failed:', err);
+            apiFailed = true;
             return [];
           }),
-          searchGoogleBooks(query, 10).catch((err: any) => {
+          searchGoogleBooks(query, 10, true).catch((err: any) => {
             console.error('[search] Google Books search failed:', err);
+            apiFailed = true;
             return [];
           })
         ]);
@@ -344,8 +346,12 @@ serve(async (req: Request) => {
           }
         }
 
-        const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'sujets', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err: any) => console.error('[search] Cache write error', err));
+        if (!apiFailed) {
+          const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
+          await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'sujets', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err: any) => console.error('[search] Cache write error', err));
+        } else {
+          console.log('[search] Skipping database cache write for sujets because an external API search failed.');
+        }
         return merged;
       })(),
       (async () => {
@@ -358,9 +364,11 @@ serve(async (req: Request) => {
         }
 
         // Fetch from both Inventaire and Wikidata in parallel
+        let apiFailed = false;
         const [freshInventaire, freshWikidata] = await Promise.all([
-          searchInventaireAuthors(query, 10).catch((err) => {
+          searchInventaireAuthors(query, 10, true).catch((err) => {
             console.error('[search] Inventaire author search failed:', err);
+            apiFailed = true;
             return [];
           }),
           (async () => {
@@ -400,6 +408,7 @@ serve(async (req: Request) => {
                 });
             } catch (e) {
               console.error('[search] Wikidata author search error:', e);
+              apiFailed = true;
               return [];
             }
           })()
@@ -425,8 +434,12 @@ serve(async (req: Request) => {
           }
         }
 
-        const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-        await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
+        if (!apiFailed) {
+          const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
+          await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
+        } else {
+          console.log('[search] Skipping database cache write for humans because an external API search failed.');
+        }
         return merged;
       })(),
       (async () => {
