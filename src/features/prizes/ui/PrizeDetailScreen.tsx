@@ -8,7 +8,7 @@ import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ArrowLeft, Award, BookOpen, Calendar, User } from 'lucide-react-native';
+import { ArrowLeft, Award, BookOpen } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,

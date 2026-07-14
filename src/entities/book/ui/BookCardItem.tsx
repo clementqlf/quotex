@@ -26,6 +26,10 @@ interface BookCardData {
   readingStatus?: string | null;
   inventaireUri?: string;
   isSaved?: boolean;
+  isExternal?: boolean;
+  googleId?: string;
+  isbn?: string | null;
+  pages?: number;
 }
 
 interface BookCardItemProps {

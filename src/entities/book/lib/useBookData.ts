@@ -102,14 +102,14 @@ export const useBookData = (): BookDataResult => {
       console.log('[Realtime] Book enrichment complete, refetching query data...');
       refetch();
     }
-  }, [realtimeBook?.isEnriching, resolvedBookInfo?.isEnriching, refetch]);
+  }, [realtimeBook, resolvedBookInfo?.isEnriching, refetch]);
 
   useEffect(() => {
     if (realtimeAuthor && !realtimeAuthor.isEnriching && resolvedAuthorInfo?.isEnriching) {
       console.log('[Realtime] Author enrichment complete, refetching query data...');
       refetch();
     }
-  }, [realtimeAuthor?.isEnriching, resolvedAuthorInfo?.isEnriching, refetch]);
+  }, [realtimeAuthor, resolvedAuthorInfo?.isEnriching, refetch]);
 
   // Merge realtime updates with resolved database data to preserve relations (like author)
   // that are missing from raw table payloads in realtime.

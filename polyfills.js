@@ -2,7 +2,7 @@
  * Polyfill for RCTEventEmitter with Fabric
  * This fixes the "Module has not been registered as callable" error
  */
-import { NativeModules, NativeEventEmitter } from 'react-native';
+
 
 // Try to register `RCTEventEmitter` as callable on multiple potential bridge
 // globals. Different React Native versions / new-architecture setups expose
@@ -26,7 +26,7 @@ const registerOnBridge = (bridge) => {
         receiveTouches: () => {},
       });
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -43,7 +43,7 @@ if (!registered && global.__fbBatchedBridge && typeof global.__fbBatchedBridge =
   try {
     const bb = global.__fbBatchedBridge.BatchedBridge || global.__fbBatchedBridge;
     registered = registerOnBridge(bb);
-  } catch (e) {
+  } catch {
     // ignore
   }
 }
@@ -58,7 +58,7 @@ if (!registered) {
         receiveTouches: () => {},
       };
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
 }

@@ -50,6 +50,10 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
   const [data, setData] = useState<T | null | undefined>(initialData ? (mapData ? mapData(initialData) : initialData) : initialData);
   const [useFallback, setUseFallback] = useState(false);
   const fallbackTriggeredRef = React.useRef(false);
+  const mapDataRef = React.useRef(mapData);
+  useEffect(() => {
+    mapDataRef.current = mapData;
+  }, [mapData]);
 
   // Synchroniser le state local avec les nouvelles props (initialData) pendant le rendu
   // Cela permet d'afficher les corrections du serveur immédiatement (ex: majuscules)
@@ -101,7 +105,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
             },
             (payload: SupabaseRealtimePayload<T>) => {
               console.log(`[Realtime] ${table} ${id} updated`, payload.new?.[enrichingField as keyof T]);
-              const mapped = payload.new ? (mapData ? mapData(payload.new) : payload.new) : payload.new;
+              const mapped = payload.new ? (mapDataRef.current ? mapDataRef.current(payload.new) : payload.new) : payload.new;
               setData(mapped);
               
               // Si l'enrichissement est terminé, on se désabonne
@@ -146,7 +150,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
             .single();
           
           if (fetchedData) {
-            const mapped = (mapData ? mapData(fetchedData) : fetchedData) as T | null;
+            const mapped = (mapDataRef.current ? mapDataRef.current(fetchedData) : fetchedData) as T | null;
             setData(mapped as any);
             if ((fetchedData as any)[enrichingField] === false) {
               if (interval) clearInterval(interval);

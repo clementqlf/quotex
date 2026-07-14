@@ -149,7 +149,7 @@ export const TypingText: React.FC<TypingTextProps> = ({
         return () => {
             clearAllTimers();
         };
-    }, [isCorrected, text, originalText]);
+    }, [isCorrected, text, originalText, resetKey]);
 
     // Render plain text if not animating/corrected
     if (!showCursor) {

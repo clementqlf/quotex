@@ -137,7 +137,7 @@ export default function AuthorDetailScreen() {
   
   // Convert undefined to null for compatibility with existing code
   const resolvedAuthorInfo: Author | null = authorInfo ?? null;
-  const resolvedAuthorBooks: Book[] = authorBooks ?? [];
+  const resolvedAuthorBooks: Book[] = useMemo(() => authorBooks ?? [], [authorBooks]);
   const notableWorks = useMemo(
     () => {
       const notable = resolvedAuthorBooks.filter((book) => book.isNotable);
@@ -372,6 +372,7 @@ export default function AuthorDetailScreen() {
     try {
       const localBook = allBooks.find(b => 
         (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+        (book.googleId && b.googleId === book.googleId) ||
         b.title.toLowerCase() === book.title.toLowerCase()
       );
 
@@ -409,15 +410,40 @@ export default function AuthorDetailScreen() {
       }
 
       if (!bookIdToSave) {
+        let googleId = book.googleId;
+        let isbn = book.isbn;
+        let cover = book.cover;
+        let description = book.description;
+        let year = book.year;
+        let pages = book.pages;
+
+        if (book.isExternal) {
+          try {
+            const resolved = await resolveGoogleBook(book.title, authorName);
+            if (resolved) {
+              googleId = resolved.googleId || googleId;
+              isbn = resolved.isbn || isbn;
+              cover = resolved.cover || cover;
+              description = resolved.description || description;
+              year = resolved.year || year;
+              pages = resolved.pages || pages;
+            }
+          } catch (e) {
+            console.warn('[AuthorDetail] Failed to resolve external book:', e);
+          }
+        }
+
         const importPayload = {
           title: book.title,
-          cover: book.cover,
-          description: book.description || '',
-          year: book.year || 0,
-          pages: book.pages || 0,
+          cover: cover,
+          description: description || '',
+          year: year || 0,
+          pages: pages || 0,
           genre: book.genre || 'Unknown',
           authors: book.authors || [authorName],
-          inventaireUri: book.inventaireUri,
+          inventaireUri: book.inventaireUri || (googleId ? `googlebooks:${googleId}` : undefined),
+          googleId: googleId,
+          isbn: isbn,
         };
 
         const imported = await importBook(importPayload);
@@ -491,6 +517,7 @@ export default function AuthorDetailScreen() {
 
     const localBook = allBooks.find(b => 
       (book.inventaireUri && b.inventaireUri === book.inventaireUri) || 
+      (book.googleId && b.googleId === book.googleId) ||
       b.title.toLowerCase() === book.title.toLowerCase()
     );
 
@@ -503,16 +530,41 @@ export default function AuthorDetailScreen() {
     const changeStatus = async (status: string) => {
       try {
         if (!bookId) {
+          let googleId = book.googleId;
+          let isbn = book.isbn;
+          let cover = book.cover;
+          let description = book.description;
+          let year = book.year;
+          let pages = book.pages;
+
+          if (book.isExternal) {
+            try {
+              const resolved = await resolveGoogleBook(book.title, authorName);
+              if (resolved) {
+                googleId = resolved.googleId || googleId;
+                isbn = resolved.isbn || isbn;
+                cover = resolved.cover || cover;
+                description = resolved.description || description;
+                year = resolved.year || year;
+                pages = resolved.pages || pages;
+              }
+            } catch (e) {
+              console.warn('[AuthorDetail] Failed to resolve external book:', e);
+            }
+          }
+
           const importPayload = {
             title: book.title,
-            cover: book.cover,
-            description: book.description || '',
-            year: book.year || 0,
-            pages: book.pages || 0,
+            cover: cover,
+            description: description || '',
+            year: year || 0,
+            pages: pages || 0,
             genre: book.genre || 'Unknown',
             authors: book.authors || [authorName],
-            inventaireUri: book.inventaireUri,
+            inventaireUri: book.inventaireUri || (googleId ? `googlebooks:${googleId}` : undefined),
             readingStatus: status,
+            googleId: googleId,
+            isbn: isbn,
           };
           const imported = await importBook(importPayload);
           if (imported && imported.id) {
@@ -874,6 +926,8 @@ export default function AuthorDetailScreen() {
 
                     const localBook = allBooks.find(b => 
                       (item.inventaireUri && b.inventaireUri === item.inventaireUri) || 
+                      (item.uri && b.inventaireUri === item.uri) ||
+                      (item.googleId && b.googleId === item.googleId) ||
                       b.title.toLowerCase() === item.title.toLowerCase()
                     );
                     
@@ -903,16 +957,19 @@ export default function AuthorDetailScreen() {
                       description: localBook?.description ?? item.description ?? '',
                       cover: openLibraryCover({ cover: item.cover, isbn: item.isbn, title: item.title }),
                       readingStatus: localBook?.readingStatus ?? item.readingStatus,
-                      inventaireUri: item.inventaireUri,
+                      inventaireUri: localBook?.inventaireUri ?? item.inventaireUri ?? item.uri ?? (item.googleId ? `googlebooks:${item.googleId}` : undefined),
                       isSaved: localBook?.isSaved ?? false,
-                      isExternal: item.isExternal,
+                      isExternal: !localBook && item.isExternal,
+                      googleId: localBook?.googleId ?? item.googleId,
+                      isbn: item.isbn,
+                      pages: item.pages,
                     };
 
                     return (
                       <BookCardItem
                         book={mappedBook}
                         showDescription={false}
-                        showAddButton={!mappedBook.isExternal}
+                        showAddButton={true}
                         onAddPress={() => handleAddBook(mappedBook)}
                         onAddLongPress={() => handleOpenBookStatusMenu(mappedBook)}
                         onPress={() => {
@@ -920,7 +977,7 @@ export default function AuthorDetailScreen() {
                             handleImportExternalBook(item);
                           } else {
                             setShowAllWorksModal(false);
-                            navigateToBook(item.id ?? item.title, item.inventaireUri, item.title);
+                            navigateToBook(mappedBook.id ?? item.title, mappedBook.inventaireUri, item.title);
                           }
                         }}
                       />
