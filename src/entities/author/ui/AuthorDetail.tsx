@@ -459,6 +459,7 @@ export default function AuthorDetailScreen() {
       pages: resolved?.pages || item.pages || 0,
       year: resolved?.year || item.year || 0,
       googleId: resolved?.googleId || item.googleId,
+      isbn: resolved?.isbn || item.isbn || null,
     };
 
     setShowAllWorksModal(false);
@@ -477,6 +478,7 @@ export default function AuthorDetailScreen() {
           genre: mergedItem.genre || 'Unknown',
           authors: mergedItem.authors || [authorName],
           googleId: mergedItem.googleId,
+          isbn: mergedItem.isbn,
           uri: mergedItem.uri || `googlebooks:${mergedItem.googleId}`,
         }),
         skipCache: 'true'
@@ -918,7 +920,7 @@ export default function AuthorDetailScreen() {
                             handleImportExternalBook(item);
                           } else {
                             setShowAllWorksModal(false);
-                            navigateToBook(item.id ?? item.title, item.inventaireUri);
+                            navigateToBook(item.id ?? item.title, item.inventaireUri, item.title);
                           }
                         }}
                       />

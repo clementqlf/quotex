@@ -321,6 +321,10 @@ serve(async (req: Request) => {
                 if ((!book.year || book.year === 0) && bestMatch.year) {
                   book.year = bestMatch.year;
                 }
+                 if (bestMatch.title && bestMatch.title !== book.title) {
+                  book.title = bestMatch.title;
+                  book.label = bestMatch.label || bestMatch.title;
+                }
                 console.log(`[authors] Enriched "${book.title}" with richer Google Books entry (cover: ${!!book.cover}, desc: ${!!book.description})`);
               }
             } catch (err) {

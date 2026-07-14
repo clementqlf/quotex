@@ -34,6 +34,7 @@ const DEFAULT_QUOTE_BLOCKS = [
 ];
 
 const DEFAULT_BOOK_BLOCKS = [
+    'editions#0',
     'author#0',
     'savedQuotes#0',
     'similarBooks#0',

@@ -9,7 +9,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getInventaireEntities, resolveImageUrl, getBatchInventaireSearchMetadata, getBestNativeCovers, fetchWikipediaSynopsis } from '../_shared/inventaire.api.ts';
-import { getPrizeLaureates } from '../_shared/wikidata.ts';
+import { getPrizeLaureates, wikidataFetch } from '../_shared/wikidata.ts';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ serve(async (req: Request) => {
     if (!uri && prizeName) {
       console.log(`[sync-prizes] Searching for prize: ${prizeName}`);
       const wdUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(prizeName)}&language=fr&format=json&origin=*&type=item`;
-      const wdRes = await fetch(wdUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+      const wdRes = await wikidataFetch(wdUrl);
       const wdData = await wdRes.json();
       if (wdData.search?.length > 0) {
         uri = `wd:${wdData.search[0].id}`;
@@ -213,7 +213,7 @@ serve(async (req: Request) => {
         const authorEntity = authorEntities[authorUri];
 
         // Upsert Author into shared catalogue
-        const authorName = getLabel(authorEntity) || l.authorName;
+        const authorName = getLabel(authorEntity) || l.authorName || null;
         const authorImage = resolveEntityImage(authorEntity);
         const birthDate = getClaimValue(authorEntity, 'wdt:P569')?.substring(0, 4) || null;
 

@@ -358,9 +358,16 @@ export const loadBookDetailData = async ({
             }
             resolutionSource = 'importedRefresh';
           } else {
-            // Fallback to imported book if refresh fails
-            book = importedBook;
-            logDebug('Using imported book as fallback', { id: importedBook.id, pages: importedBook.pages });
+            // Fallback to imported book if refresh fails, but check if it was merged in the background first
+            logDebug('Imported book refresh returned undefined (likely merged/deleted in background), resolving by title', { title: importedBook.title });
+            const resolvedMerged = await getBookByTitle(importedBook.title);
+            if (resolvedMerged) {
+              book = resolvedMerged;
+              logDebug('Resolved merged book by title', { id: book.id });
+            } else {
+              book = importedBook;
+              logDebug('Using imported book as fallback', { id: importedBook.id, pages: importedBook.pages });
+            }
           }
         } else {
           logDebug('Import failed, using external book object');

@@ -4,7 +4,7 @@ import { normalizeInventaireUri } from '@/src/shared/api/InventaireService';
 import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { Author, Book, ExternalBookResult } from '@/src/shared/api/types';
-import { isOffline, logFetchError } from '@/src/shared/lib/offline/networkUtils';
+import { isOffline, logFetchError, isNetworkError } from '@/src/shared/lib/offline/networkUtils';
 
 // Debug flag - set to false to disable debug logs in production
 const DEBUG_AUTHOR_SERVICE = false;
@@ -60,10 +60,12 @@ class AuthorService {
             };
         } catch (error) {
             logFetchError('Error fetching author by name from server', error);
+            if (isNetworkError(error)) {
+                const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+                return (storedAuthors || []).find(a => a.name.toLowerCase() === name.toLowerCase() || a.name === name);
+            }
+            return undefined;
         }
-
-        const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
-        return (storedAuthors || []).find(a => a.name.toLowerCase() === name.toLowerCase() || a.name === name);
     }
 
     async getAuthorById(id: number): Promise<Author | undefined> {
@@ -81,10 +83,12 @@ class AuthorService {
             };
         } catch (error) {
             logFetchError('Error fetching author by ID from server', error);
+            if (isNetworkError(error)) {
+                const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+                return (storedAuthors || []).find(a => a.id === id);
+            }
+            return undefined;
         }
-
-        const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
-        return (storedAuthors || []).find(a => a.id === id);
     }
 
 
@@ -123,12 +127,14 @@ class AuthorService {
             return mappedBooks;
         } catch (error) {
             logFetchError('Error fetching author books from server', error);
+            if (isNetworkError(error)) {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+                return (storedBooks || []).filter(b =>
+                    (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
+                );
+            }
+            return [];
         }
-
-        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return (storedBooks || []).filter(b =>
-            (typeof b.author === 'string' ? b.author === authorName : b.author?.name === authorName)
-        );
     }
 
     async getExternalBooksByAuthor(authorId: number): Promise<ExternalBookResult[]> {
@@ -175,10 +181,12 @@ class AuthorService {
             return undefined;
         } catch (error) {
             logFetchError('Error fetching book by title', error);
+            if (isNetworkError(error)) {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+                return (storedBooks || []).find(b => b.title === title);
+            }
+            return undefined;
         }
-
-        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return (storedBooks || []).find(b => b.title === title);
     }
 
     async getBookByInventaireUri(inventaireUri: string): Promise<Book | undefined> {
@@ -201,10 +209,12 @@ class AuthorService {
             return this.mapBookFromServer(book);
         } catch (error) {
             logFetchError('[AuthorService] Error fetching book by inventaireUri', error);
+            if (isNetworkError(error)) {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+                return (storedBooks || []).find(b => normalizeInventaireUri(b.inventaireUri) === target);
+            }
+            return undefined;
         }
-
-        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return (storedBooks || []).find(b => normalizeInventaireUri(b.inventaireUri) === target);
     }
 
     async getBookById(id: number): Promise<Book | undefined> {
@@ -219,10 +229,12 @@ class AuthorService {
             return this.mapBookFromServer(book);
         } catch (error) {
             logFetchError('Error fetching book by ID', error);
+            if (isNetworkError(error)) {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+                return (storedBooks || []).find(b => b.id === id);
+            }
+            return undefined;
         }
-
-        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return (storedBooks || []).find(b => b.id === id);
     }
 
     async toggleSaveAuthor(id: number): Promise<{ isSaved: boolean; followersCount: number } | null> {
@@ -322,10 +334,12 @@ class AuthorService {
             return mappedBooks;
         } catch (error) {
             logFetchError('Error fetching books from server', error);
+            if (isNetworkError(error)) {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+                return storedBooks || [];
+            }
+            return [];
         }
-
-        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return storedBooks || [];
     }
 
 
@@ -343,12 +357,14 @@ class AuthorService {
             return books.map((b: any) => this.mapBookFromServer(b));
         } catch (error) {
             logFetchError('Error fetching notable works', error);
+            if (isNetworkError(error)) {
+                const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
+                return (storedBooks || []).filter(b => 
+                    typeof b.author === 'object' && b.author !== null && b.author.id === authorId
+                );
+            }
+            return [];
         }
-
-        const storedBooks = await StorageService.getItem<Book[]>(STORAGE_KEYS.BOOKS);
-        return (storedBooks || []).filter(b => 
-            typeof b.author === 'object' && b.author !== null && b.author.id === authorId
-        );
     }
 }
 

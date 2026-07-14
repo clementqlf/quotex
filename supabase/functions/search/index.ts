@@ -10,6 +10,7 @@ import { getAuthUser } from '../_shared/auth.ts';
 import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts';
 import { searchInventaireAuthors } from '../_shared/inventaire.api.ts';
 import { bookSearchService } from '../_shared/bookProviders.ts';
+import { wikidataFetch } from '../_shared/wikidata.ts';
 
 
 function calculateRelevance(text: string, query: string): number {
@@ -349,14 +350,14 @@ serve(async (req: Request) => {
           (async () => {
             try {
               const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=fr&format=json&origin=*&type=item&limit=15`;
-              const searchRes = await fetch(searchUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+              const searchRes = await wikidataFetch(searchUrl);
               const searchData = await searchRes.json();
               const results = searchData.search || [];
               if (results.length === 0) return [];
 
               const qids = results.map((r: any) => r.id);
               const propsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qids.join('|')}&props=claims&format=json&origin=*`;
-              const propsRes = await fetch(propsUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+              const propsRes = await wikidataFetch(propsUrl);
               const propsData = await propsRes.json();
 
               return results
@@ -430,7 +431,7 @@ serve(async (req: Request) => {
         try {
           // 1. Instant full-text search via Wikidata index
           const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(query)}&language=fr&format=json&origin=*&type=item&limit=15`;
-          const searchRes = await fetch(searchUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+          const searchRes = await wikidataFetch(searchUrl);
           const searchData = await searchRes.json();
           const results = searchData.search || [];
           if (results.length === 0) return [];
@@ -438,7 +439,7 @@ serve(async (req: Request) => {
           // 2. Batch check nature of items (P31) in one single request
           const qids = results.map((r: any) => r.id);
           const propsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qids.join('|')}&props=claims&format=json&origin=*`;
-          const propsRes = await fetch(propsUrl, { headers: { 'User-Agent': 'QuotexApp/1.0' } });
+          const propsRes = await wikidataFetch(propsUrl);
           const propsData = await propsRes.json();
 
           // Award-related QIDs: Literary award (Q616509), Prize (Q131647), Award (Q7161), 

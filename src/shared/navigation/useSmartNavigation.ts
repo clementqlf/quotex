@@ -12,9 +12,9 @@ export const useSmartNavigation = () => {
    * Navigue vers la page de détail d'un livre
    */
   const navigateToBook = useCallback(
-    (bookIdOrTitle: number | string, inventaireUri?: string) => {
+    (bookIdOrTitle: number | string, inventaireUri?: string, bookTitleFallback?: string) => {
       const bookId = typeof bookIdOrTitle === 'number' ? bookIdOrTitle : undefined;
-      const bookTitle = typeof bookIdOrTitle === 'string' ? bookIdOrTitle : undefined;
+      const bookTitle = typeof bookIdOrTitle === 'string' ? bookIdOrTitle : (bookTitleFallback || undefined);
 
       navigation.push('/book-detail', {
         bookId,

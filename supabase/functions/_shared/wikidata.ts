@@ -28,16 +28,44 @@ export interface WikidataLaureate {
     workTitle: string | undefined;
 }
 
-export const searchAuthorQid = async (authorName: string): Promise<WikidataSearchResult | null> => {
+export async function wikidataFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const headers = {
+        'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
+        'Accept': 'application/json',
+        ...(options.headers || {})
+    };
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
-        const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(authorName)}&language=fr&format=json&origin=*&type=item`;
         const res = await fetch(url, {
-            headers: { 'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)' },
+            ...options,
+            headers,
             signal: controller.signal
         });
-        if (!res.ok) return null;
+
+        if (!res.ok) {
+            const body = await res.text().catch(() => '');
+            throw new Error(`Wikidata request failed with status ${res.status}: ${body.substring(0, 200)}`);
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType && !contentType.includes('json') && !contentType.includes('javascript')) {
+            const body = await res.text().catch(() => '');
+            throw new Error(`Wikidata request failed: non-JSON response returned with content-type "${contentType}": ${body.substring(0, 200)}`);
+        }
+
+        return res;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+export const searchAuthorQid = async (authorName: string): Promise<WikidataSearchResult | null> => {
+    try {
+        const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(authorName)}&language=fr&format=json&origin=*&type=item`;
+        const res = await wikidataFetch(url);
         const data = await res.json();
         if (data.search && data.search.length > 0) {
             return {
@@ -49,8 +77,6 @@ export const searchAuthorQid = async (authorName: string): Promise<WikidataSearc
     } catch (e) {
         console.error(`[Wikidata] Error searching QID for ${authorName}:`, e);
         return null;
-    } finally {
-        clearTimeout(timeoutId);
     }
 };
 
@@ -90,19 +116,14 @@ export const getAuthorWorks = async (qid: string): Promise<WikidataWork[]> => {
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
 
         console.log(`[Wikidata] Fetching works for QID: ${qid}`);
-        const res = await fetch(url, {
+        const res = await wikidataFetch(url, {
             headers: {
-                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
                 'Accept': 'application/sparql-results+json'
             }
         });
 
-        if (!res.ok) {
-            console.error(`[Wikidata] Query failed: ${res.status} ${res.statusText}`);
-            return [];
-        }
         const data = await res.json();
-        const results = data.results.bindings;
+        const results = data.results?.bindings || [];
         console.log(`[Wikidata] Found ${results.length} works for QID: ${qid}`);
 
         return results.map((b: SPARQLBinding) => ({
@@ -132,16 +153,14 @@ export const getAuthorNationality = async (qid: string): Promise<string | null> 
         `;
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
 
-        const res = await fetch(url, {
+        const res = await wikidataFetch(url, {
             headers: {
-                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
                 'Accept': 'application/sparql-results+json'
             }
         });
 
-        if (!res.ok) return null;
         const data = await res.json();
-        return data.results.bindings[0]?.nationalities?.value || null;
+        return data.results?.bindings?.[0]?.nationalities?.value || null;
     } catch (e) {
         console.error(`[Wikidata] Error fetching nationality for ${qid}:`, e);
         return null;
@@ -167,16 +186,15 @@ export const getPrizeLaureates = async (prizeQid: string): Promise<WikidataLaure
         const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
 
         console.log(`[Wikidata] Fetching laureates for prize: ${prizeQid}`);
-        const res = await fetch(url, {
+        const res = await wikidataFetch(url, {
             headers: {
-                'User-Agent': 'QuotexApp/1.0 (contact: support@quotex.app)',
                 'Accept': 'application/sparql-results+json'
             }
         });
 
-        if (!res.ok) return [];
         const data = await res.json();
-        return data.results.bindings.map((b: SPARQLBinding) => ({
+        const bindings = data.results?.bindings || [];
+        return bindings.map((b: SPARQLBinding) => ({
             year: b.year?.value ? parseInt(b.year.value) : null,
             authorQid: b.laureate?.value?.split('/').pop(),
             authorName: b.laureateLabel?.value,
