@@ -265,6 +265,12 @@ serve(async (req: Request) => {
           ? bookData.pages
           : null;
         
+        const resolvedSource = normalizedInventaireUri || existing.inventaireUri
+          ? 'inventaire'
+          : (bookData.googleId || existing.googleId
+            ? 'googlebooks'
+            : (bookData.openLibraryId || existing.openLibraryId ? 'openlibrary' : existing.enrichmentSource));
+
         await sql`
           UPDATE "Book" SET
             "googleId" = COALESCE(${bookData.googleId ?? null}, "googleId"),
@@ -275,7 +281,8 @@ serve(async (req: Request) => {
             pages = COALESCE(pages, ${pagesUpdate}),
             year = COALESCE(year, ${bookData.year ?? null}),
             genre = COALESCE(genre, ${bookData.genre ?? null}),
-            "buyLinks" = ${buyLinks}
+            "buyLinks" = ${buyLinks},
+            "enrichmentSource" = ${resolvedSource ?? null}
           WHERE id = ${existing.id}
         `;
 
@@ -327,15 +334,18 @@ serve(async (req: Request) => {
         : null;
       
       const isVerified = !!(normalizedInventaireUri || bookData.googleId || bookData.openLibraryId);
+      const importSource = normalizedInventaireUri
+        ? 'inventaire'
+        : (bookData.googleId ? 'googlebooks' : (bookData.openLibraryId ? 'openlibrary' : null));
 
       const newBookRows = await sql`
-        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks", "isVerified")
+        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks", "isVerified", "enrichmentSource")
         VALUES (
           ${bookData.title}, ${bookData.googleId ?? null}, ${bookData.openLibraryId ?? null},
           ${normalizedInventaireUri ?? null},
           ${bookData.description || ''}, ${bookData.year || 0}, ${pagesValue},
           ${bookData.cover || ''}, ${bookData.genre || 'Unknown'}, ${author.id},
-          ${bookData.rating || 0}, ${buyLinksJson}, ${isVerified}
+          ${bookData.rating || 0}, ${buyLinksJson}, ${isVerified}, ${importSource}
         )
         RETURNING *
       `;

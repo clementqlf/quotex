@@ -53,9 +53,10 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
     console.log(`[BookEnrichment] Inventaire returned: ${enriched ? 'Data found' : 'No data'}`);
 
     if (enriched) {
-      const updateData: Record<string, any> = {
+      const updateData: Record<string, unknown> = {
         lastEnrichedAt: new Date(),
         isVerified: true,
+        enrichmentSource: 'inventaire',
       };
 
       // Title standardization / merge

@@ -29,6 +29,7 @@ export interface Book {
   lastEnrichedAt?: string; // Date du dernier enrichissement
   isVerified?: boolean; // Le livre est-il vérifié via une source de confiance
   isNotable?: boolean; // Œuvre notable selon Wikidata (wdt:P800) × Inventaire — calculé lors de l'enrichissement de l'auteur
+  enrichmentSource?: string; // Source de l'enrichissement des données (inventaire, googlebooks, etc.)
 }
 
 // DTO pour créer un livre
@@ -46,6 +47,7 @@ export interface CreateBookDto {
   googleId?: string;
   inventaireUri?: string;
   isVerified?: boolean;
+  enrichmentSource?: string;
 }
 
 export interface BookImportPayload extends CreateBookDto {
@@ -74,6 +76,7 @@ export class BookFactory {
       isSaved: false,
       readingStatus: null,
       isVerified: dto.isVerified ?? false,
+      enrichmentSource: dto.enrichmentSource,
     };
   }
 
