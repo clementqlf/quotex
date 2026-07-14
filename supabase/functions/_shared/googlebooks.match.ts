@@ -6,8 +6,12 @@ export interface GoogleBookCandidateScore {
   score: number;
 }
 
-export function scoreGoogleBookCandidate(candidate: GoogleBookSearchResult): number {
+export function scoreBookCandidate(candidate: { cover?: string | null; description?: string | null; pages?: number | null }): number {
   return (candidate.cover ? 4 : 0) + (candidate.description ? 2 : 0) + (candidate.pages ? 1 : 0);
+}
+
+export function scoreGoogleBookCandidate(candidate: GoogleBookSearchResult): number {
+  return scoreBookCandidate(candidate);
 }
 
 function tokenizeText(input: string): string[] {

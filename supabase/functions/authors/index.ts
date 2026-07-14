@@ -9,6 +9,7 @@ import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatAuthor, formatBook } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, discoverAuthorWorks } from '../_shared/inventaire.ts';
+import { searchGoogleBooks } from '../_shared/googlebooks.ts';
 import { selectBestGoogleBookRichMetadataMatch } from '../_shared/googlebooks.match.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
 
@@ -288,7 +289,7 @@ serve(async (req: Request) => {
       if (!authorRows.length) return error('Author not found', 404);
       const authorName = authorRows[0].name;
 
-      const { searchGoogleBooks } = await import('../_shared/googlebooks.ts');
+
       try {
         const googleResults = await searchGoogleBooks(`inauthor:"${authorName}"`, 20, true);
         

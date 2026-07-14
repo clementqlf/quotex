@@ -146,7 +146,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
             .single();
           
           if (fetchedData) {
-            const mapped = mapData ? mapData(fetchedData) : fetchedData;
+            const mapped = (mapData ? mapData(fetchedData) : fetchedData) as T | null;
             setData(mapped as any);
             if ((fetchedData as any)[enrichingField] === false) {
               if (interval) clearInterval(interval);

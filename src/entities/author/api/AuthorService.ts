@@ -152,7 +152,7 @@ class AuthorService {
         try {
             const params = new URLSearchParams({ title });
             if (author) params.set('author', author);
-            return await httpClient.get<ExternalBookResult>(`/books/google-resolve?${params.toString()}`);
+            return await httpClient.getSafe<ExternalBookResult>(`/books/google-resolve?${params.toString()}`);
         } catch (error) {
             logFetchError('Error resolving Google Book by title', error);
             return null;

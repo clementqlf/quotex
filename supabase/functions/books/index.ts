@@ -11,6 +11,7 @@ import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatBook, generateBuyLinks } from '../_shared/formatters.ts';
 import { enrichAuthorWithInventaire, getWorkEditions, InventaireEdition } from '../_shared/inventaire.ts';
 import { enrichBookWithInventaire, discoverAndEnrichBook } from '../_shared/bookEnrichment.ts';
+import { searchGoogleBooks } from '../_shared/googlebooks.ts';
 import type { GoogleBookSearchResult } from '../_shared/googlebooks.ts';
 import { selectBestGoogleBookMatch } from '../_shared/googlebooks.match.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
@@ -113,7 +114,7 @@ serve(async (req: Request) => {
       const author = url.searchParams.get('author');
       if (!title) return error('Missing title parameter', 400);
 
-      const { searchGoogleBooks } = await import('../_shared/googlebooks.ts');
+
 
       // Strategy 1: exact title + author
       let candidates: GoogleBookSearchResult[] = [];

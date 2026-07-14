@@ -8,12 +8,8 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser } from '../_shared/auth.ts';
 import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts';
-import {
-  searchInventaireWorks,
-  searchInventaireAuthors,
-  getInventaireBookByIsbn,
-} from '../_shared/inventaire.api.ts';
-import { searchGoogleBooks } from '../_shared/googlebooks.ts';
+import { searchInventaireAuthors } from '../_shared/inventaire.api.ts';
+import { bookSearchService } from '../_shared/bookProviders.ts';
 
 
 function calculateRelevance(text: string, query: string): number {
@@ -102,9 +98,9 @@ serve(async (req: Request) => {
         console.error('[search] Local ISBN lookup failed:', dbError);
       }
 
-      console.log(`[search] ISBN "${cleanQ}" not found in local DB. Searching via Inventaire.`);
+      console.log(`[search] ISBN "${cleanQ}" not found in local DB. Searching via BookSearchService.`);
       try {
-        const mappedResult = await getInventaireBookByIsbn(cleanQ);
+        const mappedResult = await bookSearchService.searchByIsbn(cleanQ);
         if (mappedResult) {
           return json({
             quotes: [],
@@ -118,28 +114,8 @@ serve(async (req: Request) => {
             users: [],
           });
         }
-      } catch (invError) {
-        console.error('[search] Inventaire ISBN lookup failed:', invError);
-      }
-
-      console.log(`[search] ISBN "${cleanQ}" not found on Inventaire. Searching on Google Books.`);
-      try {
-        const googleResults = await searchGoogleBooks(`isbn:${cleanQ}`, 1);
-        if (googleResults.length > 0) {
-          return json({
-            quotes: [],
-            authors: [],
-            books: [],
-            prizes: [],
-            themes: [],
-            inventaireWorks: [googleResults[0]],
-            inventaireAuthors: [],
-            inventairePrizes: [],
-            users: [],
-          });
-        }
-      } catch (googleError) {
-        console.error('[search] Google Books ISBN lookup failed:', googleError);
+      } catch (isbnError) {
+        console.error('[search] External ISBN lookup failed:', isbnError);
       }
 
       // If it is an ISBN but wasn't found in any source, return empty
@@ -333,44 +309,8 @@ serve(async (req: Request) => {
           } catch { return []; }
         }
         
-        // Fetch both in parallel
-        let apiFailed = false;
-        const [freshInventaire, freshGoogle] = await Promise.all([
-          searchInventaireWorks(query, 10, true)
-            .then(res => res.map(r => ({ ...r, source: 'Inventaire' })))
-            .catch((err: any) => {
-              console.warn(`[search] Inventaire search failed: ${err.message || err}`);
-              apiFailed = true;
-              return [];
-            }),
-          searchGoogleBooks(query, 10, true)
-            .then(res => res.map(r => ({ ...r, source: 'Google Books' })))
-            .catch((err: any) => {
-              console.warn(`[search] Google Books search failed: ${err.message || err}`);
-              apiFailed = true;
-              return [];
-            })
-        ]);
-
-        // Merge and deduplicate by title + author
-        const seen = new Set<string>();
-        const merged: any[] = [];
-
-        // Inventaire works have priority
-        for (const item of freshInventaire) {
-          const key = `${(item.label || '').toLowerCase()}:${(item.authors || []).join(',').toLowerCase()}`;
-          seen.add(key);
-          merged.push(item);
-        }
-
-        // Add Google Books works if not already present
-        for (const item of freshGoogle) {
-          const key = `${(item.label || '').toLowerCase()}:${(item.authors || []).join(',').toLowerCase()}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            merged.push(item);
-          }
-        }
+        // Fetch both in parallel via bookSearchService
+        const { results: merged, apiFailed } = await bookSearchService.searchParallel(query, 10);
 
         // Sort merged books by relevance
         merged.sort((a, b) => {

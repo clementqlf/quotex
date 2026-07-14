@@ -1,0 +1,308 @@
+import { 
+  searchInventaireWorks, 
+  getInventaireBookByIsbn, 
+  findWorkUriByTitleAndAuthor,
+  getInventaireWorkDetails,
+  getInventaireAuthorDetails,
+  compareAuthorNames
+} from './inventaire.ts';
+import { searchGoogleBooks } from './googlebooks.ts';
+import { selectBestGoogleBookMatch, scoreBookCandidate } from './googlebooks.match.ts';
+
+export interface BookSearchResult {
+  id: string; // The ID specific to the provider
+  uri: string; // The standardized URI (e.g. wd:Q... or googlebooks:...)
+  inventaireUri?: string; // Compatibility property for Inventaire
+  googleId?: string; // Compatibility property for Google Books
+  title: string;
+  label: string; // Compatibility property for frontend
+  cover: string | null;
+  image: string | null; // Compatibility property for frontend
+  authors: string[];
+  authorUris?: string[];
+  description: string;
+  source: 'Inventaire' | 'Google Books';
+  isbn?: string | null;
+  year?: number | null;
+  pages?: number | null;
+  genre?: string | null;
+}
+
+export interface BookProvider {
+  name: 'Inventaire' | 'Google Books';
+  search(query: string, limit?: number): Promise<BookSearchResult[]>;
+  searchByIsbn(isbn: string): Promise<BookSearchResult | null>;
+  resolveBestMatch(title: string, authorName: string): Promise<BookSearchResult | null>;
+}
+
+// ─── Provider: Inventaire ───────────────────────────────────────────────────
+export const InventaireBookProvider: BookProvider = {
+  name: 'Inventaire',
+  async search(query: string, limit = 10): Promise<BookSearchResult[]> {
+    try {
+      const results = await searchInventaireWorks(query, limit);
+      return results.map(r => ({
+        id: r.id,
+        uri: r.uri,
+        inventaireUri: r.uri,
+        title: r.label,
+        label: r.label,
+        cover: r.image || null,
+        image: r.image || null,
+        authors: r.authors || [],
+        authorUris: r.authorUris || [],
+        description: '',
+        source: 'Inventaire'
+      }));
+    } catch (e) {
+      console.warn(`[Inventaire Book Provider] Search failed for "${query}":`, e);
+      return [];
+    }
+  },
+
+  async searchByIsbn(isbn: string): Promise<BookSearchResult | null> {
+    try {
+      const res = await getInventaireBookByIsbn(isbn);
+      if (!res) return null;
+      const uri = res.uri || res.inventaireUri;
+      const inventaireUri = res.inventaireUri || res.uri;
+      return {
+        id: uri,
+        uri: uri,
+        inventaireUri: inventaireUri,
+        title: res.title,
+        label: res.title,
+        cover: res.cover || res.image || null,
+        image: res.cover || res.image || null,
+        authors: res.authors || [],
+        authorUris: res.authorUris || [],
+        description: res.description || '',
+        isbn: res.isbn,
+        year: res.year,
+        pages: res.pages,
+        source: 'Inventaire'
+      };
+    } catch (e) {
+      console.warn(`[Inventaire Book Provider] ISBN search failed for ${isbn}:`, e);
+      return null;
+    }
+  },
+
+  async resolveBestMatch(title: string, authorName: string): Promise<BookSearchResult | null> {
+    try {
+      const workUri = await findWorkUriByTitleAndAuthor(title, authorName);
+      if (!workUri) return null;
+
+      const workDetails = await getInventaireWorkDetails(workUri);
+      let resolvedAuthorName = authorName;
+
+      if (workDetails?.authorUris && workDetails.authorUris.length > 0) {
+        const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
+        if (authorDetails?.name) {
+          resolvedAuthorName = authorDetails.name;
+        }
+      }
+
+      const cover = workDetails?.image || null;
+      return {
+        id: workUri,
+        uri: workUri,
+        inventaireUri: workUri,
+        title: workDetails?.title || title,
+        label: workDetails?.title || title,
+        cover: cover,
+        image: cover,
+        authors: [resolvedAuthorName],
+        authorUris: workDetails?.authorUris || [],
+        description: workDetails?.description || '',
+        year: workDetails?.year || null,
+        pages: workDetails?.pages || null,
+        source: 'Inventaire'
+      };
+    } catch (e) {
+      console.warn(`[Inventaire Book Provider] Resolve failed for "${title}" by "${authorName}":`, e);
+      return null;
+    }
+  }
+};
+
+// ─── Provider: Google Books ──────────────────────────────────────────────────
+export const GoogleBooksProvider: BookProvider = {
+  name: 'Google Books',
+  async search(query: string, limit = 10): Promise<BookSearchResult[]> {
+    try {
+      const results = await searchGoogleBooks(query, limit);
+      return results.map(r => ({
+        id: r.id,
+        uri: r.uri,
+        googleId: r.id,
+        title: r.title,
+        label: r.title,
+        cover: r.cover || r.image || null,
+        image: r.cover || r.image || null,
+        authors: r.authors || [],
+        description: r.description || '',
+        isbn: r.isbn,
+        year: r.year,
+        pages: r.pages,
+        genre: r.genre,
+        source: 'Google Books'
+      }));
+    } catch (e) {
+      console.warn(`[Google Books Provider] Search failed for "${query}":`, e);
+      return [];
+    }
+  },
+
+  async searchByIsbn(isbn: string): Promise<BookSearchResult | null> {
+    try {
+      const results = await searchGoogleBooks(`isbn:${isbn}`, 1);
+      if (results.length === 0) return null;
+      const r = results[0];
+      return {
+        id: r.id,
+        uri: r.uri,
+        googleId: r.id,
+        title: r.title,
+        label: r.title,
+        cover: r.cover || r.image || null,
+        image: r.cover || r.image || null,
+        authors: r.authors || [],
+        description: r.description || '',
+        isbn: r.isbn,
+        year: r.year,
+        pages: r.pages,
+        genre: r.genre,
+        source: 'Google Books'
+      };
+    } catch (e) {
+      console.warn(`[Google Books Provider] ISBN search failed for ${isbn}:`, e);
+      return null;
+    }
+  },
+
+  async resolveBestMatch(title: string, authorName: string): Promise<BookSearchResult | null> {
+    try {
+      const candidates = await searchGoogleBooks(`"${title}"`, 10, false);
+      const best = selectBestGoogleBookMatch(candidates, title, authorName);
+      if (!best) return null;
+
+      const matchedAuthorName = best.authors?.find((candidateAuthor) =>
+        compareAuthorNames(candidateAuthor, authorName)
+      ) || best.authors?.[0] || authorName;
+
+      const cover = best.cover || best.image || null;
+      return {
+        id: best.id,
+        uri: best.uri,
+        googleId: best.id,
+        title: best.title,
+        label: best.title,
+        cover: cover,
+        image: cover,
+        authors: [matchedAuthorName],
+        description: best.description || '',
+        isbn: best.isbn,
+        year: best.year,
+        pages: best.pages,
+        genre: best.genre,
+        source: 'Google Books'
+      };
+    } catch (e) {
+      console.warn(`[Google Books Provider] Resolve failed for "${title}" by "${authorName}":`, e);
+      return null;
+    }
+  }
+};
+
+// ─── Orchestrator: bookSearchService ─────────────────────────────────────────
+export const bookSearchService = {
+  providers: [
+    InventaireBookProvider,
+    GoogleBooksProvider
+  ] as BookProvider[],
+
+  register(provider: BookProvider) {
+    this.providers.push(provider);
+  },
+
+  /**
+   * Resolves book sequential match (e.g. fallback strategy for sync-quotes)
+   */
+  async resolveSequentialMatch(title: string, authorName: string): Promise<BookSearchResult | null> {
+    for (const provider of this.providers) {
+      try {
+        const match = await provider.resolveBestMatch(title, authorName);
+        if (match) {
+          console.log(`[BookSearchService] Resolved best match via: ${provider.name}`);
+          return match;
+        }
+      } catch (e) {
+        console.warn(`[BookSearchService] Provider ${provider.name} failed resolving "${title}" by "${authorName}":`, e);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Search by ISBN with fallback priority
+   */
+  async searchByIsbn(isbn: string): Promise<BookSearchResult | null> {
+    for (const provider of this.providers) {
+      try {
+        const match = await provider.searchByIsbn(isbn);
+        if (match) {
+          console.log(`[BookSearchService] Resolved ISBN ${isbn} via: ${provider.name}`);
+          return match;
+        }
+      } catch (e) {
+        console.warn(`[BookSearchService] Provider ${provider.name} failed ISBN search for ${isbn}:`, e);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Search in parallel across all providers and merge/deduplicate results
+   */
+  async searchParallel(query: string, limit = 10): Promise<{ results: BookSearchResult[], apiFailed: boolean }> {
+    let apiFailed = false;
+    
+    const resultsArray = await Promise.all(
+      this.providers.map(async (provider) => {
+        try {
+          const res = await provider.search(query, limit);
+          return res;
+        } catch (err: unknown) {
+          console.warn(`[BookSearchService] Search failed for provider ${provider.name}:`, err instanceof Error ? err.message : String(err));
+          apiFailed = true;
+          return [];
+        }
+      })
+    );
+
+    // Merge and deduplicate by title + author, prioritizing richer metadata
+    const mergedMap = new Map<string, BookSearchResult>();
+
+    // Since providers are in priority order, we preserve that priority in merging
+    for (let i = 0; i < this.providers.length; i++) {
+      const providerResults = resultsArray[i];
+      for (const item of providerResults) {
+        const key = `${(item.title || '').toLowerCase()}:${(item.authors || []).join(',').toLowerCase()}`;
+        const existing = mergedMap.get(key);
+        if (!existing) {
+          mergedMap.set(key, item);
+        } else {
+          // If the new item has richer metadata, replace the existing one
+          const existingScore = scoreBookCandidate(existing);
+          const newScore = scoreBookCandidate(item);
+          if (newScore > existingScore) {
+            mergedMap.set(key, item);
+          }
+        }
+      }
+    }
+
+    return { results: Array.from(mergedMap.values()), apiFailed };
+  }
+};

@@ -4,7 +4,7 @@ import { Author, Book } from '@/src/shared/api/types';
 import { useBookRealtime, useAuthorRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { Dispatch, SetStateAction, useState, useEffect } from 'react';
+import { Dispatch, SetStateAction, useState, useEffect, useMemo } from 'react';
 
 export interface BookDataResult {
   bookInfo: Book | null;
@@ -111,9 +111,40 @@ export const useBookData = (): BookDataResult => {
     }
   }, [realtimeAuthor?.isEnriching, resolvedAuthorInfo?.isEnriching, refetch]);
 
+  // Merge realtime updates with resolved database data to preserve relations (like author)
+  // that are missing from raw table payloads in realtime.
+  const mergedBookInfo = useMemo(() => {
+    const baseBook = resolvedBookInfo;
+    if (!baseBook) return null;
+    if (!realtimeBook) return baseBook;
+    
+    // Only keep previous author object if the authorId didn't change
+    const author = ((realtimeBook as any).authorId === (baseBook as any).authorId)
+      ? baseBook.author
+      : realtimeBook.author || baseBook.author;
+
+    return {
+      ...baseBook,
+      ...realtimeBook,
+      author,
+      similarBooks: baseBook.similarBooks || realtimeBook.similarBooks || [],
+    } as Book;
+  }, [resolvedBookInfo, realtimeBook]);
+
+  const mergedAuthorInfo = useMemo(() => {
+    const baseAuthor = resolvedAuthorInfo;
+    if (!baseAuthor) return null;
+    if (!realtimeAuthor) return baseAuthor;
+    return {
+      ...baseAuthor,
+      ...realtimeAuthor,
+      similarAuthors: baseAuthor.similarAuthors || realtimeAuthor.similarAuthors || [],
+    } as Author;
+  }, [resolvedAuthorInfo, realtimeAuthor]);
+
   return {
-    bookInfo: realtimeBook || resolvedBookInfo,
-    authorInfo: realtimeAuthor || resolvedAuthorInfo,
+    bookInfo: mergedBookInfo,
+    authorInfo: mergedAuthorInfo,
     isLoadingMetadata,
     isImporting,
     bookId,

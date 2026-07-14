@@ -10,9 +10,8 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { sql } from '../_shared/db.ts';
 import { matchAuthor, matchBook, AuthorMatchResult, BookMatchResult } from '../_shared/entityMatcher.ts';
-import { compareAuthorNames, findWorkUriByTitleAndAuthor, searchInventaireAuthors, getInventaireWorkDetails, getInventaireAuthorDetails, enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
-import { searchGoogleBooks } from '../_shared/googlebooks.ts';
-import { selectBestGoogleBookMatch } from '../_shared/googlebooks.match.ts';
+import { searchInventaireAuthors, getInventaireWorkDetails, getInventaireAuthorDetails, enrichAuthorWithInventaire } from '../_shared/inventaire.ts';
+import { bookSearchService } from '../_shared/bookProviders.ts';
 import { enrichBookWithInventaire } from '../_shared/bookEnrichment.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
 
@@ -63,59 +62,7 @@ interface SequentialWorkMatch {
   genre?: string | null;
 }
 
-async function findSequentialWorkMatch(title: string, authorName: string): Promise<SequentialWorkMatch | null> {
-  const cleanTitle = title?.trim();
-  const cleanAuthor = authorName?.trim();
-
-  if (!cleanTitle || !cleanAuthor) return null;
-
-  const inventaireUri = await findWorkUriByTitleAndAuthor(cleanTitle, cleanAuthor);
-  if (inventaireUri) {
-    const workDetails = await getInventaireWorkDetails(inventaireUri);
-    let resolvedAuthorName = cleanAuthor;
-
-    if (workDetails?.authorUris && workDetails.authorUris.length > 0) {
-      const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
-      if (authorDetails?.name) {
-        resolvedAuthorName = authorDetails.name;
-      }
-    }
-
-    return {
-      source: 'inventaire',
-      workId: inventaireUri,
-      workUri: inventaireUri,
-      title: workDetails?.title || cleanTitle,
-      authorName: resolvedAuthorName,
-    };
-  }
-
-  try {
-    const googleCandidates = await searchGoogleBooks(`"${cleanTitle}"`, 10, false);
-    const bestCandidate = selectBestGoogleBookMatch(googleCandidates, cleanTitle, cleanAuthor);
-    if (!bestCandidate) return null;
-
-    const matchedAuthorName = bestCandidate.authors?.find((candidateAuthor) =>
-      compareAuthorNames(candidateAuthor, cleanAuthor)
-    ) || bestCandidate.authors?.[0] || cleanAuthor;
-
-    return {
-      source: 'google-books',
-      workId: `googlebooks:${bestCandidate.googleId || bestCandidate.id}`,
-      title: bestCandidate.title || cleanTitle,
-      authorName: matchedAuthorName,
-      googleId: bestCandidate.googleId || bestCandidate.id,
-      cover: bestCandidate.cover || null,
-      description: bestCandidate.description || null,
-      year: bestCandidate.year ?? null,
-      pages: bestCandidate.pages ?? null,
-      genre: bestCandidate.genre ?? null,
-    };
-  } catch (err) {
-    console.warn('[sync-quotes] Google Books fallback failed:', err);
-    return null;
-  }
-}
+// sequential match helper is now resolved via bookSearchService
 
 /// <reference path="../_shared/edge-runtime.d.ts" />
 
@@ -183,8 +130,21 @@ serve(async (req: Request) => {
           console.log(`[sync-quotes] Entity missing in DB. Checking Inventaire for: author="${offlineQuote.author}", book="${offlineQuote.book}"`);
           
           if (offlineQuote.book && offlineQuote.author) {
-            workMatch = await findSequentialWorkMatch(offlineQuote.book, offlineQuote.author);
-            if (workMatch) {
+            const match = await bookSearchService.resolveSequentialMatch(offlineQuote.book, offlineQuote.author);
+            if (match) {
+              workMatch = {
+                source: match.source === 'Inventaire' ? 'inventaire' : 'google-books',
+                workId: match.id,
+                workUri: match.source === 'Inventaire' ? match.uri : undefined,
+                googleId: match.source === 'Google Books' ? match.id : undefined,
+                title: match.title,
+                authorName: match.authors[0] || offlineQuote.author,
+                cover: match.cover,
+                description: match.description,
+                year: match.year,
+                pages: match.pages,
+                genre: match.genre
+              };
               hasInventaireMatch = true;
               inventaireMatch.workTitle = workMatch.title;
               inventaireMatch.authorName = workMatch.authorName;
