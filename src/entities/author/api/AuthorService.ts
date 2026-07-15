@@ -205,8 +205,8 @@ class AuthorService {
 
         try {
             debugLog('getBookByInventaireUri: direct lookup', { inventaireUri });
-            const book = await httpClient.get<any>(`/books/by-inventaire/${encodeURIComponent(inventaireUri)}`);
-            return this.mapBookFromServer(book);
+            const book = await httpClient.getSafe<any>(`/books/by-inventaire/${encodeURIComponent(inventaireUri)}`);
+            return book ? this.mapBookFromServer(book) : undefined;
         } catch (error) {
             logFetchError('[AuthorService] Error fetching book by inventaireUri', error);
             if (isNetworkError(error)) {
@@ -225,8 +225,8 @@ class AuthorService {
         }
 
         try {
-            const book = await httpClient.get<any>(`/books/${id}`);
-            return this.mapBookFromServer(book);
+            const book = await httpClient.getSafe<any>(`/books/${id}`);
+            return book ? this.mapBookFromServer(book) : undefined;
         } catch (error) {
             logFetchError('Error fetching book by ID', error);
             if (isNetworkError(error)) {

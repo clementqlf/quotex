@@ -12,7 +12,7 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
+import { AlertTriangle, Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authorService } from '@/src/entities/author/api/AuthorService';
@@ -82,7 +82,7 @@ export default function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { navigateToBook, navigateToAuthor } = useSmartNavigation();
+  const { navigateToBook, navigateToAuthor, navigateToAuthorWorks } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
@@ -177,24 +177,9 @@ export default function AuthorDetailScreen() {
   const isParamsLoading = !isNavigationReady || (!authorId && !authorNameForQuery);
   const isLoadingAuthor = isLoadingAuthorInfo || isLoadingAllWorks || isParamsLoading;
 
-  // New state for All Works Modal
-  const [showAllWorksModal, setShowAllWorksModal] = React.useState(false);
-  const [hasRenderedWorksModal, setHasRenderedWorksModal] = React.useState(false);
-  
   // New state for All Quotes Modal
   const [showAllQuotesModal, setShowAllQuotesModal] = React.useState(false);
   const [hasRenderedQuotesModal, setHasRenderedQuotesModal] = React.useState(false);
-
-  // Query for external books from Google Books when the works modal is open
-  const { data: externalBooks = [], isLoading: isLoadingExternalBooks, refetch: refetchExternalBooks } = useQuery({
-    queryKey: ['author-external-books', resolvedAuthorId],
-    queryFn: () => {
-      if (!resolvedAuthorId) return Promise.resolve([]);
-      return getExternalBooksByAuthor(resolvedAuthorId);
-    },
-    enabled: !!resolvedAuthorId && showAllWorksModal,
-    staleTime: 5 * 60 * 1000 // 5 minutes cache
-  });
 
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = React.useCallback(async () => {
@@ -202,104 +187,17 @@ export default function AuthorDetailScreen() {
     await Promise.all([
       refetchAuthor(),
       refetchBooks(),
-      refetchAllWorks(),
-      refetchExternalBooks()
+      refetchAllWorks()
     ]);
     setRefreshing(false);
-  }, [refetchAuthor, refetchBooks, refetchAllWorks, refetchExternalBooks]);
-
-  const normalizeTitle = (title: string) => {
-    return title
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, "")
-      .trim();
-  };
-
-  /**
-   * Returns the best available cover URL for a book item.
-   * Priority: existing cover > Open Library by ISBN > Open Library by title
-   */
-  const openLibraryCover = (item: { cover?: string | null; isbn?: string | null; title: string }): string | undefined => {
-    if (item.cover) return item.cover;
-    if (item.isbn) {
-      // ISBN-based covers are highly reliable (correct book guaranteed)
-      return `https://covers.openlibrary.org/b/isbn/${item.isbn}-M.jpg`;
-    }
-    // Title-based covers: less reliable but better than nothing
-    const encoded = encodeURIComponent(item.title);
-    return `https://covers.openlibrary.org/b/title/${encoded}-M.jpg`;
-  };
-
-  const filteredExternalBooks = useMemo(() => {
-    const localTitles = new Set(allWorks.map(b => normalizeTitle(b.title)));
-    
-    // Deduplicate external books by title, prioritizing the one with a cover
-    const uniqueExternal = new Map<string, any>();
-    for (const b of externalBooks) {
-      const normalized = normalizeTitle(b.title);
-      if (localTitles.has(normalized)) continue;
-      
-      const existing = uniqueExternal.get(normalized);
-      if (!existing || (!existing.cover && b.cover)) {
-        uniqueExternal.set(normalized, b);
-      }
-    }
-    
-    return Array.from(uniqueExternal.values());
-  }, [externalBooks, allWorks]);
-
-  const combinedWorks = useMemo(() => {
-    // Map of normalized title -> best external book entry (cover + description fallbacks)
-    const externalByTitle = new Map<string, any>();
-    for (const b of externalBooks) {
-      const key = normalizeTitle(b.title);
-      const existing = externalByTitle.get(key);
-      if (!existing) {
-        externalByTitle.set(key, b);
-      } else {
-        // Keep the entry with more data
-        const existingScore = (existing.cover ? 2 : 0) + (existing.description ? 1 : 0);
-        const newScore = (b.cover ? 2 : 0) + (b.description ? 1 : 0);
-        if (newScore > existingScore) {
-          externalByTitle.set(key, b);
-        }
-      }
-    }
-
-    const list: any[] = allWorks.map(b => {
-      const external = externalByTitle.get(normalizeTitle(b.title));
-      if (!external) return b;
-
-      // Merge missing fields from the richer external entry
-      const merged: any = { ...b };
-      if (!b.cover && external.cover) merged.cover = external.cover;
-      if (!b.description && external.description) merged.description = external.description;
-      if ((!b.pages || b.pages === 0) && external.pages) merged.pages = external.pages;
-      if ((!b.year || b.year === 0) && external.year) merged.year = external.year;
-      return merged;
-    });
-
-    if (isLoadingExternalBooks) {
-      list.push({ type: 'loading', id: 'loading-external' });
-    } else if (filteredExternalBooks.length > 0) {
-      list.push({ type: 'header', title: 'Disponibles sur Google Books' });
-      list.push(...filteredExternalBooks.map(b => ({ ...b, isExternal: true })));
-    }
-    return list;
-  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, externalBooks]);
-
-
-
+  }, [refetchAuthor, refetchBooks, refetchAllWorks]);
 
   // Total books/works count computed during render
   const totalBooksCount = allWorks.length > 0 ? allWorks.length : resolvedAuthorBooks.length;
 
   const fetchAllWorks = async () => {
     if (!nameToUse) return;
-    setHasRenderedWorksModal(true);
-    setShowAllWorksModal(true);
+    navigateToAuthorWorks(resolvedAuthorId, nameToUse, params.inventaireUri || author?.inventaireUri);
   };
 
   const authorName = authorInfo?.name || nameToUse || 'Inconnu';
@@ -470,47 +368,6 @@ export default function AuthorDetailScreen() {
     }
   };
 
-  const handleImportExternalBook = async (item: any) => {
-    // Resolve the richest Google Books entry for this title before navigating
-    let resolved: ExternalBookResult | null = null;
-    try {
-      resolved = await resolveGoogleBook(item.title, authorName);
-    } catch { /* ignore, use original item */ }
-
-    // Merge: prefer resolved data when it adds a cover or description
-    const mergedItem = {
-      ...item,
-      cover: resolved?.cover || item.cover || null,
-      description: resolved?.description || item.description || '',
-      pages: resolved?.pages || item.pages || 0,
-      year: resolved?.year || item.year || 0,
-      googleId: resolved?.googleId || item.googleId,
-      isbn: resolved?.isbn || item.isbn || null,
-    };
-
-    setShowAllWorksModal(false);
-    router.push({
-      pathname: '/book-detail',
-      params: {
-        bookTitle: mergedItem.title,
-        inventaireUri: mergedItem.uri || `googlebooks:${mergedItem.googleId}`,
-        bookData: JSON.stringify({
-          label: mergedItem.title,
-          title: mergedItem.title,
-          cover: mergedItem.cover,
-          description: mergedItem.description || '',
-          year: mergedItem.year || 0,
-          pages: mergedItem.pages || 0,
-          genre: mergedItem.genre || 'Unknown',
-          authors: mergedItem.authors || [authorName],
-          googleId: mergedItem.googleId,
-          isbn: mergedItem.isbn,
-          uri: mergedItem.uri || `googlebooks:${mergedItem.googleId}`,
-        }),
-        skipCache: 'true'
-      }
-    });
-  };
 
   const handleOpenBookStatusMenu = async (book: any) => {
     let bookId = book.id;
@@ -881,113 +738,7 @@ export default function AuthorDetailScreen() {
           )}
         </ScrollView>
 
-        {hasRenderedWorksModal && (
-          <Modal
-            visible={showAllWorksModal}
-            animationType="slide"
-            presentationStyle="pageSheet"
-            onRequestClose={() => setShowAllWorksModal(false)}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Toutes les œuvres</Text>
-                <TouchableOpacity onPress={() => setShowAllWorksModal(false)}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
 
-              {isLoadingAllWorks ? (
-                <View style={styles.centered}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-              ) : (
-                <FlashList
-                  data={combinedWorks}
-                  keyExtractor={(item, index) => `${item.id || item.title || item.type || index}-${index}`}
-                  getItemType={(item) => item.type || 'work'}
-                  removeClippedSubviews={true}
-                  contentContainerStyle={{ padding: 16 }}
-                  renderItem={({ item }) => {
-                    if (item.type === 'header') {
-                      return (
-                        <View style={styles.modalSectionHeader}>
-                          <Text style={styles.modalSectionHeaderTitle}>{item.title}</Text>
-                        </View>
-                      );
-                    }
-
-                    if (item.type === 'loading') {
-                      return (
-                        <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                          <ActivityIndicator size="small" color={colors.primary} />
-                        </View>
-                      );
-                    }
-
-                    const localBook = allBooks.find(b => 
-                      (item.inventaireUri && b.inventaireUri === item.inventaireUri) || 
-                      (item.uri && b.inventaireUri === item.uri) ||
-                      (item.googleId && b.googleId === item.googleId) ||
-                      b.title.toLowerCase() === item.title.toLowerCase()
-                    );
-                    
-                    const quoteCount = quotes.filter(q => {
-                      const qBookTitle = getBookTitle(q.book);
-                      return qBookTitle.toLowerCase() === item.title.toLowerCase();
-                    }).length;
-
-                    const bookAuthors: string[] = [];
-                    if (item.author) {
-                      if (typeof item.author === 'string') {
-                        bookAuthors.push(item.author);
-                      } else if (item.author.name) {
-                        bookAuthors.push(item.author.name);
-                      }
-                    }
-                    if (bookAuthors.length === 0) {
-                      bookAuthors.push(authorName);
-                    }
-
-                    const mappedBook = {
-                      title: item.title,
-                      id: localBook?.id ?? item.id,
-                      authors: bookAuthors,
-                      quoteCount: quoteCount,
-                      year: item.year,
-                      description: localBook?.description ?? item.description ?? '',
-                      cover: openLibraryCover({ cover: item.cover, isbn: item.isbn, title: item.title }),
-                      readingStatus: localBook?.readingStatus ?? item.readingStatus,
-                      inventaireUri: localBook?.inventaireUri ?? item.inventaireUri ?? item.uri ?? (item.googleId ? `googlebooks:${item.googleId}` : undefined),
-                      isSaved: localBook?.isSaved ?? false,
-                      isExternal: !localBook && item.isExternal,
-                      googleId: localBook?.googleId ?? item.googleId,
-                      isbn: item.isbn,
-                      pages: item.pages,
-                    };
-
-                    return (
-                      <BookCardItem
-                        book={mappedBook}
-                        showDescription={false}
-                        showAddButton={true}
-                        onAddPress={() => handleAddBook(mappedBook)}
-                        onAddLongPress={() => handleOpenBookStatusMenu(mappedBook)}
-                        onPress={() => {
-                          if (mappedBook.isExternal) {
-                            handleImportExternalBook(item);
-                          } else {
-                            setShowAllWorksModal(false);
-                            navigateToBook(mappedBook.id ?? item.title, mappedBook.inventaireUri, item.title);
-                          }
-                        }}
-                      />
-                    );
-                  }}
-                />
-              )}
-            </View>
-          </Modal>
-        )}
 
         {hasRenderedQuotesModal && (
           <Modal
@@ -996,7 +747,7 @@ export default function AuthorDetailScreen() {
             presentationStyle="pageSheet"
             onRequestClose={() => setShowAllQuotesModal(false)}
           >
-            <View style={styles.modalContainer}>
+            <SafeAreaView style={styles.modalContainer} edges={['top', 'left', 'right']}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Citations de {authorName}</Text>
                 <TouchableOpacity onPress={() => setShowAllQuotesModal(false)}>
@@ -1040,7 +791,7 @@ export default function AuthorDetailScreen() {
                   </View>
                 }
               />
-            </View>
+            </SafeAreaView>
           </Modal>
         )}
 
@@ -1295,7 +1046,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    marginTop: 40,
   },
   modalTitle: {
     fontSize: 18,
@@ -1354,5 +1104,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   quoteModalUser: {
     fontSize: 11,
     color: colors.textTertiary,
+  },
+  modalErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.warningLight,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalErrorText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  modalErrorRetryButton: {
+    marginLeft: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalErrorRetryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

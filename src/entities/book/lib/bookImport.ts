@@ -23,6 +23,7 @@ type BuildBookImportPayloadParams = {
   cover?: string;
   bookData?: RawBookData;
   book?: Partial<Book> | null;
+  inventaireUri?: string;
 };
 
 const parseBookData = (bookData: RawBookData): Record<string, any> | null => {
@@ -45,7 +46,7 @@ const toStringArray = (value: unknown): string[] => {
   return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
 };
 
-export const buildBookImportPayload = ({ title, cover, bookData, book }: BuildBookImportPayloadParams): BookImportPayload | null => {
+export const buildBookImportPayload = ({ title, cover, bookData, book, inventaireUri }: BuildBookImportPayloadParams): BookImportPayload | null => {
   const parsed = parseBookData(bookData);
   const resolvedTitle = parsed?.label || parsed?.title || book?.title || title;
 
@@ -68,6 +69,14 @@ export const buildBookImportPayload = ({ title, cover, bookData, book }: BuildBo
     ? parsedPages
     : (bookPages !== undefined && bookPages !== null && bookPages > 0 ? bookPages : null);
 
+  const resolvedInventaireUri = parsed?.uri ?? parsed?.inventaireUri ?? book?.inventaireUri ?? inventaireUri;
+
+  // Extract googleId if we have a googlebooks URI
+  let googleId = parsed?.googleId ?? book?.googleId;
+  if (!googleId && resolvedInventaireUri?.startsWith('googlebooks:')) {
+    googleId = resolvedInventaireUri.substring('googlebooks:'.length);
+  }
+
   return {
     title: resolvedTitle,
     authors: parsedAuthors.length > 0 ? parsedAuthors : fallbackAuthors,
@@ -75,9 +84,9 @@ export const buildBookImportPayload = ({ title, cover, bookData, book }: BuildBo
     authorUris: toStringArray(parsed?.authorUris),
     description: parsed?.description ?? book?.description ?? '',
     cover: cover ?? parsed?.image ?? parsed?.cover ?? book?.cover ?? '',
-    inventaireUri: parsed?.uri ?? parsed?.inventaireUri ?? book?.inventaireUri,
+    inventaireUri: resolvedInventaireUri,
     openLibraryId: parsed?.openLibraryId ?? book?.openLibraryId,
-    googleId: parsed?.googleId ?? book?.googleId,
+    googleId: googleId,
     isbn: parsed?.isbn ?? book?.isbn,
     year: parsed?.year ?? book?.year,
     pages: pages,

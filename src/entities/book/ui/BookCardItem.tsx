@@ -5,7 +5,7 @@ import { ThemeColors } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { Image } from 'expo-image';
 import { CheckCircle2, MoreVertical, PlusCircle } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -56,13 +56,29 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
     };
   }, [book.readingStatus]);
 
+  const isPressingRef = useRef(false);
+
+  const handlePress = useCallback(() => {
+    if (isPressingRef.current) return;
+    isPressingRef.current = true;
+    setTimeout(() => {
+      isPressingRef.current = false;
+    }, 1000);
+
+    if (onPress) {
+      onPress();
+    } else {
+      navigateToBook(book.id ?? book.title, book.inventaireUri);
+    }
+  }, [onPress, navigateToBook, book.id, book.title, book.inventaireUri]);
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.bookCard,
         { opacity: pressed ? 0.85 : 1 }
       ]}
-      onPress={onPress || (() => navigateToBook(book.id ?? book.title, book.inventaireUri))}
+      onPress={handlePress}
       onLongPress={async () => {
         if (onOpenMenu) {
           try {

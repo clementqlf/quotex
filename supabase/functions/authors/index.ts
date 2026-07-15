@@ -8,7 +8,7 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser, requireAuth } from '../_shared/auth.ts';
 import { formatAuthor, formatBook } from '../_shared/formatters.ts';
-import { enrichAuthorWithInventaire, discoverAuthorWorks } from '../_shared/inventaire.ts';
+import { enrichAuthorWithInventaire, discoverAuthorWorks, compareAuthorNames } from '../_shared/inventaire.ts';
 import { searchGoogleBooks } from '../_shared/googlebooks.ts';
 import { selectBestGoogleBookRichMetadataMatch } from '../_shared/googlebooks.match.ts';
 import { waitUntil } from '../_shared/waitUntil.ts';
@@ -212,7 +212,11 @@ serve(async (req: Request) => {
       if (!authorRows.length) return error('Author not found', 404);
       const a = authorRows[0];
 
-      const needsProfileEnrichment = a.inventaireUri && (!a.description || a.description.length < 200 || !a.image);
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const lastEnriched = a.lastEnrichedAt ? new Date(a.lastEnrichedAt).getTime() : 0;
+      const needsProfileEnrichment = a.inventaireUri && 
+        (!a.description || a.description.length < 200 || !a.image) &&
+        (Date.now() - lastEnriched > SEVEN_DAYS);
       const needsDiscovery = a.inventaireUri && !a.lastDiscoveredAt;
 
       if (needsProfileEnrichment || needsDiscovery) {
@@ -293,8 +297,14 @@ serve(async (req: Request) => {
       try {
         const googleResults = await searchGoogleBooks(`inauthor:"${authorName}"`, 20, true);
         
+        // Filter to keep only books where the authorName is the primary/first author
+        const filteredResults = googleResults.filter(book => 
+          Array.isArray(book.authors) && book.authors.length > 0 &&
+          compareAuthorNames(book.authors[0], authorName)
+        );
+
         // Try to fetch richer metadata for books missing cover/description by searching their exact title
-        const incompleteBooksToEnrich = googleResults.filter(b => !b.cover || !b.description);
+        const incompleteBooksToEnrich = filteredResults.filter(b => !b.cover || !b.description);
         if (incompleteBooksToEnrich.length > 0) {
           const enrichPromises = incompleteBooksToEnrich.slice(0, 8).map(async (book) => {
             try {
@@ -334,7 +344,7 @@ serve(async (req: Request) => {
           await Promise.all(enrichPromises);
         }
 
-        return json(googleResults);
+        return json(filteredResults);
       } catch (e: any) {
         console.error('[authors] Failed to fetch external books from Google Books:', e);
         return error(e.message || 'Failed to fetch from Google Books', 502);
@@ -409,7 +419,11 @@ serve(async (req: Request) => {
       if (!authorRows.length) return error('Author not found', 404);
       const author = authorRows[0];
 
-      const needsProfileEnrichment = author.inventaireUri && (!author.description || author.description.length < 200 || !author.image);
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const lastEnriched = author.lastEnrichedAt ? new Date(author.lastEnrichedAt).getTime() : 0;
+      const needsProfileEnrichment = author.inventaireUri && 
+        (!author.description || author.description.length < 200 || !author.image) &&
+        (Date.now() - lastEnriched > SEVEN_DAYS);
       const needsDiscovery = author.inventaireUri && !author.lastDiscoveredAt;
 
       if (needsProfileEnrichment || needsDiscovery) {

@@ -28,7 +28,6 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
 
 const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | null> => {
   try {
-    await sql`UPDATE "Book" SET "isEnriching" = true WHERE id = ${bookId}`.catch(() => {});
     const bookRows = await sql`SELECT * FROM "Book" WHERE id = ${bookId} LIMIT 1`;
     const book = bookRows[0];
     if (!book) {
@@ -38,10 +37,14 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
 
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
-    if (Date.now() - lastEnriched < SEVEN_DAYS && book.description && book.description.length > 50) {
-      console.log(`[BookEnrichment] Book "${book.title}" freshly enriched. Skipping.`);
+    if (Date.now() - lastEnriched < SEVEN_DAYS) {
+      console.log(`[BookEnrichment] Book "${book.title}" recently enriched/attempted. Skipping.`);
+      // Ensure isEnriching is false if it was set
+      await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
       return book;
     }
+
+    await sql`UPDATE "Book" SET "isEnriching" = true, "lastEnrichedAt" = now() WHERE id = ${bookId}`.catch(() => {});
 
     if (!book.inventaireUri) {
       console.warn(`[BookEnrichment] Book ${bookId} ("${book.title}") has no inventaireUri. Skipping detailed enrichment.`);
@@ -145,7 +148,6 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
   bookEnrichmentQueue.add(bookId);
 
   try {
-    await sql`UPDATE "Book" SET "isEnriching" = true WHERE id = ${bookId}`.catch(() => {});
     const rows = await sql`
       SELECT b.*, row_to_json(a) as author FROM "Book" b
       LEFT JOIN "Author" a ON a.id = b."authorId"
@@ -160,10 +162,14 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
 
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
-    if (Date.now() - lastEnriched < SEVEN_DAYS && book.description && book.description.length > 50) {
-      console.log(`[BookEnrichment/Discovery] Book "${book.title}" freshly enriched. Skipping.`);
+    if (Date.now() - lastEnriched < SEVEN_DAYS) {
+      console.log(`[BookEnrichment/Discovery] Book "${book.title}" recently enriched/attempted. Skipping.`);
+      // Ensure isEnriching is false if it was set
+      await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
       return;
     }
+
+    await sql`UPDATE "Book" SET "isEnriching" = true, "lastEnrichedAt" = now() WHERE id = ${bookId}`.catch(() => {});
 
     if (book.inventaireUri) {
       await enrichBookWithInventaireInternal(bookId);

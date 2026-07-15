@@ -13,6 +13,13 @@ export default function AppLayout() {
         }}
       />
       <Stack.Screen
+        name="author-works"
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
         name="book-detail"
         options={{
           presentation: 'modal',

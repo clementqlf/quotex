@@ -233,6 +233,7 @@ export const loadBookDetailData = async ({
     cover: bookCover,
     bookData,
     book,
+    inventaireUri,
   });
 
   const hasRealInventaireUri = !!(importPayload?.inventaireUri && !importPayload.inventaireUri.startsWith('googlebooks:'));

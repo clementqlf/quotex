@@ -94,6 +94,20 @@ export const useSmartNavigation = () => {
   }, [navigation]);
 
   /**
+   * Navigue vers la page de toutes les œuvres d'un auteur
+   */
+  const navigateToAuthorWorks = useCallback(
+    (authorId: number | string | undefined, authorName: string, inventaireUri?: string) => {
+      navigation.push('/author-works', {
+        authorId,
+        authorName,
+        inventaireUri,
+      });
+    },
+    [navigation]
+  );
+
+  /**
    * Retour à l'écran principal
    */
   const navigateHome = useCallback(() => {
@@ -103,6 +117,7 @@ export const useSmartNavigation = () => {
   return {
     navigateToBook,
     navigateToAuthor,
+    navigateToAuthorWorks,
     navigateToQuote,
     navigateToPrize,
     navigateToUserProfile,

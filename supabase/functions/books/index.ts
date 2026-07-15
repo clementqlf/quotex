@@ -400,13 +400,23 @@ serve(async (req: Request) => {
       const book = await fetchBook(idParam, userId);
       if (!book) return error('Book not found', 404);
 
-      // Trigger background enrichment if data is sparse
-      if (book.inventaireUri && (!book.description || book.description.length < 50 || !book.cover || !book.genre || book.genre === 'Unknown' || book.genre === '')) {
+      // Trigger background enrichment if data is sparse and not recently enriched
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
+      const needsEnrichment = book.inventaireUri && 
+        (!book.description || book.description.length < 50 || !book.cover || !book.genre || book.genre === 'Unknown' || book.genre === '') &&
+        (Date.now() - lastEnriched > SEVEN_DAYS);
+
+      if (needsEnrichment) {
         console.log(`[books] Triggering background enrichment for book ${idParam}`);
         waitUntil(enrichBookWithInventaire(idParam));
         
         if (book.authorId) {
-          waitUntil(enrichAuthorWithInventaire(book.authorId));
+          const authorRows = await sql`SELECT "lastEnrichedAt" FROM "Author" WHERE id = ${book.authorId} LIMIT 1`;
+          const authorLastEnriched = authorRows[0]?.lastEnrichedAt ? new Date(authorRows[0].lastEnrichedAt).getTime() : 0;
+          if (Date.now() - authorLastEnriched > SEVEN_DAYS) {
+            waitUntil(enrichAuthorWithInventaire(book.authorId));
+          }
         }
       }
 

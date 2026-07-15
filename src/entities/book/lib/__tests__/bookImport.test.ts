@@ -60,5 +60,14 @@ describe('bookImport', () => {
       const result = buildBookImportPayload({ bookData });
       expect(result?.authors).toEqual(['Valid']);
     });
+
+    it('should support passing inventaireUri directly and extracting googleId if it is a googlebooks URI', () => {
+      const result = buildBookImportPayload({
+        title: 'L\'Islam contre la modernité',
+        inventaireUri: 'googlebooks:yRyOEQAAQBAJ'
+      });
+      expect(result?.inventaireUri).toBe('googlebooks:yRyOEQAAQBAJ');
+      expect(result?.googleId).toBe('yRyOEQAAQBAJ');
+    });
   });
 });

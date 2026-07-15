@@ -286,7 +286,7 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
 
 // ─── syncAuthorProfile ────────────────────────────────────────────────────────
 
-export const syncAuthorProfile = async (
+export const syncAuthorProfile = (
   authorId: number,
   authorName?: string,
   authorUri?: string
@@ -300,8 +300,6 @@ export const syncAuthorProfile = async (
   const enrichmentContext = { promise: null as Promise<any> | null };
   const enrichmentPromise = (async () => {
     try {
-      await sql`UPDATE "Author" SET "isEnriching" = true WHERE id = ${authorId}`.catch(() => {});
-
       const author = await getAuthor(authorId);
       if (!author) {
         console.error(`[Inventaire] Author with ID ${authorId} not found in database.`);
@@ -310,10 +308,15 @@ export const syncAuthorProfile = async (
 
       const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
       const lastEnriched = author.lastEnrichedAt ? new Date(author.lastEnrichedAt).getTime() : 0;
-      if (Date.now() - lastEnriched < SEVEN_DAYS && author.description && author.description.length > 200) {
-        console.log(`[Inventaire] Author ${author.name} freshly enriched. Skipping.`);
+      if (Date.now() - lastEnriched < SEVEN_DAYS) {
+        console.log(`[Inventaire] Author ${author.name} recently enriched/attempted. Skipping.`);
+        // Ensure isEnriching is false if it was set
+        await sql`UPDATE "Author" SET "isEnriching" = false WHERE id = ${authorId}`.catch(() => {});
         return author;
       }
+
+      await sql`UPDATE "Author" SET "isEnriching" = true, "lastEnrichedAt" = now() WHERE id = ${authorId}`.catch(() => {});
+
 
       const nameToSearch = authorName || author.name;
       let uri = authorUri || author.inventaireUri;

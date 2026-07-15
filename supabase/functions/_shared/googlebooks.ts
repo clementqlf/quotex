@@ -54,7 +54,7 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
       console.log(`[GoogleBooks] Attempt ${attemptNumber}/${totalAttempts} for query "${query}"`);
       const res = await fetch(url, {
         headers: {
-          "User-Agent": "QuotexApp/1.0 (contact: support@quotex.app)"
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
       });
 
