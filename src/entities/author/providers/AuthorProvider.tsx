@@ -12,7 +12,7 @@ type AuthorContextType = {
   isLoading: boolean;
   refreshAuthors: (reason?: string) => Promise<void>;
   refreshBooks: (reason?: string) => Promise<void>;
-  getAuthorByName: (name: string) => Promise<Author | undefined>;
+  getAuthorByName: (name: string, inventaireUri?: string) => Promise<Author | undefined>;
   getAuthorById: (id: number) => Promise<Author | undefined>;
   getBooksByAuthor: (authorName: string, authorId?: number) => Promise<Book[]>;
   getBookByTitle: (title: string) => Promise<Book | undefined>;
@@ -190,7 +190,7 @@ export const AuthorProvider = ({ children }: { children: ReactNode }) => {
     isLoading: isLoadingAuthors || isLoadingBooks,
     refreshAuthors,
     refreshBooks,
-    getAuthorByName: (name: string) => authorRepository.getAuthorByName(name),
+    getAuthorByName: (name: string, inventaireUri?: string) => authorRepository.getAuthorByName(name, inventaireUri),
     getAuthorById: (id: number) => authorRepository.getAuthorById(id),
     getBooksByAuthor: (authorName: string, authorId?: number) => authorRepository.getBooksByAuthor(authorName, authorId),
     getBookByTitle: (title: string) => authorRepository.getBookByTitle(title),

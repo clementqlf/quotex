@@ -103,6 +103,7 @@ serve(async (req: Request) => {
     // GET /authors/by-name/:name
     if (req.method === 'GET' && parts[0] === 'by-name' && parts[1]) {
       const name = decodeURIComponent(parts[1]);
+      const inventaireUri = url.searchParams.get('inventaireUri');
       
       // ✅ CORRECTION: Exiger authentification pour la création d'auteur
       const authUser = await requireAuth(req);
@@ -113,90 +114,73 @@ serve(async (req: Request) => {
         return error('Invalid author name: must be between 2 and 200 characters', 400);
       }
       
-      // ✅ CORRECTION: Recherche insensible à la casse et aux espaces
-      let authorRows = await sql`
-        WITH author_detail AS (
-          SELECT id, nationality FROM "Author" WHERE LOWER(TRIM(name)) = LOWER(TRIM(${name})) LIMIT 1
-        ),
-        laureate_scores AS (
-          SELECT l2."authorId", COUNT(*)*8 as score
-          FROM "Laureate" l1
-          JOIN "Laureate" l2 ON l1."prizeId" = l2."prizeId"
-          WHERE l1."authorId" = (SELECT id FROM author_detail)
-          GROUP BY l2."authorId"
-        ),
-        genre_scores AS (
-          SELECT b2."authorId", COUNT(*)*5 as score
-          FROM "Book" b1
-          JOIN "Book" b2 ON b1.genre = b2.genre
-          WHERE b1."authorId" = (SELECT id FROM author_detail)
-            AND b1.genre IS NOT NULL AND b1.genre != '' AND b1.genre != 'Unknown'
-          GROUP BY b2."authorId"
-        ),
-        follower_scores AS (
-          SELECT ua2."authorId", COUNT(*)*4 as score
-          FROM "UserAuthor" ua1
-          JOIN "UserAuthor" ua2 ON ua1."userId" = ua2."userId"
-          WHERE ua1."authorId" = (SELECT id FROM author_detail)
-          GROUP BY ua2."authorId"
-        ),
-        combined_scores AS (
-          SELECT author_id, SUM(score) as score FROM (
-            SELECT "authorId" as author_id, score FROM laureate_scores
-            UNION ALL
-            SELECT "authorId" as author_id, score FROM genre_scores
-            UNION ALL
-            SELECT "authorId" as author_id, score FROM follower_scores
-          ) t
-          GROUP BY author_id
-        )
-        SELECT ad.*,
-          COALESCE((SELECT json_agg(json_build_object('userId', ua."userId", 'authorId', ua."authorId", 'addedAt', ua."addedAt")) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id AND ua."userId" = ${userId}::uuid), '[]'::json) as users,
-          json_build_object(
-            'quotes', (SELECT COUNT(*) FROM "Quote" q WHERE q."authorId" = ad.id)::int,
-            'followers', (SELECT COUNT(*) FROM "UserAuthor" ua WHERE ua."authorId" = ad.id)::int
-          ) as "_count",
-          COALESCE((
-            SELECT json_agg(sa_res) FROM (
-              SELECT S.id, S.name, S.image, S."inventaireUri", S.description, S.nationality,
-                     (COALESCE(cs.score, 0) + (CASE WHEN S.nationality IS NOT NULL AND ad.nationality IS NOT NULL AND S.nationality = ad.nationality THEN 3 ELSE 0 END))::int as score
-              FROM "Author" S
-              LEFT JOIN combined_scores cs ON cs.author_id = S.id
-              WHERE S.id != ad.id
-              ORDER BY score DESC, S.name ASC
-              LIMIT 10
-            ) sa_res
-          ), '[]'::json) as "similarAuthors"
-        FROM "Author" ad
-        WHERE ad.id = (SELECT id FROM author_detail) LIMIT 1
-      `;
+      // ✅ CORRECTION: Recherche insensible à la casse et aux espaces, ou par inventaireUri
+      let authorRows = [];
+      let foundId = null;
+
+      if (inventaireUri) {
+        const rows = await sql`
+          SELECT id FROM "Author"
+          WHERE replace(lower(coalesce("inventaireUri", '')), 'wd:', '') = replace(lower(${inventaireUri}), 'wd:', '')
+          LIMIT 1
+        `;
+        if (rows.length > 0) {
+          foundId = rows[0].id;
+        }
+      }
+
+      if (foundId) {
+        authorRows = await getAuthorDetails(foundId, userId);
+      } else {
+        const nameRows = await sql`
+          SELECT id, "inventaireUri" FROM "Author" WHERE LOWER(TRIM(name)) = LOWER(TRIM(${name})) LIMIT 1
+        `;
+        if (nameRows.length > 0) {
+          const existingUri = nameRows[0].inventaireUri;
+          // Si on n'a pas spécifié d'inventaireUri ou si l'auteur en BD n'a pas d'inventaireUri (auteur saisi manuellement sans lien)
+          if (!inventaireUri || !existingUri) {
+            foundId = nameRows[0].id;
+            if (inventaireUri && !existingUri) {
+              // Si on a un inventaireUri mais que l'auteur en BD n'en a pas encore, on fait l'association
+              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireUri} WHERE id = ${foundId}`.catch(() => {});
+            }
+            authorRows = await getAuthorDetails(foundId, userId);
+          }
+        }
+      }
 
       if (!authorRows.length) {
         // Activer pg_trgm si nécessaire pour la détection de similarité
         await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`.catch(() => {});
 
-        // Recherche par similarité pour éviter les doublons
-        const similarAuthors = await sql`
-          SELECT a.*, SIMILARITY(LOWER(a.name), LOWER(${name})) as similarity
-          FROM "Author" a
-          WHERE LOWER(a.name) % LOWER(${name})
-          ORDER BY similarity DESC
-          LIMIT 3
-        `;
+        // Recherche par similarité pour éviter les doublons (uniquement si pas de inventaireUri fourni)
+        let matchedId = null;
+        if (!inventaireUri) {
+          const similarAuthors = await sql`
+            SELECT a.*, SIMILARITY(LOWER(a.name), LOWER(${name})) as similarity
+            FROM "Author" a
+            WHERE LOWER(a.name) % LOWER(${name})
+            ORDER BY similarity DESC
+            LIMIT 3
+          `;
 
-        if (similarAuthors.length > 0 && similarAuthors[0].similarity > 0.8) {
+          if (similarAuthors.length > 0 && similarAuthors[0].similarity > 0.8) {
+            matchedId = similarAuthors[0].id;
+          }
+        }
+
+        if (matchedId) {
           // Utiliser l'auteur similaire existant si la similarité est élevée
-          const matchedId = similarAuthors[0].id;
           authorRows = await getAuthorDetails(matchedId, userId);
         } else {
-          // Créer un nouvel auteur avec le nom nettoyé
+          // Créer un nouvel auteur avec le nom nettoyé et l'inventaireUri si dispo
           const created = await sql`
-            INSERT INTO "Author" (name) VALUES (${name.trim()}) RETURNING *
+            INSERT INTO "Author" (name, "inventaireUri") VALUES (${name.trim()}, ${inventaireUri || null}) RETURNING *
           `;
           const newAuthorId = created[0].id;
           
           // Synchronous profile enrichment (fast, skips discovery)
-          const author = await enrichAuthorWithInventaire(newAuthorId, undefined, undefined, true);
+          const author = await enrichAuthorWithInventaire(newAuthorId, undefined, inventaireUri || undefined, true);
           
           // Background discovery (slow)
           if (author?.inventaireUri) {

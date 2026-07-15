@@ -36,13 +36,10 @@ interface InventaireAuthorItem extends Partial<InventaireEntity> {
 
 type SearchSection =
     | { title: string; data: Quote[]; type: 'quote' }
-    | { title: string; data: Book[]; type: 'book' }
-    | { title: string; data: Author[]; type: 'author' }
+    | { title: string; data: (Book & { inDb: boolean; searchType: 'book' } | InventaireBookItem & { inDb: boolean; searchType: 'inventaire_book' })[]; type: 'book' }
+    | { title: string; data: (Author & { inDb: boolean; searchType: 'author' } | InventaireAuthorItem & { inDb: boolean; searchType: 'inventaire_author' })[]; type: 'author' }
     | { title: string; data: string[]; type: 'theme' }
-    | { title: string; data: LiteraryPrize[]; type: 'prize' }
-    | { title: string; data: InventaireBookItem[]; type: 'inventaire_book' }
-    | { title: string; data: InventaireAuthorItem[]; type: 'inventaire_author' }
-    | { title: string; data: InventairePrize[]; type: 'inventaire_prize' }
+    | { title: string; data: (LiteraryPrize & { inDb: boolean; searchType: 'prize' } | InventairePrize & { inDb: boolean; searchType: 'inventaire_prize' })[]; type: 'prize' }
     | { title: string; data: UserType[]; type: 'user' };
 
 export default function SearchScreen() {
@@ -108,24 +105,51 @@ export default function SearchScreen() {
     };
 
     const sections = React.useMemo(() => {
+        // Merging books
+        const localBooks = results.books || [];
+        const extBooks = (results.inventaireWorks || []) as InventaireBookItem[];
+        const mergedBooks: (Book & { inDb: boolean; searchType: 'book' } | InventaireBookItem & { inDb: boolean; searchType: 'inventaire_book' })[] = [
+            ...localBooks.map(b => ({ ...b, inDb: true, searchType: 'book' as const })),
+            ...extBooks
+                .filter(eb => !localBooks.some(lb => lb.inventaireUri === eb.uri))
+                .map(eb => ({ ...eb, inDb: false, searchType: 'inventaire_book' as const }))
+        ];
+
+        // Merging authors
+        const localAuthors = results.authors || [];
+        const extAuthors = (results.inventaireAuthors || []) as InventaireAuthorItem[];
+        const mergedAuthors: (Author & { inDb: boolean; searchType: 'author' } | InventaireAuthorItem & { inDb: boolean; searchType: 'inventaire_author' })[] = [
+            ...localAuthors.map(a => ({ ...a, inDb: true, searchType: 'author' as const })),
+            ...extAuthors
+                .filter(ea => !localAuthors.some(la => la.inventaireUri === ea.uri))
+                .map(ea => ({ ...ea, inDb: false, searchType: 'inventaire_author' as const }))
+        ];
+
+        // Merging prizes
+        const localPrizes = results.prizes || [];
+        const extPrizes = (results.inventairePrizes || []) as InventairePrize[];
+        const mergedPrizes: (LiteraryPrize & { inDb: boolean; searchType: 'prize' } | InventairePrize & { inDb: boolean; searchType: 'inventaire_prize' })[] = [
+            ...localPrizes.map(p => ({ ...p, inDb: true, searchType: 'prize' as const })),
+            ...extPrizes
+                .filter(ep => !localPrizes.some(lp => lp.inventaireUri === ep.uri))
+                .map(ep => ({ ...ep, inDb: false, searchType: 'inventaire_prize' as const }))
+        ];
+
         const allSections: SearchSection[] = [
             { title: 'Thèmes', data: results.themes || [], type: 'theme' },
             { title: 'Utilisateurs', data: results.users || [], type: 'user' },
-            { title: 'Mes Auteurs', data: results.authors || [], type: 'author' },
-            { title: 'Mes Livres', data: results.books || [], type: 'book' },
-            { title: 'Prix Littéraires', data: results.prizes || [], type: 'prize' },
+            { title: 'Auteurs', data: mergedAuthors, type: 'author' },
+            { title: 'Livres', data: mergedBooks, type: 'book' },
+            { title: 'Prix Littéraires', data: mergedPrizes, type: 'prize' },
             { title: 'Citations', data: results.quotes || [], type: 'quote' },
-            { title: 'Prix (Inventaire)', data: results.inventairePrizes || [], type: 'inventaire_prize' },
-            { title: 'Livres', data: (results.inventaireWorks || []) as InventaireBookItem[], type: 'inventaire_book' },
-            { title: 'Auteurs', data: (results.inventaireAuthors || []) as InventaireAuthorItem[], type: 'inventaire_author' },
         ];
 
         return allSections.filter(section => {
             if (section.data.length === 0) return false;
             if (activeTab === 'all') return true;
-            if (activeTab === 'books') return section.type === 'book' || section.type === 'inventaire_book';
-            if (activeTab === 'authors') return section.type === 'author' || section.type === 'inventaire_author';
-            if (activeTab === 'prizes') return section.type === 'prize' || section.type === 'inventaire_prize';
+            if (activeTab === 'books') return section.type === 'book';
+            if (activeTab === 'authors') return section.type === 'author';
+            if (activeTab === 'prizes') return section.type === 'prize';
             if (activeTab === 'users') return section.type === 'user';
             return false;
         }) as SearchSection[];
@@ -149,45 +173,121 @@ export default function SearchScreen() {
                 </TouchableOpacity>
             );
         } else if (section.type === 'book') {
-            const book = item as Book;
-            return (
-                <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
-                >
-                    <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-                        {book.cover ? (
-                            <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                        ) : (
-                            <BookOpen size={20} color={colors.primary} />
-                        )}
-                    </View>
-                    <View>
-                        <Text style={styles.itemTitle}>{book.title}</Text>
-                        <Text style={styles.subText}>{getAuthorName(book.author)}</Text>
-                    </View>
-                </TouchableOpacity>
-            );
+            const isDb = (item as any).inDb;
+            if (isDb) {
+                const book = item as Book;
+                return (
+                    <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
+                    >
+                        <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+                            {book.cover ? (
+                                <Image source={{ uri: book.cover }} style={styles.bookCover} />
+                            ) : (
+                                <BookOpen size={20} color={colors.primary} />
+                            )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{book.title}</Text>
+                                {__DEV__ && (
+                                    <View style={styles.dbBadge}>
+                                        <Text style={styles.dbBadgeText}>DB</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.subText}>{getAuthorName(book.author)}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            } else {
+                const invBook = item as InventaireBookItem & { source?: string };
+                const imageUrl = getInventaireImageUrl(invBook.image ?? null);
+                return (
+                    <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => handleImportBook(invBook)}
+                    >
+                        <View style={imageUrl ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+                            {imageUrl ? (
+                                <Image source={{ uri: imageUrl }} style={styles.bookCover} />
+                            ) : (
+                                <BookOpen size={20} color={colors.primary} />
+                            )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invBook.label}</Text>
+                                {__DEV__ && invBook.source && (
+                                    <View style={styles.debugBadge}>
+                                        <Text style={styles.debugBadgeText}>{invBook.source}</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.subText} numberOfLines={1}>{invBook.authors && invBook.authors.length > 0 ? invBook.authors.join(', ') : 'Auteur inconnu'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            }
         } else if (section.type === 'author') {
-            const author = item as Author;
-            return (
-                <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                        {author.image ? (
-                            <Image source={{ uri: author.image }} style={styles.authorImage} />
-                        ) : (
-                            <User size={20} color="#10B981" />
-                        )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{author.name}</Text>
-                        <Text style={styles.subText} numberOfLines={2}>{author.description || 'Mon auteur'}</Text>
-                    </View>
-                </TouchableOpacity>
-            );
+            const isDb = (item as any).inDb;
+            if (isDb) {
+                const author = item as Author;
+                return (
+                    <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
+                    >
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                            {author.image ? (
+                                <Image source={{ uri: author.image }} style={styles.authorImage} />
+                            ) : (
+                                <User size={20} color="#10B981" />
+                            )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{author.name}</Text>
+                                {__DEV__ && (
+                                    <View style={styles.dbBadge}>
+                                        <Text style={styles.dbBadgeText}>DB</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.subText} numberOfLines={2}>{author.description || 'Mon auteur'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            } else {
+                const invAuthor = item as InventaireAuthorItem & { source?: string };
+                const imageUrl = getInventaireImageUrl(invAuthor.image ?? null);
+                return (
+                    <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => navigateToAuthor(invAuthor.label, invAuthor.uri)}
+                    >
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                            {imageUrl ? (
+                                <Image source={{ uri: imageUrl }} style={styles.authorImage} />
+                            ) : (
+                                <User size={20} color="#10B981" />
+                            )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invAuthor.label}</Text>
+                                {__DEV__ && invAuthor.source && (
+                                    <View style={styles.debugBadge}>
+                                        <Text style={styles.debugBadgeText}>{invAuthor.source}</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.subText} numberOfLines={2}>{invAuthor.description || 'Auteur'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            }
         } else if (section.type === 'theme') {
             const theme = item as string;
             return (
@@ -202,101 +302,55 @@ export default function SearchScreen() {
                 </TouchableOpacity>
             );
         } else if (section.type === 'prize') {
-            const prize = item as LiteraryPrize;
-            return (
-                <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => router.push({ pathname: '/prize-detail', params: { prizeId: prize.id } })}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                        {prize.image ? (
-                            <Image source={{ uri: prize.image }} style={styles.authorImage} />
-                        ) : (
-                            <Award size={20} color="#F59E0B" />
-                        )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{prize.name}</Text>
-                        <Text style={styles.subText} numberOfLines={2}>{prize.description || 'Prix Littéraire'}</Text>
-                    </View>
-                </TouchableOpacity>
-            );
-        } else if (section.type === 'inventaire_book') {
-            const invBook = item as InventaireBookItem & { source?: string };
-            const imageUrl = getInventaireImageUrl(invBook.image ?? null);
-            return (
-                <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => handleImportBook(invBook)}
-                >
-                    <View style={imageUrl ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-                        {imageUrl ? (
-                            <Image source={{ uri: imageUrl }} style={styles.bookCover} />
-                        ) : (
-                            <BookOpen size={20} color={colors.primary} />
-                        )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invBook.label}</Text>
-                            {__DEV__ && invBook.source && (
-                                <View style={styles.debugBadge}>
-                                    <Text style={styles.debugBadgeText}>{invBook.source}</Text>
-                                </View>
+            const isDb = (item as any).inDb;
+            if (isDb) {
+                const prize = item as LiteraryPrize;
+                return (
+                    <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => router.push({ pathname: '/prize-detail', params: { prizeId: prize.id } })}
+                    >
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                            {prize.image ? (
+                                <Image source={{ uri: prize.image }} style={styles.authorImage} />
+                            ) : (
+                                <Award size={20} color="#F59E0B" />
                             )}
                         </View>
-                        <Text style={styles.subText} numberOfLines={1}>{invBook.authors && invBook.authors.length > 0 ? invBook.authors.join(', ') : 'Auteur inconnu'}</Text>
-                    </View>
-                </TouchableOpacity>
-            )
-        } else if (section.type === 'inventaire_author') {
-            const invAuthor = item as InventaireAuthorItem & { source?: string };
-            const imageUrl = getInventaireImageUrl(invAuthor.image ?? null);
-            return (
-                <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => navigateToAuthor(invAuthor.label, invAuthor.uri)}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                        {imageUrl ? (
-                            <Image source={{ uri: imageUrl }} style={styles.authorImage} />
-                        ) : (
-                            <User size={20} color="#10B981" />
-                        )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invAuthor.label}</Text>
-                            {__DEV__ && invAuthor.source && (
-                                <View style={styles.debugBadge}>
-                                    <Text style={styles.debugBadgeText}>{invAuthor.source}</Text>
-                                </View>
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{prize.name}</Text>
+                                {__DEV__ && (
+                                    <View style={styles.dbBadge}>
+                                        <Text style={styles.dbBadgeText}>DB</Text>
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.subText} numberOfLines={2}>{prize.description || 'Prix Littéraire'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            } else {
+                const invPrize = item as InventairePrize;
+                return (
+                    <TouchableOpacity
+                        style={styles.resultItem}
+                        onPress={() => handleImportPrize(invPrize)}
+                    >
+                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                            {invPrize.image ? (
+                                <Image source={{ uri: invPrize.image }} style={styles.authorImage} />
+                            ) : (
+                                <Award size={20} color="#F59E0B" />
                             )}
                         </View>
-                        <Text style={styles.subText} numberOfLines={2}>{invAuthor.description || 'Auteur'}</Text>
-                    </View>
-                </TouchableOpacity>
-            )
-        } else if (section.type === 'inventaire_prize') {
-            const invPrize = item as InventairePrize;
-            return (
-                <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => handleImportPrize(invPrize)}
-                >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                        {invPrize.image ? (
-                            <Image source={{ uri: invPrize.image }} style={styles.authorImage} />
-                        ) : (
-                            <Award size={20} color="#F59E0B" />
-                        )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{invPrize.label}</Text>
-                        <Text style={styles.subText} numberOfLines={2}>{invPrize.description || 'Importer ce prix'}</Text>
-                    </View>
-                </TouchableOpacity>
-            );
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.itemTitle}>{invPrize.label}</Text>
+                            <Text style={styles.subText} numberOfLines={2}>{invPrize.description || 'Importer ce prix'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                );
+            }
         } else if (section.type === 'user') {
             const profile = item as UserType;
             return (
@@ -586,5 +640,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
         color: '#2563EB',
+    },
+    dbBadge: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderColor: 'rgba(239, 68, 68, 0.3)',
+        borderWidth: 1,
+        borderRadius: 4,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        marginLeft: 8,
+    },
+    dbBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#EF4444',
     }
 });

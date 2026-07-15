@@ -24,8 +24,8 @@ export class SupabaseAuthorRepository implements IAuthorRepository {
     return await authorService.getAuthorById(id);
   }
 
-  async getAuthorByName(name: string): Promise<Author | undefined> {
-    return await authorService.getAuthorByName(name);
+  async getAuthorByName(name: string, inventaireUri?: string): Promise<Author | undefined> {
+    return await authorService.getAuthorByName(name, inventaireUri);
   }
 
   async getBooks(): Promise<Book[]> {

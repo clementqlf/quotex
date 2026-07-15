@@ -139,12 +139,10 @@ export async function matchAuthor(authorName: string | null | undefined, createI
   // Strategy 5: Create new author
   if (!createIfNotFound) return null;
   
-  // Use ON CONFLICT to handle race conditions from concurrent sync requests
+  // Since name is no longer unique, we perform a standard insert.
   const newAuthor = await sql`
     INSERT INTO "Author" (name, "isEnriching") 
     VALUES (${cleanName}, true) 
-    ON CONFLICT (name) DO UPDATE 
-    SET "isEnriching" = "Author"."isEnriching"
     RETURNING id, name
   `;
   

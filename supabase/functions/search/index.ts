@@ -8,7 +8,7 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser } from '../_shared/auth.ts';
 import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts';
-import { searchInventaireAuthors } from '../_shared/inventaire.api.ts';
+import { searchInventaireAuthors, getAuthorWorkUris } from '../_shared/inventaire.api.ts';
 import { bookSearchService } from '../_shared/bookProviders.ts';
 import { wikidataFetch } from '../_shared/wikidata.ts';
 
@@ -356,7 +356,7 @@ serve(async (req: Request) => {
               if (results.length === 0) return [];
 
               const qids = results.map((r: any) => r.id);
-              const propsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qids.join('|')}&props=claims&format=json&origin=*`;
+              const propsUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qids.join('|')}&props=claims|sitelinks&format=json&origin=*`;
               const propsRes = await wikidataFetch(propsUrl);
               const propsData = await propsRes.json();
 
@@ -372,6 +372,7 @@ serve(async (req: Request) => {
                   const p18Claims = entity?.claims?.P18 || [];
                   const p18Value = p18Claims[0]?.mainsnak?.datavalue?.value;
                   const image = p18Value ? `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(p18Value)}?width=250` : null;
+                  const sitelinksCount = Object.keys(entity?.sitelinks || {}).length;
 
                    return {
                     id: r.id,
@@ -380,6 +381,7 @@ serve(async (req: Request) => {
                     label: r.label || '',
                     description: r.description || '',
                     image,
+                    sitelinksCount,
                     source: 'Wikidata'
                   };
                 });
@@ -411,20 +413,35 @@ serve(async (req: Request) => {
           }
         }
 
-        // Sort merged authors by relevance
-        merged.sort((a, b) => {
+        // Filter: only keep authors with at least 1 work on Inventaire
+        console.log(`[search] Filtering ${merged.length} author candidates for works via Inventaire reverse-claims...`);
+        const filteredMerged = (await Promise.all(
+          merged.map(async (author) => {
+            try {
+              const workUris = await getAuthorWorkUris(author.uri);
+              return workUris.length > 0 ? author : null;
+            } catch {
+              return author; // Keep on error to avoid false negatives
+            }
+          })
+        )).filter(Boolean);
+        console.log(`[search] ${filteredMerged.length}/${merged.length} authors kept after works filter.`);
+
+        // Sort by relevance, then by sitelinks count (popularity) as tiebreaker
+        filteredMerged.sort((a: any, b: any) => {
           const scoreA = calculateRelevance(a.label || a.name || '', query);
           const scoreB = calculateRelevance(b.label || b.name || '', query);
-          return scoreB - scoreA;
+          if (scoreA !== scoreB) return scoreB - scoreA;
+          return (b.sitelinksCount || 0) - (a.sitelinksCount || 0);
         });
 
         if (!apiFailed) {
           const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
-          await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(merged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
+          await sql`INSERT INTO "SearchCache" (query, type, results, "createdAt", "expiresAt") VALUES (${query}, 'humans', ${JSON.stringify(filteredMerged)}, now(), ${expiresAt}) ON CONFLICT (query, type) DO UPDATE SET results = EXCLUDED.results, "expiresAt" = EXCLUDED."expiresAt"`.catch((err) => console.error('[search] Cache write error', err));
         } else {
           console.log('[search] Skipping database cache write for humans because an external API search failed.');
         }
-        return merged;
+        return filteredMerged;
       })(),
       (async () => {
         // High-performance hybrid search (Search Index + Property Filter)

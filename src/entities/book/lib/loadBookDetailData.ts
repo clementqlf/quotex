@@ -53,7 +53,7 @@ type LoadBookDetailDataArgs = {
   getBookByTitle: (title: string) => Promise<Book | undefined>;
   getBookByInventaireUri: (inventaireUri: string) => Promise<Book | undefined>;
   importBook: (bookData: BookImportPayload) => Promise<Book | undefined>;
-  getAuthorByName: (name: string) => Promise<Author | undefined>;
+  getAuthorByName: (name: string, inventaireUri?: string) => Promise<Author | undefined>;
 };
 
 const shouldRefreshFromInventaire = (book: Book | null | undefined): boolean => {

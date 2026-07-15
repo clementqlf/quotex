@@ -45,15 +45,20 @@ class AuthorService {
         return storedAuthors || [];
     }
 
-    async getAuthorByName(name: string): Promise<Author | undefined> {
+    async getAuthorByName(name: string, inventaireUri?: string): Promise<Author | undefined> {
         if (await isOffline()) {
             debugLog('getAuthorByName: device is offline, using cache');
             const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+            if (inventaireUri) {
+                const found = (storedAuthors || []).find(a => a.inventaireUri === inventaireUri);
+                if (found) return found;
+            }
             return (storedAuthors || []).find(a => a.name.toLowerCase() === name.toLowerCase() || a.name === name);
         }
 
         try {
-            const author = await httpClient.get<any>(`/authors/by-name/${encodeURIComponent(name)}`);
+            const url = `/authors/by-name/${encodeURIComponent(name)}${inventaireUri ? `?inventaireUri=${encodeURIComponent(inventaireUri)}` : ''}`;
+            const author = await httpClient.get<any>(url);
             return {
                 ...author,
                 similarAuthors: author.similarAuthors || []
@@ -62,6 +67,10 @@ class AuthorService {
             logFetchError('Error fetching author by name from server', error);
             if (isNetworkError(error)) {
                 const storedAuthors = await StorageService.getItem<Author[]>(STORAGE_KEYS.AUTHORS);
+                if (inventaireUri) {
+                    const found = (storedAuthors || []).find(a => a.inventaireUri === inventaireUri);
+                    if (found) return found;
+                }
                 return (storedAuthors || []).find(a => a.name.toLowerCase() === name.toLowerCase() || a.name === name);
             }
             return undefined;

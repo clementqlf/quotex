@@ -209,7 +209,21 @@ serve(async (req: Request) => {
             authorLookup = await matchAuthor(finalAuthorName, true);
             authorId = authorLookup?.id || null;
             if (authorId && inventaireMatch.authorUri) {
-              await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true, "isVerified" = true WHERE id = ${authorId}`;
+              const checkRow = await sql`SELECT "inventaireUri" FROM "Author" WHERE id = ${authorId} LIMIT 1`;
+              const currentUri = checkRow[0]?.inventaireUri;
+              if (currentUri && currentUri !== inventaireMatch.authorUri) {
+                // Si l'auteur trouvé a déjà un URI différent, c'est un homonyme.
+                // On crée une nouvelle ligne d'auteur distincte pour le nouvel URI.
+                const created = await sql`
+                  INSERT INTO "Author" (name, "inventaireUri", "isEnriching", "isVerified")
+                  VALUES (${finalAuthorName}, ${inventaireMatch.authorUri}, true, true)
+                  RETURNING id, name
+                `;
+                authorId = created[0].id;
+                authorLookup = { id: authorId, name: created[0].name, wasCreated: true, originalName: finalAuthorName! };
+              } else {
+                await sql`UPDATE "Author" SET "inventaireUri" = ${inventaireMatch.authorUri}, "isEnriching" = true, "isVerified" = true WHERE id = ${authorId}`;
+              }
             }
           }
         }

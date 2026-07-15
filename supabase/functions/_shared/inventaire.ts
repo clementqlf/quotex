@@ -411,7 +411,7 @@ export const syncAuthorProfile = (
       }
 
       const isNewEntity = uri !== author.inventaireUri;
-      let biography = author.description || null;
+      let biography = isNewEntity ? null : (author.description || null);
 
       if (details.wikipediaTitle && (!biography || biography.length < 200)) {
         console.log(`[Inventaire] Fetching Wikipedia synopsis for: ${details.wikipediaTitle}`);

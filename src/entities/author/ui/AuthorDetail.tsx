@@ -97,13 +97,13 @@ export default function AuthorDetailScreen() {
   const authorNameForQuery = nameToUse;
   
   const { data: authorInfo, isLoading: isLoadingAuthorInfo, refetch: refetchAuthor } = useQuery({
-    queryKey: ['author', authorId, authorNameForQuery],
+    queryKey: ['author', authorId, authorNameForQuery, params.inventaireUri],
     queryFn: () => {
       if (authorId) {
         return authorService.getAuthorById(authorId);
       }
       if (authorNameForQuery) {
-        return authorService.getAuthorByName(authorNameForQuery);
+        return authorService.getAuthorByName(authorNameForQuery, params.inventaireUri);
       }
       return Promise.resolve(null);
     },
