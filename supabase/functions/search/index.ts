@@ -8,10 +8,16 @@ import { handleCors, json, error } from '../_shared/cors.ts';
 import { sql } from '../_shared/db.ts';
 import { getAuthUser } from '../_shared/auth.ts';
 import { formatAuthor, formatBook, formatQuote } from '../_shared/formatters.ts';
-import { searchInventaireAuthors, getAuthorWorkUris } from '../_shared/inventaire.api.ts';
+import { searchInventaireAuthors, getAuthorWorkUris, InventaireSearchResult } from '../_shared/inventaire.api.ts';
 import { bookSearchService } from '../_shared/bookProviders.ts';
-import { wikidataFetch } from '../_shared/wikidata.ts';
+import { wikidataFetch, filterWikidataAuthors } from '../_shared/wikidata.ts';
 
+
+interface SearchAuthorItem extends InventaireSearchResult {
+  source?: string;
+  sitelinksCount?: number;
+  description?: string;
+}
 
 function calculateRelevance(text: string, query: string): number {
   const normText = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -394,38 +400,78 @@ serve(async (req: Request) => {
         ]);
 
         // Merge and deduplicate by URI
-        const seen = new Set<string>();
-        const merged: any[] = [];
+        const seen = new Map<string, SearchAuthorItem>();
 
         // Inventaire authors have priority
         for (const item of freshInventaire) {
-          const key = item.uri;
-          seen.add(key);
-          merged.push(item);
+          seen.set(item.uri, item);
         }
 
-        // Add Wikidata authors if not already present
+        // Add Wikidata authors or merge details
         for (const item of freshWikidata) {
           const key = item.uri;
-          if (!seen.has(key)) {
-            seen.add(key);
-            merged.push(item);
+          const existing = seen.get(key);
+          if (existing) {
+            // Merge properties from Wikidata to enrich the Inventaire result
+            if (existing.sitelinksCount === undefined && item.sitelinksCount !== undefined) {
+              existing.sitelinksCount = item.sitelinksCount;
+            }
+            if (!existing.description && item.description) {
+              existing.description = item.description;
+            }
+            if (!existing.image && item.image) {
+              existing.image = item.image;
+            }
+          } else {
+            seen.set(key, item);
           }
         }
+        const merged = Array.from(seen.values());
 
-        // Filter: only keep authors with at least 1 work on Inventaire
-        console.log(`[search] Filtering ${merged.length} author candidates for works via Inventaire reverse-claims...`);
-        const filteredMerged = (await Promise.all(
-          merged.map(async (author) => {
-            try {
-              const workUris = await getAuthorWorkUris(author.uri);
-              return workUris.length > 0 ? author : null;
-            } catch {
-              return author; // Keep on error to avoid false negatives
+        // Filter: only keep:
+        // 1. Authors returned by Inventaire search (source === 'Inventaire') which are guaranteed to be book-related.
+        // 2. Authors who have at least one work on Inventaire.
+        // 3. Wikidata-sourced authors who pass the SPARQL author validation.
+        console.log(`[search] Filtering ${merged.length} author candidates...`);
+
+        // Find which ones need Wikidata validation (Wikidata source only)
+        const wikidataOnlyItems = merged.filter((item) => item.source === 'Wikidata');
+        const wikidataQids = wikidataOnlyItems.map((item) => {
+          const uri = item.uri || '';
+          return uri.startsWith('wd:') ? uri.substring(3) : uri;
+        }).filter(Boolean);
+
+        const validWikidataQids = await filterWikidataAuthors(wikidataQids);
+
+        const filteredMerged: SearchAuthorItem[] = [];
+        for (const author of merged) {
+          // If sourced from Inventaire, keep immediately
+          if (author.source === 'Inventaire') {
+            filteredMerged.push(author);
+            continue;
+          }
+
+          // If it has at least 1 work on Inventaire, keep
+          try {
+            const workUris = await getAuthorWorkUris(author.uri);
+            if (workUris.length > 0) {
+              filteredMerged.push(author);
+              continue;
             }
-          })
-        )).filter(Boolean);
-        console.log(`[search] ${filteredMerged.length}/${merged.length} authors kept after works filter.`);
+          } catch (err) {
+            console.warn(`[search] Inventaire reverse-claims error for ${author.uri}:`, err);
+          }
+
+          // If it's validated via Wikidata SPARQL, keep
+          const qid = author.uri.startsWith('wd:') ? author.uri.substring(3) : author.uri;
+          if (validWikidataQids.has(qid)) {
+            filteredMerged.push(author);
+            continue;
+          }
+
+          console.log(`[search] Filtering out non-writer: ${author.label} (${author.uri})`);
+        }
+        console.log(`[search] ${filteredMerged.length}/${merged.length} authors kept after filtering.`);
 
         // Sort by relevance, then by sitelinks count (popularity) as tiebreaker
         filteredMerged.sort((a: any, b: any) => {

@@ -292,7 +292,7 @@ export const syncAuthorProfile = (
   authorUri?: string
 ): Promise<any> => {
   if (activeAuthorEnrichments.has(authorId)) {
-    return activeAuthorEnrichments.get(authorId);
+    return activeAuthorEnrichments.get(authorId)!;
   }
 
   let resolvedUri: string | undefined = authorUri;

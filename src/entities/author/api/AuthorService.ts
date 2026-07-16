@@ -155,7 +155,7 @@ class AuthorService {
             return await httpClient.get<ExternalBookResult[]>(`/authors/${authorId}/external-books`);
         } catch (error) {
             logFetchError('Error fetching author external books from server', error);
-            return [];
+            throw error;
         }
     }
 

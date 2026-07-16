@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
   ActionSheetIOS,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -56,7 +57,12 @@ export default function AuthorWorksScreen() {
   } = useAuthor();
 
   // Use TanStack Query for all works (all books in DB for this author)
-  const { data: allWorks = [], isLoading: isLoadingAllWorks } = useQuery({
+  const { 
+    data: allWorks = [], 
+    isLoading: isLoadingAllWorks,
+    isFetching: isFetchingAllWorks,
+    refetch: refetchAllWorks
+  } = useQuery({
     queryKey: ['author-all-works', resolvedAuthorId, authorName],
     queryFn: async () => {
       if (!resolvedAuthorId || !authorName) throw new Error('Author ID or name missing');
@@ -67,7 +73,13 @@ export default function AuthorWorksScreen() {
   });
 
   // Query for external books from Google Books
-  const { data: externalBooks = [], isLoading: isLoadingExternalBooks, isError: isErrorExternalBooks, refetch: refetchExternalBooks } = useQuery({
+  const { 
+    data: externalBooks = [], 
+    isLoading: isLoadingExternalBooks, 
+    isFetching: isFetchingExternalBooks,
+    isError: isErrorExternalBooks, 
+    refetch: refetchExternalBooks 
+  } = useQuery({
     queryKey: ['author-external-books', resolvedAuthorId],
     queryFn: () => {
       if (!resolvedAuthorId) return Promise.resolve([]);
@@ -77,6 +89,15 @@ export default function AuthorWorksScreen() {
     staleTime: 5 * 60 * 1000
   });
 
+  const isRefreshing = isFetchingAllWorks || isFetchingExternalBooks;
+
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      refetchAllWorks().catch(() => {}),
+      refetchExternalBooks().catch(() => {})
+    ]);
+  }, [refetchAllWorks, refetchExternalBooks]);
+
   const normalizeTitle = (title: string) => {
     return title
       .toLowerCase()
@@ -85,6 +106,37 @@ export default function AuthorWorksScreen() {
       .replace(/[^a-z0-9]/g, "")
       .trim();
   };
+
+  const getBaseTitle = (title: string) => {
+    // Sépare le titre du sous-titre sur les délimiteurs courants
+    const parts = title.split(/[:\-\/(\[—]/);
+    return parts[0].trim();
+  };
+
+  const isDuplicateTitle = useCallback((titleA: string, titleB: string) => {
+    const normA = normalizeTitle(titleA);
+    const normB = normalizeTitle(titleB);
+    
+    if (normA === normB) return true;
+
+    // 1. Comparaison des titres de base (sans les sous-titres)
+    const baseA = normalizeTitle(getBaseTitle(titleA));
+    const baseB = normalizeTitle(getBaseTitle(titleB));
+    
+    if (baseA === baseB && baseA.length >= 5) {
+      return true;
+    }
+    
+    // 2. Fallback préfixe uniquement pour les titres longs
+    // pour éviter de fusionner des tomes courts (ex: "Dune" et "Dune le messie")
+    if (normA.length >= 15 && normB.length >= 15) {
+      if (normA.startsWith(normB) || normB.startsWith(normA)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, []);
 
   const openLibraryCover = (item: { cover?: string | null; isbn?: string | null; title: string }): string | undefined => {
     if (item.cover) return item.cover;
@@ -96,38 +148,58 @@ export default function AuthorWorksScreen() {
   };
 
   const filteredExternalBooks = useMemo(() => {
-    const localTitles = new Set(allWorks.map(b => normalizeTitle(b.title)));
-    const uniqueExternal = new Map<string, any>();
+    const uniqueExternal: any[] = [];
+    
     for (const b of externalBooks) {
-      const normalized = normalizeTitle(b.title);
-      if (localTitles.has(normalized)) continue;
+      // Vérifier si le livre est déjà présent localement
+      const isLocal = allWorks.some(lw => isDuplicateTitle(lw.title, b.title));
+      if (isLocal) continue;
       
-      const existing = uniqueExternal.get(normalized);
-      if (!existing || (!existing.cover && b.cover)) {
-        uniqueExternal.set(normalized, b);
+      const existingIndex = uniqueExternal.findIndex(item => isDuplicateTitle(item.title, b.title));
+      if (existingIndex === -1) {
+        uniqueExternal.push({ ...b });
+      } else {
+        const existing = uniqueExternal[existingIndex];
+        const merged = { ...existing };
+        if (!existing.cover && b.cover) merged.cover = b.cover;
+        if (!existing.description && b.description) merged.description = b.description;
+        if ((!existing.pages || existing.pages === 0) && b.pages) merged.pages = b.pages;
+        if ((!existing.year || existing.year === 0) && b.year) merged.year = b.year;
+        // On garde le titre le plus court (qui évite les répétitions de sous-titres)
+        if (b.title.length < existing.title.length) {
+          merged.title = b.title;
+          merged.label = b.label || b.title;
+        }
+        uniqueExternal[existingIndex] = merged;
       }
     }
-    return Array.from(uniqueExternal.values());
-  }, [externalBooks, allWorks]);
+    return uniqueExternal;
+  }, [externalBooks, allWorks, isDuplicateTitle]);
 
   const combinedWorks = useMemo(() => {
-    const externalByTitle = new Map<string, any>();
+    const externalList: any[] = [];
+    
     for (const b of externalBooks) {
-      const key = normalizeTitle(b.title);
-      const existing = externalByTitle.get(key);
-      if (!existing) {
-        externalByTitle.set(key, b);
+      const existingIndex = externalList.findIndex(item => isDuplicateTitle(item.title, b.title));
+      if (existingIndex === -1) {
+        externalList.push({ ...b });
       } else {
-        const existingScore = (existing.cover ? 2 : 0) + (existing.description ? 1 : 0);
-        const newScore = (b.cover ? 2 : 0) + (b.description ? 1 : 0);
-        if (newScore > existingScore) {
-          externalByTitle.set(key, b);
+        const existing = externalList[existingIndex];
+        const merged = { ...existing };
+        if (!existing.cover && b.cover) merged.cover = b.cover;
+        if (!existing.description && b.description) merged.description = b.description;
+        if ((!existing.pages || existing.pages === 0) && b.pages) merged.pages = b.pages;
+        if ((!existing.year || existing.year === 0) && b.year) merged.year = b.year;
+        if (b.title.length < existing.title.length) {
+          merged.title = b.title;
+          merged.label = b.label || b.title;
         }
+        externalList[existingIndex] = merged;
       }
     }
 
     const list: any[] = allWorks.map(b => {
-      const external = externalByTitle.get(normalizeTitle(b.title));
+      const external = externalList.find(eb => isDuplicateTitle(b.title, eb.title));
       if (!external) return b;
 
       const merged: any = { ...b };
@@ -147,7 +219,7 @@ export default function AuthorWorksScreen() {
       list.push(...filteredExternalBooks.map(b => ({ ...b, isExternal: true })));
     }
     return list;
-  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, isErrorExternalBooks, externalBooks]);
+  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, isErrorExternalBooks, externalBooks, isDuplicateTitle]);
 
   const handleAddBook = async (book: any) => {
     try {
@@ -448,6 +520,14 @@ export default function AuthorWorksScreen() {
           getItemType={(item) => item.type || 'work'}
           removeClippedSubviews={true}
           contentContainerStyle={{ padding: 16 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
           renderItem={({ item }) => {
             if (item.type === 'header') {
               return (

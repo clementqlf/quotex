@@ -207,3 +207,57 @@ export const getPrizeLaureates = async (prizeQid: string): Promise<WikidataLaure
     }
 };
 
+/**
+ * Filters a list of Wikidata QIDs to keep only those that represent authors/writers.
+ */
+export const filterWikidataAuthors = async (qids: string[]): Promise<Set<string>> => {
+    if (qids.length === 0) return new Set();
+
+    // Clean and validate QIDs (must match Q\d+)
+    const cleanQids = qids
+        .map(id => id.startsWith('wd:') ? id.substring(3) : id)
+        .filter(id => /^Q\d+$/.test(id));
+
+    if (cleanQids.length === 0) return new Set();
+
+    try {
+        const sparql = `
+        SELECT DISTINCT ?author WHERE {
+          VALUES ?author { ${cleanQids.map(id => `wd:${id}`).join(' ')} }
+          {
+            ?work wdt:P50 ?author .
+            ?work wdt:P31/wdt:P279* ?type .
+            FILTER(?type IN (wd:Q571, wd:Q7725634, wd:Q47461344))
+          } UNION {
+            ?author wdt:P800 ?work .
+            ?work wdt:P31/wdt:P279* ?type .
+            FILTER(?type IN (wd:Q571, wd:Q7725634, wd:Q47461344))
+          } UNION {
+            ?author wdt:P106/wdt:P279* wd:Q36180 .
+          }
+        }
+        `;
+        const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+
+        const res = await wikidataFetch(url, {
+            headers: {
+                'Accept': 'application/sparql-results+json'
+            }
+        });
+
+        const data = await res.json();
+        const bindings = data.results?.bindings || [];
+        const validQids = new Set<string>();
+        for (const b of bindings) {
+            const uri = b.author?.value || '';
+            const qid = uri.split('/').pop();
+            if (qid) validQids.add(qid);
+        }
+        return validQids;
+    } catch (e) {
+        console.error('[Wikidata] Error filtering authors via SPARQL:', e);
+        // Fallback on error to avoid false negatives
+        return new Set(cleanQids);
+    }
+};
+
