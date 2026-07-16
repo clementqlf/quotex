@@ -113,17 +113,89 @@ export default function AuthorWorksScreen() {
     return parts[0].trim();
   };
 
+  const stripVolumeInfo = (title: string) => {
+    let base = getBaseTitle(title);
+    
+    // 1. Chercher un indicateur de volume explicite (ex: "tome i", "vol. 2")
+    // Si trouvé, on coupe le titre et on ne garde que ce qui est avant l'indicateur
+    const matchVolume = base.match(/\b(tome|volume|vol|partie|part|book|livre|t)\s*([0-9ivxldm]+)\b/i);
+    if (matchVolume) {
+      const index = base.indexOf(matchVolume[0]);
+      base = base.substring(0, index).trim();
+    }
+    
+    // 2. Chercher un numéro de volume orphelin à la fin (ex: "Les Miserables I" ou "Dune 2")
+    // On ne coupe que si le préfixe restant fait au moins 4 caractères
+    const trimmed = base.trim();
+    const matchOrphan = trimmed.match(/\s+([0-9ivxldm]+)$/i);
+    if (matchOrphan) {
+      const number = matchOrphan[1];
+      const prefix = trimmed.substring(0, trimmed.length - number.length).trim();
+      const cleanPrefix = prefix.replace(/[:\-\/;,\s\/]+$/, '');
+      if (cleanPrefix.length >= 4) {
+        base = cleanPrefix;
+      }
+    }
+    
+    return base.replace(/[:\-\/;,\s\/]+$/, '').trim();
+  };
+
+  const cleanTitleFromAuthor = useCallback((title: string, author: string) => {
+    if (!title || !author || author === 'Inconnu') return title;
+    
+    const normTitle = normalizeTitle(title);
+    const normAuthor = normalizeTitle(author);
+    const lowerTitle = title.toLowerCase().trim();
+    const lowerAuthor = author.toLowerCase().trim();
+    
+    // 1. Si le titre commence par l'auteur (avec ou sans préposition devant)
+    const prepositions = ['par', 'de', 'by', 'of'];
+    let matchedPrefix = '';
+    
+    if (normTitle.startsWith(normAuthor)) {
+      matchedPrefix = author;
+    } else {
+      for (const prep of prepositions) {
+        if (normTitle.startsWith(prep + normAuthor)) {
+          const idx = lowerTitle.indexOf(lowerAuthor);
+          if (idx !== -1) {
+            matchedPrefix = title.substring(0, idx + author.length);
+          }
+          break;
+        }
+      }
+    }
+    
+    if (matchedPrefix) {
+      let cleaned = title.substring(matchedPrefix.length).trim();
+      cleaned = cleaned.replace(/^[:\-\/;,\s\/]+/, '');
+      if (cleaned.length > 0) return cleaned;
+    }
+    
+    // 2. Si le titre se termine par l'auteur
+    if (normTitle.endsWith(normAuthor)) {
+      let cleaned = title.substring(0, title.length - author.length).trim();
+      cleaned = cleaned.replace(/[:\-\/;,\s\/]+$/, '');
+      // Enlever aussi les prépositions courantes comme "par", "by", "de", "of" à la fin
+      cleaned = cleaned.replace(/\s+(par|by|de|of)$/i, '');
+      cleaned = cleaned.replace(/[:\-\/;,\s\/]+$/, ''); // Nettoyer à nouveau après retrait
+      if (cleaned.length > 0) return cleaned;
+    }
+    
+    return title;
+  }, []);
+
   const isDuplicateTitle = useCallback((titleA: string, titleB: string) => {
     const normA = normalizeTitle(titleA);
     const normB = normalizeTitle(titleB);
     
     if (normA === normB) return true;
 
-    // 1. Comparaison des titres de base (sans les sous-titres)
-    const baseA = normalizeTitle(getBaseTitle(titleA));
-    const baseB = normalizeTitle(getBaseTitle(titleB));
+    // 1. Comparaison après suppression des informations de volume (Option B)
+    const cleanA = normalizeTitle(stripVolumeInfo(titleA));
+    const cleanB = normalizeTitle(stripVolumeInfo(titleB));
     
-    if (baseA === baseB && baseA.length >= 5) {
+    if (cleanA === cleanB && cleanA.length >= 4) {
       return true;
     }
     
@@ -150,7 +222,13 @@ export default function AuthorWorksScreen() {
   const filteredExternalBooks = useMemo(() => {
     const uniqueExternal: any[] = [];
     
-    for (const b of externalBooks) {
+    for (const rawB of externalBooks) {
+      const b = {
+        ...rawB,
+        title: cleanTitleFromAuthor(rawB.title, authorName),
+        label: cleanTitleFromAuthor(rawB.label || rawB.title, authorName),
+      };
+
       // Vérifier si le livre est déjà présent localement
       const isLocal = allWorks.some(lw => isDuplicateTitle(lw.title, b.title));
       if (isLocal) continue;
@@ -174,12 +252,18 @@ export default function AuthorWorksScreen() {
       }
     }
     return uniqueExternal;
-  }, [externalBooks, allWorks, isDuplicateTitle]);
+  }, [externalBooks, allWorks, isDuplicateTitle, cleanTitleFromAuthor]);
 
   const combinedWorks = useMemo(() => {
     const externalList: any[] = [];
     
-    for (const b of externalBooks) {
+    for (const rawB of externalBooks) {
+      const b = {
+        ...rawB,
+        title: cleanTitleFromAuthor(rawB.title, authorName),
+        label: cleanTitleFromAuthor(rawB.label || rawB.title, authorName),
+      };
+
       const existingIndex = externalList.findIndex(item => isDuplicateTitle(item.title, b.title));
       if (existingIndex === -1) {
         externalList.push({ ...b });
@@ -215,11 +299,11 @@ export default function AuthorWorksScreen() {
     } else if (isErrorExternalBooks) {
       list.push({ type: 'error', id: 'error-external' });
     } else if (filteredExternalBooks.length > 0) {
-      list.push({ type: 'header', title: 'Disponibles sur Google Books' });
+      list.push({ type: 'header', title: 'Depuis Google Books' });
       list.push(...filteredExternalBooks.map(b => ({ ...b, isExternal: true })));
     }
     return list;
-  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, isErrorExternalBooks, externalBooks, isDuplicateTitle]);
+  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, isErrorExternalBooks, externalBooks, isDuplicateTitle, cleanTitleFromAuthor]);
 
   const handleAddBook = async (book: any) => {
     try {
@@ -648,18 +732,16 @@ const createStyles = (colors: ThemeColors) =>
     },
     modalSectionHeader: {
       paddingVertical: 12,
-      paddingHorizontal: 16,
-      backgroundColor: colors.surfaceHighlight,
-      marginTop: 16,
-      marginBottom: 8,
-      borderRadius: 8,
+      paddingHorizontal: 0,
+      marginTop: 0,
+      marginBottom: 12,
     },
     modalSectionHeaderTitle: {
-      fontSize: 14,
-      fontWeight: 'bold',
       color: colors.primary,
+      fontSize: 14,
+      fontWeight: '700',
       textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      letterSpacing: 1,
     },
     modalErrorContainer: {
       flexDirection: 'row',

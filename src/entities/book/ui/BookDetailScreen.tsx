@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import { RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
@@ -88,7 +89,22 @@ export default function BookDetailScreen() {
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle || "Chargement..."}</Text>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
+                {bookTitle || "Chargement..."}
+              </Text>
+              <View style={styles.fadeOverlayContainer} pointerEvents="none">
+                <Svg width={32} height="100%">
+                  <Defs>
+                    <LinearGradient id="loadingHeaderTitleFade" x1="0" y1="0" x2="1" y2="0">
+                      <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect width={32} height="100%" fill="url(#loadingHeaderTitleFade)" />
+                </Svg>
+              </View>
+            </View>
             <View style={styles.saveButton} />
           </View>
           <BookDetailSkeleton colors={colors} />
@@ -115,7 +131,22 @@ export default function BookDetailScreen() {
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{bookTitle}</Text>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
+                {bookTitle}
+              </Text>
+              <View style={styles.fadeOverlayContainer} pointerEvents="none">
+                <Svg width={32} height="100%">
+                  <Defs>
+                    <LinearGradient id="errorHeaderTitleFade" x1="0" y1="0" x2="1" y2="0">
+                      <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect width={32} height="100%" fill="url(#errorHeaderTitleFade)" />
+                </Svg>
+              </View>
+            </View>
             <View style={styles.saveButton} />
           </View>
           <Text style={styles.errorText}>Livre non trouvé sur le serveur.</Text>
@@ -133,7 +164,22 @@ export default function BookDetailScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{bookTitle}</Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
+              {bookTitle}
+            </Text>
+            <View style={styles.fadeOverlayContainer} pointerEvents="none">
+              <Svg width={32} height="100%">
+                <Defs>
+                  <LinearGradient id="headerTitleFade" x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+                    <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                  </LinearGradient>
+                </Defs>
+                <Rect width={32} height="100%" fill="url(#headerTitleFade)" />
+              </Svg>
+            </View>
+          </View>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
               <ShareIcon size={22} color={colors.text} />

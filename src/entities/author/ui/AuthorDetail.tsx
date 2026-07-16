@@ -15,6 +15,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { AlertTriangle, Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
@@ -489,7 +490,22 @@ export default function AuthorDetailScreen() {
             >
               <ChevronLeft size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>{authorName}</Text>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
+                {authorName}
+              </Text>
+              <View style={styles.fadeOverlayContainer} pointerEvents="none">
+                <Svg width={32} height="100%">
+                  <Defs>
+                    <LinearGradient id="loadingAuthorTitleFade" x1="0" y1="0" x2="1" y2="0">
+                      <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect width={32} height="100%" fill="url(#loadingAuthorTitleFade)" />
+                </Svg>
+              </View>
+            </View>
             <View style={styles.headerActions} />
           </View>
           <AuthorSkeleton colors={colors} />
@@ -508,7 +524,22 @@ export default function AuthorDetailScreen() {
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{authorName}</Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
+              {authorName}
+            </Text>
+            <View style={styles.fadeOverlayContainer} pointerEvents="none">
+              <Svg width={32} height="100%">
+                <Defs>
+                  <LinearGradient id="authorTitleFade" x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
+                    <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
+                  </LinearGradient>
+                </Defs>
+                <Rect width={32} height="100%" fill="url(#authorTitleFade)" />
+              </Svg>
+            </View>
+          </View>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
               <ShareIcon size={22} color={colors.text} />
@@ -818,17 +849,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    backgroundColor: colors.background,
+    position: 'relative',
   },
   backButton: {
     padding: 4,
+  },
+  headerTitleContainer: {
+    position: 'absolute',
+    left: 80,
+    right: 80,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-    flex: 1,
-    textAlign: 'center',
-    marginLeft: 8
+    maxWidth: '100%',
+  },
+  fadeOverlayContainer: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 32,
+    justifyContent: 'center',
   },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerButton: { padding: 4 },
