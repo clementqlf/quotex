@@ -1,6 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { scanService } from '@/src/features/scanner/api/ScanService';
-import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
+import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
 import { X, ScanLine, BookOpen } from 'lucide-react-native';
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
@@ -23,10 +24,18 @@ import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import { ThemeColors } from '@/src/shared/theme';
 
+export interface SimpleScanResult {
+  photo: PhotoFile;
+  ocrElements: TextElement[];
+  ocrBlocks: TextBlock[];
+  normalizedSize: { width: number; height: number } | null;
+}
+
 interface SimpleScanModalProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: (text: string) => void;
+  /** Résultat complet du scan (photo + OCR) pour ouvrir le ScanWorkflow */
+  onSuccess: (result: SimpleScanResult) => void;
 }
 
 export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleScanModalProps) {
@@ -85,8 +94,13 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
 
       const result = await scanService.capturePhotoAndRecognize(photoFile);
 
-      if (result.success && result.ocrResult?.text) {
-        onSuccess(result.ocrResult.text);
+      if (result.success && result.photo && result.ocrResult?.elements && result.ocrResult.elements.length > 0) {
+        onSuccess({
+          photo: result.photo,
+          ocrElements: result.ocrResult.elements,
+          ocrBlocks: result.ocrResult.blocks || [],
+          normalizedSize: result.ocrResult.normalizedSize || null,
+        });
       } else {
         Alert.alert(
           'Aucun texte détecté',
@@ -95,7 +109,7 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
       }
     } catch (error) {
       console.error('[SimpleScanModal] Capture failed:', error);
-      Alert.alert('Erreur', 'Impossible de capturer ou de traiter l\'image.');
+      Alert.alert('Erreur', "Impossible de capturer ou de traiter l'image.");
     } finally {
       setIsLoading(false);
     }

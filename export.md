@@ -56,3 +56,11 @@ zip -r "/Users/chantreau/Desktop/Quotex.ipa" Payload
 # 5. Nettoyez le dossier temporaire Payload
 rm -rf Payload
 ```
+
+```bash
+cd "/Users/chantreau/Library/Developer/Xcode/Archives/2026-06-14"
+mkdir -p Payload
+cp -r "Quotex.xcarchive/Products/Applications/Quotex.app" Payload/
+zip -r "/Users/chantreau/Desktop/Quotex.ipa" Payload
+rm -rf Payload
+```

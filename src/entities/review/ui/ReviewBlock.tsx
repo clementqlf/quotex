@@ -1,7 +1,7 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { User as UserType } from '@/src/shared/api/types';
-import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
+import { Avatar } from '@/src/shared/ui/Avatar';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
@@ -26,7 +26,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const { colors } = useTheme();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    // Utilisation des hooks TanStack Query pour la gestion des reviews
     const { data: fetchedReviews, refetch } = useReviewsByBookId(bookId);
     const createReviewMutation = useCreateReview();
     const updateReviewMutation = useUpdateReview();
@@ -38,15 +37,11 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     const { user } = useAuth();
     const { navigateToUserProfile } = useSmartNavigation();
 
-    // Appliquer le filtrage des reviews (bloquées/signalées) côté client
     const [reviews, setReviews] = useState<Review[]>([]);
 
-    // Charger et filtrer les reviews au démarrage ou quand fetchedReviews change
     useEffect(() => {
       const loadAndFilterReviews = async () => {
         if (!fetchedReviews) return;
-        
-        console.log(`[ReviewBlock] Fetched ${fetchedReviews.length} reviews`);
         
         const blockedUsers = await UGCModerationService.getBlockedUsers();
         const reportedReviews = await UGCModerationService.getReportedReviews();
@@ -82,7 +77,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         setComment(myReview?.comment || '');
     }
 
-    // Recharger les reviews après une modification
     const reloadReviews = useCallback(async () => {
         try {
             await refetch();
@@ -92,7 +86,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         }
     }, [refetch]);
 
-    // Charger initialement les reviews
     useEffect(() => {
         if (bookId) {
             refetch();
@@ -112,7 +105,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     onPress: async () => {
                         await UGCModerationService.reportReview(reviewId);
                         Alert.alert("Succès", "Cet avis a été signalé et masqué.");
-                        await reloadReviews(); // Reload to apply filters
+                        await reloadReviews();
                     }
                 }
             ]
@@ -132,7 +125,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     onPress: async () => {
                         await UGCModerationService.blockUser(userId);
                         Alert.alert("Succès", "Utilisateur bloqué. Ses avis seront masqués.");
-                        await reloadReviews(); // Reload to apply filters
+                        await reloadReviews();
                     }
                 }
             ]
@@ -141,7 +134,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
 
     const handleUserPress = (reviewUser: UserType) => {
         if (reviewUser && reviewUser.username) {
-            setAllReviewsVisible(false); // Close modal if open
+            setAllReviewsVisible(false);
             navigateToUserProfile(reviewUser.username);
         }
     };
@@ -243,7 +236,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     <Text style={styles.sectionTitle}>Avis & Commentaires</Text>
                 </View>
 
-                {/* User Rating input */}
                 <View style={styles.userRatingContainer}>
                     <Text style={styles.subTitle}>Votre note</Text>
                     <View style={styles.starRow}>
@@ -266,7 +258,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     </View>
                 </View>
 
-                {/* User Comment input */}
                 <View style={styles.commentInputContainer}>
                     <TextInput
                         style={styles.commentInput}
@@ -306,7 +297,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     </View>
                 </View>
 
-                {/* Other reviews list */}
                 {communityReviews.length > 0 && (
                     <View style={styles.reviewsList}>
                         <Text style={styles.subTitle}>Avis de la communauté</Text>
@@ -320,7 +310,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                         accessibilityLabel={`Profil de ${review.user?.name || 'l\'utilisateur'}`}
                                         accessibilityRole="button"
                                     >
-                                        <UserAvatar
+                                        <Avatar
                                             user={review.user}
                                             size={24}
                                             style={styles.reviewerAvatar}
@@ -376,7 +366,6 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                 </TouchableOpacity>
             )}
 
-            {/* Full Screen Reviews Modal */}
             <Modal
                 visible={isAllReviewsVisible}
                 animationType="slide"
@@ -402,7 +391,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                             <View key={review.id} style={styles.modalReviewItem}>
                                 <View style={styles.reviewHeader}>
                                     <TouchableOpacity style={styles.reviewerInfo} onPress={() => handleUserPress(review.user)}>
-                                        <UserAvatar
+                                        <Avatar
                                             user={review.user}
                                             size={32}
                                             style={styles.reviewerAvatarLarge}

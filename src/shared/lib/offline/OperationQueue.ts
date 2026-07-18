@@ -31,7 +31,7 @@ export class OperationQueue {
   }
 
   /** Ajoute une opération à la queue */
-  async enqueue(op: Omit<PendingOperation, 'id' | 'createdAt' | 'retryCount' | 'maxRetries'>): Promise<void> {
+  async enqueue(op: Omit<PendingOperation, 'id' | 'createdAt' | 'retryCount' | 'maxRetries'>): Promise<string | null> {
     const pending = await this.getAll();
     
     // 1. Déduplication des opérations identiques (même type, entityType, entityId)
@@ -44,10 +44,24 @@ export class OperationQueue {
     if (existingIndex !== -1) {
       // L'opération existe déjà, on ne la duplique pas
       console.log(`[OperationQueue] Operation ${op.type} for ${op.entityType}:${op.entityId} already in queue, skipping.`);
-      return;
+      return pending[existingIndex].id;
+    }
+
+    // 2. Déduplication supplémentaire pour CREATE quote : même texte = même citation
+    // Protège contre les doubles-taps ou appels concurrents.
+    if (op.type === 'CREATE' && op.entityType === 'quote' && op.payload?.text) {
+      const sameTextIndex = pending.findIndex(p =>
+        p.type === 'CREATE' &&
+        p.entityType === 'quote' &&
+        p.payload?.text === op.payload?.text
+      );
+      if (sameTextIndex !== -1) {
+        console.log(`[OperationQueue] CREATE quote with same text already in queue, skipping duplicate.`);
+        return pending[sameTextIndex].id;
+      }
     }
     
-    // 2. Déduplication : si une op inverse existe, les annuler mutuellement
+    // 3. Déduplication : si une op inverse existe, les annuler mutuellement
     const inverseIndex = pending.findIndex(p => 
       p.entityType === op.entityType && 
       p.entityId === op.entityId &&
@@ -59,7 +73,7 @@ export class OperationQueue {
       pending.splice(inverseIndex, 1);
       await StorageService.setItem(STORAGE_KEY, pending);
       console.log(`[OperationQueue] Cancelled inverse operation for ${op.entityType}:${op.entityId}`);
-      return;
+      return null;
     }
 
     const operation: PendingOperation = {
@@ -73,6 +87,7 @@ export class OperationQueue {
     pending.push(operation);
     await StorageService.setItem(STORAGE_KEY, pending);
     console.log(`[OperationQueue] Enqueued ${op.type} for ${op.entityType}:${op.entityId}`);
+    return operation.id;
   }
 
   /** Rejoue toutes les opérations en attente avec traitement parallèle et backoff exponentiel */

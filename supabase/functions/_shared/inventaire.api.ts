@@ -625,38 +625,20 @@ export const getInventaireEntities = async (uris: string[]): Promise<Record<stri
 
 export const getBatchInventaireSearchMetadata = async (uris: string[]): Promise<Record<string, { image: string | null, label: string | null }>> => {
     if (!uris.length) return {};
-    const ids = uris.map(uri => {
-        if (uri.startsWith('wd:')) return uri.substring(3);
-        if (uri.startsWith('inv:')) return uri.substring(4);
-        return null;
-    }).filter(Boolean);
-
-    if (ids.length === 0) return {};
     const results: Record<string, { image: string | null, label: string | null }> = {};
-    const CHUNK_SIZE = 10;
-
-    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-        const chunk = ids.slice(i, i + CHUNK_SIZE);
-        const searchQuery = chunk.map(id => `id:"${id}"`).join(' OR ');
-        try {
-            const url = `${INVENTAIRE_BASE}/api/search?types=works&search=${encodeURIComponent(searchQuery)}&limit=${chunk.length}&lang=fr`;
-            const response = await fetchWithAgent(url, {}, 15000);
-            if (!response.ok) continue;
-            const rawData = await response.json();
-            const validated = InventaireSearchResponseSchema.safeParse(rawData);
-            if (!validated.success) {
-                // @ts-ignore - Zod v3 SafeParseError type narrowing
-                console.error('[Inventaire API] Invalid batch search response format:', validated.error.issues);
-                continue;
+    try {
+        const entities = await getInventaireEntities(uris);
+        for (const [uri, entity] of Object.entries(entities)) {
+            if (entity) {
+                const formatted = formatInventaireWork(entity, uri);
+                results[uri] = {
+                    image: formatted.image || null,
+                    label: formatted.title || null
+                };
             }
-            validated.data.results.forEach((r: any) => {
-                if (r.uri) {
-                    results[r.uri] = { image: resolveImageUrl(r.image), label: r.label || null };
-                }
-            });
-        } catch (e) {
-            console.error('[Inventaire API] Error in batch search metadata:', e);
         }
+    } catch (e) {
+        console.warn('[Inventaire API] Error in batch search metadata:', e);
     }
     return results;
 };

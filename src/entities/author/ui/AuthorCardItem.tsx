@@ -2,7 +2,6 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
-import { Image } from 'expo-image';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
@@ -11,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Avatar } from '@/src/shared/ui/Avatar';
 
 interface AuthorCardData {
   name: string;
@@ -37,15 +37,9 @@ const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
       onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
     >
       <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
-        {author.image ? (
-          <Image source={{ uri: author.image }} style={styles.authorAvatar} />
-        ) : (
-          <View style={styles.authorAvatarPlaceholder}>
-            <Text style={styles.authorAvatarText}>{author.name.charAt(0)}</Text>
-          </View>
-        )}
+        <Avatar uri={author.image} name={author.name} size={60} style={styles.authorAvatar} />
         <View style={{ flex: 1 }}>
-          <TypingText style={styles.bookCardTitle} text={author.name} />
+          <TypingText style={styles.bookCardTitle} text={author?.name || 'Inconnu'} />
           <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
         </View>
         <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
@@ -81,25 +75,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontStyle: 'italic',
   },
   authorAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     marginRight: 16,
-    backgroundColor: colors.surfaceHighlight,
-  },
-  authorAvatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  authorAvatarText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.primary,
   },
 });
 

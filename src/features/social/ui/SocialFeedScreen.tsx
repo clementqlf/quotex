@@ -17,7 +17,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
+import { Avatar } from '@/src/shared/ui/Avatar';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Quote } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
@@ -62,7 +62,7 @@ export default function SocialFeedScreen() {
           accessibilityRole="button"
           testID={`user-profile-${quote.user?.username}`}
         >
-          <UserAvatar
+          <Avatar
             user={quote.user}
             size={40}
             style={styles.avatar}

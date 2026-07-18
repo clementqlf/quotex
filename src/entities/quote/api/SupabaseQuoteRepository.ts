@@ -157,13 +157,15 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
   }
 
   /**
-   * Crée une citation sur le serveur via /sync-quotes.
+   * Crée une citation sur le serveur.
+   * - Si author ET book sont fournis : utilise /sync-quotes pour le matching Inventaire.
+   * - Sinon : utilise POST /quotes directement (sync-quotes refuse les citations sans author+book).
    * L'application appelante (QuoteUseCases) gère la file d'attente hors-ligne.
    * @param text {string} Contenu de la citation
    * @param book {string} Titre optionnel du livre
    * @param author {string} Nom optionnel de l'auteur
    */
-  async createQuote(text: string, book?: string | null, author?: string | null): Promise<Quote> {
+  async createQuote(text: string, book?: string | null, author?: string | null, idempotencyKey?: string): Promise<Quote> {
     const tempId = Date.now();
     const createdAt = new Date().toISOString();
     const user = await authService.getUser();
@@ -172,8 +174,37 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     
     const cleanBook = book && book.trim() !== '' && book.trim() !== 'Livre inconnu' ? book.trim() : null;
     const cleanAuthor = author && author.trim() !== '' && author.trim() !== 'Auteur inconnu' ? author.trim() : null;
+
+    // /sync-quotes explicitly skips quotes missing author OR book (Inventaire matching requires both).
+    // In that case, fall back to the direct POST /quotes endpoint which supports text-only quotes.
+    if (!cleanAuthor || !cleanBook) {
+        const directResult = await httpClient.post<any>('/quotes', {
+            text,
+            author: cleanAuthor || undefined,
+            book: cleanBook || undefined,
+            idempotencyKey: idempotencyKey || undefined,
+        });
+
+        return {
+            id: directResult?.id ? Number(directResult.id) : tempId,
+            text,
+            book: directResult?.book ?? null,
+            author: directResult?.author ?? null,
+            theme: directResult?.theme ?? undefined,
+            likesCount: directResult?.likesCount ?? 0,
+            likes: directResult?.likes ?? [],
+            isLiked: directResult?.isLiked ?? false,
+            user,
+            date: directResult?.date ?? createdAt,
+            isSaved: false,
+            comments: 0,
+            blockData: directResult?.blockData ?? {},
+            wasSynced: true,
+            syncedAt: new Date().toISOString(),
+        };
+    }
     
-    // Use sync-quotes endpoint for matching
+    // Use sync-quotes endpoint for matching when both author and book are provided
     const result = await httpClient.post<{
         syncedCount: number;
         corrections?: any[];
@@ -186,7 +217,8 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
             book: cleanBook,
             theme: undefined,
             createdAt,
-            userId: user.id
+            userId: user.id,
+            idempotencyKey: idempotencyKey || undefined,
         }]
     });
 

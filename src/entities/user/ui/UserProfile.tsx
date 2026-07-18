@@ -2,7 +2,7 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
 import { authService } from '@/src/entities/user/api/AuthService';
-import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
+import { Avatar } from '@/src/shared/ui/Avatar';
 import { supabase } from '@/src/shared/api/supabase';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
@@ -578,7 +578,7 @@ export default function UserProfileScreen() {
               accessibilityRole="button"
               testID="avatar-button"
             >
-              <UserAvatar
+              <Avatar
                 user={{ ...profileData, image: editedImage || profileData.image || undefined }}
                 size={80}
                 style={styles.avatarImage}
@@ -902,7 +902,7 @@ export default function UserProfileScreen() {
                         });
                       }}
                     >
-                      <UserAvatar
+                      <Avatar
                         user={user}
                         size={48}
                         style={styles.userRowAvatar}

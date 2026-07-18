@@ -161,6 +161,8 @@ export class QuoteUseCases {
         }
 
         // 3. Ajouter à la queue de synchronisation UNIFIÉE
+        // enqueue() retourne l'op.id stable (UUID). Ce même UUID est transmis au serveur
+        // dans executeCreateQuote comme clé d'idempotence (voir op.id).
         await this.queue.enqueue({
             type: 'CREATE',
             entityType: 'quote',
@@ -192,8 +194,9 @@ export class QuoteUseCases {
         }
 
         // Appeler le repository pour créer la citation sur le serveur
+        // op.id est stable à travers les retries → clé d'idempotence parfaite
         try {
-            const serverQuote = await this.quoteRepository.createQuote(text, book, author);
+            const serverQuote = await this.quoteRepository.createQuote(text, book, author, op.id);
             
             // Mettre à jour la citation dans le cache local avec les données canoniques du serveur
             await this.replaceTempQuote(tempId, serverQuote);

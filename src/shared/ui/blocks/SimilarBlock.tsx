@@ -4,6 +4,7 @@ import { Book as BookIcon } from 'lucide-react-native';
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
+import { Avatar } from '@/src/shared/ui/Avatar';
 
 export interface SimilarItem {
     id?: number;
@@ -43,16 +44,16 @@ const SimilarBlockUI: React.FC<SimilarBlockProps> = ({ type, items, onPress, onR
         <BlockWrapper blockKey={type === 'book' ? 'similarBooks' : 'similarAuthors'} onRemove={onRemove}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.container}>
                 {displayedItems.map((item, index) => {
-                    const imageUrl = item.image || (type === 'author' ? 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&h=600&fit=crop' : null);
-
                     return (
                         <TouchableOpacity
                             key={item.id || item.title || index}
                             style={styles.item}
                             onPress={() => onPress(type === 'book' ? (item.id ?? item.title) : item.title, item.inventaireUri)}
                         >
-                            {imageUrl ? (
-                                <Image source={{ uri: imageUrl }} style={styles.image} />
+                            {type === 'author' ? (
+                                <Avatar uri={item.image} name={item.title} size={100} style={styles.image} />
+                            ) : item.image ? (
+                                <Image source={{ uri: item.image }} style={styles.image} />
                             ) : (
                                 <View style={[styles.image, styles.placeholderImage]}>
                                     <BookIcon size={24} color={colors.textTertiary} />

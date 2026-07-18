@@ -11,11 +11,21 @@ export interface NotableWork {
 export const getNotableWorksDetailed = async (authorName: string): Promise<NotableWork[]> => {
   try {
     const sparql = `
-      SELECT ?oeuvre ?oeuvreLabel WHERE {
+      SELECT DISTINCT ?oeuvre ?oeuvreLabel WHERE {
         VALUES ?label { "${authorName}"@fr "${authorName}"@en "${authorName}"@mul }
-        ?hugo rdfs:label ?label .
-        ?hugo wdt:P31 wd:Q5 .
-        ?hugo wdt:P800 ?oeuvre .
+        ?author rdfs:label ?label .
+        ?author wdt:P31 wd:Q5 .
+        {
+          # Option 1: Direct notable works of the author
+          ?author wdt:P800 ?oeuvre .
+        }
+        UNION
+        {
+          # Option 2: Books written by the author whose main subject is one of their notable concepts/theories
+          ?oeuvre wdt:P50 ?author .
+          ?oeuvre wdt:P921 ?concept .
+          ?author wdt:P800 ?concept .
+        }
         SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
       }
       ORDER BY ?oeuvreLabel

@@ -23,6 +23,7 @@ interface OfflineQuote {
   theme?: string;
   createdAt: string;
   userId: string;
+  idempotencyKey?: string;
 }
 
 interface SyncResult {
@@ -94,6 +95,28 @@ serve(async (req: Request) => {
 
     for (const offlineQuote of offlineQuotes) {
       try {
+        // --- Idempotency check ---
+        // If the client sends a stable op.id key, check if this quote was already inserted
+        // on a previous retry. If so, skip all logic and return the existing row.
+        if (offlineQuote.idempotencyKey) {
+          const existing = await sql`
+            SELECT id, "authorId", "bookId" FROM "Quote"
+            WHERE "idempotencyKey" = ${offlineQuote.idempotencyKey}
+            LIMIT 1
+          `;
+          if (existing.length > 0) {
+            console.log(`[sync-quotes] Idempotency hit for key ${offlineQuote.idempotencyKey}: returning existing quote ${existing[0].id}`);
+            syncResults.push({
+              quoteId: offlineQuote.id,
+              realQuoteId: existing[0].id,
+              authorId: existing[0].authorId,
+              bookId: existing[0].bookId,
+            });
+            syncedCount++;
+            continue;
+          }
+        }
+
         // First, check if we have both author and book (required for Inventaire matching)
         if (!offlineQuote.author || !offlineQuote.book) {
           console.log(`[sync-quotes] Skipping quote ${offlineQuote.id}: missing author or book`);
@@ -265,8 +288,8 @@ serve(async (req: Request) => {
         // Only create the quote if we found an Inventaire match
         // Create the quote with matched IDs
         const quoteRows = await sql`
-          INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount")
-          VALUES (${offlineQuote.text}, ${offlineQuote.createdAt}, ${authorId}, ${bookId}, ${authUser.id}, ${offlineQuote.theme || null}, 0)
+          INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "idempotencyKey")
+          VALUES (${offlineQuote.text}, ${offlineQuote.createdAt}, ${authorId}, ${bookId}, ${authUser.id}, ${offlineQuote.theme || null}, 0, ${offlineQuote.idempotencyKey || null})
           RETURNING id
         `;
 

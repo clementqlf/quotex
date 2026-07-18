@@ -374,8 +374,22 @@ serve(async (req: Request) => {
       const authUser = await requireAuth(req);
       if (authUser instanceof Response) return authUser;
 
-      const { text, author, book, theme, themes, blockData, isPublic } = await req.json();
+      const { text, author, book, theme, themes, blockData, isPublic, idempotencyKey } = await req.json();
       if (!text) return error('Missing required field: text', 400);
+
+      // --- Idempotency check ---
+      // If the client sends a stable key (from OperationQueue op.id), check if this quote
+      // was already created on a previous attempt. Return existing rather than inserting again.
+      if (idempotencyKey) {
+        const existing = await sql`
+          SELECT id FROM "Quote" WHERE "idempotencyKey" = ${idempotencyKey} LIMIT 1
+        `;
+        if (existing.length > 0) {
+          console.log(`[Quotes] Idempotency hit for key ${idempotencyKey}: returning existing quote ${existing[0].id}`);
+          const existingRows = await fetchQuotes(authUser.id, existing[0].id);
+          return json(formatQuote(existingRows[0], authUser.id));
+        }
+      }
 
       const hasAuthor = author && typeof author === 'string' && author.trim() !== '' && author.trim() !== 'Auteur inconnu';
       const hasBook = book && typeof book === 'string' && book.trim() !== '' && book.trim() !== 'Livre inconnu';
@@ -569,8 +583,8 @@ serve(async (req: Request) => {
       const themeToInsert = finalThemes[0] || null;
 
       const quoteRows = await sql`
-        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData", "isPublic")
-        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${themeToInsert}, 0, ${blockData ? JSON.stringify(blockData) : null}, ${isPublic !== false})
+        INSERT INTO "Quote" ("text", "date", "authorId", "bookId", "userId", "theme", "likesCount", "blockData", "isPublic", "idempotencyKey")
+        VALUES (${text}, now(), ${authorIdToInsert}, ${bookIdToInsert}, ${authUser.id}, ${themeToInsert}, 0, ${blockData ? JSON.stringify(blockData) : null}, ${isPublic !== false}, ${idempotencyKey || null})
         RETURNING *
       `;
       const newQuoteId = quoteRows[0].id;

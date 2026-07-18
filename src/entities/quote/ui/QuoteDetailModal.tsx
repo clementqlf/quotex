@@ -40,7 +40,7 @@ import { authorService } from '@/src/entities/author/api/AuthorService';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { UserAvatar } from '@/src/entities/user/ui/UserAvatar';
+import { Avatar } from '@/src/shared/ui/Avatar';
 import { fetchDefinition } from '@/src/shared/api/WiktionaryService';
 import WordSelectionModal from '@/src/shared/ui/modals/WordSelectionModal';
 import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
@@ -961,7 +961,7 @@ function QuoteDetailContent() {
 
                 {quote.user && (
                   <TouchableOpacity style={styles.metaRow} onPress={() => router.navigate(`/user-profile?username=${quote.user?.username}`)}>
-                    <UserAvatar
+                    <Avatar
                       user={quote.user}
                       size={16}
                       style={styles.publisherAvatar}

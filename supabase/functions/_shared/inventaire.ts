@@ -625,6 +625,34 @@ export const discoverAuthorWorks = async (authorId: number, authorUri?: string):
         for (const [wUri, details] of Object.entries(workEntities)) {
           if (!details || !(details as any).title) continue;
           const bookTitle = ((details as any).title as string).trim();
+          
+          // Skip books with more than 3 co-authors (typically anthologies, encyclopedias, or compilations)
+          const authorUris = (details as any).authorUris || [];
+          if (authorUris.length > 3) {
+            console.log(`[Inventaire] Skipping multi-author work (likely anthology/textbook): "${bookTitle}" (Authors count: ${authorUris.length})`);
+            continue;
+          }
+
+          // Skip likely anthologies/compilations where the author is just a contributor
+          const lowerTitle = bookTitle.toLowerCase();
+          const authorNameLower = author.name.toLowerCase();
+          const authorLastName = authorNameLower.split(' ').pop() || '';
+          const hasAuthorLastName = authorLastName.length > 2 && lowerTitle.includes(authorLastName);
+          const hasAnthologyIndicator = [
+            'oxford book of',
+            'norton anthology',
+            'penguin book of',
+            'anthology of',
+            'anthologie de',
+            'recueil de',
+            'morceaux choisis'
+          ].some(ind => lowerTitle.includes(ind));
+
+          if (hasAnthologyIndicator && !hasAuthorLastName) {
+            console.log(`[Inventaire] Skipping likely anthology where author is only contributor: "${bookTitle}"`);
+            continue;
+          }
+
           const finalCover = bestCovers[wUri] || (details as any).image || null;
 
           const existing = await sql`

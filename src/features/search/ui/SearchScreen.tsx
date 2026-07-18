@@ -21,6 +21,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Avatar } from '@/src/shared/ui/Avatar';
 
 // Types étendus pour les items de recherche
 interface InventaireBookItem extends Omit<Partial<InventaireEntity>, 'authors'> {
@@ -239,13 +240,7 @@ export default function SearchScreen() {
                         style={styles.resultItem}
                         onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
                     >
-                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                            {author.image ? (
-                                <Image source={{ uri: author.image }} style={styles.authorImage} />
-                            ) : (
-                                <User size={20} color="#10B981" />
-                            )}
-                        </View>
+                        <Avatar uri={author.image} name={author.name} size={40} style={styles.iconContainer} />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{author.name}</Text>
@@ -267,13 +262,7 @@ export default function SearchScreen() {
                         style={styles.resultItem}
                         onPress={() => navigateToAuthor(invAuthor.label, invAuthor.uri)}
                     >
-                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                            {imageUrl ? (
-                                <Image source={{ uri: imageUrl }} style={styles.authorImage} />
-                            ) : (
-                                <User size={20} color="#10B981" />
-                            )}
-                        </View>
+                        <Avatar uri={imageUrl} name={invAuthor.label} size={40} style={styles.iconContainer} />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invAuthor.label}</Text>
@@ -358,13 +347,7 @@ export default function SearchScreen() {
                     style={styles.resultItem}
                     onPress={() => navigateToUserProfile(profile.username)}
                 >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
-                        {profile.image ? (
-                            <Image source={{ uri: profile.image }} style={styles.authorImage} />
-                        ) : (
-                            <User size={20} color="#3B82F6" />
-                        )}
-                    </View>
+                    <Avatar user={profile} size={40} style={styles.iconContainer} />
                     <View style={{ flex: 1 }}>
                         <Text style={styles.itemTitle}>{profile.name || `@${profile.username}`}</Text>
                         <Text style={styles.subText}>{profile.name ? `@${profile.username}` : 'Utilisateur'}</Text>

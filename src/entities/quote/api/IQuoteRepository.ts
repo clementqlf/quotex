@@ -29,7 +29,7 @@ export interface IQuoteRepository {
    * @param author {string | null} L'auteur.
    * @returns {Promise<Quote>} La citation créée (avec un tempId si offline).
    */
-  createQuote(text: string, book?: string | null, author?: string | null): Promise<Quote>;
+  createQuote(text: string, book?: string | null, author?: string | null, idempotencyKey?: string): Promise<Quote>;
 
   /**
    * Ajoute explicitement une citation à la collection de l'utilisateur courant.

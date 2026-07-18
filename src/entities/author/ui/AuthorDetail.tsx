@@ -9,6 +9,7 @@ import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
+import { Avatar } from '@/src/shared/ui/Avatar';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -202,7 +203,7 @@ export default function AuthorDetailScreen() {
   };
 
   const authorName = authorInfo?.name || nameToUse || 'Inconnu';
-  const authorImage = authorInfo?.image || 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=400&h=400&fit=crop';
+  const authorImage = authorInfo?.image || null;
 
 
 
@@ -572,7 +573,7 @@ export default function AuthorDetailScreen() {
           }
         >
           <View style={styles.profileHeader}>
-            <Image source={{ uri: authorImage }} style={styles.authorImage} />
+            <Avatar uri={authorImage} name={authorName} size={100} style={styles.authorImage} />
             <Text style={styles.authorName}>{authorName}</Text>
 
             {resolvedAuthorInfo && resolvedAuthorInfo.id !== 0 && (
@@ -895,11 +896,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 16,
   },
   authorImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: colors.primary,
     marginBottom: 12,
   },
   authorName: {

@@ -10,6 +10,7 @@ import { searchServer } from '@/src/features/search/lib/useSearch';
 import { isOffline } from '@/src/shared/lib/offline/networkUtils';
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -203,6 +204,28 @@ export default function ScanPreviewModal({
         return '';
     };
 
+    const saveQuote = async (book: string, author: string) => {
+        const finalText = editedQuote.trim() || scannedText;
+        console.log('[ScanPreviewModal] saveQuote called, finalText:', finalText);
+
+        if (!finalText) {
+            console.log('[ScanPreviewModal] No text to save, returning');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            console.log('[ScanPreviewModal] Calling onConfirm...');
+            await onConfirm(finalText, book, author);
+            console.log('[ScanPreviewModal] onConfirm completed successfully');
+        } catch (error) {
+            console.error("[ScanPreviewModal] Error confirming quote:", error);
+        } finally {
+            console.log('[ScanPreviewModal] Setting isSubmitting to false');
+            setIsSubmitting(false);
+        }
+    };
+
     const handleConfirm = async () => {
         console.log('[ScanPreviewModal] handleConfirm called');
         console.log('[ScanPreviewModal] isSubmitting:', isSubmitting);
@@ -214,31 +237,43 @@ export default function ScanPreviewModal({
             return;
         }
 
-        const finalText = editedQuote.trim() || scannedText;
-        console.log('[ScanPreviewModal] finalText:', finalText);
-        
-        if (!finalText) {
-            console.log('[ScanPreviewModal] No text to save, returning');
-            return;
-        }
-        
         const finalBook = editedBook.trim() || resolveBookTitle();
         const finalAuthor = editedAuthor.trim() || resolveAuthorName();
         console.log('[ScanPreviewModal] finalBook:', finalBook);
         console.log('[ScanPreviewModal] finalAuthor:', finalAuthor);
 
-        setIsSubmitting(true);
-        try {
-            console.log('[ScanPreviewModal] Calling onConfirm...');
-            await onConfirm(finalText, finalBook, finalAuthor);
-            console.log('[ScanPreviewModal] onConfirm completed successfully');
-        } catch (error) {
-            console.error("[ScanPreviewModal] Error confirming quote:", error);
-            setIsSubmitting(false);
-        } finally {
-            console.log('[ScanPreviewModal] Setting isSubmitting to false');
-            setIsSubmitting(false);
+        const isBookEmpty = !finalBook || finalBook === 'Livre inconnu';
+        const isAuthorEmpty = !finalAuthor || finalAuthor === 'Auteur inconnu';
+
+        if (isBookEmpty || isAuthorEmpty) {
+            Alert.alert(
+                "Informations manquantes",
+                "Associer un auteur et un livre permet d'organiser et de retrouver vos citations facilement. Souhaitez-vous les ajouter maintenant ?",
+                [
+                    {
+                        text: "Enregistrer quand même",
+                        onPress: () => saveQuote(finalBook, finalAuthor),
+                        style: "destructive"
+                    },
+                    {
+                        text: "Ajouter les infos",
+                        onPress: () => {
+                            if (isBookEmpty) {
+                                setIsEditingBook(true);
+                                setShowSuggestions(true);
+                            } else {
+                                setIsEditingAuthor(true);
+                                setShowAuthorSuggestions(true);
+                            }
+                        },
+                        style: "cancel"
+                    }
+                ]
+            );
+            return;
         }
+
+        await saveQuote(finalBook, finalAuthor);
     };
 
     const handleBookChange = (text: string) => {

@@ -1,11 +1,13 @@
 /* eslint-disable react-hooks/refs */
 import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
-import { Bug, Eraser, Trash2 } from 'lucide-react-native';
+import { Bug, Eraser, RotateCcw } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   Image,
   PanResponder,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -292,6 +294,9 @@ const useScanWorkflowLogic = (
 };
 
 
+const COLLAPSED_HEIGHT = 100;
+const EXPANDED_HEIGHT = 300;
+
 const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
   const {
     isDevMode,
@@ -326,6 +331,118 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     props.normalizedSize,
     props.onSave
   );
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isExpandedRef = useRef(false);
+  const scrollOffset = useRef(0);
+  const cardHeight = useRef(new Animated.Value(COLLAPSED_HEIGHT)).current;
+  const startHeight = useRef(COLLAPSED_HEIGHT);
+
+  React.useEffect(() => {
+    isExpandedRef.current = isExpanded;
+  }, [isExpanded]);
+
+  const expandCard = useCallback(() => {
+    setIsExpanded(true);
+    isExpandedRef.current = true;
+    Animated.spring(cardHeight, {
+      toValue: EXPANDED_HEIGHT,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 50,
+    }).start();
+  }, [cardHeight]);
+
+  const collapseCard = useCallback(() => {
+    setIsExpanded(false);
+    isExpandedRef.current = false;
+    Animated.spring(cardHeight, {
+      toValue: COLLAPSED_HEIGHT,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 50,
+    }).start();
+  }, [cardHeight]);
+
+  React.useEffect(() => {
+    if (!scannedText) {
+      setIsExpanded(false);
+      isExpandedRef.current = false;
+      cardHeight.setValue(COLLAPSED_HEIGHT);
+    }
+  }, [scannedText, cardHeight]);
+
+  const cardPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const isExp = isExpandedRef.current;
+        if (!isExp) {
+          return gestureState.dy < -10 && Math.abs(gestureState.dx) < 20;
+        }
+        return gestureState.dy > 10 && Math.abs(gestureState.dx) < 20 && scrollOffset.current <= 0;
+      },
+      onPanResponderGrant: () => {
+        startHeight.current = isExpandedRef.current ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const newHeight = startHeight.current - gestureState.dy;
+        const clampedHeight = Math.min(Math.max(newHeight, COLLAPSED_HEIGHT), EXPANDED_HEIGHT);
+        cardHeight.setValue(clampedHeight);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const currentHeight = startHeight.current - gestureState.dy;
+        const threshold = (COLLAPSED_HEIGHT + EXPANDED_HEIGHT) / 2;
+
+        if (gestureState.vy < -0.5) {
+          expandCard();
+        } else if (gestureState.vy > 0.5) {
+          collapseCard();
+        } else if (currentHeight > threshold) {
+          expandCard();
+        } else {
+          collapseCard();
+        }
+      },
+    })
+  ).current;
+
+  const handlePanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        startHeight.current = isExpandedRef.current ? EXPANDED_HEIGHT : COLLAPSED_HEIGHT;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const newHeight = startHeight.current - gestureState.dy;
+        const clampedHeight = Math.min(Math.max(newHeight, COLLAPSED_HEIGHT), EXPANDED_HEIGHT);
+        cardHeight.setValue(clampedHeight);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        const currentHeight = startHeight.current - gestureState.dy;
+        const threshold = (COLLAPSED_HEIGHT + EXPANDED_HEIGHT) / 2;
+
+        const isTap = Math.abs(gestureState.dy) < 5 && Math.abs(gestureState.dx) < 5;
+        if (isTap) {
+          if (isExpandedRef.current) {
+            collapseCard();
+          } else {
+            expandCard();
+          }
+        } else {
+          if (gestureState.vy < -0.5) {
+            expandCard();
+          } else if (gestureState.vy > 0.5) {
+            collapseCard();
+          } else if (currentHeight > threshold) {
+            expandCard();
+          } else {
+            collapseCard();
+          }
+        }
+      },
+    })
+  ).current;
 
   return (
     <>
@@ -403,6 +520,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           {/* 1. Gesture overlay covers exactly the displayed image area to receive background touches */}
           <View
             {...imagePanResponder.current.panHandlers}
+            pointerEvents={isExpanded ? 'none' : 'auto'}
             style={StyleSheet.absoluteFill}
           />
 
@@ -516,7 +634,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           {pinsGeometry && (
             <View
               {...startPinResponder.panHandlers}
-              pointerEvents={isEraserMode ? 'none' : 'auto'}
+              pointerEvents={(isEraserMode || isExpanded) ? 'none' : 'auto'}
               style={[
                 styles.grabberPin,
                 isDevMode && styles.devGrabberPin,
@@ -524,6 +642,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
                   left: pinsGeometry.startPin.left,
                   top: pinsGeometry.startPin.top,
                   height: pinsGeometry.startPin.height,
+                  opacity: isExpanded ? 0.3 : 1.0,
                 }
               ]}
             >
@@ -536,7 +655,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
           {pinsGeometry && (
             <View
               {...endPinResponder.panHandlers}
-              pointerEvents={isEraserMode ? 'none' : 'auto'}
+              pointerEvents={(isEraserMode || isExpanded) ? 'none' : 'auto'}
               style={[
                 styles.grabberPin,
                 isDevMode && styles.devGrabberPin,
@@ -544,6 +663,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
                   left: pinsGeometry.endPin.left,
                   top: pinsGeometry.endPin.top,
                   height: pinsGeometry.endPin.height,
+                  opacity: isExpanded ? 0.3 : 1.0,
                 }
               ]}
             >
@@ -590,17 +710,41 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
       )}
 
       {scannedText && !isDevMode ? (
-        <View style={styles.livePreviewCard}>
-          <Text style={styles.livePreviewHeader}>Texte sélectionné :</Text>
-          <Text style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
-            {scannedText}
-          </Text>
+        <Animated.View 
+          {...cardPanResponder.panHandlers}
+          style={[styles.livePreviewCard, { height: cardHeight, overflow: 'hidden' }]}
+        >
+          <View {...handlePanResponder.panHandlers} style={styles.handleContainer}>
+            <View style={styles.handleBar} />
+          </View>
+          {isExpanded ? (
+            <ScrollView 
+              style={styles.expandedTextScrollView} 
+              showsVerticalScrollIndicator={true}
+              onScroll={(event) => {
+                scrollOffset.current = event.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
+            >
+              <Text style={styles.livePreviewText}>
+                {scannedText}
+              </Text>
+            </ScrollView>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.95}
+              onPress={expandCard}
+              style={styles.expandedTextScrollView}
+            >
+              <Text style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
+                {scannedText}
+              </Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.miniActionBar}>
-            <TouchableOpacity onPress={handleCopy}><Text style={styles.actionText}>{copied ? 'Copié' : 'Copier'}</Text></TouchableOpacity>
-            <View style={styles.separator} />
             <TouchableOpacity onPress={handleSelectAll}><Text style={styles.actionText}>Tout Sélectionner</Text></TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       ) : null}
 
       <View style={styles.controls}>
@@ -616,14 +760,14 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             <Text style={styles.cancelButtonText}>Annuler</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.trashButton}
+            style={styles.resetButton}
             onPress={handleClearSelection}
             accessible={true}
             accessibilityLabel="Effacer la sélection"
             accessibilityRole="button"
             testID="clear-selection-button"
           >
-            <Trash2 size={20} color="#E5E7EB" />
+            <RotateCcw size={20} color="#E5E7EB" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -761,8 +905,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 4,
+    paddingBottom: 14,
     zIndex: 110,
+  },
+  handleContainer: {
+    width: '100%',
+    height: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  handleBar: {
+    width: 36,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  expandedTextScrollView: {
+    flex: 1,
+    marginTop: -2,
+    marginBottom: 8,
   },
   livePreviewHeader: {
     color: '#20B8CD',
@@ -815,7 +979,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  trashButton: {
+  resetButton: {
     width: 50,
     height: 50,
     borderRadius: 14,

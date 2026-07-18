@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useNavigation } from './NavigationContext';
+import { useNavigation, NavigateOptions } from './NavigationContext';
 
 /**
  * Hook pour une navigation intelligente avec typage
@@ -125,11 +125,11 @@ export const useSmartNavigation = () => {
     navigateToScan,
     navigateToSettings,
     navigateHome,
-    // Exposer aussi la navigation de base
-    navigate: navigation.navigate,
-    push: navigation.push,
-    replace: navigation.replace,
-    goBack: navigation.goBack,
-    canGoBack: navigation.canGoBack,
+    // Exposer aussi la navigation de base avec appel sécurisé (binding explicite via callback et préservation du nombre d'arguments)
+    navigate: useCallback((to: string | NavigateOptions) => navigation.navigate(to), [navigation]),
+    push: useCallback((screen: string, params?: Record<string, any>) => params !== undefined ? navigation.push(screen, params) : navigation.push(screen), [navigation]),
+    replace: useCallback((screen: string, params?: Record<string, any>) => params !== undefined ? navigation.replace(screen, params) : navigation.replace(screen), [navigation]),
+    goBack: useCallback(() => navigation.goBack(), [navigation]),
+    canGoBack: useCallback(() => navigation.canGoBack(), [navigation]),
   };
 };

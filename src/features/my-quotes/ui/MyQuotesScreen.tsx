@@ -315,7 +315,7 @@ export default function MyQuotesScreen() {
   } = useMyQuotes();
 
   const { handleConfirmSave } = useQuoteActions();
-  const { toggleSaveQuote } = useQuote();
+  const { toggleSaveQuote, syncStatus } = useQuote();
   const { tabIndex, setTabIndex } = useTabIndex();
 
   // Ref pour scroller vers le haut après un ajout via le scanner
@@ -435,13 +435,17 @@ export default function MyQuotesScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
+      // Re-essayer les quotes en attente de sync, puis rafraîchir la liste
+      if (syncStatus.pendingCount > 0) {
+        syncStatus.syncNow();
+      }
       await refreshMyQuotes();
     } catch (error) {
       console.error("Refresh failed", error);
     } finally {
       setRefreshing(false);
     }
-  }, [refreshMyQuotes]);
+  }, [refreshMyQuotes, syncStatus]);
 
   const isScreenFocused = useIsFocused();
   // useCopilot removed
