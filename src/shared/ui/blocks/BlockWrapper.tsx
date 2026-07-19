@@ -3,7 +3,7 @@ import { BLOCK_CONFIGS, BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
 import { X } from 'lucide-react-native';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface BlockWrapperProps {
     blockKey: BlockKey;
@@ -31,7 +31,10 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     const displayTitle = title || config?.label || 'Block';
 
     return (
-        <View style={fullWidth ? styles.wrapperFull : styles.section}>
+        <View 
+            style={fullWidth ? styles.wrapperFull : styles.section}
+            onTouchStart={blockKey !== 'notes' ? Keyboard.dismiss : undefined}
+        >
             {!fullWidth && (
                 <View style={styles.sectionHeader}>
                     <View style={styles.headerLeft}>

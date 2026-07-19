@@ -4,10 +4,11 @@ import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
 import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
-import { Image } from 'expo-image';
+import { BookCover } from '@/src/shared/ui/BookCover';
 import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
-import { RefreshControl, Text, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Platform, RefreshControl, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { NotesKeyboardToolbar, useKeyboardToolbar } from '@/src/shared/ui/blocks/NotesBlock';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -61,6 +62,14 @@ export default function BookDetailScreen() {
     reloadBookData,
   } = useBookDetailController();
 
+  const { isNotesFocused, setIsNotesFocused, notesEditorRef, keyboardHeight } = useKeyboardToolbar();
+
+  const augmentedBlockContext = useMemo(() => ({
+    ...blockContext,
+    notesEditorRef,
+    onNotesFocusChange: setIsNotesFocused,
+  }), [blockContext]);
+
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -76,10 +85,10 @@ export default function BookDetailScreen() {
   const renderGridItem = useCallback(({ item }: { item: string }) => (
     <BlockDispatcher
       blockId={item}
-      context={blockContext}
+      context={augmentedBlockContext}
       onRemove={() => handleRemoveBlock(item)}
     />
-  ), [blockContext, handleRemoveBlock]);
+  ), [augmentedBlockContext, handleRemoveBlock]);
 
   if (isLoadingMetadata) {
     return (
@@ -202,8 +211,15 @@ export default function BookDetailScreen() {
         <Animated.ScrollView
           ref={scrollableRef}
           style={styles.content}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: 32 + (isNotesFocused ? 64 : 0) }
+          ]}
+          contentInset={{ bottom: keyboardHeight + (isNotesFocused ? 64 : 0) }}
+          scrollIndicatorInsets={{ bottom: keyboardHeight + (isNotesFocused ? 64 : 0) }}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={false}
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -213,9 +229,20 @@ export default function BookDetailScreen() {
             />
           }
         >
-          <View style={styles.section}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={{ flex: 1 }}>
+              <View style={styles.section}>
             <View style={styles.bookContainer}>
-              <Image source={{ uri: bookInfo.cover }} style={styles.bookCoverImage} />
+              <BookCover
+                uri={bookInfo.cover}
+                title={bookTitle}
+                width={100}
+                height={150}
+                borderRadius={8}
+                showTitleFallback={true}
+                fallbackIcon="book"
+                style={styles.bookCoverImage}
+              />
               <View style={styles.bookInfo}>
                 <Text style={styles.bookTitleText}>{bookTitle}</Text>
                 <TouchableOpacity
@@ -323,7 +350,7 @@ export default function BookDetailScreen() {
                   <BlockDispatcher
                     key={blockKey}
                     blockId={blockKey}
-                    context={blockContext}
+                    context={augmentedBlockContext}
                   />
                 ))}
               </View>
@@ -356,7 +383,15 @@ export default function BookDetailScreen() {
               </>
             )}
           </View>
+          </View>
+          </TouchableWithoutFeedback>
         </Animated.ScrollView>
+
+        <NotesKeyboardToolbar
+          isNotesFocused={isNotesFocused}
+          keyboardHeight={keyboardHeight}
+          notesEditorRef={notesEditorRef}
+        />
 
         <BookDictionaryModal
           visible={isDictionaryModalVisible}

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { BookCover } from '../BookCover';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BlockWrapper } from './BlockWrapper';
 import { ExpandableText } from '../ExpandableText';
@@ -99,13 +100,14 @@ export const AboutBlockUI: React.FC<AboutBlockProps> = ({
         return (
             <BlockWrapper blockKey="bookInfo" onRemove={onRemove}>
                 <TouchableOpacity style={styles.bookContainer} onPress={handlePress}>
-                    {book.cover ? (
-                        <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                    ) : (
-                        <View style={styles.bookCoverPlaceholder}>
-                            <BookOpen size={24} color={colors.textTertiary} />
-                        </View>
-                    )}
+                    <BookCover
+                        uri={book.cover}
+                        width={80}
+                        height={120}
+                        borderRadius={8}
+                        fallbackIcon="bookOpen"
+                        style={styles.bookCover}
+                    />
                     <View style={styles.bookInfo}>
                         <TouchableOpacity onPress={handlePress}>
                             <Text style={styles.title}>{book.title}</Text>

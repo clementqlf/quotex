@@ -1,10 +1,10 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
-import { Book as BookIcon } from 'lucide-react-native';
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Avatar } from '@/src/shared/ui/Avatar';
+import { BookCover } from '@/src/shared/ui/BookCover';
 
 export interface SimilarItem {
     id?: number;
@@ -52,12 +52,15 @@ const SimilarBlockUI: React.FC<SimilarBlockProps> = ({ type, items, onPress, onR
                         >
                             {type === 'author' ? (
                                 <Avatar uri={item.image} name={item.title} size={100} style={styles.image} />
-                            ) : item.image ? (
-                                <Image source={{ uri: item.image }} style={styles.image} />
                             ) : (
-                                <View style={[styles.image, styles.placeholderImage]}>
-                                    <BookIcon size={24} color={colors.textTertiary} />
-                                </View>
+                                <BookCover
+                                    uri={item.image}
+                                    width={100}
+                                    height={150}
+                                    borderRadius={8}
+                                    fallbackIcon="book"
+                                    style={styles.image}
+                                />
                             )}
                             <Text numberOfLines={2} style={styles.title}>{item.title}</Text>
                         </TouchableOpacity>

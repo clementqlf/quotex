@@ -40,6 +40,10 @@ export interface BlockContext {
 
     // State
     blockData?: BlockData;
+
+    // Shared refs and states for toolbar above keyboard
+    notesEditorRef?: React.MutableRefObject<any>;
+    onNotesFocusChange?: (isFocused: boolean) => void;
 }
 
 interface BlockDispatcherProps {
@@ -97,6 +101,8 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
                     content={(blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? '') as string}
                     onUpdate={(text) => onUpdateBlockData && onUpdateBlockData(blockId, text)}
                     onRemove={onRemove}
+                    notesEditorRef={context.notesEditorRef}
+                    onNotesFocusChange={context.onNotesFocusChange}
                 />
             );
 

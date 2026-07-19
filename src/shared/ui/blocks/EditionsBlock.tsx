@@ -6,7 +6,6 @@ import { BookCopy, ExternalLink } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { BookCover } from '../BookCover';
 import { BlockWrapper } from './BlockWrapper';
 
 interface Edition {
@@ -135,20 +135,14 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
                             onPress={() => handleOpenInventaire(edition.inventaireUri)}
                             activeOpacity={0.8}
                         >
-                            {/* Cover */}
-                            <View style={styles.coverContainer}>
-                                {edition.cover ? (
-                                    <Image
-                                        source={{ uri: edition.cover }}
-                                        style={styles.cover}
-                                        resizeMode="cover"
-                                    />
-                                ) : (
-                                    <View style={[styles.cover, styles.coverPlaceholder]}>
-                                        <BookCopy size={24} color={colors.textTertiary} />
-                                    </View>
-                                )}
-                            </View>
+                                 <BookCover
+                                     uri={edition.cover}
+                                     width={118}
+                                     height={177}
+                                     borderRadius={0}
+                                     fallbackIcon="bookCopy"
+                                     style={styles.cover}
+                                 />
 
                             {/* Info */}
                             <View style={styles.editionInfo}>

@@ -9,7 +9,10 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Share,
@@ -17,8 +20,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { NotesKeyboardToolbar, useKeyboardToolbar } from '@/src/shared/ui/blocks/NotesBlock';
 import Animated, {
   Easing,
   useAnimatedRef,
@@ -28,6 +33,7 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SortableGridRenderItem } from 'react-native-sortables';
 import Sortable from 'react-native-sortables';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
@@ -756,6 +762,8 @@ function QuoteDetailContent() {
     router.back();
   };
 
+  const { isNotesFocused, setIsNotesFocused, notesEditorRef, keyboardHeight } = useKeyboardToolbar();
+
   const [isResourceSearchModalVisible, setResourceSearchModalVisible] = React.useState(false);
   const [currentConnectionBlockId, setCurrentConnectionBlockId] = React.useState<string | null>(null);
 
@@ -783,7 +791,9 @@ function QuoteDetailContent() {
       setCurrentConnectionBlockId(blockId);
       setResourceSearchModalVisible(true);
     },
-  }), [quote, resolvedFetchedBook, resolvedFetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor]);
+    notesEditorRef,
+    onNotesFocusChange: setIsNotesFocused,
+  }), [quote, resolvedFetchedBook, resolvedFetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor, notesEditorRef]);
 
   const handleToggleLike = () => {
     if (!quote) return;
@@ -982,20 +992,54 @@ function QuoteDetailContent() {
   if (!quote) return null;
 
   return (
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.backdrop}
-        activeOpacity={1}
-        onPress={onClose}
-      />
-      <View style={styles.modalView}>
-        <View style={styles.handleBar} />
+        {/* Header */}
+        <View style={styles.header} onTouchStart={Keyboard.dismiss}>
+          <Text style={styles.headerTitle}>Détails de la citation</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {quote.user && quote.user?.id !== currentUser?.id ? (
+              <TouchableOpacity style={styles.closeButton} onPress={handleToggleSave}>
+                <Bookmark
+                  size={20}
+                  color={quote.isSaved ? colors.primary : colors.textTertiary}
+                  fill={quote.isSaved ? colors.primary : 'none'}
+                />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
+                <Trash2 size={20} color={colors.warning} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
+              <Edit3 size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+            <InteractiveTooltip
+              text="Appuyez sur cette croix pour fermer la fiche et revenir à votre liste de citations."
+              stepName="quoteDetailClose"
+              placement="bottom"
+              allowChildInteraction={true}
+            >
+              <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
+                <X size={24} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </InteractiveTooltip>
+          </View>
+        </View>
 
         <Animated.ScrollView
           ref={scrollableRef}
           style={styles.content}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: 32 + (isNotesFocused ? 64 : 0) }
+          ]}
+          contentInset={{ bottom: keyboardHeight + (isNotesFocused ? 64 : 0) }}
+          scrollIndicatorInsets={{ bottom: keyboardHeight + (isNotesFocused ? 64 : 0) }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={false}
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -1005,42 +1049,10 @@ function QuoteDetailContent() {
             />
           }
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Détails de la citation</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              {quote.user && quote.user?.id !== currentUser?.id ? (
-                <TouchableOpacity style={styles.closeButton} onPress={handleToggleSave}>
-                  <Bookmark
-                    size={20}
-                    color={quote.isSaved ? colors.primary : colors.textTertiary}
-                    fill={quote.isSaved ? colors.primary : 'none'}
-                  />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
-                  <Trash2 size={20} color={colors.warning} />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
-                <Edit3 size={20} color={colors.textTertiary} />
-              </TouchableOpacity>
-              <InteractiveTooltip
-                text="Appuyez sur cette croix pour fermer la fiche et revenir à votre liste de citations."
-                stepName="quoteDetailClose"
-                placement="bottom"
-                allowChildInteraction={true}
-              >
-                <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
-                  <X size={24} color={colors.textTertiary} />
-                </TouchableOpacity>
-              </InteractiveTooltip>
-            </View>
-          </View>
-
-          {/* Quote Section */}
-
-          <View style={styles.section}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View>
+              {/* Quote Section */}
+              <View style={styles.section}>
             <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"
@@ -1357,8 +1369,15 @@ function QuoteDetailContent() {
               </>
             )}
           </View>
-
+            </View>
+          </TouchableWithoutFeedback>
         </Animated.ScrollView>
+
+        <NotesKeyboardToolbar
+          isNotesFocused={isNotesFocused}
+          keyboardHeight={keyboardHeight}
+          notesEditorRef={notesEditorRef}
+        />
 
         <AIChatModal
           visible={isAIChatVisible}
@@ -1480,7 +1499,7 @@ function QuoteDetailContent() {
         </Modal>
 
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1490,36 +1509,20 @@ export default function QuoteDetailModal() {
 }
 
 const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
-    justifyContent: 'flex-end'
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'transparent',
-  },
-  modalView: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: Dimensions.get('window').height * 0.9,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 12,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.surfaceHighlight,
-    alignSelf: 'center',
-    marginBottom: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

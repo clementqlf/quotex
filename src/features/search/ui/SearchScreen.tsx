@@ -7,6 +7,7 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { Image } from 'expo-image';
+import { BookCover } from '@/src/shared/ui/BookCover';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -182,13 +183,15 @@ export default function SearchScreen() {
                         style={styles.resultItem}
                         onPress={() => navigateToBook(book.id ?? book.title, book.inventaireUri)}
                     >
-                        <View style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-                            {book.cover ? (
-                                <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                            ) : (
-                                <BookOpen size={20} color={colors.primary} />
-                            )}
-                        </View>
+                        <BookCover
+                            uri={book.cover}
+                            width={book.cover ? 45 : 40}
+                            height={book.cover ? 70 : 40}
+                            borderRadius={book.cover ? 4 : 20}
+                            fallbackIcon="bookOpen"
+                            fallbackIconColor={colors.primary}
+                            style={book.cover ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}
+                        />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{book.title}</Text>
@@ -210,13 +213,15 @@ export default function SearchScreen() {
                         style={styles.resultItem}
                         onPress={() => handleImportBook(invBook)}
                     >
-                        <View style={imageUrl ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-                            {imageUrl ? (
-                                <Image source={{ uri: imageUrl }} style={styles.bookCover} />
-                            ) : (
-                                <BookOpen size={20} color={colors.primary} />
-                            )}
-                        </View>
+                        <BookCover
+                            uri={imageUrl}
+                            width={imageUrl ? 45 : 40}
+                            height={imageUrl ? 70 : 40}
+                            borderRadius={imageUrl ? 4 : 20}
+                            fallbackIcon="bookOpen"
+                            fallbackIconColor={colors.primary}
+                            style={imageUrl ? styles.bookCoverContainer : [styles.iconContainer, { backgroundColor: colors.primaryLight }]}
+                        />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invBook.label}</Text>

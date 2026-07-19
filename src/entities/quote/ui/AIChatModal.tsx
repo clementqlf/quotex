@@ -3,12 +3,12 @@ import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { BookOpen, Send, Sparkles, User as UserIcon, X } from 'lucide-react-native';
+import { BookCover } from '@/src/shared/ui/BookCover';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -437,16 +437,18 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
 
           <View style={styles.cardBubble}>
             <View style={styles.cardRow}>
-              {hasCover ? (
-                <Image source={{ uri: book.cover }} style={styles.cardBookCover} />
-              ) : (
-                <View style={styles.cardBookCoverFallback}>
-                  <BookOpen size={24} color={colors.primary} />
-                  <Text style={styles.fallbackTitleText} numberOfLines={2}>
-                    {quoteBookTitle}
-                  </Text>
-                </View>
-              )}
+              <BookCover
+                uri={book?.cover}
+                title={quoteBookTitle}
+                width={75}
+                height={112}
+                borderRadius={8}
+                showTitleFallback={true}
+                fallbackIcon="bookOpen"
+                fallbackIconColor={colors.primary}
+                style={book?.cover ? styles.cardBookCover : styles.cardBookCoverFallback}
+                textStyle={styles.fallbackTitleText}
+              />
               <View style={styles.cardContent}>
                 <Text style={styles.cardQuoteLabel}>CITATION</Text>
                 <Text style={styles.cardQuoteText} numberOfLines={4}>

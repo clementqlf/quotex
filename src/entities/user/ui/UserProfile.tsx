@@ -4,6 +4,7 @@ import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { Avatar } from '@/src/shared/ui/Avatar';
 import { supabase } from '@/src/shared/api/supabase';
+import { BookCover } from '@/src/shared/ui/BookCover';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
@@ -20,7 +21,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Image,
   Modal,
   Platform,
   ScrollView,
@@ -763,13 +763,14 @@ export default function UserProfileScreen() {
                             style={styles.bookItem}
                             onPress={() => router.push({ pathname: '/book-detail', params: { bookId: book.id.toString(), bookTitle: book.title } })}
                           >
-                            {book.cover ? (
-                              <Image source={{ uri: book.cover }} style={styles.bookCover} />
-                            ) : (
-                              <View style={[styles.bookCover, styles.placeholderCover]}>
-                                <BookOpen size={20} color={colors.textTertiary} />
-                              </View>
-                            )}
+                            <BookCover
+                              uri={book.cover}
+                              width={90}
+                              height={135}
+                              borderRadius={8}
+                              fallbackIcon="bookOpen"
+                              style={styles.bookCover}
+                            />
                             <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
                           </TouchableOpacity>
                         ))}

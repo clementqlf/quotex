@@ -3,7 +3,7 @@ import { getStatusColor, getStatusLabel } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
-import { Image } from 'expo-image';
+import { BookCover } from '@/src/shared/ui/BookCover';
 import { CheckCircle2, MoreVertical, PlusCircle } from 'lucide-react-native';
 import React, { useMemo, useRef, useCallback } from 'react';
 import {
@@ -91,11 +91,15 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
       }}
     >
       <View style={styles.bookCardContent}>
-        {book.cover ? (
-          <Image source={{ uri: book.cover }} style={styles.bookCardCover} />
-        ) : (
-          <View style={styles.bookCardCoverPlaceholder} />
-        )}
+        <BookCover
+          uri={book.cover}
+          title={book.title}
+          width={60}
+          height={90}
+          fallbackIcon="book"
+          showTitleFallback={true}
+          style={styles.bookCardCover}
+        />
         <View style={[styles.bookCardInfo, (onOpenMenu || showAddButton) ? { paddingRight: 28 } : null]}>
           <View style={styles.bookCardHeader}>
             <TypingText style={styles.bookCardTitle} text={book.title} resetKey={book.id} />
