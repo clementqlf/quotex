@@ -41,7 +41,7 @@ export default function AuthorWorksScreen() {
   );
   
   const params = useLocalSearchParams<{ authorId?: string; authorName?: string; inventaireUri?: string }>();
-  const authorName = params.authorName || 'Inconnu';
+  const authorName = params.authorName || 'Auteur inconnu';
   const authorIdParam = params.authorId ? parseInt(params.authorId, 10) : undefined;
   const resolvedAuthorId = authorIdParam && !isNaN(authorIdParam) ? authorIdParam : undefined;
 
@@ -141,7 +141,7 @@ export default function AuthorWorksScreen() {
   };
 
   const cleanTitleFromAuthor = useCallback((title: string, author: string) => {
-    if (!title || !author || author === 'Inconnu') return title;
+    if (!title || !author || author === 'Inconnu' || author === 'Auteur inconnu') return title;
     
     const normTitle = normalizeTitle(title);
     const normAuthor = normalizeTitle(author);

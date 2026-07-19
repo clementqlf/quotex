@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Modal } from 'react-native';
 import AddQuoteMenu from '@/src/entities/quote/ui/AddQuoteMenu';
-import SimpleScanModal from '@/src/shared/ui/modals/SimpleScanModal';
+import SimpleScanModal, { SimpleScanResult } from '@/src/shared/ui/modals/SimpleScanModal';
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
+import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 import { useQuoteActions } from './useQuoteActions';
 
 interface UseQuoteCreationFlowProps {
@@ -19,6 +20,7 @@ export const useQuoteCreationFlow = ({
   const [menuTriggerY, setMenuTriggerY] = useState<number | undefined>(undefined);
   const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
   const [scannedText, setScannedText] = useState('');
+  const [activeScanResult, setActiveScanResult] = useState<SimpleScanResult | null>(null);
 
   const { handleConfirmSave } = useQuoteActions();
 
@@ -65,11 +67,10 @@ export const useQuoteCreationFlow = ({
         <SimpleScanModal
           visible={showSimpleScanModal}
           onClose={() => setShowSimpleScanModal(false)}
-          onSuccess={(text) => {
+          onSuccess={(result) => {
             setShowSimpleScanModal(false);
-            setScannedText(text);
             setTimeout(() => {
-              setShowAddQuoteModal(true);
+              setActiveScanResult(result);
             }, Platform.OS === 'ios' ? 350 : 50);
           }}
         />
@@ -85,6 +86,36 @@ export const useQuoteCreationFlow = ({
           initialBook={initialBook}
           initialAuthor={initialAuthor}
         />
+
+        <Modal
+          visible={!!activeScanResult}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setActiveScanResult(null)}
+        >
+          {activeScanResult && (
+            <ScanWorkflow
+              photo={activeScanResult.photo}
+              ocrElements={activeScanResult.ocrElements}
+              ocrBlocks={activeScanResult.ocrBlocks}
+              onReset={() => setActiveScanResult(null)}
+              normalizedSize={activeScanResult.normalizedSize}
+              initialBook={initialBook}
+              initialAuthor={initialAuthor}
+              onSave={async (text, book, author) => {
+                try {
+                  await handleConfirmSave(text, book || '', author || '', {
+                    isFromScanner: false,
+                  });
+                  setActiveScanResult(null);
+                  return { success: true };
+                } catch (e) {
+                  return { success: false, error: e instanceof Error ? e.message : String(e) };
+                }
+              }}
+            />
+          )}
+        </Modal>
       </>
     );
   }, [
@@ -96,6 +127,8 @@ export const useQuoteCreationFlow = ({
     handleConfirmAddQuote,
     initialBook,
     initialAuthor,
+    activeScanResult,
+    handleConfirmSave,
   ]);
 
   return {

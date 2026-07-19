@@ -39,7 +39,7 @@ const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
       <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
         <Avatar uri={author.image} name={author.name} size={60} style={styles.authorAvatar} />
         <View style={{ flex: 1 }}>
-          <TypingText style={styles.bookCardTitle} text={author?.name || 'Inconnu'} />
+          <TypingText style={styles.bookCardTitle} text={author?.name || 'Auteur inconnu'} />
           <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
         </View>
         <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />

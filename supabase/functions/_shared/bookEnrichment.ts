@@ -10,9 +10,25 @@ import {
   mergeBooks,
 } from './inventaire.ts';
 
+interface BookWithAuthor {
+  id: number;
+  title: string;
+  cover: string | null;
+  inventaireUri: string | null;
+  authorId: number | null;
+  pages: number | null;
+  year: number | null;
+  genre: string | null;
+  lastEnrichedAt: string | Date | null;
+  author?: {
+    id: number;
+    name: string;
+  } | null;
+}
+
 export const bookEnrichmentQueue: Set<number> = new Set();
 
-export const enrichBookWithInventaire = async (bookId: number): Promise<any | null> => {
+export const enrichBookWithInventaire = async (bookId: number): Promise<boolean | null> => {
   if (bookEnrichmentQueue.has(bookId)) {
     console.log(`[BookEnrichment] Already in queue for book ${bookId}. Skipping.`);
     return null;
@@ -26,9 +42,9 @@ export const enrichBookWithInventaire = async (bookId: number): Promise<any | nu
   }
 };
 
-const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | null> => {
+const enrichBookWithInventaireInternal = async (bookId: number, force = false): Promise<boolean | null> => {
   try {
-    const bookRows = await sql`SELECT * FROM "Book" WHERE id = ${bookId} LIMIT 1`;
+    const bookRows = await sql`SELECT * FROM "Book" WHERE id = ${bookId} LIMIT 1` as unknown as BookWithAuthor[];
     const book = bookRows[0];
     if (!book) {
       console.error(`[BookEnrichment] Book ID ${bookId} not found in database.`);
@@ -37,11 +53,11 @@ const enrichBookWithInventaireInternal = async (bookId: number): Promise<any | n
 
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
-    if (Date.now() - lastEnriched < SEVEN_DAYS) {
+    if (!force && Date.now() - lastEnriched < SEVEN_DAYS) {
       console.log(`[BookEnrichment] Book "${book.title}" recently enriched/attempted. Skipping.`);
       // Ensure isEnriching is false if it was set
       await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
-      return book;
+      return null;
     }
 
     await sql`UPDATE "Book" SET "isEnriching" = true, "lastEnrichedAt" = now() WHERE id = ${bookId}`.catch(() => {});
@@ -153,7 +169,7 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
       LEFT JOIN "Author" a ON a.id = b."authorId"
       WHERE b.id = ${bookId}
       LIMIT 1
-    `;
+    ` as unknown as BookWithAuthor[];
     const book = rows[0];
     if (!book) {
       console.error(`[BookEnrichment/Discovery] Book ID ${bookId} not found in database.`);
@@ -172,11 +188,11 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
     await sql`UPDATE "Book" SET "isEnriching" = true, "lastEnrichedAt" = now() WHERE id = ${bookId}`.catch(() => {});
 
     if (book.inventaireUri) {
-      await enrichBookWithInventaireInternal(bookId);
+      await enrichBookWithInventaireInternal(bookId, true);
       return;
     }
 
-    const authorName = (book.author as any)?.name || 'Unknown';
+    const authorName = book.author?.name || 'Unknown';
     console.log(`[BookEnrichment/Discovery] Searching URI for "${book.title}" by "${authorName}"`);
     const uri = await findWorkUriByTitleAndAuthor(book.title, authorName);
     console.log(`[BookEnrichment/Discovery] URI search result: ${uri || 'None'}`);
@@ -194,7 +210,7 @@ export const discoverAndEnrichBook = async (bookId: number): Promise<void> => {
       await sql`UPDATE "Book" SET "inventaireUri" = ${uri} WHERE id = ${bookId}`;
       
       try {
-        await enrichBookWithInventaireInternal(bookId);
+        await enrichBookWithInventaireInternal(bookId, true);
       } catch (err) {
         console.error(`[BookEnrichment] Detailed enrichment failed for ${bookId}, but URI was saved.`, err);
       }

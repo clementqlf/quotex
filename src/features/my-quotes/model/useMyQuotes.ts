@@ -2,7 +2,7 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Author, Book } from '@/src/shared/api/types';
-import { isUserQuote } from '@/src/shared/lib/dataHelpers';
+import { isUserQuote, getBookTitle, getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { useCallback, useMemo } from 'react';
 
 /**
@@ -60,11 +60,7 @@ export const useMyQuotes = () => {
   const getAuthors = useCallback(() => {
     const authors = new Set<string>();
     myQuotes.forEach(q => {
-      if (typeof q.author === 'object' && q.author !== null) {
-        authors.add(q.author.name);
-      } else if (typeof q.author === 'string') {
-        authors.add(q.author);
-      }
+      authors.add(getAuthorName(q.author));
     });
     return Array.from(authors);
   }, [myQuotes]);
@@ -78,12 +74,8 @@ export const useMyQuotes = () => {
     }> = {};
 
     myQuotes.forEach(quote => {
-      const title = typeof quote.book === 'object' && quote.book !== null 
-        ? quote.book.title 
-        : quote.book as string;
-      const author = typeof quote.author === 'object' && quote.author !== null 
-        ? quote.author.name 
-        : quote.author as string;
+      const title = getBookTitle(quote.book);
+      const author = getAuthorName(quote.author);
       
       if (!grouped[title]) {
         grouped[title] = { authors: new Set(), quoteCount: 0 };
@@ -98,13 +90,12 @@ export const useMyQuotes = () => {
 
     // Intégrer les livres sauvegardés par l'utilisateur
     allBooks.forEach(book => {
-      if (grouped[book.title]) {
-        grouped[book.title].bookObj = book;
+      const title = getBookTitle(book);
+      if (grouped[title]) {
+        grouped[title].bookObj = book;
       } else if (book.isSaved) {
-        const authorName = typeof book.author === 'object' && book.author !== null 
-          ? book.author.name 
-          : book.author as string;
-        grouped[book.title] = {
+        const authorName = getAuthorName(book.author);
+        grouped[title] = {
           authors: new Set([authorName]),
           quoteCount: 0,
           bookObj: book
@@ -136,9 +127,7 @@ export const useMyQuotes = () => {
     const grouped: Record<string, AuthorData> = {};
 
     myQuotes.forEach(quote => {
-      const name = typeof quote.author === 'object' && quote.author !== null 
-        ? quote.author.name 
-        : quote.author as string;
+      const name = getAuthorName(quote.author);
       
       if (!grouped[name]) {
         grouped[name] = { author: quote.author, quoteCount: 0 };
@@ -150,15 +139,14 @@ export const useMyQuotes = () => {
 
     // Intégrer les auteurs sauvegardés
     allAuthors.forEach(author => {
-      if (author.isSaved && !grouped[author.name]) {
-        grouped[author.name] = { author: author, quoteCount: 0 };
+      const name = getAuthorName(author);
+      if (author.isSaved && !grouped[name]) {
+        grouped[name] = { author: author, quoteCount: 0 };
       }
     });
 
     return Object.values(grouped).map((data) => ({
-      name: typeof data.author === 'object' && data.author !== null 
-        ? data.author.name 
-        : data.author as string,
+      name: getAuthorName(data.author),
       image: typeof data.author !== 'string' ? data.author?.image : null,
       quoteCount: data.quoteCount,
       inventaireUri: typeof data.author !== 'string' ? data.author?.inventaireUri : undefined,
@@ -179,9 +167,7 @@ export const useMyQuotes = () => {
         allThemes.push('Thème non renseigné');
       }
       
-      const bookTitle = typeof q.book === 'object' && q.book !== null 
-        ? q.book.title 
-        : q.book as string;
+      const bookTitle = getBookTitle(q.book);
       
       allThemes.forEach(theme => {
         if (!grouped[theme]) {

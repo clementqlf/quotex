@@ -30,6 +30,8 @@ type ScanWorkflowProps = {
   isGallery?: boolean;
   normalizedSize?: { width: number; height: number } | null;
   onSave?: (text: string, book?: string | null, author?: string | null) => Promise<{ success: boolean; error?: string }>;
+  initialBook?: string;
+  initialAuthor?: string;
 };
 
 /**
@@ -803,6 +805,8 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
         onClose={() => setShowPreviewModal(false)}
         onConfirm={handleConfirmSave}
         scannedText={scannedText}
+        initialBook={props.initialBook}
+        initialAuthor={props.initialAuthor}
       />
     </>
   );

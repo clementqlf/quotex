@@ -202,7 +202,7 @@ export default function AuthorDetailScreen() {
     navigateToAuthorWorks(resolvedAuthorId, nameToUse, params.inventaireUri || author?.inventaireUri);
   };
 
-  const authorName = authorInfo?.name || nameToUse || 'Inconnu';
+  const authorName = authorInfo?.name || nameToUse || 'Auteur inconnu';
   const authorImage = authorInfo?.image || null;
 
 

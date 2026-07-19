@@ -186,6 +186,7 @@ async function performQuoteAnalysis(quoteId: number) {
       console.error(`[Quotes] Groq analysis failed for quote ID ${quoteId}:`, groqError);
       // Use fallback analysis
       result = {
+        isValid: true,
         interpretation: "Analyse indisponible.",
         theme: "Savoir & Vérité",
         recommendedBooks: []
@@ -201,8 +202,11 @@ async function performQuoteAnalysis(quoteId: number) {
       }
     }
 
-    const recommendedBooks = result.recommendedBooks || [];
-    console.log(`[Quotes Analysis] AI recommended books raw output:`, JSON.stringify(recommendedBooks, null, 2));
+    // Enregistrer le statut de validité dans blockData
+    blockDataObj.isValid = result.isValid;
+
+    const recommendedBooks = result.isValid ? (result.recommendedBooks || []) : [];
+    console.log(`[Quotes Analysis] AI validation status: ${result.isValid}. Recommended books count: ${recommendedBooks.length}`);
     const resolvedRecBooks = [];
     const enrichmentTasks: Array<{ type: 'book' | 'author'; id: number; skipDiscovery?: boolean }> = [];
 

@@ -7,6 +7,7 @@ export interface RecommendedBook {
 }
 
 const AnalysisResultSchema = z.object({
+  isValid: z.boolean(),
   interpretation: z.string().min(10),
   theme: z.enum([
     "Philosophie & Sagesse", "Amour & Relations", "Condition Humaine", 
@@ -24,6 +25,7 @@ const AnalysisResultSchema = z.object({
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
 const fallbackAnalysis: AnalysisResult = {
+  isValid: true,
   interpretation: "Analyse indisponible.",
   theme: "Savoir & Vérité",
   recommendedBooks: []
@@ -40,20 +42,32 @@ export async function analyzeQuoteWithGroq(
     return fallbackAnalysis;
   }
 
-  const prompt = `Tu es un expert littéraire, historien et critique intellectuel. Analyse la citation suivante de manière concise, captivante et informative, en te focalisant exclusivement sur la substance des arguments avancés dans le texte.
+  const prompt = `Tu es un expert multidisciplinaire (littérature, histoire, philosophie, politique et économie) et critique intellectuel. Analyse la citation suivante de manière rigoureuse.
 
 Détails de la citation :
 - Citation : "${text}"
 - Auteur : ${author}
 - Livre : ${book}
 
-Instructions pour ton analyse (à synthétiser en un seul paragraphe fluide de 3 à 5 phrases maximum en français) :
-1. **Structure de départ OBLIGATOIRE** : Ne fais aucune introduction sur l'auteur ou le livre. Commence ton analyse immédiatement par une phrase analysant le sens intrinsèque de la citation (ex: "Cette citation...", "Ce propos dépeint...", "L'argument avancé ici...").
-2. **Fact-checking et Rigueur historique** : C'est le point prioritaire. Analyse la validité des faits, des dates et des décisions juridiques mentionnées. Cite brièvement les réalités juridiques ou historiques contradictoires si la citation comporte des simplifications ou des inexactitudes factuelles. 
-3. **Analyse de la portée** : Analyse la portée du propos sur le débat d'idées en soulignant comment cette rhétorique s'articule par rapport aux courants de pensée contemporains ou historiques, sans t'attarder sur le succès médiatique de l'œuvre.
+Instructions de validation de la citation (RÈGLES DE VALIDITÉ) :
+1. Évalue si la citation est valide en renseignant le champ "isValid" (true/false) :
+   - Si la citation est absurde ("ubuesque"), manifestement factice, erronée ou faussement attribuée à l'auteur ou au livre spécifié : "isValid" doit être false.
+   - Si l'auteur et/ou le livre sont "Inconnu" :
+     - Si le texte de la citation correspond à une citation célèbre ou à un proverbe connu : "isValid" doit être true. Mentionne l'auteur et le livre réels dans l'analyse.
+     - Si le texte est une réflexion cohérente d'intérêt général (sans auteur célèbre) : "isValid" doit être true. Analyse le sens de manière générale sans forcer d'attribution.
+     - Si le texte est un charabia, un texte vide, incompréhensible, absurde ou trop court (ex: "abc", "test", "lol", etc.) : "isValid" doit être false.
+   - Sinon, si la citation est correcte et correspond bien à l'auteur et au livre indiqués : "isValid" doit être true.
+
+Instructions pour ton champ "interpretation" (en français) :
+- Si "isValid" est true (citation valide), respecte STRICTEMENT ces instructions (à synthétiser en un seul paragraphe fluide de 3 à 5 phrases maximum en français) :
+  - **Adaptation du ton** : Adapte ton ton et tes critères à la nature de la citation. S'il s'agit d'un essai politique, économique, historique ou d'actualité, privilégie le fact-checking, la logique rationnelle de l'argument et la véracité des faits, plutôt qu'une analyse de style esthétique ou purement philosophique.
+  1. **Structure de départ OBLIGATOIRE** : Ne fais aucune introduction sur l'auteur ou le livre. Commence ton analyse immédiatement par une phrase analysant le sens intrinsèque ou l'argument de la citation (ex: "Cette citation...", "Ce propos avance...", "L'argument économique/politique présenté ici...").
+  2. **Fact-checking et Rigueur des faits** : C'est le point prioritaire. Analyse la validité des faits, des chiffres, des dates, des concepts économiques/politiques et des décisions mentionnées. Réfute ou rectifie brièvement toute inexactitude ou simplification factuelle.
+  3. **Analyse de la portée et des idées** : Analyse la portée du propos sur le débat d'idées ou la théorie en question en soulignant comment cet argument s'articule par rapport aux courants contemporains ou historiques.
+- Si "isValid" est false (citation invalide/erronée) : Ne cherche pas à interpréter le faux, ni à philosopher ou sur-analyser. Rédige une explication TRÈS COURTE, SYNTHÉTIQUE et FACTUELLE d'UNE SEULE PHRASE (maximum 2 phrases très courtes) expliquant pourquoi le texte n'est pas une citation littéraire ou cohérente (ex: "Ce texte semble être un élément de configuration informatique et ne constitue pas une citation littéraire." ou "Cette citation présente une erreur d'attribution majeure, n'apparaissant pas dans l'œuvre de cet auteur.").
 
 Instructions impératives pour le champ "theme" :
-Choisis OBLIGATOIREMENT l'un des thèmes suivants :
+Choisis OBLIGATOIREMENT l'un des thèmes suivants (même en cas d'erreur, choisis le thème le plus proche, par exemple "Savoir & Vérité" pour une erreur d'attribution) :
 - Philosophie & Sagesse
 - Amour & Relations
 - Condition Humaine
@@ -67,19 +81,19 @@ Choisis OBLIGATOIREMENT l'un des thèmes suivants :
 - Destin & Choix
 
 Instructions pour le champ "recommendedBooks" :
-Propose une liste de 5 à 7 livres qui parlent des thèmes évoqués dans la citation (d'auteurs différents de préférence, ou d'autres œuvres majeures du même auteur si c'est particulièrement pertinent) qui traitent du même sujet ou approfondissent les thématiques ou courants d'idées abordés dans la citation.
+- Si "isValid" est true : Propose une liste de 5 à 7 livres réels et mondialement connus qui approfondissent la thématique.
+- Si "isValid" est false : Ne propose aucun livre recommandé (renvoie un tableau vide []).
 
-CONSTRAINTS IMPÉRATIVES pour éviter les hallucinations :
+CONSTRAINTS IMPÉRATIVES pour éviter les hallucinations sur les livres recommandés (uniquement quand "isValid" est true) :
 1. Tu dois OBLIGATOIREMENT proposer des livres RÉELS, LARGEMENT PUBLIÉS dans le monde (qui possèdent leur propre article Wikipédia ou sont mondialement référencés).
 2. N'invente JAMAIS d'œuvres.
-3. Évite absolument les ouvrages confidentiels, de niche, auto-publiés ou obscurs qui ne seraient pas répertoriés sur des bases mondiales comme Wikidata/Wikipedia/Inventaire.io.
+3. Évite absolument les ouvrages confidentiels, de niche, auto-publiés ou obscurs.
 4. Écris toujours le titre officiel et complet du livre en français (ou dans sa version traduite de référence) ainsi que le nom de l'auteur de manière exacte.
-
-Pour chaque livre, indique uniquement le titre exact ("title") et le nom de l'auteur ("author").
 
 Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun formatage Markdown (pas de blocs de code triples), avec exactement cette structure :
 {
-  "interpretation": "Ton paragraphe d'analyse fluide ici...",
+  "isValid": true/false,
+  "interpretation": "Ton paragraphe d'analyse fluide ou d'explication de l'erreur...",
   "theme": "Le thème choisi",
   "recommendedBooks": [
     {
@@ -103,7 +117,7 @@ Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun fo
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: "Tu es un expert littéraire et critique intellectuel. Tu réponds toujours en JSON strict sans aucun formatage Markdown." },
+          { role: "system", content: "Tu es un expert multidisciplinaire (littérature, histoire, politique, économie) et critique intellectuel. Tu réponds toujours en JSON strict sans aucun formatage Markdown." },
           { role: "user", content: prompt }
         ],
         response_format: { type: "json_object" },
@@ -136,7 +150,7 @@ Format de retour STRICT : Renvoie UNIQUEMENT un objet JSON valide, sans aucun fo
     }
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.error('[Groq] API timeout after 15s');
       return fallbackAnalysis;
     }
@@ -206,7 +220,7 @@ Réponds de manière concise, captivante, premium et intellectuellement stimulan
     return data.choices?.[0]?.message?.content?.trim() || "";
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.error('[Groq Chat] API timeout after 15s');
       return "Désolé, la réponse a pris trop de temps. Veuillez réessayer.";
     }

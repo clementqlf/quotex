@@ -14,7 +14,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Modal
 } from 'react-native';
 import Animated, {
   runOnJS,
@@ -27,7 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
-import SimpleScanModal from '@/src/shared/ui/modals/SimpleScanModal';
+import SimpleScanModal, { SimpleScanResult } from '@/src/shared/ui/modals/SimpleScanModal';
+import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 import { bookDescriptions } from '@/src/shared/api/staticData';
 
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -291,6 +293,7 @@ export default function MyQuotesScreen() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSimpleScanModal, setShowSimpleScanModal] = useState(false);
   const [scannedText, setScannedText] = useState('');
+  const [activeScanResult, setActiveScanResult] = useState<SimpleScanResult | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterType[]>([]);
   const [tempFilters, setTempFilters] = useState<FilterType[]>([]);
@@ -981,15 +984,43 @@ export default function MyQuotesScreen() {
       <SimpleScanModal
         visible={showSimpleScanModal}
         onClose={() => setShowSimpleScanModal(false)}
-        onSuccess={(text) => {
+        onSuccess={(result) => {
           setShowSimpleScanModal(false);
-          setScannedText(text);
           setEditingQuote(null);
           setTimeout(() => {
-            setShowManualQuoteModal(true);
+            setActiveScanResult(result);
           }, Platform.OS === 'ios' ? 350 : 50);
         }}
       />
+
+      <Modal
+        visible={!!activeScanResult}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveScanResult(null)}
+      >
+        {activeScanResult && (
+          <ScanWorkflow
+            photo={activeScanResult.photo}
+            ocrElements={activeScanResult.ocrElements}
+            ocrBlocks={activeScanResult.ocrBlocks}
+            onReset={() => setActiveScanResult(null)}
+            normalizedSize={activeScanResult.normalizedSize}
+            onSave={async (text, book, author) => {
+              try {
+                await handleConfirmSave(text, book || '', author || '', {
+                  isFromScanner: false,
+                });
+                setActiveScanResult(null);
+                scrollToQuotesTop();
+                return { success: true };
+              } catch (e) {
+                return { success: false, error: e instanceof Error ? e.message : String(e) };
+              }
+            }}
+          />
+        )}
+      </Modal>
 
       <QuoteActionModal
         visible={!!actionMenuQuote}

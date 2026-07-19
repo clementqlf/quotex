@@ -2,14 +2,36 @@ import { Author, Book } from '../api/types';
 
 export const getBookTitle = (book: string | Book | undefined | null): string => {
     if (!book) return 'Livre inconnu';
-    if (typeof book === 'string') return book;
-    return book.title || 'Livre inconnu';
+    if (typeof book === 'string') {
+        const trimmed = book.trim();
+        if (trimmed === '' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'inconnu' || trimmed.toLowerCase() === 'livre inconnu') {
+            return 'Livre inconnu';
+        }
+        return trimmed;
+    }
+    const title = book.title || '';
+    const trimmedTitle = title.trim();
+    if (trimmedTitle === '' || trimmedTitle.toLowerCase() === 'null' || trimmedTitle.toLowerCase() === 'inconnu' || trimmedTitle.toLowerCase() === 'livre inconnu') {
+        return 'Livre inconnu';
+    }
+    return trimmedTitle;
 };
 
 export const getAuthorName = (author: string | Author | undefined | null): string => {
     if (!author) return 'Auteur inconnu';
-    if (typeof author === 'string') return author;
-    return author.name || 'Auteur inconnu';
+    if (typeof author === 'string') {
+        const trimmed = author.trim();
+        if (trimmed === '' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'inconnu' || trimmed.toLowerCase() === 'auteur inconnu') {
+            return 'Auteur inconnu';
+        }
+        return trimmed;
+    }
+    const name = author.name || '';
+    const trimmedName = name.trim();
+    if (trimmedName === '' || trimmedName.toLowerCase() === 'null' || trimmedName.toLowerCase() === 'inconnu' || trimmedName.toLowerCase() === 'auteur inconnu') {
+        return 'Auteur inconnu';
+    }
+    return trimmedName;
 };
 
 export const STATUS_OPTIONS = [
