@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
 import { BookOpen, X } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 
@@ -36,6 +36,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
 }) => {
     const { colors } = useTheme();
     const styles = createStyles(colors);
+    const [expandedTerms, setExpandedTerms] = useState<Record<string, boolean>>({});
 
     // Group definitions by term to show them in separate sections
     const groupedDefinitions = useMemo(() => {
@@ -85,6 +86,9 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
                 {groupedDefinitions.map(([term, termDefs]: [string, Definition[]], groupIndex: number) => {
                     const pronunciation = termDefs[0].pronunciation;
                     const synonyms = termDefs[0].synonyms;
+                    const isExpanded = expandedTerms[term] || false;
+                    const hasManyDefs = termDefs.length > 3;
+                    const visibleDefs = hasManyDefs && !isExpanded ? termDefs.slice(0, 3) : termDefs;
 
                     return (
                         <View key={term} style={[
@@ -102,7 +106,7 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
 
                             {/* Definitions Flow */}
                             <View style={styles.meaningsList}>
-                                {termDefs.map((dItem: Definition, index: number) => {
+                                {visibleDefs.map((dItem: Definition, index: number) => {
                                     // Extract context from definition if it starts with (xxx)
                                     const contextMatch = dItem.definition.match(/^(\([^)]+\))\s*(.*)/);
                                     const context = contextMatch ? contextMatch[1] : null;
@@ -125,6 +129,17 @@ const DefinitionBlockUI: React.FC<DefinitionBlockProps> = ({
                                     );
                                 })}
                             </View>
+
+                            {hasManyDefs && (
+                                <TouchableOpacity 
+                                    style={styles.expandButton} 
+                                    onPress={() => setExpandedTerms(prev => ({ ...prev, [term]: !isExpanded }))}
+                                >
+                                    <Text style={styles.expandButtonText}>
+                                        {isExpanded ? "Afficher moins" : `Afficher plus (${termDefs.length - 3} de plus)`}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
 
                             {/* Synonyms Section */}
                             {synonyms && synonyms.length > 0 && (
@@ -291,6 +306,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     editSelectionText: {
         color: colors.textSecondary,
         fontSize: 12,
+        fontWeight: '600',
+    },
+    expandButton: {
+        alignSelf: 'flex-start',
+        marginTop: 8,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: colors.surfaceHighlight,
+        borderRadius: 8,
+    },
+    expandButtonText: {
+        fontSize: 12,
+        color: colors.primary,
         fontWeight: '600',
     },
 });

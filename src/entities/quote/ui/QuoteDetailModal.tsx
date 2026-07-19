@@ -56,6 +56,7 @@ import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScro
 import { ThemeColors } from '@/src/shared/theme';
 import { BlockContext, BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import AIChatModal from './AIChatModal';
+import type { Definition } from '@/src/shared/ui/blocks/DefinitionBlock';
 
 const STANDARD_THEMES = [
   "Philosophie & Sagesse",
@@ -150,6 +151,19 @@ const RecBookSkeleton = ({ colors, styles }: { colors: ThemeColors; styles: any 
       />
     </View>
   );
+};
+
+const DESCRIPTION_BLOCKS = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
+const MYSHEET_BLOCKS = ['connection', 'definition', 'notes'];
+
+type TabType = 'description' | 'my_sheet';
+
+const isBlockInTab = (blockKey: string, tab: TabType) => {
+  if (blockKey === "addBlock") return true;
+  const base = blockKey.split('#')[0];
+  if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
+  if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
+  return false;
 };
 
 // Composant interne : a accès au CopilotProvider local
@@ -668,24 +682,12 @@ function QuoteDetailContent() {
   }
 
   // Tab Logic
-  type TabType = 'description' | 'my_sheet';
   const [activeTab, setActiveTab] = React.useState<TabType>('description');
-
-  const DESCRIPTION_BLOCKS = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
-  const MYSHEET_BLOCKS = ['connection', 'definition', 'notes'];
 
   const blockOptions = QUOTE_DETAIL_BLOCK_OPTIONS.map(key => ({
     key,
     label: BLOCK_CONFIGS[key].label
   }));
-
-  const isBlockInTab = (blockKey: string, tab: TabType) => {
-    if (blockKey === "addBlock") return true;
-    const base = blockKey.split('#')[0];
-    if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
-    if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
-    return false;
-  };
 
   const currentTabBlocks = (gridData || []).filter(key => isBlockInTab(key, activeTab));
 
@@ -828,6 +830,14 @@ function QuoteDetailContent() {
   const [currentDefinitionBlockId, setCurrentDefinitionBlockId] = React.useState<string | null>(null);
   const [showEditModal, setShowEditModal] = React.useState(false);
 
+  const currentDefinitions = currentDefinitionBlockId && quote?.blockData
+    ? (quote.blockData[currentDefinitionBlockId] as unknown as Definition[])
+    : [];
+
+  const currentTerms = useMemo(() => {
+    return (currentDefinitions || []).map(d => d.term.toLowerCase());
+  }, [currentDefinitions]);
+
   const handleWordsSelected = async (words: string[]) => {
     if (!currentDefinitionBlockId) return;
 
@@ -854,12 +864,14 @@ function QuoteDetailContent() {
   const openAddBlockModal = () => setAddBlockModalVisible(true);
   const closeAddBlockModal = () => setAddBlockModalVisible(false);
 
-  const handleAddBlock = (blockKey: string) => {
-    const newLayout = [...gridData.filter(x => x !== "addBlock"), `${blockKey}#${Date.now()}`, "addBlock"];
-    setGridData(newLayout);
-    if (quote?.id) updateBlockLayout(quote.id, "quote", newLayout);
+  const handleAddBlock = useCallback((blockKey: string) => {
+    setGridData(prev => {
+      const newLayout = [...prev.filter(x => x !== "addBlock"), `${blockKey}#${Date.now()}`, "addBlock"];
+      if (quote?.id) updateBlockLayout(quote.id, "quote", newLayout);
+      return newLayout;
+    });
     closeAddBlockModal();
-  };
+  }, [quote?.id, updateBlockLayout]);
 
   const handleToggleSave = async () => {
     if (!quote) return;
@@ -901,9 +913,11 @@ function QuoteDetailContent() {
     if (itemToRemove === "addBlock") return;
 
     // 1. Update Layout
-    const newLayout = gridData.filter(x => x !== itemToRemove);
-    setGridData(newLayout);
-    if (quote?.id) updateBlockLayout(quote.id, "quote", newLayout);
+    setGridData(prev => {
+      const newLayout = prev.filter(x => x !== itemToRemove);
+      if (quote?.id) updateBlockLayout(quote.id, "quote", newLayout);
+      return newLayout;
+    });
 
     // 2. Cleanup blockData
     setQuote((current: Quote | undefined) => {
@@ -914,7 +928,37 @@ function QuoteDetailContent() {
       const updates: Partial<Quote> = { blockData: newBlockData };
       return { ...current, ...updates };
     });
-  }, [gridData, quote?.id, updateBlockLayout]);
+  }, [quote?.id, updateBlockLayout]);
+
+  const handleOrderChange = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setGridData(prev => {
+      const tabItems = prev.filter(key => isBlockInTab(key, activeTab));
+      if (fromIndex < 0 || fromIndex >= tabItems.length || toIndex < 0 || toIndex >= tabItems.length) {
+        return prev;
+      }
+
+      const newTabItems = [...tabItems];
+      const [moved] = newTabItems.splice(fromIndex, 1);
+      newTabItems.splice(toIndex, 0, moved);
+
+      const newMasterList: string[] = [];
+      let subIndex = 0;
+      for (const item of prev) {
+        if (isBlockInTab(item, activeTab)) {
+          if (subIndex < newTabItems.length) {
+            newMasterList.push(newTabItems[subIndex]);
+            subIndex++;
+          }
+        } else {
+          newMasterList.push(item);
+        }
+      }
+
+      if (quote?.id) updateBlockLayout(quote.id, "quote", newMasterList);
+      return newMasterList;
+    });
+  }, [activeTab, quote?.id, updateBlockLayout]);
 
   const renderGridItem = useCallback<SortableGridRenderItem<string>>(({ item }) => {
     if (item === "addBlock") {
@@ -1292,25 +1336,7 @@ function QuoteDetailContent() {
                   autoScrollActivationOffset={75}
                   onOrderChange={(params) => {
                     const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                    const newSubOrder = [...currentTabBlocks];
-                    const [moved] = newSubOrder.splice(fromIndex, 1);
-                    newSubOrder.splice(toIndex, 0, moved);
-
-                    const newMasterList: string[] = [];
-                    let subIndex = 0;
-                    for (const item of gridData) {
-                      if (isBlockInTab(item, activeTab)) {
-                        if (subIndex < newSubOrder.length) {
-                          newMasterList.push(newSubOrder[subIndex]);
-                          subIndex++;
-                        }
-                      } else {
-                        newMasterList.push(item);
-                      }
-                    }
-
-                    setGridData(newMasterList);
-                    if (quote?.id) updateBlockLayout(quote.id, "quote", newMasterList);
+                    handleOrderChange(fromIndex, toIndex);
                   }}
                 />
                 <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />
@@ -1320,6 +1346,7 @@ function QuoteDetailContent() {
                   onClose={() => setWordSelectionModalVisible(false)}
                   onConfirm={handleWordsSelected}
                   quoteText={quote.text}
+                  initialSelectedWords={currentTerms}
                 />
 
                 <ResourceSearchModal

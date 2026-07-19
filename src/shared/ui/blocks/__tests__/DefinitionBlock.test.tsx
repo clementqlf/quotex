@@ -113,4 +113,49 @@ describe('DefinitionBlock Component', () => {
     );
     expect(queryByText('Modifier la sélection')).toBeNull();
   });
+
+  it('affiche seulement les 3 premières définitions si plus de 3 et un bouton "Afficher plus" pour tout voir', () => {
+    const manyDefinitions = [
+      { term: 'Test', genre: 'n.', definition: 'Def 1', example: 'Ex 1' },
+      { term: 'Test', genre: 'n.', definition: 'Def 2', example: 'Ex 2' },
+      { term: 'Test', genre: 'n.', definition: 'Def 3', example: 'Ex 3' },
+      { term: 'Test', genre: 'n.', definition: 'Def 4', example: 'Ex 4' },
+      { term: 'Test', genre: 'n.', definition: 'Def 5', example: 'Ex 5' },
+    ];
+
+    const { getByText, queryByText } = render(
+      <DefinitionBlock definitions={manyDefinitions} />
+    );
+
+    // Should render the first 3
+    expect(getByText(/Def 1/)).toBeTruthy();
+    expect(getByText(/Def 2/)).toBeTruthy();
+    expect(getByText(/Def 3/)).toBeTruthy();
+
+    // Should NOT render Def 4 and Def 5 initially
+    expect(queryByText(/Def 4/)).toBeNull();
+    expect(queryByText(/Def 5/)).toBeNull();
+
+    // Should display the "Afficher plus" button
+    const expandBtn = getByText('Afficher plus (2 de plus)');
+    expect(expandBtn).toBeTruthy();
+
+    // Click to expand
+    fireEvent.press(expandBtn);
+
+    // Should now render all definitions
+    expect(getByText(/Def 4/)).toBeTruthy();
+    expect(getByText(/Def 5/)).toBeTruthy();
+
+    // Button text should change to "Afficher moins"
+    const collapseBtn = getByText('Afficher moins');
+    expect(collapseBtn).toBeTruthy();
+
+    // Click to collapse
+    fireEvent.press(collapseBtn);
+
+    // Should hide them again
+    expect(queryByText(/Def 4/)).toBeNull();
+    expect(queryByText(/Def 5/)).toBeNull();
+  });
 });

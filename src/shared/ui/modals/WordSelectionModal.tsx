@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { Check, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface WordSelectionModalProps {
@@ -9,35 +9,43 @@ export interface WordSelectionModalProps {
     onClose: () => void;
     onConfirm: (selectedWords: string[]) => void;
     quoteText: string;
+    initialSelectedWords?: string[];
 }
 
-export default function WordSelectionModal({ visible, onClose, onConfirm, quoteText }: WordSelectionModalProps) {
+export default function WordSelectionModal({ visible, onClose, onConfirm, quoteText, initialSelectedWords }: WordSelectionModalProps) {
     const { colors } = useTheme();
     const styles = createStyles(colors);
     const [words, setWords] = useState<{ id: number; text: string; selected: boolean }[]>([]);
 
-    const [prevQuoteText, setPrevQuoteText] = useState('');
-
-    if (quoteText !== prevQuoteText) {
-        setPrevQuoteText(quoteText);
-        if (quoteText) {
-            const wordArray = quoteText.split(/\s+/).map((word, index) => ({
-                id: index,
-                text: word,
-                selected: false,
-            }));
+    useEffect(() => {
+        if (visible && quoteText) {
+            const initialTerms = initialSelectedWords || [];
+            const wordArray = quoteText.split(/\s+/).map((word, index) => {
+                const cleanWord = word.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").toLowerCase();
+                const isSelected = initialTerms.includes(cleanWord);
+                return {
+                    id: index,
+                    text: word,
+                    selected: isSelected,
+                };
+            });
             setWords(wordArray);
-        } else {
-            setWords([]);
         }
-    }
+    }, [visible, quoteText, initialSelectedWords]);
 
     const toggleWord = (id: number) => {
-        setWords(currentWords =>
-            currentWords.map(w =>
-                w.id === id ? { ...w, selected: !w.selected } : w
-            )
-        );
+        setWords(currentWords => {
+            const clickedWord = currentWords.find(w => w.id === id);
+            if (!clickedWord) return currentWords;
+
+            const cleanWord = (text: string) => text.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").toLowerCase();
+            const targetText = cleanWord(clickedWord.text);
+            const nextSelectedState = !clickedWord.selected;
+
+            return currentWords.map(w =>
+                cleanWord(w.text) === targetText ? { ...w, selected: nextSelectedState } : w
+            );
+        });
     };
 
     const handleConfirm = () => {
