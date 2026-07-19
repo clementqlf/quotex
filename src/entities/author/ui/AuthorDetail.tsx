@@ -85,7 +85,7 @@ export default function AuthorDetailScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { navigateToBook, navigateToAuthor, navigateToAuthorWorks } = useSmartNavigation();
-  const params = useLocalSearchParams<{ author?: string; authorName?: string; inventaireUri?: string }>();
+  const params = useLocalSearchParams<{ author?: string; authorName?: string; authorId?: string; inventaireUri?: string }>();
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
   const nameToUse = author?.name || paramAuthorName;
@@ -95,7 +95,7 @@ export default function AuthorDetailScreen() {
   const { books: allBooks, getBooksByAuthor, getExternalBooksByAuthor, resolveGoogleBook, toggleSaveAuthor, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
   
   // Use TanStack Query for author data
-  const authorId = author?.id;
+  const authorId = author?.id || (params.authorId ? Number(params.authorId) : undefined);
   const authorNameForQuery = nameToUse;
   
   const { data: authorInfo, isLoading: isLoadingAuthorInfo, refetch: refetchAuthor } = useQuery({

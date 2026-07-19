@@ -205,10 +205,38 @@ async function performQuoteAnalysis(quoteId: number) {
     // Enregistrer le statut de validité dans blockData
     blockDataObj.isValid = result.isValid;
 
-    const recommendedBooks = result.isValid ? (result.recommendedBooks || []) : [];
-    console.log(`[Quotes Analysis] AI validation status: ${result.isValid}. Recommended books count: ${recommendedBooks.length}`);
-    const resolvedRecBooks = [];
+    let recommendedBooks = result.isValid ? (result.recommendedBooks || []) : [];
     const enrichmentTasks: Array<{ type: 'book' | 'author'; id: number; skipDiscovery?: boolean }> = [];
+    const authorNameToIdMap: Record<string, number> = {};
+    const resolvedRecBooks = [];
+
+    // Parse inline citations and merge them into the processing lists if valid
+    if (result.isValid && result.interpretation) {
+      // 1. Extract cited books: [[Livre:Titre|Auteur:Auteur]]
+      const bookRegex = /\[\[Livre:([^|\]]+)\|Auteur:([^\]]+)\]\]/gi;
+      let match;
+      const extractedBooks: Array<{ title: string; author: string }> = [];
+      while ((match = bookRegex.exec(result.interpretation)) !== null) {
+        extractedBooks.push({ title: match[1].trim(), author: match[2].trim() });
+      }
+
+      // Merge extracted books into recommendedBooks (avoiding duplicates)
+      for (const extBook of extractedBooks) {
+        const normTitle = normalizeTitle(extBook.title);
+        const exists = recommendedBooks.some((b: any) => b.title && normalizeTitle(b.title) === normTitle);
+        if (!exists) {
+          // Prepend cited books so they are processed and enriched
+          recommendedBooks.unshift(extBook);
+        }
+      }
+
+      // Limit recommendedBooks to a maximum of 7 to avoid UI layout overflow
+      if (recommendedBooks.length > 7) {
+        recommendedBooks = recommendedBooks.slice(0, 7);
+      }
+    }
+
+    console.log(`[Quotes Analysis] AI validation status: ${result.isValid}. Processed books count: ${recommendedBooks.length}`);
 
     for (const recBook of recommendedBooks) {
       if (!recBook.title) {
@@ -238,6 +266,9 @@ async function performQuoteAnalysis(quoteId: number) {
           }
         }
         const authorIdVal = authorRecord ? authorRecord.id : null;
+        if (authorRecord) {
+          authorNameToIdMap[recAuthor.toLowerCase()] = authorRecord.id;
+        }
 
         // Step 2: Try to find a local book match using normalized title comparison
         let bookRecord = null;
@@ -305,10 +336,70 @@ async function performQuoteAnalysis(quoteId: number) {
 
     blockDataObj.recommendedBooks = resolvedRecBooks;
 
+    // Process standalone cited authors (that were not already resolved in the recommendedBooks loop)
+    if (result.isValid && result.interpretation) {
+      const authorRegex = /\[\[Auteur:([^|\]]+)\]\]/gi;
+      let match;
+      while ((match = authorRegex.exec(result.interpretation)) !== null) {
+        const citedAuthor = match[1].trim();
+        const key = citedAuthor.toLowerCase();
+        // If this author was not resolved during the recommendedBooks loop, resolve/create them now
+        if (!authorNameToIdMap[key]) {
+          try {
+            console.log(`[Quotes Analysis] Processing standalone cited author: "${citedAuthor}"`);
+            let authorRecord = await sql`SELECT * FROM "Author" WHERE name = ${citedAuthor} LIMIT 1`;
+            if (!authorRecord.length) {
+              const created = await sql`
+                INSERT INTO "Author" (name, "isEnriching") VALUES (${citedAuthor}, true) RETURNING *
+              `;
+              authorRecord = created;
+            }
+            authorNameToIdMap[key] = authorRecord[0].id;
+            if (authorRecord[0] && (!authorRecord[0].description || !authorRecord[0].inventaireUri)) {
+              enrichmentTasks.push({ type: 'author', id: authorRecord[0].id, skipDiscovery: true });
+            }
+          } catch (authorErr) {
+            console.error(`[Quotes] Failed to process standalone cited author "${citedAuthor}":`, authorErr);
+          }
+        }
+      }
+    }
+
+    // Inject database IDs into prompt citation markup
+    let finalInterpretation = result.interpretation || "";
+    if (result.isValid && finalInterpretation) {
+      // 1. Match and rewrite books: [[Livre:Titre du Livre|Auteur:Nom]] -> [[Livre:Titre du Livre|Id:bookId]]
+      finalInterpretation = finalInterpretation.replace(/\[\[Livre:([^|\]]+)\|Auteur:([^\]]+)\]\]/gi, (_fullMatch, bookTitle, _authorName) => {
+        const trimmedTitle = bookTitle.trim();
+        const normTitle = normalizeTitle(trimmedTitle);
+        const foundBook = resolvedRecBooks.find(b => normalizeTitle(b.title) === normTitle);
+        if (foundBook) {
+          return `[[Livre:${foundBook.title}|Id:${foundBook.id}]]`;
+        }
+        return trimmedTitle; // strip brackets if not found
+      });
+
+      // 2. Match and rewrite authors: [[Auteur:Nom de l'Auteur]] -> [[Auteur:Nom de l'Auteur|Id:authorId]]
+      finalInterpretation = finalInterpretation.replace(/\[\[Auteur:([^\]|]+)\]\]/gi, (_fullMatch, authorName) => {
+        const trimmedName = authorName.trim();
+        const key = trimmedName.toLowerCase();
+        const authorId = authorNameToIdMap[key];
+        if (authorId) {
+          return `[[Auteur:${trimmedName}|Id:${authorId}]]`;
+        }
+        // Fallback: fuzzy match on name keys
+        const fuzzyKey = Object.keys(authorNameToIdMap).find(k => k.includes(key) || key.includes(k));
+        if (fuzzyKey) {
+          return `[[Auteur:${trimmedName}|Id:${authorNameToIdMap[fuzzyKey]}]]`;
+        }
+        return trimmedName; // strip brackets if not found
+      });
+    }
+
     await sql`
       UPDATE "Quote"
       SET 
-        "aiInterpretation" = ${result.interpretation},
+        "aiInterpretation" = ${finalInterpretation},
         "theme" = COALESCE("theme", ${result.theme}),
         "blockData" = ${JSON.stringify(blockDataObj)}
       WHERE id = ${quoteId}

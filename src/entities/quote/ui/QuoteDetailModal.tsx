@@ -295,6 +295,75 @@ function QuoteDetailContent() {
     );
   }, [glow1X, glow1Y, glow1Scale, glow2X, glow2Y, glow2Scale, glow3X, glow3Y, glow3Scale, glow4X, glow4Y, glow4Scale]);
   const { navigateToBook, navigateToAuthor } = useSmartNavigation();
+  const renderInteractiveInterpretation = useCallback((text: string) => {
+    if (!text) return null;
+    console.log('[Client] renderInteractiveInterpretation text:', text);
+    
+    // Pattern to capture [[Type:Name|Id:id]] (case-insensitive and space-tolerant)
+    const regex = /\[\[(Livre|Auteur):\s*([^|\]]+?)\s*\|\s*id:\s*(\d+)\s*\]\]/gi;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      const matchIndex = match.index;
+      
+      // Add preceding plain text
+      if (matchIndex > lastIndex) {
+        parts.push(text.substring(lastIndex, matchIndex));
+      }
+
+      const type = match[1];
+      const name = match[2];
+      const id = parseInt(match[3], 10);
+
+      parts.push({ type, name, id });
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    console.log('[Client] parsed parts:', JSON.stringify(parts));
+
+    return (
+      <Text style={styles.aiText}>
+        {parts.map((part, index) => {
+          if (typeof part === 'string') {
+            return part;
+          }
+
+          const isBook = part.type.toLowerCase() === 'livre';
+          
+          return (
+            <Text
+              key={index}
+              style={[
+                styles.aiText,
+                { 
+                  color: isDark ? '#FFFFFF' : '#1F2937', 
+                  fontWeight: 'bold',
+                  textDecorationLine: 'underline',
+                  textDecorationStyle: 'dotted',
+                  textDecorationColor: isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(31, 41, 55, 0.4)'
+                }
+              ]}
+              onPress={() => {
+                if (isBook) {
+                  navigateToBook(part.id);
+                } else {
+                  navigateToAuthor(part.id);
+                }
+              }}
+            >
+              {part.name}
+            </Text>
+          );
+        })}
+      </Text>
+    );
+  }, [colors.primary, isDark, styles.aiText, navigateToBook, navigateToAuthor]);
   const { quote: quoteParam, quoteId, showSavedDate } = useLocalSearchParams<{ quote?: string; quoteId?: string; showSavedDate?: string }>();
   
   // Remplacement de useData() par les hooks spécifiques
@@ -1077,7 +1146,7 @@ function QuoteDetailContent() {
                         </TouchableOpacity>
                       )}
                     </View>
-                    <Text style={styles.aiText}>{aiInterpretation}</Text>
+                    {renderInteractiveInterpretation(aiInterpretation)}
 
                     {recommendedBooks && recommendedBooks.length > 0 && (
                       <View style={styles.recContainer} onStartShouldSetResponder={() => true}>
