@@ -2,7 +2,7 @@ import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import { BookOpen, Bookmark, Calendar, CheckCircle2, Edit3, Heart, Plus, Share2, Sparkles, Trash2, User as UserIcon, X } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {

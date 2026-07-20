@@ -1,6 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -50,6 +51,13 @@ const FilterModal = React.memo(({
     setExpandedSection(null);
     onClose();
   }, [onClose]);
+
+  const handleApplyPress = useSinglePress(() => {
+    onApplyFilters();
+    setExpandedSection(null);
+  }, 500, [onApplyFilters]);
+
+  const handleResetPress = useSinglePress(onResetTempFilters, 500, [onResetTempFilters]);
 
   return (
     <Modal
@@ -130,12 +138,12 @@ const FilterModal = React.memo(({
             {tempFilters.length > 0 && (
               <TouchableOpacity
                 style={styles.resetButton}
-                onPress={onResetTempFilters}
+                onPress={handleResetPress}
               >
                 <Text style={styles.resetButtonText}>Réinitialiser</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.applyButton} onPress={() => { onApplyFilters(); setExpandedSection(null); }}>
+            <TouchableOpacity style={styles.applyButton} onPress={handleApplyPress}>
               <Text style={styles.applyButtonText}>Appliquer</Text>
             </TouchableOpacity>
           </View>

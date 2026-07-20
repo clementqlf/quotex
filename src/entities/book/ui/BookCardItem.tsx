@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useHaptics } from '@/src/shared/platform';
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
 
 interface BookCardData {
   title: string;
@@ -72,6 +73,20 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
     }
   }, [onPress, navigateToBook, book.id, book.title, book.inventaireUri]);
 
+  const handleMenuPress = useSinglePress((e: any) => {
+    e?.stopPropagation?.();
+    if (onOpenMenu) {
+      onOpenMenu(book);
+    }
+  }, 500, [onOpenMenu, book]);
+
+  const handleAddPress = useSinglePress((e: any) => {
+    e?.stopPropagation?.();
+    if (onAddPress) {
+      onAddPress();
+    }
+  }, 500, [onAddPress]);
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -128,10 +143,7 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
       {onOpenMenu && (
         <TouchableOpacity
           style={styles.menuButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            onOpenMenu(book);
-          }}
+          onPress={handleMenuPress}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessible={true}
           accessibilityLabel="Plus d'options pour ce livre"
@@ -145,12 +157,7 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
       {showAddButton && (
         <TouchableOpacity
           style={styles.addButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            if (onAddPress) {
-              onAddPress();
-            }
-          }}
+          onPress={handleAddPress}
           onLongPress={async (e) => {
             e.stopPropagation();
             try {

@@ -1,6 +1,7 @@
 import { useTabIndex } from '@/src/app/providers/TabContext';
 import { BlurView } from 'expo-blur';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
 import { Bookmark, Heart, MessageCircle, Share2, Sparkles, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -43,20 +44,26 @@ export default function SocialFeedScreen() {
 
 
   const FeedQuoteCard = ({ quote }: { quote: Quote }) => {
+    const handleUserPress = useSinglePress(() => {
+      router.push({ 
+        pathname: '/user-profile', 
+        params: { 
+          username: quote.user?.username
+        } 
+      });
+    }, 500, [quote.user?.username]);
+
+    const handleQuotePress = useSinglePress(() => {
+      router.push({ pathname: '/quote-detail', params: { quoteId: quote.id } });
+    }, 500, [quote.id]);
+
     return (
       <View style={styles.quoteCard}>
         {/* User Info - Cliquable */}
         <TouchableOpacity
           style={styles.userInfo}
           activeOpacity={0.7}
-          onPress={() => {
-            router.push({ 
-              pathname: '/user-profile', 
-              params: { 
-                username: quote.user?.username
-              } 
-            });
-          }}
+          onPress={handleUserPress}
           accessible={true}
           accessibilityLabel={`Profil de ${quote.user?.name}`}
           accessibilityRole="button"
@@ -77,7 +84,7 @@ export default function SocialFeedScreen() {
 
         {/* Quote content - clickable */}
         <Pressable
-          onPress={() => router.push({ pathname: '/quote-detail', params: { quoteId: quote.id } })}
+          onPress={handleQuotePress}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
           accessible={true}
           accessibilityLabel={`Citation de ${quote.user?.name} : ${quote.text}`}

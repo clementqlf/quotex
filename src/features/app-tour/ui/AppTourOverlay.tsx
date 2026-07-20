@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
 import Svg, { Mask, Rect } from 'react-native-svg';
 import { TOUR_STEPS, TourStep, useAppTourState } from '@/src/shared/stores/appTourStore';
 import { useTheme } from '@/src/app/providers/ThemeContext';

@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
 import React, { useMemo } from 'react';
 import {
   Pressable,
@@ -8,6 +8,8 @@ import {
   Text,
   View,
 } from 'react-native';
+
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
 
 interface ThemeCardData {
   theme: string;
@@ -24,13 +26,17 @@ const ThemeCardItem = React.memo(({ theme }: ThemeCardItemProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const handlePress = useSinglePress(() => {
+    router.navigate({ pathname: '/theme-detail', params: { themeName: theme.theme } });
+  }, 500, [router, theme.theme]);
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
         { opacity: pressed ? 0.85 : 1 }
       ]}
-      onPress={() => router.navigate({ pathname: '/theme-detail', params: { themeName: theme.theme } })}
+      onPress={handlePress}
     >
       <View style={[styles.cardContent, { alignItems: 'center' }]}>
         <View style={styles.themeIconContainer}>

@@ -7,7 +7,7 @@ import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRe
 import { useHaptics } from '@/src/shared/platform';
 import { ThemeColors } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
 import { Heart, MoreVertical, Share2 } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -20,6 +20,8 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import EnrichingSkeleton from './EnrichingSkeleton';
+
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
 
 interface QuoteCardProps {
   quote: Quote;
@@ -54,8 +56,6 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
   const isBookEnriching = isEnriching(book);
   const isAuthorEnriching = isEnriching(author);
 
-
-
   const handleShare = useCallback(async () => {
     try {
       const authorName = getAuthorName(quote.author);
@@ -66,16 +66,37 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
     }
   }, [quote.text, quote.author]);
 
+  const handleSharePress = useSinglePress(handleShare, 500, [handleShare]);
+
+  const handleLikePress = useSinglePress(() => {
+    onToggleLike(quote.id);
+  }, 500, [onToggleLike, quote.id]);
+
+  const handleMenuPress = useSinglePress((e: any) => {
+    e?.stopPropagation?.();
+    onOpenMenu(quote);
+  }, 500, [onOpenMenu, quote]);
+
+  const handleCardPress = useSinglePress(() => {
+    const activeStepName = TOUR_STEPS[currentStepIndex];
+    const params: any = { quoteId: quote.id.toString() };
+    if (showSavedDate) {
+      params.showSavedDate = 'true';
+    }
+    if (activeStepName === 'quoteCardDetail') {
+      nextStep();
+      params.fromTour = 'true';
+    }
+    router.navigate({ pathname: '/quote-detail', params });
+  }, 500, [currentStepIndex, nextStep, quote.id, router, showSavedDate]);
+
   return (
     <View style={styles.cardWrapper}>
       <View style={styles.quoteCard}>
         {/* 3-Dots Menu Button - Top Left */}
         <TouchableOpacity
           style={styles.menuButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            onOpenMenu(quote);
-          }}
+          onPress={handleMenuPress}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessible={true}
           accessibilityLabel="Plus d'options pour cette citation"
@@ -86,18 +107,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
         </TouchableOpacity>
 
         <Pressable
-          onPress={() => {
-            const activeStepName = TOUR_STEPS[currentStepIndex];
-            const params: any = { quoteId: quote.id.toString() };
-            if (showSavedDate) {
-              params.showSavedDate = 'true';
-            }
-            if (activeStepName === 'quoteCardDetail') {
-              nextStep();
-              params.fromTour = 'true';
-            }
-            router.navigate({ pathname: '/quote-detail', params });
-          }}
+          onPress={handleCardPress}
           onLongPress={async () => {
             try {
               await haptics.impactAsync('medium');
@@ -155,7 +165,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => onToggleLike(quote.id)}
+            onPress={handleLikePress}
             accessible={true}
             accessibilityLabel={`Aimer la citation. Nombre de j'aime actuel : ${quote.likesCount}`}
             accessibilityRole="button"
@@ -172,7 +182,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={handleShare}
+            onPress={handleSharePress}
             accessible={true}
             accessibilityLabel="Partager la citation"
             accessibilityRole="button"

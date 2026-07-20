@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Avatar } from '@/src/shared/ui/Avatar';
 
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
+
 interface AuthorCardData {
   name: string;
   image?: string | null;
@@ -28,13 +30,17 @@ const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { navigateToAuthor } = useSmartNavigation();
 
+  const handlePress = useSinglePress(() => {
+    navigateToAuthor(author.name, author.inventaireUri);
+  }, 500, [navigateToAuthor, author.name, author.inventaireUri]);
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.bookCard,
         { opacity: pressed ? 0.85 : 1 }
       ]}
-      onPress={() => navigateToAuthor(author.name, author.inventaireUri)}
+      onPress={handlePress}
     >
       <View style={[styles.bookCardContent, { alignItems: 'center' }]}>
         <Avatar uri={author.image} name={author.name} size={60} style={styles.authorAvatar} />

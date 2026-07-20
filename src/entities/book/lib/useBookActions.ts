@@ -5,7 +5,7 @@ import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { Book, Quote } from '@/src/shared/api/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
 import { ActionSheetIOS, Alert, Platform, Share } from 'react-native';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { Dispatch, SetStateAction, useCallback } from 'react';

@@ -6,7 +6,7 @@ import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { ThemeColors } from '@/src/shared/theme';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
 import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
 import { OperationQueue } from '@/src/shared/lib/offline/OperationQueue';

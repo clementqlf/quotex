@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
+
 interface QuoteActionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -22,6 +24,16 @@ interface QuoteActionModalProps {
 const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete, isSavedQuote }: QuoteActionModalProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handleEditPress = useSinglePress(() => {
+    onEdit();
+    onClose();
+  }, 500, [onEdit, onClose]);
+
+  const handleDeletePress = useSinglePress(() => {
+    onDelete();
+    onClose();
+  }, 500, [onDelete, onClose]);
 
   return (
     <Modal
@@ -41,10 +53,7 @@ const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete, isSav
           {!isSavedQuote && (
             <TouchableOpacity
               style={styles.actionMenuItem}
-              onPress={() => {
-                onEdit();
-                onClose();
-              }}
+              onPress={handleEditPress}
             >
               <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
               <Text style={styles.actionMenuText}>Modifier</Text>
@@ -52,10 +61,7 @@ const QuoteActionModal = React.memo(({ visible, onClose, onEdit, onDelete, isSav
           )}
           <TouchableOpacity
             style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
-            onPress={() => {
-              onDelete();
-              onClose();
-            }}
+            onPress={handleDeletePress}
           >
             {isSavedQuote ? (
               <>

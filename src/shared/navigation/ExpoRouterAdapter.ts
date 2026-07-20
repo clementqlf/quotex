@@ -1,9 +1,11 @@
 import { usePathname, useRouter } from 'expo-router';
+import { navigateOnce } from '@/src/shared/lib/pressUtils';
 import { INavigationService, NavigateOptions, RouteParams } from './types';
 
 /**
  * Adaptateur Expo Router pour INavigationService
  * Implémente l'interface de navigation abstraite avec Expo Router
+ * Utilise navigateOnce() pour empêcher les doubles navigations globalement.
  */
 export class ExpoRouterAdapter implements INavigationService {
   private router: any;
@@ -15,26 +17,28 @@ export class ExpoRouterAdapter implements INavigationService {
   }
 
   navigate(to: string | NavigateOptions): void {
-    if (typeof to === 'string') {
-      this.router.navigate(to);
-    } else {
-      this.router.navigate({
-        pathname: to.screen,
-        params: to.params
-      });
-    }
+    navigateOnce(() => {
+      if (typeof to === 'string') {
+        this.router.navigate(to);
+      } else {
+        this.router.navigate({
+          pathname: to.screen,
+          params: to.params
+        });
+      }
+    });
   }
 
   push(screen: string, params?: Record<string, any>): void {
-    this.router.push({ pathname: screen, params });
+    navigateOnce(() => this.router.push({ pathname: screen, params }));
   }
 
   replace(screen: string, params?: Record<string, any>): void {
-    this.router.replace({ pathname: screen, params });
+    navigateOnce(() => this.router.replace({ pathname: screen, params }));
   }
 
   goBack(): void {
-    this.router.back();
+    navigateOnce(() => this.router.back());
   }
 
   canGoBack(): boolean {
@@ -42,7 +46,7 @@ export class ExpoRouterAdapter implements INavigationService {
   }
 
   navigateTo<T extends RouteParams>(screen: string, params: T): void {
-    this.router.push({ pathname: screen, params });
+    navigateOnce(() => this.router.push({ pathname: screen, params }));
   }
 }
 

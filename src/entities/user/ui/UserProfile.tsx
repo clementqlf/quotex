@@ -14,7 +14,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
+import { preventDoublePress } from '@/src/shared/lib/pressUtils';
 import { Camera, ChevronLeft, Library, MoreHorizontal, Quote, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -761,7 +762,7 @@ export default function UserProfileScreen() {
                           <TouchableOpacity
                             key={book.id}
                             style={styles.bookItem}
-                            onPress={() => router.push({ pathname: '/book-detail', params: { bookId: book.id.toString(), bookTitle: book.title } })}
+                            onPress={preventDoublePress(() => router.push({ pathname: '/book-detail', params: { bookId: book.id.toString(), bookTitle: book.title } }), 500)}
                           >
                             <BookCover
                               uri={book.cover}
@@ -894,14 +895,14 @@ export default function UserProfileScreen() {
                     <TouchableOpacity
                       key={user.id}
                       style={styles.userRow}
-                      onPress={() => {
+                      onPress={preventDoublePress(() => {
                         setIsFollowModalVisible(false);
                         // Redirect to profile
                         router.push({
                           pathname: '/user-profile',
                           params: { username: user.username },
                         });
-                      }}
+                      }, 500)}
                     >
                       <Avatar
                         user={user}

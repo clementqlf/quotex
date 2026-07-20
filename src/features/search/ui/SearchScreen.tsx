@@ -8,7 +8,8 @@ import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { Image } from 'expo-image';
 import { BookCover } from '@/src/shared/ui/BookCover';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
+import { preventDoublePress } from '@/src/shared/lib/pressUtils';
 import { ArrowLeft, Award, Hash, Quote as QuoteIcon, Scan, Search, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearch } from '@/src/features/search/lib/useSearch';
@@ -84,7 +85,7 @@ export default function SearchScreen() {
         return () => clearTimeout(delayDebounceFn);
     }, [query]);
 
-    const handleImportBook = (item: unknown) => {
+    const handleImportBook = preventDoublePress((item: unknown) => {
         const itemObj = item as Record<string, unknown>;
         router.push({
             pathname: '/book-detail',
@@ -95,16 +96,16 @@ export default function SearchScreen() {
                 skipCache: 'true'
             }
         });
-    };
+    }, 500);
 
-    const handleImportPrize = (item: unknown) => {
+    const handleImportPrize = preventDoublePress((item: unknown) => {
         router.push({
             pathname: '/prize-detail',
             params: {
                 prizeData: JSON.stringify(item)
             }
         });
-    };
+    }, 500);
 
     const sections = React.useMemo(() => {
         // Merging books

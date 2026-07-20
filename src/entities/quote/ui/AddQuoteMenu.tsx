@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
+
 interface AddQuoteMenuProps {
   visible: boolean;
   onClose: () => void;
@@ -23,6 +25,16 @@ interface AddQuoteMenuProps {
 const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPress, triggerY }: AddQuoteMenuProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handleScanPress = useSinglePress(() => {
+    onScanPress();
+    onClose();
+  }, 500, [onScanPress, onClose]);
+
+  const handleManualAddPress = useSinglePress(() => {
+    onManualAddPress();
+    onClose();
+  }, 500, [onManualAddPress, onClose]);
 
   const menuStyle = useMemo(() => {
     if (triggerY === undefined) {
@@ -52,10 +64,7 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
           {/* Scan Option */}
           <TouchableOpacity
             style={styles.actionMenuItem}
-            onPress={() => {
-              onScanPress();
-              onClose();
-            }}
+            onPress={handleScanPress}
             accessible={true}
             accessibilityLabel="Scanner une citation"
             accessibilityRole="button"
@@ -68,10 +77,7 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
           {/* Manual Add Option */}
           <TouchableOpacity
             style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
-            onPress={() => {
-              onManualAddPress();
-              onClose();
-            }}
+            onPress={handleManualAddPress}
             accessible={true}
             accessibilityLabel="Ajouter manuellement une citation"
             accessibilityRole="button"

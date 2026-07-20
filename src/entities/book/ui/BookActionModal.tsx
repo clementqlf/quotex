@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native';
 
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
+
 interface BookActionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -21,6 +23,16 @@ interface BookActionModalProps {
 const BookActionModal = React.memo(({ visible, onClose, onChangeStatus, onDelete }: BookActionModalProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handleChangeStatusPress = useSinglePress(() => {
+    onChangeStatus();
+    onClose();
+  }, 500, [onChangeStatus, onClose]);
+
+  const handleDeletePress = useSinglePress(() => {
+    onDelete();
+    onClose();
+  }, 500, [onDelete, onClose]);
 
   return (
     <Modal
@@ -39,20 +51,14 @@ const BookActionModal = React.memo(({ visible, onClose, onChangeStatus, onDelete
           </View>
           <TouchableOpacity
             style={styles.actionMenuItem}
-            onPress={() => {
-              onChangeStatus();
-              onClose();
-            }}
+            onPress={handleChangeStatusPress}
           >
             <Tag size={20} color={colors.text} style={{ marginRight: 12 }} />
             <Text style={styles.actionMenuText}>Modifier le statut</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
-            onPress={() => {
-              onDelete();
-              onClose();
-            }}
+            onPress={handleDeletePress}
           >
             <Trash2 size={20} color={colors.warning} style={{ marginRight: 12 }} />
             <Text style={[styles.actionMenuText, { color: colors.warning }]}>Supprimer</Text>

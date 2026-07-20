@@ -1,6 +1,7 @@
 import { useAppTour } from '@/src/features/app-tour';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
-import { useRouter, usePathname } from 'expo-router';
+import { useSinglePress } from '@/src/shared/lib/pressUtils';
+import { usePathname } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import {
@@ -124,6 +125,16 @@ export default function ScanScreen() {
     setTabIndex(0);
     setPage?.(0);
   }, [setPage, setTabIndex]);
+
+  const handleSettingsPress = useSinglePress(() => router.navigate('/settings'), 500, [router]);
+
+  const handleProfilePress = useSinglePress(() => {
+    if (currentUser?.username) {
+      router.navigate({ pathname: '/user-profile', params: { username: currentUser.username } });
+    } else {
+      router.navigate('/user-profile');
+    }
+  }, 500, [router, currentUser?.username]);
 
   // ========== SCAN CONTROLLER ==========
   // Gère toute la logique de scan via un hook centralisé
@@ -268,7 +279,7 @@ export default function ScanScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.headerButtonLeft}
-            onPress={() => router.push('/settings')}
+            onPress={handleSettingsPress}
             accessible={true}
             accessibilityLabel="Paramètres"
             accessibilityRole="button"
@@ -299,16 +310,7 @@ export default function ScanScreen() {
 
           <TouchableOpacity
             style={styles.headerButtonRight}
-            onPress={() => {
-              if (currentUser?.username) {
-                router.push({
-                  pathname: '/user-profile',
-                  params: { username: currentUser.username }
-                });
-              } else {
-                router.push('/user-profile');
-              }
-            }}
+            onPress={handleProfilePress}
             accessible={true}
             accessibilityLabel="Profil utilisateur"
             accessibilityRole="button"

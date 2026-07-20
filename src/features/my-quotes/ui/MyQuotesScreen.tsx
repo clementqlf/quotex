@@ -2,7 +2,7 @@ import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
-import { useRouter } from 'expo-router';
+import { useRouter } from '@/src/shared/navigation/useRouter';
 import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
