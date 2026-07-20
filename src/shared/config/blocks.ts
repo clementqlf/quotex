@@ -113,3 +113,14 @@ export const QUOTE_DETAIL_BLOCK_OPTIONS: BlockKey[] = [
     'similarBooks',
     'similarAuthors'
 ];
+
+/**
+ * Transforms an array of BlockKeys into an array of BlockOptions with key and human-readable label.
+ */
+export function getBlockOptions(keys: BlockKey[]): { key: BlockKey; label: string }[] {
+    return keys.map(key => ({
+        key,
+        label: BLOCK_CONFIGS[key]?.label || key,
+    }));
+}
+

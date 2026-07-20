@@ -481,7 +481,7 @@ export default function AuthorDetailScreen() {
 
   if (isLoadingAuthor) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity
@@ -515,7 +515,7 @@ export default function AuthorDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity

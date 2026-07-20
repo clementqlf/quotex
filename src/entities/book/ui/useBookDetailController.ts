@@ -5,6 +5,7 @@ import { useBookActions } from '@/src/entities/book/lib/useBookActions';
 import { useBookData } from '@/src/entities/book/lib/useBookData';
 import { useBookLayout } from '@/src/entities/book/lib/useBookLayout';
 import type { BlockData } from '@/src/shared/api/BlockService';
+import { BlockKey, getBlockOptions } from '@/src/shared/config/blocks';
 import { similarBooks as staticSimilarBooksMap } from '@/src/shared/api/staticData';
 import type { Book } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, isUserQuote } from '@/src/shared/lib/dataHelpers';
@@ -16,12 +17,12 @@ import Animated, { useAnimatedRef } from 'react-native-reanimated';
 
 type TabType = 'description' | 'my_sheet';
 
-const DESCRIPTION_BLOCKS = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'similarBooks', 'buy'];
-const MYSHEET_BLOCKS = ['notes', 'dictionary', 'connection'];
+const DESCRIPTION_BLOCKS: BlockKey[] = ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'similarBooks', 'buy'];
+const MYSHEET_BLOCKS: BlockKey[] = ['notes', 'dictionary', 'connection'];
 
 const isBlockInTab = (blockKey: string, tab: TabType) => {
   if (blockKey === 'addBlock') return false;
-  const base = blockKey.split('#')[0];
+  const base = blockKey.split('#')[0] as BlockKey;
   if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
   if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
   return false;
@@ -270,10 +271,12 @@ export const useBookDetailController = () => {
   // ========== TAB FILTERING ==========
   const currentTabBlocks = useMemo(() => (gridData || []).filter(key => isBlockInTab(key, activeTab)), [gridData, activeTab]);
   const filteredBlockOptions = useMemo(() => (
-    activeTab === 'description'
-      ? ['bookDescription', 'editions', 'author', 'savedQuotes', 'reviews', 'similarBooks', 'buy']
-      : ['notes', 'dictionary', 'connection']
-  ).map(key => ({ key, label: key })), [activeTab]);
+    getBlockOptions(
+      activeTab === 'description'
+        ? (DESCRIPTION_BLOCKS as BlockKey[])
+        : (MYSHEET_BLOCKS as BlockKey[])
+    )
+  ), [activeTab]);
 
   // ========== RETURN ==========
   return {

@@ -490,7 +490,7 @@ export default function UserProfileScreen() {
 
   if (!profileData && isProfileLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -512,7 +512,7 @@ export default function UserProfileScreen() {
 
   if (!profileData) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
@@ -535,7 +535,7 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

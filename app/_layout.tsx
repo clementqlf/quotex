@@ -19,6 +19,7 @@ import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 import MaskedView from '@react-native-masked-view/masked-view';
 import * as SystemUI from 'expo-system-ui';
+import { AppTourOverlay } from '@/src/features/app-tour/ui/AppTourOverlay';
 
 
 // Keep the splash screen visible while we fetch resources
@@ -164,6 +165,7 @@ function RootLayoutNav() {
               <Stack.Screen name="(auth)" />
             </Stack>
             <StatusBar style={isDark ? 'light' : 'dark'} />
+            <AppTourOverlay />
           </NavThemeProvider>
         </AuthGuard>
       </MaskedView>

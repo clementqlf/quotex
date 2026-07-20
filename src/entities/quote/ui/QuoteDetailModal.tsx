@@ -8,6 +8,7 @@ import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Keyboard,
   Modal,
   RefreshControl,
@@ -51,15 +52,15 @@ import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { BlockService } from '@/src/shared/api/BlockService';
 import { Quote } from '@/src/shared/api/types';
-import { BLOCK_CONFIGS, QUOTE_DETAIL_BLOCK_OPTIONS } from '@/src/shared/config/blocks';
+import { BlockKey, getBlockOptions } from '@/src/shared/config/blocks';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
-import { registerModalScrollHandler, registerModalScrollRef, unregisterModalScrollHandler } from '@/src/shared/lib/modalScrollSync';
 import { ThemeColors } from '@/src/shared/theme';
 import { BlockContext, BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import AIChatModal from './AIChatModal';
 import type { Definition } from '@/src/shared/ui/blocks/DefinitionBlock';
+import { AppTourOverlay } from '@/src/features/app-tour/ui/AppTourOverlay';
 
 const STANDARD_THEMES = [
   "Philosophie & Sagesse",
@@ -156,14 +157,14 @@ const RecBookSkeleton = ({ colors, styles }: { colors: ThemeColors; styles: any 
   );
 };
 
-const DESCRIPTION_BLOCKS = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
-const MYSHEET_BLOCKS = ['connection', 'definition', 'notes'];
+const DESCRIPTION_BLOCKS: BlockKey[] = ['bookInfo', 'author', 'similarBooks', 'similarAuthors'];
+const MYSHEET_BLOCKS: BlockKey[] = ['connection', 'definition', 'notes'];
 
 type TabType = 'description' | 'my_sheet';
 
 const isBlockInTab = (blockKey: string, tab: TabType) => {
   if (blockKey === "addBlock") return true;
-  const base = blockKey.split('#')[0];
+  const base = blockKey.split('#')[0] as BlockKey;
   if (tab === 'description') return DESCRIPTION_BLOCKS.includes(base);
   if (tab === 'my_sheet') return MYSHEET_BLOCKS.includes(base);
   return false;
@@ -174,10 +175,11 @@ function QuoteDetailContent() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const router = useRouter();
-  const { isActive, currentStepIndex, nextStep } = useAppTourState();
+  const { isActive, currentStepIndex } = useAppTourState();
 
   const activeStepName = TOUR_STEPS[currentStepIndex];
-  const isScrollDisabled = isActive && (activeStepName === 'quoteDetailIA' || activeStepName === 'quoteDetailClose');
+  const [isAutoScrolling, setIsAutoScrolling] = React.useState(false);
+  const isScrollDisabled = (isActive && (activeStepName === 'quoteDetailIA' || activeStepName === 'quoteDetailClose')) && !isAutoScrolling;
 
 
   // Apple Intelligence glowing effect shared values
@@ -690,16 +692,11 @@ function QuoteDetailContent() {
   // Tab Logic
   const [activeTab, setActiveTab] = React.useState<TabType>('description');
 
-  const blockOptions = QUOTE_DETAIL_BLOCK_OPTIONS.map(key => ({
-    key,
-    label: BLOCK_CONFIGS[key].label
-  }));
-
   const currentTabBlocks = (gridData || []).filter(key => isBlockInTab(key, activeTab));
 
-  const filteredBlockOptions = activeTab === 'description'
-    ? blockOptions.filter(opt => DESCRIPTION_BLOCKS.includes(opt.key))
-    : blockOptions.filter(opt => MYSHEET_BLOCKS.includes(opt.key));
+  const filteredBlockOptions = getBlockOptions(
+    activeTab === 'description' ? DESCRIPTION_BLOCKS : MYSHEET_BLOCKS
+  );
 
   React.useEffect(() => {
     if (quote?.id) {
@@ -755,12 +752,29 @@ function QuoteDetailContent() {
   }, []);
 
   const onClose = () => {
+    const { isActive, currentStepIndex, nextStep } = useAppTourState.getState();
     const activeStepName = TOUR_STEPS[currentStepIndex];
-    if (activeStepName === 'quoteDetailClose') {
+    if (isActive && activeStepName === 'quoteDetailIA') {
+      // Étape 5 : l'utilisateur ne peut pas fermer la modale
+      return;
+    }
+    if (isActive && activeStepName === 'quoteDetailClose') {
       nextStep();
     }
     router.back();
   };
+
+  React.useEffect(() => {
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      const { isActive, currentStepIndex } = useAppTourState.getState();
+      const activeStepName = TOUR_STEPS[currentStepIndex];
+      if (isActive && (activeStepName === 'quoteDetailIA' || activeStepName === 'quoteDetailClose')) {
+        return true; // Empêche la fermeture via le bouton physique retour
+      }
+      return false;
+    });
+    return () => backSubscription.remove();
+  }, []);
 
   const { isNotesFocused, setIsNotesFocused, notesEditorRef, keyboardHeight } = useKeyboardToolbar();
 
@@ -824,13 +838,22 @@ function QuoteDetailContent() {
 
   // Enregistre le handler de scroll ET la ref Reanimated pour que le tooltip
   // puisse scroller via le UI thread (scrollTo Reanimated) avant goToNext
+  // Auto-scroll pour centrer le bloc IA au milieu de l'ecran lors de l'etape 5
   React.useEffect(() => {
-    registerModalScrollHandler((y, animated = true) => {
-      scrollableRef.current?.scrollTo({ y, animated });
-    });
-    registerModalScrollRef(scrollableRef as any);
-    return () => unregisterModalScrollHandler();
-  }, [scrollableRef]);
+    if (quote && isActive && activeStepName === 'quoteDetailIA') {
+      const timer = setTimeout(() => {
+        setIsAutoScrolling(true);
+        scrollableRef.current?.scrollTo({ y: 220, animated: true });
+        setTimeout(() => setIsAutoScrolling(false), 600);
+      }, 250);
+      return () => clearTimeout(timer);
+    } else if (isActive && activeStepName === 'quoteDetailClose') {
+      const timer = setTimeout(() => {
+        scrollableRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [quote, isActive, activeStepName, scrollableRef]);
 
 
 
@@ -994,7 +1017,7 @@ function QuoteDetailContent() {
   if (!quote) return null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header} onTouchStart={Keyboard.dismiss}>
@@ -1502,6 +1525,7 @@ function QuoteDetailContent() {
           </TouchableOpacity>
         </Modal>
 
+        <AppTourOverlay isInsideModalContainer={true} />
       </View>
     </SafeAreaView>
   );

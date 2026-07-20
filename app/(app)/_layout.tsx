@@ -38,7 +38,8 @@ export default function AppLayout() {
         name="quote-detail"
         options={{
           presentation: 'modal',
-          animation: 'slide_from_right',
+          animation: 'slide_from_bottom',
+          gestureEnabled: true,
         }}
       />
       <Stack.Screen

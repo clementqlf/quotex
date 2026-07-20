@@ -26,7 +26,7 @@ export default function ThemeDetailScreen() {
 
   if (!themeName) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <Text style={styles.errorText}>Thème non trouvé.</Text>
         </View>
@@ -52,7 +52,7 @@ export default function ThemeDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

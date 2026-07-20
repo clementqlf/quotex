@@ -135,14 +135,13 @@ const EditionsBlockUI: React.FC<EditionsBlockProps> = ({ book, onRemove }) => {
                             onPress={() => handleOpenInventaire(edition.inventaireUri)}
                             activeOpacity={0.8}
                         >
-                                 <BookCover
-                                     uri={edition.cover}
-                                     width={118}
-                                     height={177}
-                                     borderRadius={0}
-                                     fallbackIcon="bookCopy"
-                                     style={styles.cover}
-                                 />
+                            <BookCover
+                                uri={edition.cover}
+                                width={118}
+                                height={177}
+                                borderRadius={0}
+                                fallbackIcon="bookCopy"
+                            />
 
                             {/* Info */}
                             <View style={styles.editionInfo}>
@@ -213,19 +212,6 @@ const createStyles = (colors: ThemeColors) =>
             borderWidth: 1,
             borderColor: colors.border,
             overflow: 'hidden',
-        },
-        coverContainer: {
-            width: '100%',
-            aspectRatio: 2 / 3,
-        },
-        cover: {
-            width: '100%',
-            height: '100%',
-        },
-        coverPlaceholder: {
-            backgroundColor: colors.surfaceHighlight,
-            justifyContent: 'center',
-            alignItems: 'center',
         },
         editionInfo: {
             padding: 8,

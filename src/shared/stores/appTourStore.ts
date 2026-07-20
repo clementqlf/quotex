@@ -15,10 +15,19 @@ export const TOUR_STEPS = [
 
 export type TourStep = typeof TOUR_STEPS[number];
 
+export interface TargetRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface AppTourState {
   isActive: boolean;
   currentStepIndex: number;
   userId: string | null;
+  targetRect: TargetRect | null;
+  setTargetRect: (rect: TargetRect | null) => void;
   setUserId: (userId: string | null) => void;
   startTour: (stepName?: TourStep) => void;
   stopTour: () => Promise<void>;
@@ -32,7 +41,9 @@ export const useAppTourState = create<AppTourState>((set, get) => ({
   isActive: false,
   currentStepIndex: 0,
   userId: null,
+  targetRect: null,
 
+  setTargetRect: (targetRect: TargetRect | null) => set({ targetRect }),
   setUserId: (userId: string | null) => set({ userId }),
 
   startTour: (stepName?: TourStep) => {
@@ -41,12 +52,12 @@ export const useAppTourState = create<AppTourState>((set, get) => ({
       startIndex = TOUR_STEPS.indexOf(stepName);
       if (startIndex === -1) startIndex = 0;
     }
-    set({ isActive: true, currentStepIndex: startIndex });
+    set({ isActive: true, currentStepIndex: startIndex, targetRect: null });
   },
 
   stopTour: async () => {
     const { userId } = get();
-    set({ isActive: false });
+    set({ isActive: false, targetRect: null });
     const key = userId ? `has_seen_tour_${userId}` : 'has_seen_tour';
     await AsyncStorage.setItem(key, 'true');
     await AsyncStorage.removeItem('resume_tour_step');
@@ -55,7 +66,7 @@ export const useAppTourState = create<AppTourState>((set, get) => ({
   nextStep: () => {
     const { currentStepIndex } = get();
     if (currentStepIndex < TOUR_STEPS.length - 1) {
-      set({ currentStepIndex: currentStepIndex + 1 });
+      set({ currentStepIndex: currentStepIndex + 1, targetRect: null });
     } else {
       get().stopTour();
     }
@@ -64,20 +75,20 @@ export const useAppTourState = create<AppTourState>((set, get) => ({
   prevStep: () => {
     const { currentStepIndex } = get();
     if (currentStepIndex > 0) {
-      set({ currentStepIndex: currentStepIndex - 1 });
+      set({ currentStepIndex: currentStepIndex - 1, targetRect: null });
     }
   },
 
   setStep: (stepName: TourStep) => {
     const index = TOUR_STEPS.indexOf(stepName);
     if (index !== -1) {
-      set({ currentStepIndex: index });
+      set({ currentStepIndex: index, targetRect: null });
     }
   },
 
   resetTour: async () => {
     const { userId } = get();
-    set({ isActive: false, currentStepIndex: 0 });
+    set({ isActive: false, currentStepIndex: 0, targetRect: null });
     const key = userId ? `has_seen_tour_${userId}` : 'has_seen_tour';
     await AsyncStorage.removeItem(key);
     await AsyncStorage.removeItem('resume_tour_step');

@@ -92,7 +92,7 @@ export default function BookDetailScreen() {
 
   if (isLoadingMetadata) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -124,7 +124,7 @@ export default function BookDetailScreen() {
 
   if (!bookTitle) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <Text style={styles.errorText}>Aucun livre spécifié.</Text>
         </View>
@@ -134,7 +134,7 @@ export default function BookDetailScreen() {
 
   if (!bookInfo) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -167,7 +167,7 @@ export default function BookDetailScreen() {
   const averageRating = bookInfo.rating ? bookInfo.rating.toFixed(1) : "N/A";
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
