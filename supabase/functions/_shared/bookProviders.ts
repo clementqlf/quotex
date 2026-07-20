@@ -41,7 +41,7 @@ export const InventaireBookProvider: BookProvider = {
   async search(query: string, limit = 10): Promise<BookSearchResult[]> {
     try {
       const results = await searchInventaireWorks(query, limit);
-      return results.map(r => ({
+      const mapped: BookSearchResult[] = results.map(r => ({
         id: r.id,
         uri: r.uri,
         inventaireUri: r.uri,
@@ -54,6 +54,26 @@ export const InventaireBookProvider: BookProvider = {
         description: '',
         source: 'Inventaire'
       }));
+
+      // Fetch work details in parallel for top 3 results to enrich description and extra metadata
+      const topN = mapped.slice(0, 3);
+      const details = await Promise.allSettled(
+        topN.map(r => getInventaireWorkDetails(r.uri))
+      );
+      details.forEach((result, i) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const d = result.value;
+          if (d.description) topN[i].description = d.description;
+          if (d.image && !topN[i].cover) {
+            topN[i].cover = d.image;
+            topN[i].image = d.image;
+          }
+          if (d.pages) topN[i].pages = d.pages;
+          if (d.year) topN[i].year = d.year;
+        }
+      });
+
+      return mapped;
     } catch (e) {
       console.warn(`[Inventaire Book Provider] Search failed for "${query}":`, e);
       return [];

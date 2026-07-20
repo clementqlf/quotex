@@ -167,7 +167,7 @@ describe('QuoteUseCases', () => {
       // @ts-ignore - call private method for testing
       await useCases.executeCreateQuote(mockOp);
 
-      expect(mockRepository.createQuote).toHaveBeenCalledWith('Synced text', 'Synced Book', 'Synced Author');
+      expect(mockRepository.createQuote).toHaveBeenCalledWith('Synced text', 'Synced Book', 'Synced Author', 'op-123');
       expect(mockQueue.remapEntityId).toHaveBeenCalledWith(100, 9999, 'quote');
       expect(StorageService.setItem).toHaveBeenCalledWith(
         expect.any(String),

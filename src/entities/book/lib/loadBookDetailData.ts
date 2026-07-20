@@ -10,6 +10,8 @@ import {
 import type { BookImportPayload } from './bookImport';
 import { buildBookImportPayload } from './bookImport';
 
+import { searchServer } from '@/src/features/search/lib/useSearch';
+
 // Debug flag - set to false to disable most logs in production
 const DEBUG_BOOK_DETAIL = false;
 
@@ -58,9 +60,8 @@ type LoadBookDetailDataArgs = {
 
 const shouldRefreshFromInventaire = (book: Book | null | undefined): boolean => {
   if (!book) return false;
-  // Don't refresh if book was just imported (we already have server data)
-  if (book.id && book.inventaireUri) return false;
-  return !book.description || book.description.length < 50 || !book.pages || book.pages <= 0;
+  // Refresh if description is missing or short (< 50 chars), or pages/cover are missing
+  return !book.description || book.description.length < 50 || !book.pages || book.pages <= 0 || !book.cover;
 };
 
 const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: string): Promise<Book | null> => {
@@ -92,12 +93,26 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
       ? mainEntity.labels['fr']
       : (mainEntity.labels?.['en'] || parsedBookData?.label || parsedBookData?.title || 'Sans titre');
     
-    const description = (mainEntity.descriptions && typeof mainEntity.descriptions === 'object' && mainEntity.descriptions['fr'])
+    let description = (mainEntity.descriptions && typeof mainEntity.descriptions === 'object' && mainEntity.descriptions['fr'])
       ? mainEntity.descriptions['fr']
       : (mainEntity.descriptions?.['en'] || parsedBookData?.description || null);
-    const image = getInventaireImageUrl(mainEntity.image ?? null) || parsedBookData?.image || parsedBookData?.cover || null;
+    let image = getInventaireImageUrl(mainEntity.image ?? null) || parsedBookData?.image || parsedBookData?.cover || null;
     const yearRaw = claims['wdt:P577']?.[0];
     const year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
+
+    // If main entity is an edition with a parent work (wdt:P629), attempt to get description from parent work
+    const parentWorkUri = claims['wdt:P629']?.[0];
+    if (!description && parentWorkUri && typeof parentWorkUri === 'string') {
+      try {
+        const parentEntities = await fetchInventaireEntities([parentWorkUri]);
+        const parentWork = resolveInventaireEntity(parentEntities, parentWorkUri);
+        if (parentWork?.descriptions) {
+          description = parentWork.descriptions['fr'] || parentWork.descriptions['en'] || null;
+        }
+      } catch (e) {
+        logWarn('Failed to fetch parent work description:', e);
+      }
+    }
     
     // First try to get pages from the work entity itself
     let pages = null;
@@ -106,18 +121,22 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
       pages = parseInt(String(pagesRaw));
     }
     
-    // If no pages from work, try to get from editions (like backend does)
-    if (!pages || pages === 0) {
-      const editions = await fetchInventaireEditions(inventaireUri);
-      if (editions.length > 0) {
-        // Find edition with pages, preferring French editions
-        const frEdition = editions.find((e: any) => e.languageUri === 'wd:Q150' && e.pages && e.pages > 0);
-        const anyEditionWithPages = editions.find((e: any) => e.pages && e.pages > 0);
-        const bestEdition = frEdition || anyEditionWithPages;
-        if (bestEdition?.pages) {
-          pages = bestEdition.pages;
-          logDebug('Found pages from edition', { pages, editionLanguage: bestEdition.languageUri });
-        }
+    // Inspect editions for pages, cover, and description fallback
+    const editions = await fetchInventaireEditions(inventaireUri);
+    if (editions.length > 0) {
+      const frEdition = editions.find((e: any) => e.languageUri === 'wd:Q150' && (e.cover || e.pages || (e as any).description));
+      const anyEdition = editions.find((e: any) => e.cover || e.pages || (e as any).description) || editions[0];
+      const bestEdition = frEdition || anyEdition;
+      
+      if ((!pages || pages === 0) && bestEdition?.pages) {
+        pages = bestEdition.pages;
+        logDebug('Found pages from edition', { pages, editionLanguage: bestEdition.languageUri });
+      }
+      if (!image && bestEdition?.cover) {
+        image = bestEdition.cover;
+      }
+      if (!description && (bestEdition as any)?.description) {
+        description = (bestEdition as any).description;
       }
     }
     
@@ -236,7 +255,7 @@ export const loadBookDetailData = async ({
     inventaireUri,
   });
 
-  const hasRealInventaireUri = !!(importPayload?.inventaireUri && !importPayload.inventaireUri.startsWith('googlebooks:'));
+  let hasRealInventaireUri = !!(importPayload?.inventaireUri && !importPayload.inventaireUri.startsWith('googlebooks:'));
 
   if (!importPayload?.inventaireUri) {
     logDebug('No import payload available');
@@ -258,9 +277,9 @@ export const loadBookDetailData = async ({
   }
 
   // If we have an existing book with inventaireUri, try to get fresh data from server
-  if (book && hasRealInventaireUri && shouldRefreshFromInventaire(book)) {
+  if (book && hasRealInventaireUri && importPayload?.inventaireUri && shouldRefreshFromInventaire(book)) {
     logDebug('Refreshing existing book by inventaireUri', { bookId: book.id, inventaireUri: importPayload.inventaireUri });
-    const refreshedBook = await getBookByInventaireUri(importPayload.inventaireUri!);
+    const refreshedBook = await getBookByInventaireUri(importPayload.inventaireUri);
     if (refreshedBook) {
       book = refreshedBook;
       resolutionSource = 'inventaireUri';
@@ -269,19 +288,40 @@ export const loadBookDetailData = async ({
   }
 
   // Try direct lookup by inventaireUri
-  if ((!book || shouldRefreshFromInventaire(book)) && hasRealInventaireUri) {
+  if ((!book || shouldRefreshFromInventaire(book)) && hasRealInventaireUri && importPayload?.inventaireUri) {
     logDebug('Looking up by inventaireUri', { inventaireUri: importPayload.inventaireUri });
-    book = await getBookByInventaireUri(importPayload.inventaireUri!);
+    book = await getBookByInventaireUri(importPayload.inventaireUri);
     if (book) {
       resolutionSource = 'inventaireUri';
       logDebug('Found by inventaireUri', { id: book.id, title: book.title, pages: book.pages });
     }
   }
 
+  // If book needs enrichment or is not found, but we lack an inventaireUri, attempt to discover inventaireUri via searchServer
+  if ((!book || shouldRefreshFromInventaire(book)) && !hasRealInventaireUri && (bookTitle || book?.title)) {
+    const queryTitle = bookTitle || book!.title;
+    try {
+      logDebug('Attempting to resolve missing inventaireUri by searching title', { queryTitle });
+      const searchRes = await searchServer(queryTitle);
+      const matchedWork = searchRes.inventaireWorks?.[0] || searchRes.books?.find(b => b.inventaireUri);
+      const resolvedUri = (matchedWork as any)?.uri || (matchedWork as any)?.inventaireUri;
+      if (resolvedUri && typeof resolvedUri === 'string' && !resolvedUri.startsWith('googlebooks:')) {
+        logDebug('Resolved inventaireUri via title search', { resolvedUri });
+        inventaireUri = resolvedUri;
+        if (importPayload) {
+          importPayload.inventaireUri = resolvedUri;
+        }
+        hasRealInventaireUri = true;
+      }
+    } catch (err) {
+      logWarn('Failed to resolve inventaireUri via title search:', err);
+    }
+  }
+
   // If still no book or book needs enrichment, fetch from Inventaire
-  if ((!book || shouldRefreshFromInventaire(book)) && hasRealInventaireUri) {
+  if ((!book || shouldRefreshFromInventaire(book)) && hasRealInventaireUri && importPayload?.inventaireUri) {
     logDebug('Fetching from external Inventaire', { inventaireUri: importPayload.inventaireUri });
-    const externalBook = await fetchExternalInventaireBook(importPayload.inventaireUri!, bookData);
+    const externalBook = await fetchExternalInventaireBook(importPayload.inventaireUri, bookData);
     
     if (externalBook) {
       resolutionSource = 'externalInventaire';

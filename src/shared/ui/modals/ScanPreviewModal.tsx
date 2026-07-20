@@ -315,17 +315,52 @@ export default function ScanPreviewModal({
                     data: w
                 }));
 
-                const seenTitles = new Set<string>();
-                const combined: SuggestionItem[] = [];
+                const scoreItem = (item: SuggestionItem) =>
+                    (item.data?.image || item.data?.cover ? 4 : 0) +
+                    (item.data?.description ? 2 : 0) +
+                    (item.data?.pages ? 1 : 0);
+
+                const mergedMap = new Map<string, SuggestionItem>();
 
                 [...dbItems, ...localMatches, ...inventaireItems].forEach(item => {
-                    if (!seenTitles.has(item.title.toLowerCase())) {
-                        seenTitles.add(item.title.toLowerCase());
-                        combined.push(item);
+                    const key = item.title.trim().toLowerCase();
+                    const existing = mergedMap.get(key);
+                    if (!existing) {
+                        mergedMap.set(key, { ...item });
+                    } else {
+                        // Merge missing properties from the alternative edition/item
+                        if (!existing.author && item.author) existing.author = item.author;
+                        if (!existing.data?.description && item.data?.description) {
+                            existing.data = { ...existing.data, description: item.data.description };
+                        }
+                        if (!existing.data?.image && item.data?.image) {
+                            existing.data = { ...existing.data, image: item.data.image };
+                        }
+                        if (!existing.data?.cover && item.data?.cover) {
+                            existing.data = { ...existing.data, cover: item.data.cover };
+                        }
+                        if (!existing.data?.uri && item.data?.uri) {
+                            existing.data = { ...existing.data, uri: item.data.uri };
+                        }
+
+                        // If the new item has a higher overall metadata richness score, prefer it as the base
+                        if (scoreItem(item) > scoreItem(existing)) {
+                            mergedMap.set(key, {
+                                ...item,
+                                author: item.author || existing.author,
+                                data: {
+                                    ...item.data,
+                                    description: item.data?.description || existing.data?.description,
+                                    image: item.data?.image || existing.data?.image || item.data?.cover || existing.data?.cover,
+                                    cover: item.data?.cover || existing.data?.cover || item.data?.image || existing.data?.image,
+                                    uri: item.data?.uri || existing.data?.uri,
+                                }
+                            });
+                        }
                     }
                 });
 
-                setSearchSuggestions(combined);
+                setSearchSuggestions(Array.from(mergedMap.values()));
             } catch (error) {
                 console.error("Error searching books", error);
             } finally {

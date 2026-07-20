@@ -310,13 +310,22 @@ serve(async (req: Request) => {
           waitUntil(enrichAuthorWithInventaire(authorId, undefined, undefined, true));
         }
 
-        if (bookLookup?.wasCreated && bookId) {
-          if (inventaireMatch.workUri) {
-            console.log(`[sync-quotes] Triggering book enrichment for ${bookId}`);
-            waitUntil(enrichBookWithInventaire(bookId));
-          } else {
-            console.log(`[sync-quotes] Skipping Inventaire enrichment for book ${bookId}: no inventaireUri (source=${matchSource})`);
+        if (bookId && inventaireMatch.workUri) {
+          let shouldEnrich = bookLookup?.wasCreated;
+          if (!shouldEnrich) {
+            const bookRows = await sql`SELECT description, cover FROM "Book" WHERE id = ${bookId} LIMIT 1`;
+            const bookData = bookRows[0];
+            const isIncomplete = !bookData?.description || bookData.description.length < 30 || !bookData?.cover;
+            if (isIncomplete) {
+              shouldEnrich = true;
+            }
           }
+          if (shouldEnrich) {
+            console.log(`[sync-quotes] Triggering book enrichment for ${bookId} (wasCreated=${!!bookLookup?.wasCreated})`);
+            waitUntil(enrichBookWithInventaire(bookId));
+          }
+        } else if (bookLookup?.wasCreated && bookId && !inventaireMatch.workUri) {
+          console.log(`[sync-quotes] Skipping Inventaire enrichment for book ${bookId}: no inventaireUri (source=${matchSource})`);
         }
 
         // Record sync result with corrections
