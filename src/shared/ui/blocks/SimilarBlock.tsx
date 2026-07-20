@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { BlockWrapper } from './BlockWrapper';
 import { Avatar } from '@/src/shared/ui/Avatar';
 import { BookCover } from '@/src/shared/ui/BookCover';

@@ -7,7 +7,7 @@ import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { BookCover } from '@/src/shared/ui/BookCover';
 import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
-import { Keyboard, Platform, RefreshControl, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Keyboard, RefreshControl, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { NotesKeyboardToolbar, useKeyboardToolbar } from '@/src/shared/ui/blocks/NotesBlock';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated from 'react-native-reanimated';
@@ -68,7 +68,7 @@ export default function BookDetailScreen() {
     ...blockContext,
     notesEditorRef,
     onNotesFocusChange: setIsNotesFocused,
-  }), [blockContext]);
+  }), [blockContext, notesEditorRef, setIsNotesFocused]);
 
   const [refreshing, setRefreshing] = React.useState(false);
   const onRefresh = useCallback(async () => {

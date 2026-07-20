@@ -9,7 +9,7 @@ import { ThemeColors } from '@/src/shared/theme';
 import { Image } from 'expo-image';
 import { BookCover } from '@/src/shared/ui/BookCover';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Award, BookOpen, Hash, Quote as QuoteIcon, Scan, Search, User, X } from 'lucide-react-native';
+import { ArrowLeft, Award, Hash, Quote as QuoteIcon, Scan, Search, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearch } from '@/src/features/search/lib/useSearch';
 import {

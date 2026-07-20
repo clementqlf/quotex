@@ -2,7 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { ThemeColors } from '@/src/shared/theme';
-import { BookCopy, ExternalLink } from 'lucide-react-native';
+import { ExternalLink } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,

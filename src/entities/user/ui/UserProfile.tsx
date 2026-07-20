@@ -15,7 +15,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BookOpen, Camera, ChevronLeft, Library, MoreHorizontal, Quote, X } from 'lucide-react-native';
+import { Camera, ChevronLeft, Library, MoreHorizontal, Quote, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,

@@ -124,10 +124,13 @@ const NotesBlockUI: React.FC<NotesBlockProps> = ({
     const { colors } = useTheme();
     const styles = createStyles(colors);
 
-    const [isFocused, setIsFocused] = useState(false);
+    const [, setIsFocused] = useState(false);
     const inputRef = useRef<EnrichedTextInputInstance>(null);
     const lastSavedContentRef = useRef(content);
-    lastSavedContentRef.current = content;
+    
+    useEffect(() => {
+        lastSavedContentRef.current = content;
+    }, [content]);
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -148,7 +151,7 @@ const NotesBlockUI: React.FC<NotesBlockProps> = ({
                 notesEditorRef.current = null;
             }
         };
-    }, [notesEditorRef, inputRef.current]);
+    }, [notesEditorRef]);
 
     // Clean up timer on unmount
     useEffect(() => {
@@ -187,35 +190,6 @@ const NotesBlockUI: React.FC<NotesBlockProps> = ({
             onUpdate(html);
         }, 300);
     }, [onUpdate]);
-
-    // Toolbar handlers
-    const handleBold = useCallback(() => {
-        inputRef.current?.toggleBold();
-    }, []);
-
-    const handleItalic = useCallback(() => {
-        inputRef.current?.toggleItalic();
-    }, []);
-
-    const handleUnderline = useCallback(() => {
-        inputRef.current?.toggleUnderline();
-    }, []);
-
-    const handleH1 = useCallback(() => {
-        inputRef.current?.toggleH1();
-    }, []);
-
-    const handleH2 = useCallback(() => {
-        inputRef.current?.toggleH2();
-    }, []);
-
-    const handleBulletList = useCallback(() => {
-        inputRef.current?.toggleUnorderedList();
-    }, []);
-
-    const handleOrderedList = useCallback(() => {
-        inputRef.current?.toggleOrderedList();
-    }, []);
 
     // Custom styling for rich HTML elements inside the editor
     const htmlStyle = useMemo(() => ({

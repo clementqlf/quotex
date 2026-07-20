@@ -419,8 +419,6 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
   const quoteAuthorName = getAuthorName(quote.author);
 
   const renderCardMessage = () => {
-    const hasCover = !!book?.cover;
-
     return (
       <View key="card" style={styles.cardContainer}>
         <View style={styles.cardBubbleWrapper}>

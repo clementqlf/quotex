@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
 import { Check, X } from 'lucide-react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface WordSelectionModalProps {
@@ -16,8 +16,14 @@ export default function WordSelectionModal({ visible, onClose, onConfirm, quoteT
     const { colors } = useTheme();
     const styles = createStyles(colors);
     const [words, setWords] = useState<{ id: number; text: string; selected: boolean }[]>([]);
+    const [prevProps, setPrevProps] = useState({ visible: false, quoteText: '', initialSelectedWords });
 
-    useEffect(() => {
+    if (
+        visible !== prevProps.visible ||
+        quoteText !== prevProps.quoteText ||
+        initialSelectedWords !== prevProps.initialSelectedWords
+    ) {
+        setPrevProps({ visible, quoteText, initialSelectedWords });
         if (visible && quoteText) {
             const initialTerms = initialSelectedWords || [];
             const wordArray = quoteText.split(/\s+/).map((word, index) => {
@@ -31,7 +37,7 @@ export default function WordSelectionModal({ visible, onClose, onConfirm, quoteT
             });
             setWords(wordArray);
         }
-    }, [visible, quoteText, initialSelectedWords]);
+    }
 
     const toggleWord = (id: number) => {
         setWords(currentWords => {

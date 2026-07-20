@@ -113,7 +113,7 @@ export default function AuthorWorksScreen() {
     return parts[0].trim();
   };
 
-  const stripVolumeInfo = (title: string) => {
+  const stripVolumeInfo = useCallback((title: string) => {
     let base = getBaseTitle(title);
     
     // 1. Chercher un indicateur de volume explicite (ex: "tome i", "vol. 2")
@@ -138,17 +138,15 @@ export default function AuthorWorksScreen() {
     }
     
     return base.replace(/[:\-\/;,\s\/]+$/, '').trim();
-  };
+  }, []);
 
   const cleanTitleFromAuthor = useCallback((title: string, author: string) => {
-    if (!title || !author || author === 'Inconnu' || author === 'Auteur inconnu') return title;
-    
-    const normTitle = normalizeTitle(title);
-    const normAuthor = normalizeTitle(author);
+    if (!title || !author) return title;
+
     const lowerTitle = title.toLowerCase().trim();
     const lowerAuthor = author.toLowerCase().trim();
-    
-    // 1. Si le titre commence par l'auteur (avec ou sans préposition devant)
+    const normTitle = normalizeTitle(title);
+    const normAuthor = normalizeTitle(author);
     const prepositions = ['par', 'de', 'by', 'of'];
     let matchedPrefix = '';
     
@@ -208,7 +206,7 @@ export default function AuthorWorksScreen() {
     }
     
     return false;
-  }, []);
+  }, [stripVolumeInfo]);
 
   const openLibraryCover = (item: { cover?: string | null; isbn?: string | null; title: string }): string | undefined => {
     if (item.cover) return item.cover;
@@ -252,7 +250,7 @@ export default function AuthorWorksScreen() {
       }
     }
     return uniqueExternal;
-  }, [externalBooks, allWorks, isDuplicateTitle, cleanTitleFromAuthor]);
+  }, [externalBooks, allWorks, isDuplicateTitle, cleanTitleFromAuthor, authorName]);
 
   const combinedWorks = useMemo(() => {
     const externalList: any[] = [];
@@ -303,7 +301,7 @@ export default function AuthorWorksScreen() {
       list.push(...filteredExternalBooks.map(b => ({ ...b, isExternal: true })));
     }
     return list;
-  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, isErrorExternalBooks, externalBooks, isDuplicateTitle, cleanTitleFromAuthor]);
+  }, [allWorks, filteredExternalBooks, isLoadingExternalBooks, isErrorExternalBooks, externalBooks, isDuplicateTitle, cleanTitleFromAuthor, authorName]);
 
   const handleAddBook = async (book: any) => {
     try {
@@ -575,7 +573,7 @@ export default function AuthorWorksScreen() {
     } else {
       try {
         navigateToBook(mappedBook.id ?? item.title, mappedBook.inventaireUri, item.title);
-      } catch (err) {
+      } catch {
         isNavigatingRef.current = false;
       } finally {
         cleanup();

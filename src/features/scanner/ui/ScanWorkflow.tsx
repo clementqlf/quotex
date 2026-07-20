@@ -307,7 +307,6 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     setViewportSize,
     showPreviewModal,
     setShowPreviewModal,
-    copied,
     words,
     selectionRange,
     scannedText,
@@ -320,7 +319,6 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     endPinResponder,
     pinsGeometry,
     handleClearSelection,
-    handleCopy,
     handleSaveQuote,
     handleConfirmSave,
     handleSelectAll,
@@ -366,13 +364,11 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
     }).start();
   }, [cardHeight]);
 
-  React.useEffect(() => {
-    if (!scannedText) {
-      setIsExpanded(false);
-      isExpandedRef.current = false;
-      cardHeight.setValue(COLLAPSED_HEIGHT);
-    }
-  }, [scannedText, cardHeight]);
+  if (!scannedText && isExpanded) {
+    setIsExpanded(false);
+    isExpandedRef.current = false;
+    cardHeight.setValue(COLLAPSED_HEIGHT);
+  }
 
   const cardPanResponder = useRef(
     PanResponder.create({

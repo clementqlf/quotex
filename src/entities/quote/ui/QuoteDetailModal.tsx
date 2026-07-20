@@ -8,11 +8,8 @@ import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   Share,
@@ -177,7 +174,10 @@ function QuoteDetailContent() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   const router = useRouter();
-  const { currentStepIndex, nextStep } = useAppTourState();
+  const { isActive, currentStepIndex, nextStep } = useAppTourState();
+
+  const activeStepName = TOUR_STEPS[currentStepIndex];
+  const isScrollDisabled = isActive && (activeStepName === 'quoteDetailIA' || activeStepName === 'quoteDetailClose');
 
 
   // Apple Intelligence glowing effect shared values
@@ -383,7 +383,7 @@ function QuoteDetailContent() {
         })}
       </Text>
     );
-  }, [colors.primary, isDark, styles.aiText, navigateToBook, navigateToAuthor]);
+  }, [isDark, styles.aiText, navigateToBook, navigateToAuthor]);
   const { quote: quoteParam, quoteId, showSavedDate } = useLocalSearchParams<{ quote?: string; quoteId?: string; showSavedDate?: string }>();
   
   // Remplacement de useData() par les hooks spécifiques
@@ -793,7 +793,7 @@ function QuoteDetailContent() {
     },
     notesEditorRef,
     onNotesFocusChange: setIsNotesFocused,
-  }), [quote, resolvedFetchedBook, resolvedFetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor, notesEditorRef]);
+  }), [quote, resolvedFetchedBook, resolvedFetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor, notesEditorRef, setIsNotesFocused]);
 
   const handleToggleLike = () => {
     if (!quote) return;
@@ -840,12 +840,14 @@ function QuoteDetailContent() {
   const [currentDefinitionBlockId, setCurrentDefinitionBlockId] = React.useState<string | null>(null);
   const [showEditModal, setShowEditModal] = React.useState(false);
 
-  const currentDefinitions = currentDefinitionBlockId && quote?.blockData
-    ? (quote.blockData[currentDefinitionBlockId] as unknown as Definition[])
-    : [];
+  const currentDefinitions = useMemo(() => {
+    return currentDefinitionBlockId && quote?.blockData
+      ? (quote.blockData[currentDefinitionBlockId] as unknown as Definition[])
+      : [];
+  }, [currentDefinitionBlockId, quote?.blockData]);
 
   const currentTerms = useMemo(() => {
-    return (currentDefinitions || []).map(d => d.term.toLowerCase());
+    return currentDefinitions.map(d => d.term.toLowerCase());
   }, [currentDefinitions]);
 
   const handleWordsSelected = async (words: string[]) => {
@@ -1029,6 +1031,7 @@ function QuoteDetailContent() {
 
         <Animated.ScrollView
           ref={scrollableRef}
+          scrollEnabled={!isScrollDisabled}
           style={styles.content}
           contentContainerStyle={[
             styles.contentContainer,
@@ -1209,6 +1212,7 @@ function QuoteDetailContent() {
                         <Text style={styles.recHeaderTitle}>Lectures recommandées par {"l'IA"}</Text>
                         <ScrollView
                           horizontal
+                          scrollEnabled={!isScrollDisabled}
                           showsHorizontalScrollIndicator={false}
                           contentContainerStyle={styles.recScrollContent}
                           style={styles.recScrollView}

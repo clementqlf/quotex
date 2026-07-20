@@ -2,7 +2,7 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { Author, Book, ExternalBookResult, ReadingStatus } from '@/src/shared/api/types';
+import { Author, Book, ReadingStatus } from '@/src/shared/api/types';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
@@ -13,7 +13,7 @@ import { Avatar } from '@/src/shared/ui/Avatar';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { AlertTriangle, Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
+import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
@@ -25,7 +25,6 @@ import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import { useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
@@ -84,7 +83,7 @@ export default function AuthorDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const { navigateToBook, navigateToAuthor, navigateToAuthorWorks } = useSmartNavigation();
+  const { navigateToAuthor, navigateToAuthorWorks } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; authorId?: string; inventaireUri?: string }>();
   const author: Author | undefined = params.author ? JSON.parse(params.author as string) : undefined;
   const paramAuthorName = params.authorName;
@@ -92,7 +91,7 @@ export default function AuthorDetailScreen() {
 
   // Remplacement de useData() par les hooks spécifiques
   const { quotes } = useQuote();
-  const { books: allBooks, getBooksByAuthor, getExternalBooksByAuthor, resolveGoogleBook, toggleSaveAuthor, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
+  const { books: allBooks, getBooksByAuthor, resolveGoogleBook, toggleSaveAuthor, importBook, toggleSaveBook, updateBookStatus } = useAuthor();
   
   // Use TanStack Query for author data
   const authorId = author?.id || (params.authorId ? Number(params.authorId) : undefined);

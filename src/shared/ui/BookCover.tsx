@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import { Text, View, StyleProp, TextStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Book, BookOpen, BookCopy } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
