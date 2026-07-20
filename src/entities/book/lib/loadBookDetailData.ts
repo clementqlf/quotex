@@ -98,7 +98,7 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
       : (mainEntity.descriptions?.['en'] || parsedBookData?.description || null);
     let image = getInventaireImageUrl(mainEntity.image ?? null) || parsedBookData?.image || parsedBookData?.cover || null;
     const yearRaw = claims['wdt:P577']?.[0];
-    const year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
+    let year = yearRaw ? parseInt(String(yearRaw).substring(0, 4)) : (parsedBookData?.year ?? null);
 
     // If main entity is an edition with a parent work (wdt:P629), attempt to get description from parent work
     const parentWorkUri = claims['wdt:P629']?.[0];
@@ -124,6 +124,13 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
     // Inspect editions for pages, cover, and description fallback
     const editions = await fetchInventaireEditions(inventaireUri);
     if (editions.length > 0) {
+      // Sort editions by publishDate DESC so newest editions (e.g. 2025) are prioritized
+      editions.sort((a: any, b: any) => {
+        const dateA = a.publishDate ? parseInt(String(a.publishDate)) || 0 : 0;
+        const dateB = b.publishDate ? parseInt(String(b.publishDate)) || 0 : 0;
+        return dateB - dateA;
+      });
+
       const frEdition = editions.find((e: any) => e.languageUri === 'wd:Q150' && (e.cover || e.pages || (e as any).description));
       const anyEdition = editions.find((e: any) => e.cover || e.pages || (e as any).description) || editions[0];
       const bestEdition = frEdition || anyEdition;
@@ -132,11 +139,19 @@ const fetchExternalInventaireBook = async (inventaireUri: string, bookData?: str
         pages = bestEdition.pages;
         logDebug('Found pages from edition', { pages, editionLanguage: bestEdition.languageUri });
       }
-      if (!image && bestEdition?.cover) {
+      if (bestEdition?.cover) {
         image = bestEdition.cover;
       }
       if (!description && (bestEdition as any)?.description) {
         description = (bestEdition as any).description;
+      }
+      if (!year) {
+        const years = editions
+          .map((e: any) => e.publishDate ? parseInt(String(e.publishDate).substring(0, 4)) || 0 : 0)
+          .filter((y: number) => y > 1000);
+        if (years.length > 0) {
+          year = Math.min(...years);
+        }
       }
     }
     

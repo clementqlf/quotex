@@ -312,7 +312,15 @@ serve(async (req: Request) => {
         if (cached.length > 0 && new Date(cached[0].expiresAt) > new Date()) {
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
-            return Array.isArray(results) ? results : [];
+            if (Array.isArray(results)) {
+              results.forEach((r: any) => {
+                if (Array.isArray(r.authors)) {
+                  r.authors = r.authors.filter((a: any) => a && typeof a === 'string' && !a.toLowerCase().startsWith('unknown'));
+                }
+              });
+              return results;
+            }
+            return [];
           } catch { return []; }
         }
         

@@ -16,8 +16,8 @@ export interface GoogleBookSearchResult {
 }
 
 const RETRYABLE_STATUS_CODES = new Set([429, 502, 503, 504]);
-const MAX_RETRY_ATTEMPTS = 2;
-const RETRY_BASE_DELAY_MS = 200;
+const MAX_RETRY_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 250;
 
 const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -39,12 +39,18 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
     throw new Error("GOOGLE_BOOKS_API_KEY is not configured on the server.");
   }
 
-  if (!query || !query.trim()) {
+  // Sanitize query string: replace curly apostrophes and strip duplicate outer quotes
+  const cleanQuery = query
+    .replace(/[’‘`]/g, "'")
+    .replace(/^"+|"+$/g, '')
+    .trim();
+
+  if (!cleanQuery) {
     return [];
   }
 
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${limit}&langRestrict=fr&key=${apiKey}`;
-  console.log(`[GoogleBooks] Searching for "${query}" (limit: ${limit})`);
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(cleanQuery)}&maxResults=${limit}&langRestrict=fr&key=${apiKey}`;
+  console.log(`[GoogleBooks] Searching for "${cleanQuery}" (limit: ${limit})`);
 
   for (let attempt = 0; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
     const attemptNumber = attempt + 1;

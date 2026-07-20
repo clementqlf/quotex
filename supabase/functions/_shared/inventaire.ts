@@ -257,24 +257,29 @@ export const enrichWorkMetadata = async (uri: string): Promise<any> => {
     result.editions = editions;
 
     if (editions.length > 0) {
-      const scored = editions.map((e: any) => {
-        let score = 0;
-        if (e.languageUri === 'wd:Q150') score += 10;
-        if (e.cover?.includes('/img/entities/')) score += 5;
-        if (e.isbn) score += 2;
-        if (e.pages && e.pages > 0) score += 1;
-        return { ed: e, score };
-      }).sort((a: any, b: any) => b.score - a.score);
+      const sortedEditions = api.sortEditionsNewestFirst(editions);
 
-      const bestEd = scored[0].ed;
-      if (bestEd.cover) result.image = bestEd.cover;
+      // 1. Cover: Prioritize newest French edition cover, then newest edition cover
+      const edCover = api.extractBestCoverFromEditions(sortedEditions);
+      if (edCover) {
+        result.image = edCover;
+      }
 
-      const edWithPages = editions.find((e: any) => e.pages && e.pages > 0);
-      if (edWithPages) result.pages = edWithPages.pages;
+      // 2. Pages: Take pages from first edition with valid page count
+      const edWithPages = sortedEditions.find((e: any) => e.pages && e.pages > 0);
+      if (edWithPages?.pages) {
+        result.pages = edWithPages.pages;
+      }
 
-      if (!result.year) {
-        const edWithYear = editions.find((e: any) => e.publishDate);
-        if (edWithYear?.publishDate) result.year = parseInt(edWithYear.publishDate.substring(0, 4));
+      // 3. Year: Take original work year, or fallback to the OLDEST edition publish year (initial publication date)
+      result.year = api.extractInitialPublishYear(sortedEditions, result.year);
+
+      // 4. Description: Take description if present on any edition
+      if (!result.description) {
+        const edWithDesc = sortedEditions.find((e: any) => !!(e as any).description);
+        if ((edWithDesc as any)?.description) {
+          result.description = (edWithDesc as any).description;
+        }
       }
     }
   } catch (err) {

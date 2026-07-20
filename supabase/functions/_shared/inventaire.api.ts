@@ -48,11 +48,43 @@ export interface InventaireWorkDetails {
     description: string | null;
     image: string | null;
     authorUris: string[];
-    year: number | null;
-    genreUris: string[];
+    genreUris?: string[];
     wikipediaTitle: string | null;
+    year: number | null;
     pages: number | null;
 }
+
+/**
+ * DRY Helper: Sorts editions by publishDate DESC (newest year first).
+ */
+export const sortEditionsNewestFirst = <T extends { publishDate?: string | null }>(editions: T[]): T[] => {
+    return [...editions].sort((a, b) => {
+        const yearA = a.publishDate ? parseInt(String(a.publishDate).substring(0, 4)) || 0 : 0;
+        const yearB = b.publishDate ? parseInt(String(b.publishDate).substring(0, 4)) || 0 : 0;
+        return yearB - yearA;
+    });
+};
+
+/**
+ * DRY Helper: Extracts best cover image prioritizing newest French edition cover, then any newest cover.
+ */
+export const extractBestCoverFromEditions = <T extends { cover?: string | null; languageUri?: string | null; publishDate?: string | null }>(editions: T[]): string | null => {
+    const sorted = sortEditionsNewestFirst(editions);
+    const newestFrCover = sorted.find(e => e.languageUri === 'wd:Q150' && e.cover && e.cover.length > 0);
+    const newestCover = sorted.find(e => e.cover && e.cover.length > 0);
+    return newestFrCover?.cover || newestCover?.cover || null;
+};
+
+/**
+ * DRY Helper: Extracts initial publication year: returns defaultYear if provided, otherwise the oldest edition publish year.
+ */
+export const extractInitialPublishYear = <T extends { publishDate?: string | null }>(editions: T[], defaultYear?: number | null): number | null => {
+    if (defaultYear && defaultYear > 1000) return defaultYear;
+    const years = editions
+        .map(e => e.publishDate ? parseInt(String(e.publishDate).substring(0, 4)) || 0 : 0)
+        .filter(y => y > 1000);
+    return years.length > 0 ? Math.min(...years) : (defaultYear || null);
+};
 
 export interface InventaireAuthorDetails {
     uri: string;
@@ -248,8 +280,11 @@ export const searchInventaire = async (query: string, types: string = 'works', l
         if (authorUrisToFetch.size > 0) {
             const authorEntities = await getInventaireEntities(Array.from(authorUrisToFetch));
             for (const [aUri, aEntity] of Object.entries(authorEntities)) {
-                if (aEntity?.labels) {
-                    authorNamesByUri[aUri] = aEntity.labels['fr'] || aEntity.labels['en'] || Object.values(aEntity.labels)[0] || 'Unknown';
+                if (aEntity) {
+                    const name = (aEntity.labels && (aEntity.labels['fr'] || aEntity.labels['en'] || Object.values(aEntity.labels)[0])) || (typeof aEntity.label === 'string' ? aEntity.label : null);
+                    if (name && typeof name === 'string' && name.trim() && !name.toLowerCase().startsWith('unknown')) {
+                        authorNamesByUri[aUri] = name.trim();
+                    }
                 }
             }
         }
@@ -264,7 +299,10 @@ export const searchInventaire = async (query: string, types: string = 'works', l
                 result.image = getEntityImage(entity.image) || result.image;
 
                 if (claims['wdt:P50'] && claims['wdt:P50'].length > 0) {
-                    result.authors = claims['wdt:P50'].map((aUri: string) => authorNamesByUri[aUri] || 'Unknown');
+                    const mappedAuthors = claims['wdt:P50']
+                        .map((aUri: string) => authorNamesByUri[aUri])
+                        .filter((name: string | undefined): name is string => typeof name === 'string' && name.trim().length > 0);
+                    result.authors = mappedAuthors;
                     result.authorUris = claims['wdt:P50'];
                 }
             }
@@ -551,7 +589,6 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
     }
 
     // 1. Precise match (Title + Author)
-    console.log(`[Inventaire Matching] Step 1: Searching for precise match (normalized title query: "${normTitleQuery}", author query: "${cleanAuthor.toLowerCase()}")`);
     for (const res of results) {
         const normResTitle = normalizeTitle(res.label);
         const titleMatch = normResTitle === normTitleQuery;
@@ -559,15 +596,13 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
             compareAuthorNames(a, cleanAuthor)
         ) || false;
         
-        console.log(`[Inventaire Matching]   Checking result: "${res.label}" by [${res.authors?.join(', ') || 'unknown'}]. Title match: ${titleMatch}, Author match: ${authorMatch}`);
         if (titleMatch && authorMatch) {
-            console.log(`[Inventaire Matching]   -> Precise match found! Selected URI: "${res.uri}"`);
+            console.log(`🎯 [Inventaire Matching] Precise match found: "${res.label}" by ${res.authors?.join(', ')} -> URI: ${res.uri}`);
             return res.uri;
         }
     }
 
     // 2. Author match only (if title was slightly different but author is sure)
-    console.log(`[Inventaire Matching] Step 2: Searching for fuzzy title match with exact author...`);
     for (const res of results) {
         const authorMatch = res.authors?.some(a => 
             compareAuthorNames(a, cleanAuthor)
@@ -576,14 +611,13 @@ export const findWorkUriByTitleAndAuthor = async (title: string, authorName: str
         const titleIncluded = normResTitle.includes(normTitleQuery) || 
                               normTitleQuery.includes(normResTitle);
         
-        console.log(`[Inventaire Matching]   Checking result: "${res.label}" by [${res.authors?.join(', ') || 'unknown'}]. Title overlap: ${titleIncluded}, Author match: ${authorMatch}`);
         if (authorMatch && titleIncluded) {
-            console.log(`[Inventaire Matching]   -> Fuzzy match found! Selected URI: "${res.uri}"`);
+            console.log(`🔍 [Inventaire Matching] Fuzzy match found: "${res.label}" by ${res.authors?.join(', ')} -> URI: ${res.uri}`);
             return res.uri;
         }
     }
     
-    console.log(`[Inventaire Matching] No suitable match found for "${cleanTitle}" by "${cleanAuthor}" among the search results.`);
+    console.log(`⚠️ [Inventaire Matching] No match found for "${cleanTitle}" by "${cleanAuthor}" (${results.length} candidates checked)`);
     return null;
 };
 
@@ -858,6 +892,11 @@ export const getBestNativeCovers = async (workUris: string[]): Promise<Record<st
                 if (b.isbn) scoreB += 2;
                 if ((b.pages || 0) > 0) scoreB += 1;
                 
+                const yearA = a.publishDate ? parseInt(String(a.publishDate).substring(0, 4)) || 0 : 0;
+                const yearB = b.publishDate ? parseInt(String(b.publishDate).substring(0, 4)) || 0 : 0;
+                scoreA += yearA * 0.001;
+                scoreB += yearB * 0.001;
+
                 return scoreB - scoreA;
             })[0];
             

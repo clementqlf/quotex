@@ -61,6 +61,7 @@ interface SequentialWorkMatch {
   year?: number | null;
   pages?: number | null;
   genre?: string | null;
+  metadataSources?: Record<string, string>;
 }
 
 // sequential match helper is now resolved via bookSearchService
@@ -150,7 +151,7 @@ serve(async (req: Request) => {
         let workMatch: SequentialWorkMatch | null = null;
 
         if ((offlineQuote.author && !authorId) || (offlineQuote.book && !bookId)) {
-          console.log(`[sync-quotes] Entity missing in DB. Checking Inventaire for: author="${offlineQuote.author}", book="${offlineQuote.book}"`);
+          console.log(`🔍 [SyncQuotes] Matching external sources for: book="${offlineQuote.book}", author="${offlineQuote.author}"`);
           
           if (offlineQuote.book && offlineQuote.author) {
             const match = await bookSearchService.resolveSequentialMatch(offlineQuote.book, offlineQuote.author);
@@ -159,36 +160,33 @@ serve(async (req: Request) => {
                 source: match.source === 'Inventaire' ? 'inventaire' : 'google-books',
                 workId: match.id,
                 workUri: match.source === 'Inventaire' ? match.uri : undefined,
-                googleId: match.source === 'Google Books' ? match.id : undefined,
+                googleId: match.source === 'Google Books' ? match.id : match.googleId,
                 title: match.title,
                 authorName: match.authors[0] || offlineQuote.author,
                 cover: match.cover,
                 description: match.description,
                 year: match.year,
                 pages: match.pages,
-                genre: match.genre
+                genre: match.genre,
+                metadataSources: match.metadataSources,
               };
               hasInventaireMatch = true;
               inventaireMatch.workTitle = workMatch.title;
               inventaireMatch.authorName = workMatch.authorName;
               matchSource = workMatch.source;
 
-              if (workMatch.source === 'inventaire') {
-                inventaireMatch.workUri = workMatch.workUri;
-                console.log(`[sync-quotes] Work match found on Inventaire: title="${workMatch.title}", id="${workMatch.workId || workMatch.workUri || 'unknown'}"`);
+              console.log(`✨ [SyncQuotes] Sequential match result: title="${workMatch.title}", year=${workMatch.year}, cover=${workMatch.cover ? 'YES' : 'NO'}, descLength=${workMatch.description?.length || 0}`);
 
-                if (workMatch.workUri) {
-                  const workDetails = await getInventaireWorkDetails(workMatch.workUri);
-                  if (workDetails?.authorUris && workDetails.authorUris.length > 0) {
-                    const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
-                    if (authorDetails) {
-                      inventaireMatch.authorUri = workDetails.authorUris[0];
-                      inventaireMatch.authorName = authorDetails.name;
-                    }
+              if (workMatch.source === 'inventaire' && workMatch.workUri) {
+                inventaireMatch.workUri = workMatch.workUri;
+                const workDetails = await getInventaireWorkDetails(workMatch.workUri);
+                if (workDetails?.authorUris && workDetails.authorUris.length > 0) {
+                  const authorDetails = await getInventaireAuthorDetails(workDetails.authorUris[0]);
+                  if (authorDetails) {
+                    inventaireMatch.authorUri = workDetails.authorUris[0];
+                    inventaireMatch.authorName = authorDetails.name;
                   }
                 }
-              } else {
-                console.log(`[sync-quotes] Work match found on Google Books: title="${workMatch.title}", id="${workMatch.workId || 'unknown'}"`);
               }
             } else {
               const authorResults = await searchInventaireAuthors(offlineQuote.author, 5);
@@ -269,20 +267,33 @@ serve(async (req: Request) => {
           }
         }
 
-        if (bookId && workMatch?.source === 'google-books') {
+        if (bookId && workMatch) {
+          const currentBookRows = await sql`SELECT cover, description, pages, "metadataSources" FROM "Book" WHERE id = ${bookId} LIMIT 1`;
+          const curBook = currentBookRows[0];
+          const newDescription = (workMatch.description && workMatch.description.trim().length > 0)
+            ? ((!curBook?.description || workMatch.description.length > curBook.description.length) ? workMatch.description : curBook.description)
+            : curBook?.description;
+          const newCover = (workMatch.cover && workMatch.cover.trim().length > 0) ? workMatch.cover : curBook?.cover;
+
+          const mergedMetadataSources = JSON.stringify({
+            ...(curBook?.metadataSources ? (typeof curBook.metadataSources === 'string' ? JSON.parse(curBook.metadataSources) : curBook.metadataSources) : {}),
+            ...(workMatch.metadataSources || {}),
+          });
+
           await sql`
             UPDATE "Book"
             SET
               "googleId" = COALESCE(${workMatch.googleId ?? null}, "googleId"),
-              cover = COALESCE(${workMatch.cover ?? null}, cover),
-              description = COALESCE(${workMatch.description ?? null}, description),
+              cover = ${newCover ?? null},
+              description = ${newDescription ?? null},
               year = COALESCE(${workMatch.year ?? null}, year),
               pages = COALESCE(${workMatch.pages ?? null}, pages),
               genre = COALESCE(${workMatch.genre ?? null}, genre),
-              "isVerified" = true
+              "isVerified" = true,
+              "metadataSources" = ${mergedMetadataSources}::jsonb
             WHERE id = ${bookId}
           `;
-          console.log(`[sync-quotes] Persisted Google Books metadata for book ${bookId}: title="${workMatch.title}", googleId="${workMatch.googleId || 'unknown'}"`);
+          console.log(`[sync-quotes] Persisted metadata for book ${bookId}: title="${workMatch.title}", source="${workMatch.source}"`);
         }
 
         // Only create the quote if we found an Inventaire match

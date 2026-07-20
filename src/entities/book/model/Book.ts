@@ -30,6 +30,7 @@ export interface Book {
   isVerified?: boolean; // Le livre est-il vérifié via une source de confiance
   isNotable?: boolean; // Œuvre notable selon Wikidata (wdt:P800) × Inventaire — calculé lors de l'enrichissement de l'auteur
   enrichmentSource?: string; // Source de l'enrichissement des données (inventaire, googlebooks, etc.)
+  metadataSources?: Record<string, string>; // Source précise par champ (ex: { cover: "inventaire", description: "googlebooks" })
 }
 
 // DTO pour créer un livre
@@ -48,12 +49,14 @@ export interface CreateBookDto {
   inventaireUri?: string;
   isVerified?: boolean;
   enrichmentSource?: string;
+  metadataSources?: Record<string, string>;
 }
 
 export interface BookImportPayload extends CreateBookDto {
   buyLinks?: { store: string; url: string; price: string }[];
   similarBooks?: Book[];
   readingStatus?: ReadingStatus | null;
+  metadataSources?: Record<string, string>;
 }
 
 // Fabrique pour créer des objets Book

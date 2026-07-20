@@ -9,17 +9,21 @@ import {
   findWorkUriByTitleAndAuthor,
   mergeBooks,
 } from './inventaire.ts';
+import { bookSearchService } from './bookProviders.ts';
 
 interface BookWithAuthor {
   id: number;
   title: string;
   cover: string | null;
+  description?: string | null;
   inventaireUri: string | null;
+  googleId?: string | null;
   authorId: number | null;
   pages: number | null;
   year: number | null;
   genre: string | null;
   lastEnrichedAt: string | Date | null;
+  metadataSources?: Record<string, string> | string | null;
   author?: {
     id: number;
     name: string;
@@ -53,30 +57,58 @@ const enrichBookWithInventaireInternal = async (bookId: number, force = false): 
 
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
     const lastEnriched = book.lastEnrichedAt ? new Date(book.lastEnrichedAt).getTime() : 0;
-    if (!force && Date.now() - lastEnriched < SEVEN_DAYS) {
-      console.log(`[BookEnrichment] Book "${book.title}" recently enriched/attempted. Skipping.`);
-      // Ensure isEnriching is false if it was set
+    const isIncomplete = !book.description || book.description.trim().length < 30 || !book.cover;
+
+    if (!force && !isIncomplete && Date.now() - lastEnriched < SEVEN_DAYS) {
+      console.log(`[BookEnrichment] Book "${book.title}" recently enriched & complete. Skipping.`);
       await sql`UPDATE "Book" SET "isEnriching" = false WHERE id = ${bookId}`.catch(() => {});
       return null;
     }
 
     await sql`UPDATE "Book" SET "isEnriching" = true, "lastEnrichedAt" = now() WHERE id = ${bookId}`.catch(() => {});
 
-    if (!book.inventaireUri) {
-      console.warn(`[BookEnrichment] Book ${bookId} ("${book.title}") has no inventaireUri. Skipping detailed enrichment.`);
-      return null;
+    let enriched = null;
+    let authorName = (book.author as any)?.name || '';
+
+    if (book.inventaireUri && !book.inventaireUri.startsWith('googlebooks:')) {
+      console.log(`[BookEnrichment] Fetching metadata from Inventaire for URI: ${book.inventaireUri}`);
+      enriched = await enrichWorkMetadata(book.inventaireUri);
     }
 
-    console.log(`[BookEnrichment] Fetching metadata from Inventaire for URI: ${book.inventaireUri}`);
-    const enriched = await enrichWorkMetadata(book.inventaireUri);
-    console.log(`[BookEnrichment] Inventaire returned: ${enriched ? 'Data found' : 'No data'}`);
+    // Fallback: If no inventaireUri or Inventaire returned no description/cover, search via bookSearchService
+    if (!enriched || (!enriched.description && !enriched.image)) {
+      console.log(`[BookEnrichment] Searching fallback via bookSearchService for "${book.title}" by "${authorName}"`);
+      const searchMatch = await bookSearchService.resolveSequentialMatch(book.title, authorName);
+      if (searchMatch) {
+        enriched = {
+          title: searchMatch.title,
+          description: searchMatch.description,
+          image: searchMatch.cover,
+          year: searchMatch.year,
+          pages: searchMatch.pages,
+          genre: searchMatch.genre,
+          inventaireUri: searchMatch.inventaireUri || searchMatch.uri,
+          googleId: searchMatch.googleId,
+          metadataSources: searchMatch.metadataSources,
+        };
+      }
+    }
+
+    console.log(`[BookEnrichment] Resolved metadata: ${enriched ? 'Data found' : 'No data'}`);
 
     if (enriched) {
       const updateData: Record<string, unknown> = {
         lastEnrichedAt: new Date(),
         isVerified: true,
-        enrichmentSource: 'inventaire',
+        enrichmentSource: 'composite',
       };
+
+      if (enriched.inventaireUri && !book.inventaireUri) {
+        updateData.inventaireUri = enriched.inventaireUri;
+      }
+      if (enriched.googleId && !book.googleId) {
+        updateData.googleId = enriched.googleId;
+      }
 
       // Title standardization / merge
       if (enriched.title && book.title !== enriched.title) {
@@ -89,27 +121,32 @@ const enrichBookWithInventaireInternal = async (bookId: number, force = false): 
         if (targetRows.length > 0) {
           console.log(`🔗 [BookEnrichment] Merging book ${bookId} into existing book ${targetRows[0].id} ("${enriched.title}")`);
           await mergeBooks(bookId, targetRows[0].id);
-          if (!targetRows[0].inventaireUri) {
-            await sql`UPDATE "Book" SET "inventaireUri" = ${book.inventaireUri} WHERE id = ${targetRows[0].id}`.catch(() => {});
+          if (!targetRows[0].inventaireUri && enriched.inventaireUri) {
+            await sql`UPDATE "Book" SET "inventaireUri" = ${enriched.inventaireUri} WHERE id = ${targetRows[0].id}`.catch(() => {});
           }
           return true;
         }
         updateData.title = enriched.title;
       }
 
-      if (enriched.description) updateData.description = enriched.description;
+      if (enriched.description && (!book.description || enriched.description.length > book.description.length)) {
+        updateData.description = enriched.description;
+      }
       if (enriched.pages && (!book.pages || book.pages === 0)) updateData.pages = enriched.pages;
       if (enriched.year && (!book.year || book.year === 0)) updateData.year = enriched.year;
       if (enriched.genre && (!book.genre || book.genre === 'Unknown' || book.genre === '')) {
         updateData.genre = enriched.genre;
       }
 
-      if (enriched.image) {
-        const currentIsWiki = !book.cover || book.cover.includes('wikimedia.org');
-        const newIsInternal = enriched.image.includes('/img/entities/');
-        if (!book.cover || (currentIsWiki && newIsInternal)) {
-          updateData.cover = enriched.image;
-        }
+      if (enriched.image && enriched.image.trim().length > 0) {
+        updateData.cover = enriched.image;
+      }
+
+      if (enriched.metadataSources) {
+        const currentMeta = book.metadataSources
+          ? (typeof book.metadataSources === 'string' ? JSON.parse(book.metadataSources) : book.metadataSources)
+          : {};
+        updateData.metadataSources = JSON.stringify({ ...currentMeta, ...enriched.metadataSources });
       }
 
       if (Object.keys(updateData).length > 0) {

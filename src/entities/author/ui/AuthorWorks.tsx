@@ -18,6 +18,7 @@ import { AlertTriangle, ChevronLeft } from 'lucide-react-native';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { resolveAndImportBook } from '@/src/entities/book/lib/BookResolutionService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { getBookTitle, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
@@ -53,7 +54,11 @@ export default function AuthorWorksScreen() {
     resolveGoogleBook, 
     importBook, 
     toggleSaveBook, 
-    updateBookStatus 
+    updateBookStatus,
+    getBookById,
+    getBookByTitle,
+    getBookByInventaireUri,
+    getAuthorByName,
   } = useAuthor();
 
   // Use TanStack Query for all works (all books in DB for this author)
@@ -368,22 +373,26 @@ export default function AuthorWorksScreen() {
           }
         }
 
-        const importPayload = {
-          title: book.title,
-          cover: cover,
-          description: description || '',
-          year: year || 0,
-          pages: pages || 0,
-          genre: book.genre || 'Unknown',
-          authors: book.authors || [authorName],
-          inventaireUri: book.inventaireUri || (googleId ? `googlebooks:${googleId}` : undefined),
-          googleId: googleId,
-          isbn: isbn,
-        };
+        const resolved = await resolveAndImportBook(
+          {
+            title: book.title,
+            author: authorName,
+            inventaireUri: book.inventaireUri || (googleId ? `googlebooks:${googleId}` : undefined),
+            cover: cover,
+            googleId: googleId,
+            bookData: book,
+          },
+          {
+            getBookById,
+            getBookByTitle,
+            getBookByInventaireUri,
+            importBook,
+            getAuthorByName,
+          }
+        );
 
-        const imported = await importBook(importPayload);
-        if (imported && imported.id) {
-          bookIdToSave = imported.id;
+        if (resolved.book?.id) {
+          bookIdToSave = resolved.book.id;
         } else {
           Alert.alert('Erreur', 'Impossible de créer le livre sur le serveur.');
           return;

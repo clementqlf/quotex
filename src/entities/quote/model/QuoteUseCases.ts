@@ -241,7 +241,8 @@ export class QuoteUseCases {
     private cleanField(value: string | null | undefined): string | null {
         if (!value) return null;
         const trimmed = value.trim();
-        if (trimmed === '' || trimmed === 'Livre inconnu' || trimmed === 'Auteur inconnu') return null;
+        const low = trimmed.toLowerCase();
+        if (trimmed === '' || low === 'livre inconnu' || low === 'auteur inconnu' || low.startsWith('unknown')) return null;
         return trimmed;
     }
 

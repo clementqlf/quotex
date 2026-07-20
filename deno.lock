@@ -8107,6 +8107,7 @@
         "npm:node-fetch@^3.3.2",
         "npm:pg@^8.21.0",
         "npm:react-dom@19.2.3",
+        "npm:react-native-enriched-html@^1.0.1",
         "npm:react-native-gesture-handler@~2.31.1",
         "npm:react-native-pager-view@8.0.1",
         "npm:react-native-reanimated@4.3.1",

@@ -1,4 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
+import { resolveAndImportBook } from '@/src/entities/book/lib/BookResolutionService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
@@ -53,6 +55,7 @@ export default function ScanPreviewModal({
     confirmButtonText = 'Confirmer',
 }: ScanPreviewModalProps) {
     const { quotes } = useQuote();
+    const { getBookById, getBookByTitle, getBookByInventaireUri, importBook, getAuthorByName } = useAuthor();
     const { colors } = useTheme();
     const styles = createStyles(colors);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -242,8 +245,8 @@ export default function ScanPreviewModal({
         console.log('[ScanPreviewModal] finalBook:', finalBook);
         console.log('[ScanPreviewModal] finalAuthor:', finalAuthor);
 
-        const isBookEmpty = !finalBook || finalBook === 'Livre inconnu';
-        const isAuthorEmpty = !finalAuthor || finalAuthor === 'Auteur inconnu';
+        const isBookEmpty = !finalBook || finalBook === 'Livre inconnu' || finalBook.toLowerCase().startsWith('unknown');
+        const isAuthorEmpty = !finalAuthor || finalAuthor === 'Auteur inconnu' || finalAuthor.toLowerCase().startsWith('unknown');
 
         if (isBookEmpty || isAuthorEmpty) {
             Alert.alert(
@@ -538,48 +541,69 @@ export default function ScanPreviewModal({
                                                                     {isLoadingSuggestions && (
                                                                         <ActivityIndicator color={colors.primary} size="small" style={{ padding: 8 }} />
                                                                     )}
-                                                                    {displaySuggestions.map((item, index) => (
-                                                                        <TouchableOpacity
-                                                                            key={`${item.title}-${index}`}
-                                                                            style={styles.suggestionItem}
-                                                                            onPress={async () => {
-                                                                                if (item.type === 'inventaire' && item.data) {
-                                                                                    setIsLoadingSuggestions(true);
-                                                                                    try {
-                                                                                        await httpClient.post('/books/import', {
-                                                                                            title: item.title,
-                                                                                            inventaireUri: item.data.uri,
-                                                                                            authors: item.data.authors || [],
-                                                                                            cover: item.data.image || null,
-                                                                                            description: item.data.description || '',
-                                                                                        });
-                                                                                        if (item.data.authors && item.data.authors.length > 0) {
-                                                                                            setEditedAuthor(item.data.authors[0]);
-                                                                                        }
-                                                                                    } catch (e) {
-                                                                                        console.error('[ScanPreviewModal] Failed to import Inventaire book:', e);
-                                                                                    }
-                                                                                    setIsLoadingSuggestions(false);
-                                                                                } else if (item.author) {
-                                                                                    setEditedAuthor(typeof item.author === 'string' ? item.author : getAuthorName(item.author));
-                                                                                }
-                                                                                setEditedBook(item.title);
-                                                                                setIsEditingBook(false);
-                                                                                setShowSuggestions(false);
-                                                                            }}
-                                                                        >
-                                                                            <BookIcon size={14} color={item.type === 'inventaire' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
-                                                                            <View style={{ flex: 1 }}>
-                                                                                <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
-                                                                                {item.author ? (
-                                                                                    <Text style={styles.suggestionAuthorText} numberOfLines={1}>
-                                                                                        {getAuthorName(item.author)}
-                                                                                    </Text>
-                                                                                ) : null}
-                                                                            </View>
-                                                                        </TouchableOpacity>
-                                                                    ))}
+                                                                    {displaySuggestions.map((item, index) => {
+                                                                         const sItem = item as SuggestionItem;
+                                                                         return (
+                                                                             <TouchableOpacity
+                                                                                 key={`${item.title}-${index}`}
+                                                                                 style={styles.suggestionItem}
+                                                                                 onPress={async () => {
+                                                                                     setIsLoadingSuggestions(true);
+                                                                                     try {
+                                                                                         const resolved = await resolveAndImportBook(
+                                                                                             {
+                                                                                                 title: item.title,
+                                                                                                 author: typeof item.author === 'string' ? item.author : undefined,
+                                                                                                 inventaireUri: sItem.data?.uri || sItem.data?.inventaireUri,
+                                                                                                 cover: sItem.data?.image || sItem.data?.cover,
+                                                                                                 bookData: sItem.data,
+                                                                                             },
+                                                                                             {
+                                                                                                 getBookById,
+                                                                                                 getBookByTitle,
+                                                                                                 getBookByInventaireUri,
+                                                                                                 importBook,
+                                                                                                 getAuthorByName,
+                                                                                             }
+                                                                                         );
+                                                                                         const isValidAuthorName = (name?: string | null) => {
+                                                                                              if (!name) return false;
+                                                                                              const low = name.trim().toLowerCase();
+                                                                                              return low !== '' && low !== 'auteur inconnu' && low !== 'null' && !low.startsWith('unknown');
+                                                                                         };
 
+                                                                                         if (resolved.author?.name && isValidAuthorName(resolved.author.name)) {
+                                                                                             setEditedAuthor(resolved.author.name);
+                                                                                         } else if (sItem.data?.authors && sItem.data.authors.length > 0 && isValidAuthorName(sItem.data.authors[0])) {
+                                                                                             setEditedAuthor(sItem.data.authors[0]);
+                                                                                         } else if (item.author) {
+                                                                                             const rawAuthor = typeof item.author === 'string' ? item.author : getAuthorName(item.author);
+                                                                                             if (isValidAuthorName(rawAuthor)) {
+                                                                                                 setEditedAuthor(rawAuthor);
+                                                                                             }
+                                                                                         }
+                                                                                     } catch (e) {
+                                                                                         console.error('[ScanPreviewModal] Failed to resolve and import book:', e);
+                                                                                     } finally {
+                                                                                         setIsLoadingSuggestions(false);
+                                                                                     }
+                                                                                     setEditedBook(item.title);
+                                                                                     setIsEditingBook(false);
+                                                                                     setShowSuggestions(false);
+                                                                                 }}
+                                                                             >
+                                                                                 <BookIcon size={14} color={item.type === 'inventaire' ? colors.primary : colors.textTertiary} style={{ marginRight: 8 }} />
+                                                                                 <View style={{ flex: 1 }}>
+                                                                                     <Text style={styles.suggestionText} numberOfLines={1}>{item.title}</Text>
+                                                                                     {item.author ? (
+                                                                                         <Text style={styles.suggestionAuthorText} numberOfLines={1}>
+                                                                                             {getAuthorName(item.author)}
+                                                                                         </Text>
+                                                                                     ) : null}
+                                                                                 </View>
+                                                                             </TouchableOpacity>
+                                                                         );
+                                                                     })}
                                                                 </ScrollView>
                                                             </View>
                                                         )}

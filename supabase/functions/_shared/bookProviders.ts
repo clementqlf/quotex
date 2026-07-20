@@ -4,8 +4,13 @@ import {
   findWorkUriByTitleAndAuthor,
   getInventaireWorkDetails,
   getInventaireAuthorDetails,
-  compareAuthorNames
-} from './inventaire.ts';
+  getWorkEditionUris,
+  getEditionsDetails,
+  compareAuthorNames,
+  sortEditionsNewestFirst,
+  extractBestCoverFromEditions,
+  extractInitialPublishYear,
+} from './inventaire.api.ts';
 import { searchGoogleBooks } from './googlebooks.ts';
 import { selectBestGoogleBookMatch, scoreBookCandidate } from './googlebooks.match.ts';
 
@@ -26,6 +31,7 @@ export interface BookSearchResult {
   year?: number | null;
   pages?: number | null;
   genre?: string | null;
+  metadataSources?: Record<string, string>;
 }
 
 export interface BookProvider {
@@ -123,7 +129,39 @@ export const InventaireBookProvider: BookProvider = {
         }
       }
 
-      const cover = workDetails?.image || null;
+      let cover = workDetails?.image || null;
+      let description = workDetails?.description || '';
+      let pages = workDetails?.pages || null;
+      let year = workDetails?.year || null;
+
+      // Inspect editions of the work using DRY helpers for cover, pages, description, and year
+      const editionUris = await getWorkEditionUris(workUri);
+      if (editionUris && editionUris.length > 0) {
+        const editions = await getEditionsDetails(editionUris);
+        const sortedEditions = sortEditionsNewestFirst(editions);
+
+        const edCover = extractBestCoverFromEditions(sortedEditions);
+        if (edCover) cover = edCover;
+
+        const bestEditionWithDesc = sortedEditions.find(e => !!(e as any).description);
+        if (!description && (bestEditionWithDesc as any)?.description) {
+          description = (bestEditionWithDesc as any).description;
+        }
+
+        const bestEditionWithPages = sortedEditions.find(e => !!e.pages && e.pages > 0);
+        if (!pages && bestEditionWithPages?.pages) {
+          pages = bestEditionWithPages.pages;
+        }
+
+        year = extractInitialPublishYear(sortedEditions, year);
+      }
+
+      const metadataSources: Record<string, string> = {};
+      if (cover) metadataSources.cover = 'inventaire';
+      if (description) metadataSources.description = 'inventaire';
+      if (pages) metadataSources.pages = 'inventaire';
+      if (year) metadataSources.year = 'inventaire';
+
       return {
         id: workUri,
         uri: workUri,
@@ -134,10 +172,11 @@ export const InventaireBookProvider: BookProvider = {
         image: cover,
         authors: [resolvedAuthorName],
         authorUris: workDetails?.authorUris || [],
-        description: workDetails?.description || '',
-        year: workDetails?.year || null,
-        pages: workDetails?.pages || null,
-        source: 'Inventaire'
+        description: description,
+        year: year,
+        pages: pages,
+        source: 'Inventaire',
+        metadataSources,
       };
     } catch (e) {
       console.warn(`[Inventaire Book Provider] Resolve failed for "${title}" by "${authorName}":`, e);
@@ -166,7 +205,13 @@ export const GoogleBooksProvider: BookProvider = {
         year: r.year,
         pages: r.pages,
         genre: r.genre,
-        source: 'Google Books'
+        source: 'Google Books',
+        metadataSources: {
+          ...(r.cover || r.image ? { cover: 'googlebooks' } : {}),
+          ...(r.description ? { description: 'googlebooks' } : {}),
+          ...(r.pages ? { pages: 'googlebooks' } : {}),
+          ...(r.year ? { year: 'googlebooks' } : {}),
+        }
       }));
     } catch (e) {
       console.warn(`[Google Books Provider] Search failed for "${query}":`, e);
@@ -193,7 +238,13 @@ export const GoogleBooksProvider: BookProvider = {
         year: r.year,
         pages: r.pages,
         genre: r.genre,
-        source: 'Google Books'
+        source: 'Google Books',
+        metadataSources: {
+          ...(r.cover || r.image ? { cover: 'googlebooks' } : {}),
+          ...(r.description ? { description: 'googlebooks' } : {}),
+          ...(r.pages ? { pages: 'googlebooks' } : {}),
+          ...(r.year ? { year: 'googlebooks' } : {}),
+        }
       };
     } catch (e) {
       console.warn(`[Google Books Provider] ISBN search failed for ${isbn}:`, e);
@@ -203,7 +254,7 @@ export const GoogleBooksProvider: BookProvider = {
 
   async resolveBestMatch(title: string, authorName: string): Promise<BookSearchResult | null> {
     try {
-      const candidates = await searchGoogleBooks(`"${title}"`, 10, false);
+      const candidates = await searchGoogleBooks(title, 10, false);
       const best = selectBestGoogleBookMatch(candidates, title, authorName);
       if (!best) return null;
 
@@ -226,7 +277,13 @@ export const GoogleBooksProvider: BookProvider = {
         year: best.year,
         pages: best.pages,
         genre: best.genre,
-        source: 'Google Books'
+        source: 'Google Books',
+        metadataSources: {
+          ...(cover ? { cover: 'googlebooks' } : {}),
+          ...(best.description ? { description: 'googlebooks' } : {}),
+          ...(best.pages ? { pages: 'googlebooks' } : {}),
+          ...(best.year ? { year: 'googlebooks' } : {}),
+        }
       };
     } catch (e) {
       console.warn(`[Google Books Provider] Resolve failed for "${title}" by "${authorName}":`, e);
@@ -250,18 +307,62 @@ export const bookSearchService = {
    * Resolves book sequential match (e.g. fallback strategy for sync-quotes)
    */
   async resolveSequentialMatch(title: string, authorName: string): Promise<BookSearchResult | null> {
+    let bestMatch: BookSearchResult | null = null;
+
     for (const provider of this.providers) {
       try {
         const match = await provider.resolveBestMatch(title, authorName);
         if (match) {
-          console.log(`[BookSearchService] Resolved best match via: ${provider.name}`);
-          return match;
+          console.log(`[BookSearchService] Resolved candidate via: ${provider.name} (hasCover=${!!match.cover}, hasDesc=${!!match.description})`);
+          const providerKey = match.source === 'Google Books' ? 'googlebooks' : 'inventaire';
+          if (!bestMatch) {
+            bestMatch = {
+              ...match,
+              metadataSources: {
+                ...(match.cover ? { cover: providerKey } : {}),
+                ...(match.description ? { description: providerKey } : {}),
+                ...(match.pages ? { pages: providerKey } : {}),
+                ...(match.year ? { year: providerKey } : {}),
+                ...match.metadataSources,
+              }
+            };
+          } else {
+            if (!bestMatch.metadataSources) bestMatch.metadataSources = {};
+
+            // Enrich bestMatch with richer metadata from alternative providers
+            if ((!bestMatch.cover || bestMatch.cover.includes('wikimedia.org')) && match.cover) {
+              bestMatch.cover = match.cover;
+              bestMatch.image = match.cover;
+              bestMatch.metadataSources.cover = providerKey;
+            }
+            if ((!bestMatch.description || bestMatch.description.length < 30) && match.description) {
+              bestMatch.description = match.description;
+              bestMatch.metadataSources.description = providerKey;
+            }
+            if (!bestMatch.googleId && match.googleId) {
+              bestMatch.googleId = match.googleId;
+              bestMatch.metadataSources.googleId = providerKey;
+            }
+            if ((!bestMatch.pages || bestMatch.pages === 0) && match.pages) {
+              bestMatch.pages = match.pages;
+              bestMatch.metadataSources.pages = providerKey;
+            }
+            if ((!bestMatch.year || bestMatch.year === 0) && match.year) {
+              bestMatch.year = match.year;
+              bestMatch.metadataSources.year = providerKey;
+            }
+          }
+          // If our best match has both a valid cover and a full description, return early
+          if (bestMatch.cover && bestMatch.description && bestMatch.description.length >= 30) {
+            return bestMatch;
+          }
         }
       } catch (e) {
         console.warn(`[BookSearchService] Provider ${provider.name} failed resolving "${title}" by "${authorName}":`, e);
       }
     }
-    return null;
+
+    return bestMatch;
   },
 
   /**

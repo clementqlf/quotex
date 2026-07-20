@@ -1,5 +1,5 @@
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
-import { loadBookDetailData } from '@/src/entities/book/lib/loadBookDetailData';
+import { resolveAndImportBook } from '@/src/entities/book/lib/BookResolutionService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { quoteService } from '@/src/entities/quote/api/QuoteService.facade';
@@ -72,21 +72,23 @@ export const useQuoteActions = () => {
           refreshAuthors()
         ]);
         
-        // Enrich the book in the background if it lacks metadata
+        // Enrich and resolve the book in the background using the unified BookResolutionService
         if (book && !options.editingQuote) {
-          // Fire and forget enrichment
-          loadBookDetailData({
-            bookTitle: book,
-            getBookById,
-            getBookByTitle,
-            getBookByInventaireUri,
-            importBook,
-            getAuthorByName
-          }).then(() => {
+          // Fire and forget resolution & enrichment
+          resolveAndImportBook(
+            { title: book, author },
+            {
+              getBookById,
+              getBookByTitle,
+              getBookByInventaireUri,
+              importBook,
+              getAuthorByName,
+            }
+          ).then(() => {
             // Refresh again after enrichment completes to update the UI
             refreshBooks();
           }).catch(err => {
-            console.error('[useQuoteActions] Background book enrichment failed:', err);
+            console.error('[useQuoteActions] Background book resolution failed:', err);
           });
         }
 

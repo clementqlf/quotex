@@ -272,18 +272,30 @@ serve(async (req: Request) => {
             ? 'googlebooks'
             : (bookData.openLibraryId || existing.openLibraryId ? 'openlibrary' : existing.enrichmentSource));
 
+        const newDescription = (bookData.description && bookData.description.trim().length > 0)
+          ? ((!existing.description || bookData.description.length > existing.description.length) ? bookData.description : existing.description)
+          : existing.description;
+        const newCover = (bookData.cover && bookData.cover.trim().length > 0) ? bookData.cover : existing.cover;
+        const newPages = (pagesUpdate && pagesUpdate > 0) ? pagesUpdate : (existing.pages || null);
+
+        const newMetadataSources = JSON.stringify({
+          ...(existing.metadataSources ? (typeof existing.metadataSources === 'string' ? JSON.parse(existing.metadataSources) : existing.metadataSources) : {}),
+          ...(bookData.metadataSources || {}),
+        });
+
         await sql`
           UPDATE "Book" SET
             "googleId" = COALESCE(${bookData.googleId ?? null}, "googleId"),
             "openLibraryId" = COALESCE(${bookData.openLibraryId ?? null}, "openLibraryId"),
             "inventaireUri" = COALESCE(${normalizedInventaireUri ?? null}, "inventaireUri"),
-            description = COALESCE(description, ${bookData.description ?? null}),
-            cover = COALESCE(cover, ${bookData.cover ?? null}),
-            pages = COALESCE(pages, ${pagesUpdate}),
-            year = COALESCE(year, ${bookData.year ?? null}),
-            genre = COALESCE(genre, ${bookData.genre ?? null}),
+            description = ${newDescription ?? null},
+            cover = ${newCover ?? null},
+            pages = ${newPages},
+            year = COALESCE(${bookData.year ?? null}, year),
+            genre = COALESCE(${bookData.genre ?? null}, genre),
             "buyLinks" = ${buyLinks},
-            "enrichmentSource" = ${resolvedSource ?? null}
+            "enrichmentSource" = ${resolvedSource ?? null},
+            "metadataSources" = ${newMetadataSources}::jsonb
           WHERE id = ${existing.id}
         `;
 
@@ -318,12 +330,18 @@ serve(async (req: Request) => {
       }
 
       // Create new book
-      const authorName = bookData.authors?.[0] || 'Unknown';
-      let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${authorName} LIMIT 1`;
-      if (!authorRows.length) {
-        authorRows = await sql`INSERT INTO "Author" (name) VALUES (${authorName}) RETURNING *`;
+      const rawAuthor = bookData.authors?.[0] || '';
+      const isInvalidAuthor = !rawAuthor || rawAuthor.trim() === '' || rawAuthor.trim().toLowerCase() === 'auteur inconnu' || rawAuthor.trim().toLowerCase().startsWith('unknown');
+      const authorName = isInvalidAuthor ? null : rawAuthor.trim();
+
+      let author = null;
+      if (authorName) {
+        let authorRows = await sql`SELECT * FROM "Author" WHERE name = ${authorName} LIMIT 1`;
+        if (!authorRows.length) {
+          authorRows = await sql`INSERT INTO "Author" (name) VALUES (${authorName}) RETURNING *`;
+        }
+        author = authorRows[0];
       }
-      const author = authorRows[0];
 
       const buyLinksJson = JSON.stringify(
         generateBuyLinks(bookData.isbn, bookData.title, authorName, bookData.buyLink)
@@ -339,14 +357,17 @@ serve(async (req: Request) => {
         ? 'inventaire'
         : (bookData.googleId ? 'googlebooks' : (bookData.openLibraryId ? 'openlibrary' : null));
 
+      const initialMetadataSources = JSON.stringify(bookData.metadataSources || {});
+
       const newBookRows = await sql`
-        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks", "isVerified", "enrichmentSource")
+        INSERT INTO "Book" (title, "googleId", "openLibraryId", "inventaireUri", description, year, pages, cover, genre, "authorId", rating, "buyLinks", "isVerified", "enrichmentSource", "metadataSources")
         VALUES (
           ${bookData.title}, ${bookData.googleId ?? null}, ${bookData.openLibraryId ?? null},
           ${normalizedInventaireUri ?? null},
           ${bookData.description || ''}, ${bookData.year || 0}, ${pagesValue},
           ${bookData.cover || ''}, ${bookData.genre || 'Unknown'}, ${author.id},
-          ${bookData.rating || 0}, ${buyLinksJson}, ${isVerified}, ${importSource}
+          ${bookData.rating || 0}, ${buyLinksJson}, ${isVerified}, ${importSource},
+          ${initialMetadataSources}::jsonb
         )
         RETURNING *
       `;

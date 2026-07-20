@@ -486,8 +486,14 @@ serve(async (req: Request) => {
         }
       }
 
-      const hasAuthor = author && typeof author === 'string' && author.trim() !== '' && author.trim() !== 'Auteur inconnu';
-      const hasBook = book && typeof book === 'string' && book.trim() !== '' && book.trim() !== 'Livre inconnu';
+      const isInvalidValue = (val?: string | null) => {
+        if (!val || typeof val !== 'string') return true;
+        const low = val.trim().toLowerCase();
+        return low === '' || low === 'null' || low === 'auteur inconnu' || low === 'livre inconnu' || low.startsWith('unknown');
+      };
+
+      const hasAuthor = !isInvalidValue(author);
+      const hasBook = !isInvalidValue(book);
 
       // Find or create author
       let authorRecord = null;

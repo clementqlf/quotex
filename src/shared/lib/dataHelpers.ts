@@ -4,14 +4,16 @@ export const getBookTitle = (book: string | Book | undefined | null): string => 
     if (!book) return 'Livre inconnu';
     if (typeof book === 'string') {
         const trimmed = book.trim();
-        if (trimmed === '' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'inconnu' || trimmed.toLowerCase() === 'livre inconnu') {
+        const low = trimmed.toLowerCase();
+        if (trimmed === '' || low === 'null' || low === 'inconnu' || low === 'livre inconnu' || low.startsWith('unknown')) {
             return 'Livre inconnu';
         }
         return trimmed;
     }
     const title = book.title || '';
     const trimmedTitle = title.trim();
-    if (trimmedTitle === '' || trimmedTitle.toLowerCase() === 'null' || trimmedTitle.toLowerCase() === 'inconnu' || trimmedTitle.toLowerCase() === 'livre inconnu') {
+    const lowTitle = trimmedTitle.toLowerCase();
+    if (trimmedTitle === '' || lowTitle === 'null' || lowTitle === 'inconnu' || lowTitle === 'livre inconnu' || lowTitle.startsWith('unknown')) {
         return 'Livre inconnu';
     }
     return trimmedTitle;
@@ -21,14 +23,16 @@ export const getAuthorName = (author: string | Author | undefined | null): strin
     if (!author) return 'Auteur inconnu';
     if (typeof author === 'string') {
         const trimmed = author.trim();
-        if (trimmed === '' || trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'inconnu' || trimmed.toLowerCase() === 'auteur inconnu') {
+        const low = trimmed.toLowerCase();
+        if (trimmed === '' || low === 'null' || low === 'inconnu' || low === 'auteur inconnu' || low.startsWith('unknown')) {
             return 'Auteur inconnu';
         }
         return trimmed;
     }
     const name = author.name || '';
     const trimmedName = name.trim();
-    if (trimmedName === '' || trimmedName.toLowerCase() === 'null' || trimmedName.toLowerCase() === 'inconnu' || trimmedName.toLowerCase() === 'auteur inconnu') {
+    const lowName = trimmedName.toLowerCase();
+    if (trimmedName === '' || lowName === 'null' || lowName === 'inconnu' || lowName === 'auteur inconnu' || lowName.startsWith('unknown')) {
         return 'Auteur inconnu';
     }
     return trimmedName;

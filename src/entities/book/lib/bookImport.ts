@@ -14,6 +14,7 @@ export type BookImportPayload = {
   year?: number | null;
   pages?: number | null;
   genre?: string | null;
+  metadataSources?: Record<string, string>;
 };
 
 type RawBookData = Record<string, any> | string | null | undefined;
@@ -91,5 +92,6 @@ export const buildBookImportPayload = ({ title, cover, bookData, book, inventair
     year: parsed?.year ?? book?.year,
     pages: pages,
     genre: parsed?.genre ?? book?.genre ?? null,
+    metadataSources: parsed?.metadataSources ?? book?.metadataSources,
   };
 };
