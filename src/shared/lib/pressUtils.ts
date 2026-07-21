@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 export const DEFAULT_PRESS_DEBOUNCE_MS = 500;
 
@@ -52,16 +52,25 @@ export function preventDoublePress<T extends (...args: any[]) => any>(
 export function useSinglePress<T extends (...args: any[]) => any>(
   fn?: T | null,
   delay: number = DEFAULT_PRESS_DEBOUNCE_MS,
-  deps: any[] = []
+  _deps?: any[]
 ): (...args: Parameters<T>) => ReturnType<T> | void {
   const lastCallTimeRef = useRef<number>(0);
+  const fnRef = useRef(fn);
 
-  return useCallback((...args: Parameters<T>): ReturnType<T> | void => {
-    const now = Date.now();
-    if (now - lastCallTimeRef.current < delay) {
-      return;
-    }
-    lastCallTimeRef.current = now;
-    return fn?.(...args);
-  }, [fn, delay, ...deps]);
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
+
+  return useCallback(
+    (...args: Parameters<T>): ReturnType<T> | void => {
+      const now = Date.now();
+      if (now - lastCallTimeRef.current < delay) {
+        return;
+      }
+      lastCallTimeRef.current = now;
+      return fnRef.current?.(...args);
+    },
+    [delay]
+  );
 }
+

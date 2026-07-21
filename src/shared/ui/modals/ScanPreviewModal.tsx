@@ -2,7 +2,6 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { resolveAndImportBook } from '@/src/entities/book/lib/BookResolutionService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { httpClient } from '@/src/shared/api/HttpClient';
 import { bookDescriptions, localQuotesDB } from '@/src/shared/api/staticData';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';

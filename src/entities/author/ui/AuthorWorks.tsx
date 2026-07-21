@@ -380,7 +380,15 @@ export default function AuthorWorksScreen() {
             inventaireUri: book.inventaireUri || (googleId ? `googlebooks:${googleId}` : undefined),
             cover: cover,
             googleId: googleId,
-            bookData: book,
+            bookData: {
+              ...book,
+              googleId,
+              isbn,
+              cover,
+              description,
+              year,
+              pages,
+            },
           },
           {
             getBookById,
