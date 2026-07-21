@@ -11,10 +11,6 @@ jest.mock('@/src/app/providers/ThemeContext', () => ({
   useTheme: jest.fn(),
 }));
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ navigate: jest.fn() }),
-}));
-
 jest.mock('lucide-react-native', () => ({
   Heart: ({ children, ...props }: any) => {
     const { View } = require('react-native');

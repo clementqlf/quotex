@@ -41,6 +41,25 @@ function calculateRelevance(text: string, query: string): number {
   return 0;
 }
 
+function isRealBookSearchResult(r: any): boolean {
+  if (!r) return false;
+
+  const genre = String(r.genre || '').toLowerCase();
+  const nonBookGenres = ["periodicals", "magazines", "newspapers", "directories", "serials", "government publications"];
+  if (nonBookGenres.some((nb) => genre.includes(nb))) {
+    return false;
+  }
+
+  const source = r.source || (r.uri?.startsWith('googlebooks:') ? 'Google Books' : '');
+  if (source === 'Google Books' || r.uri?.startsWith('googlebooks:')) {
+    if (!r.isbn) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 serve(async (req: Request) => {
@@ -313,19 +332,21 @@ serve(async (req: Request) => {
           try {
             const results = typeof cached[0].results === 'string' ? JSON.parse(cached[0].results) : cached[0].results;
             if (Array.isArray(results)) {
-              results.forEach((r: any) => {
+              const filtered = results.filter(isRealBookSearchResult);
+              filtered.forEach((r: any) => {
                 if (Array.isArray(r.authors)) {
                   r.authors = r.authors.filter((a: any) => a && typeof a === 'string' && !a.toLowerCase().startsWith('unknown'));
                 }
               });
-              return results;
+              return filtered;
             }
             return [];
           } catch { return []; }
         }
         
         // Fetch both in parallel via bookSearchService
-        const { results: merged, apiFailed } = await bookSearchService.searchParallel(query, 10);
+        const { results: rawMerged, apiFailed } = await bookSearchService.searchParallel(query, 10);
+        const merged = rawMerged.filter(isRealBookSearchResult);
 
         // Sort merged books by relevance
         merged.sort((a, b) => {

@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">10% </span>
+                <span class="strong">9.67% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/30</span>
+                <span class='fraction'>3/31</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">12.5% </span>
+                <span class="strong">11.11% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/8</span>
+                <span class='fraction'>1/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">7.14% </span>
+                <span class="strong">6.89% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/28</span>
+                <span class='fraction'>2/29</span>
             </div>
         
             
@@ -148,7 +148,18 @@
 <a name='L83'></a><a href='#L83'>83</a>
 <a name='L84'></a><a href='#L84'>84</a>
 <a name='L85'></a><a href='#L85'>85</a>
-<a name='L86'></a><a href='#L86'>86</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -178,11 +189,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -250,10 +272,19 @@ export const TOUR_STEPS = [
 &nbsp;
 export type TourStep = typeof TOUR_STEPS[number];
 &nbsp;
+export interface TargetRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+&nbsp;
 interface AppTourState {
   isActive: boolean;
   currentStepIndex: number;
   userId: string | null;
+  targetRect: TargetRect | null;
+  setTargetRect: (rect: TargetRect | null) =&gt; void;
   setUserId: (userId: string | null) =&gt; void;
   startTour: (stepName?: TourStep) =&gt; void;
   stopTour: () =&gt; Promise&lt;void&gt;;
@@ -267,7 +298,9 @@ export const useAppTourState = create&lt;AppTourState&gt;((set, get) =&gt; ({
   isActive: false,
   currentStepIndex: 0,
   userId: null,
+  targetRect: null,
 &nbsp;
+  setTargetRect: <span class="fstat-no" title="function not covered" >(t</span>argetRect: TargetRect | null) =&gt; <span class="cstat-no" title="statement not covered" >set({ targetRect }),</span>
   setUserId: <span class="fstat-no" title="function not covered" >(u</span>serId: string | null) =&gt; <span class="cstat-no" title="statement not covered" >set({ userId }),</span>
 &nbsp;
   startTour: <span class="fstat-no" title="function not covered" >(s</span>tepName?: TourStep) =&gt; {
@@ -276,12 +309,12 @@ export const useAppTourState = create&lt;AppTourState&gt;((set, get) =&gt; ({
 <span class="cstat-no" title="statement not covered" >      startIndex = TOUR_STEPS.indexOf(stepName);</span>
 <span class="cstat-no" title="statement not covered" >      if (startIndex === -1) <span class="cstat-no" title="statement not covered" >startIndex = 0;</span></span>
     }
-<span class="cstat-no" title="statement not covered" >    set({ isActive: true, currentStepIndex: startIndex });</span>
+<span class="cstat-no" title="statement not covered" >    set({ isActive: true, currentStepIndex: startIndex, targetRect: null });</span>
   },
 &nbsp;
   stopTour: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {
     const { userId } = <span class="cstat-no" title="statement not covered" >get();</span>
-<span class="cstat-no" title="statement not covered" >    set({ isActive: false });</span>
+<span class="cstat-no" title="statement not covered" >    set({ isActive: false, targetRect: null });</span>
     const key = <span class="cstat-no" title="statement not covered" >userId ? `has_seen_tour_${userId}` : 'has_seen_tour';</span>
 <span class="cstat-no" title="statement not covered" >    await AsyncStorage.setItem(key, 'true');</span>
 <span class="cstat-no" title="statement not covered" >    await AsyncStorage.removeItem('resume_tour_step');</span>
@@ -290,7 +323,7 @@ export const useAppTourState = create&lt;AppTourState&gt;((set, get) =&gt; ({
   nextStep: <span class="fstat-no" title="function not covered" >()</span> =&gt; {
     const { currentStepIndex } = <span class="cstat-no" title="statement not covered" >get();</span>
 <span class="cstat-no" title="statement not covered" >    if (currentStepIndex &lt; TOUR_STEPS.length - 1) {</span>
-<span class="cstat-no" title="statement not covered" >      set({ currentStepIndex: currentStepIndex + 1 });</span>
+<span class="cstat-no" title="statement not covered" >      set({ currentStepIndex: currentStepIndex + 1, targetRect: null });</span>
     } else {
 <span class="cstat-no" title="statement not covered" >      get().stopTour();</span>
     }
@@ -299,20 +332,20 @@ export const useAppTourState = create&lt;AppTourState&gt;((set, get) =&gt; ({
   prevStep: <span class="fstat-no" title="function not covered" >()</span> =&gt; {
     const { currentStepIndex } = <span class="cstat-no" title="statement not covered" >get();</span>
 <span class="cstat-no" title="statement not covered" >    if (currentStepIndex &gt; 0) {</span>
-<span class="cstat-no" title="statement not covered" >      set({ currentStepIndex: currentStepIndex - 1 });</span>
+<span class="cstat-no" title="statement not covered" >      set({ currentStepIndex: currentStepIndex - 1, targetRect: null });</span>
     }
   },
 &nbsp;
   setStep: <span class="fstat-no" title="function not covered" >(s</span>tepName: TourStep) =&gt; {
     const index = <span class="cstat-no" title="statement not covered" >TOUR_STEPS.indexOf(stepName);</span>
 <span class="cstat-no" title="statement not covered" >    if (index !== -1) {</span>
-<span class="cstat-no" title="statement not covered" >      set({ currentStepIndex: index });</span>
+<span class="cstat-no" title="statement not covered" >      set({ currentStepIndex: index, targetRect: null });</span>
     }
   },
 &nbsp;
   resetTour: <span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {
     const { userId } = <span class="cstat-no" title="statement not covered" >get();</span>
-<span class="cstat-no" title="statement not covered" >    set({ isActive: false, currentStepIndex: 0 });</span>
+<span class="cstat-no" title="statement not covered" >    set({ isActive: false, currentStepIndex: 0, targetRect: null });</span>
     const key = <span class="cstat-no" title="statement not covered" >userId ? `has_seen_tour_${userId}` : 'has_seen_tour';</span>
 <span class="cstat-no" title="statement not covered" >    await AsyncStorage.removeItem(key);</span>
 <span class="cstat-no" title="statement not covered" >    await AsyncStorage.removeItem('resume_tour_step');</span>
@@ -325,7 +358,7 @@ export const useAppTourState = create&lt;AppTourState&gt;((set, get) =&gt; ({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-27T18:13:04.371Z
+                at 2026-07-21T18:01:10.875Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

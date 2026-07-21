@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">7.14% </span>
+                <span class="strong">5.26% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/14</span>
+                <span class='fraction'>1/19</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>0/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">7.14% </span>
+                <span class="strong">6.66% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/14</span>
+                <span class='fraction'>1/15</span>
             </div>
         
             
@@ -122,7 +122,13 @@
 <a name='L57'></a><a href='#L57'>57</a>
 <a name='L58'></a><a href='#L58'>58</a>
 <a name='L59'></a><a href='#L59'>59</a>
-<a name='L60'></a><a href='#L60'>60</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -141,8 +147,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -182,11 +190,13 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { usePathname, useRouter } from 'expo-router';
+import { navigateOnce } from '@/src/shared/lib/pressUtils';
 import { INavigationService, NavigateOptions, RouteParams } from './types';
 &nbsp;
 /**
  * Adaptateur Expo Router pour INavigationService
  * Implémente l'interface de navigation abstraite avec Expo Router
+ * Utilise navigateOnce() pour empêcher les doubles navigations globalement.
  */
 export class ExpoRouterAdapter implements INavigationService {
   private router: any;
@@ -198,26 +208,28 @@ export class ExpoRouterAdapter implements INavigationService {
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  na</span>vigate(to: string | NavigateOptions): void {
-<span class="cstat-no" title="statement not covered" >    if (typeof to === 'string') {</span>
-<span class="cstat-no" title="statement not covered" >      this.router.navigate(to);</span>
-    } else {
-<span class="cstat-no" title="statement not covered" >      this.router.navigate({</span>
-        pathname: to.screen,
-        params: to.params
-      });
-    }
+<span class="cstat-no" title="statement not covered" >    navigateOnce(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (typeof to === 'string') {</span>
+<span class="cstat-no" title="statement not covered" >        this.router.navigate(to);</span>
+      } else {
+<span class="cstat-no" title="statement not covered" >        this.router.navigate({</span>
+          pathname: to.screen,
+          params: to.params
+        });
+      }
+    });
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  pu</span>sh(screen: string, params?: Record&lt;string, any&gt;): void {
-<span class="cstat-no" title="statement not covered" >    this.router.push({ pathname: screen, params });</span>
+<span class="cstat-no" title="statement not covered" >    navigateOnce(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >this.router.push({ pathname: screen, params }))</span>;</span>
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  re</span>place(screen: string, params?: Record&lt;string, any&gt;): void {
-<span class="cstat-no" title="statement not covered" >    this.router.replace({ pathname: screen, params });</span>
+<span class="cstat-no" title="statement not covered" >    navigateOnce(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >this.router.replace({ pathname: screen, params }))</span>;</span>
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  go</span>Back(): void {
-<span class="cstat-no" title="statement not covered" >    this.router.back();</span>
+<span class="cstat-no" title="statement not covered" >    navigateOnce(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >this.router.back())</span>;</span>
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  ca</span>nGoBack(): boolean {
@@ -225,7 +237,7 @@ export class ExpoRouterAdapter implements INavigationService {
   }
 &nbsp;
 <span class="fstat-no" title="function not covered" >  na</span>vigateTo&lt;T extends RouteParams&gt;(screen: string, params: T): void {
-<span class="cstat-no" title="statement not covered" >    this.router.push({ pathname: screen, params });</span>
+<span class="cstat-no" title="statement not covered" >    navigateOnce(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >this.router.push({ pathname: screen, params }))</span>;</span>
   }
 }
 &nbsp;
@@ -247,7 +259,7 @@ export const useNavigationService = <span class="fstat-no" title="function not c
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-27T18:13:04.371Z
+                at 2026-07-21T18:01:10.875Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

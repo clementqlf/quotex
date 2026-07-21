@@ -49,7 +49,7 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
     return [];
   }
 
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(cleanQuery)}&maxResults=${limit}&langRestrict=fr&key=${apiKey}`;
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(cleanQuery)}&printType=books&maxResults=${limit}&langRestrict=fr&key=${apiKey}`;
   console.log(`[GoogleBooks] Searching for "${cleanQuery}" (limit: ${limit})`);
 
   for (let attempt = 0; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
@@ -81,7 +81,29 @@ export const searchGoogleBooks = async (query: string, limit = 10, throwOnError 
       }
 
       const data = await res.json();
-      const items = data.items || [];
+      const rawItems = data.items || [];
+      const items = rawItems.filter((item: { volumeInfo?: { printType?: string; categories?: string[]; title?: string; authors?: string[]; industryIdentifiers?: { type: string; identifier: string }[] } }) => {
+        const info = item.volumeInfo || {};
+        const printType = info.printType;
+        if (printType && printType !== "BOOK") return false;
+
+        const categories = (Array.isArray(info.categories) ? info.categories : []).map((c) => String(c).toLowerCase());
+        const nonBookCategories = [
+          "periodicals", "magazines", "newspapers", "directories", 
+          "serials", "government publications", "registers", "yearbooks", "catalogs"
+        ];
+        if (categories.some((cat) => nonBookCategories.some((nb) => cat.includes(nb)))) {
+          return false;
+        }
+
+        // Option A: Strictly require an ISBN (ISBN_13 or ISBN_10) for Google Books items
+        const hasIsbn = Array.isArray(info.industryIdentifiers) && info.industryIdentifiers.some((id: { type?: string }) => id?.type === "ISBN_13" || id?.type === "ISBN_10");
+        if (!hasIsbn) {
+          return false;
+        }
+
+        return true;
+      });
       console.log(`[GoogleBooks] Success on attempt ${attemptNumber}/${totalAttempts}. Results: ${items.length}`);
 
       return items.map((item: any) => {

@@ -14,13 +14,19 @@ jest.mock('expo-image', () => {
   };
 });
 
-// Mock de lucide-react-native
+// Mock de lucide-react-native avec un Proxy dynamique pour tous les icônes
 jest.mock('lucide-react-native', () => {
   const React = require('react');
   const { View } = require('react-native');
-  return {
-    ChevronDown: (props) => <View {...props} testID="mock-chevron-down" />,
-  };
+  return new Proxy(
+    {},
+    {
+      get: (target, prop) => {
+        if (prop === '__esModule') return true;
+        return (props) => React.createElement(View, { ...props, testID: `mock-icon-${String(prop)}` });
+      },
+    }
+  );
 });
 
 // Mock global pour fetch (utile pour tester les services API)
@@ -134,6 +140,58 @@ jest.mock('@/src/shared/api/supabase', () => {
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({ data: null, error: null }),
       }),
+      auth: {
+        signInWithPassword: jest.fn(),
+        signUp: jest.fn(),
+        signOut: jest.fn(),
+        resetPasswordForEmail: jest.fn(),
+        getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+        onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+        signInWithIdToken: jest.fn(),
+        signInWithOAuth: jest.fn(),
+        setSession: jest.fn(),
+      },
+      functions: {
+        invoke: jest.fn(),
+      },
     },
   };
 });
+
+// Mock expo-router globally for unit tests
+jest.mock('expo-router', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    useRouter: jest.fn(() => ({
+      push: jest.fn(),
+      replace: jest.fn(),
+      back: jest.fn(),
+      navigate: jest.fn(),
+      setParams: jest.fn(),
+      dismiss: jest.fn(),
+      dismissAll: jest.fn(),
+      canGoBack: jest.fn(() => true),
+    })),
+    usePathname: jest.fn(() => '/'),
+    useLocalSearchParams: jest.fn(() => ({})),
+    useGlobalSearchParams: jest.fn(() => ({})),
+    useSegments: jest.fn(() => []),
+    useFocusEffect: jest.fn((cb) => {
+      if (typeof cb === 'function') cb();
+    }),
+    Link: (props) => React.createElement(View, props, props.children),
+    Redirect: () => null,
+    Slot: (props) => React.createElement(View, props, props.children),
+    Stack: Object.assign(
+      (props) => React.createElement(View, props, props.children),
+      { Screen: () => null }
+    ),
+    Tabs: Object.assign(
+      (props) => React.createElement(View, props, props.children),
+      { Screen: () => null }
+    ),
+  };
+});
+
