@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react-native';
-import { preventDoublePress, useSinglePress } from '../pressUtils';
+import { preventDoublePress, useSinglePress, DEFAULT_HIT_SLOP, getHitSlop } from '../pressUtils';
+
 
 describe('pressUtils', () => {
   beforeEach(() => {
@@ -51,4 +52,17 @@ describe('pressUtils', () => {
       expect(mockFn).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('hitSlop helpers', () => {
+    it('should export DEFAULT_HIT_SLOP with 10pt margins', () => {
+      expect(DEFAULT_HIT_SLOP).toEqual({ top: 10, bottom: 10, left: 10, right: 10 });
+    });
+
+    it('should calculate hitSlop correctly for numeric and object arguments', () => {
+      expect(getHitSlop()).toEqual({ top: 10, bottom: 10, left: 10, right: 10 });
+      expect(getHitSlop(15)).toEqual({ top: 15, bottom: 15, left: 15, right: 15 });
+      expect(getHitSlop({ top: 5, bottom: 12 })).toEqual({ top: 5, bottom: 12 });
+    });
+  });
 });
+

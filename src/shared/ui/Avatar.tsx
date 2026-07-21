@@ -39,6 +39,8 @@ export const Avatar: React.FC<AvatarProps> = React.memo(({
       <Image
         source={{ uri: resolvedUri }}
         style={[containerStyle, style]}
+        cachePolicy="disk"
+        transition={200}
       />
     );
   }

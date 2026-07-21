@@ -20,20 +20,44 @@ import * as SplashScreen from 'expo-splash-screen';
 import MaskedView from '@react-native-masked-view/masked-view';
 import * as SystemUI from 'expo-system-ui';
 import { AppTourOverlay } from '@/src/features/app-tour/ui/AppTourOverlay';
+import { GlobalErrorBoundary } from '@/src/shared/infrastructure/monitoring/GlobalErrorBoundary';
+import { initMonitoring } from '@/src/shared/infrastructure/monitoring/sentry';
+import * as Sentry from '@sentry/react-native';
 
+Sentry.init({
+  dsn: 'https://7647f420f74078b00cf8af4087c33f8c@o4511774968578048.ingest.de.sentry.io/4511774974804048',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 // Pas d'unstable_settings pour laisser Expo Router gérer les groupes dynamiquement
 
+initMonitoring();
+
 const queryClient = new QueryClient();
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+    <GlobalErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <ThemeProvider>
             <AuthProvider>
               <TabProvider>
@@ -52,8 +76,9 @@ export default function RootLayout() {
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
-}
+});
 
 function RootLayoutNav() {
   useEffect(() => {

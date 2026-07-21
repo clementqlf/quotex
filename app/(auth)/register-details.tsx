@@ -4,6 +4,8 @@ import { authService } from '@/src/entities/user/api/AuthService';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, CheckCircle2, Lock, User as UserIcon, XCircle } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
+import { DEFAULT_HIT_SLOP } from '@/src/shared/lib/pressUtils';
+
 import {
   ActivityIndicator,
   Alert,
@@ -163,6 +165,8 @@ export default function RegisterDetailsScreen() {
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={handleBack}
+            hitSlop={DEFAULT_HIT_SLOP}
+            activeOpacity={0.7}
           >
             <ArrowLeft size={24} color={colors.text} />
           </TouchableOpacity>
@@ -176,7 +180,11 @@ export default function RegisterDetailsScreen() {
             transform: [{ translateY: slideAnim }],
           }
         ]}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false} 
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.header}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>Bienvenue à bord !</Text>
               <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>

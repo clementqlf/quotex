@@ -3,6 +3,7 @@ import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
 import { getExponentialBackoff } from '@/src/shared/lib/offline/backoff';
 import { Quote } from '@/src/shared/api/types';
 import NetInfo from '@react-native-community/netinfo';
+import { AppState, AppStateStatus } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -314,6 +315,27 @@ export const useNetworkSync = () => {
             unsubscribe();
         };
     }, [isInitialized, status.isConnected, debouncedTriggerSync, startPeriodicSync, stopPeriodicSync]);
+
+    // AppState listener - pour suspendre le periodic sync quand l'app passe en arrière-plan
+    useEffect(() => {
+        if (!isInitialized) return;
+
+        const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active') {
+                if (status.isConnected) {
+                    console.log('[useNetworkSync] App is active, resuming periodic sync');
+                    startPeriodicSync();
+                }
+            } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+                console.log('[useNetworkSync] App is in background, stopping periodic sync');
+                stopPeriodicSync();
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [isInitialized, status.isConnected, startPeriodicSync, stopPeriodicSync]);
 
     // ✅ Supprimé : Plus besoin de mettre à jour le pendingCount manuellement
     // React Query le gère automatiquement avec refetchInterval

@@ -2,6 +2,20 @@ import { useCallback, useEffect, useRef } from 'react';
 
 export const DEFAULT_PRESS_DEBOUNCE_MS = 500;
 
+export const DEFAULT_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 } as const;
+
+/**
+ * Returns a hitSlop object expanding touch target size.
+ * Accepts a uniform number (e.g. 10) or custom Insets object.
+ */
+export function getHitSlop(margin: number | { top?: number; bottom?: number; left?: number; right?: number } = 10) {
+  if (typeof margin === 'number') {
+    return { top: margin, bottom: margin, left: margin, right: margin };
+  }
+  return margin;
+}
+
+
 /**
  * MODULE-LEVEL singleton — shared globally across ALL components.
  * Guarantees that no two navigations can fire within NAVIGATION_THROTTLE_MS,

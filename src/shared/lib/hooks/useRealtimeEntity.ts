@@ -1,6 +1,7 @@
 import { supabase } from '@/src/shared/api/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import React, { useEffect, useMemo, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Author, Book } from '@/src/shared/api/types';
 import { parseJsonField } from '@/src/shared/lib/dataHelpers';
 
@@ -140,6 +141,7 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
     };
 
     const startPolling = () => {
+      if (interval) clearInterval(interval);
       console.log(`[Polling] Starting fallback polling for ${table} ${id}`);
       interval = setInterval(async () => {
         try {
@@ -163,6 +165,28 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
       }, pollingInterval);
     };
 
+
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    // AppState listener to pause polling in background
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        if (useFallback) {
+          console.log(`[Polling] Resuming fallback polling for ${table} ${id}`);
+          startPolling();
+        }
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        console.log(`[Polling] Pausing fallback polling for ${table} ${id}`);
+        stopPolling();
+      }
+    });
+
     // Essayer Realtime d'abord
     tryRealtime();
 
@@ -173,10 +197,11 @@ export function useRealtimeEntity<T extends Record<string, unknown>>(
 
     return () => {
       console.log(`[Cleanup] Unsubscribing from ${table} ${id}`);
+      subscription.remove();
       if (channel) {
         supabase.removeChannel(channel);
       }
-      if (interval) clearInterval(interval);
+      stopPolling();
       fallbackTriggeredRef.current = false; // Reset pour la prochaine fois
     };
   }, [id, initialData, table, enrichingField, pollingInterval, useFallback]);

@@ -7,12 +7,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  InteractionManager
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -37,7 +38,10 @@ export default function SocialFeedScreen() {
 
   useEffect(() => {
     if (isFocused) {
-      refreshQuotes();
+      const task = InteractionManager.runAfterInteractions(() => {
+        refreshQuotes();
+      });
+      return () => task.cancel();
     }
   }, [isFocused, refreshQuotes]);
 
@@ -216,23 +220,25 @@ export default function SocialFeedScreen() {
       </View>
 
       {/* Feed */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refreshQuotes}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {feedQuotes.map((quote) => (
-          <FeedQuoteCard key={quote.id} quote={quote} />
-        ))}
-      </ScrollView>
+      <View style={styles.scrollView}>
+        <FlashList
+          data={feedQuotes}
+          renderItem={({ item }) => <FeedQuoteCard quote={item} />}
+          keyExtractor={(item) => item.id.toString()}
+          // @ts-ignore - FlashList props type issues
+          estimatedItemSize={200}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={refreshQuotes}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      </View>
       {showOverlay && (
         <View style={styles.overlayContainer} pointerEvents="auto">
           <BlurView intensity={isDark ? 30 : 50} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill}>

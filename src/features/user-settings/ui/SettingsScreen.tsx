@@ -1,5 +1,7 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { logError } from '@/src/shared/infrastructure/monitoring/sentry';
+import { DeleteAccountButton } from './components/DeleteAccountButton';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
@@ -219,12 +221,13 @@ export default function SettingsScreen() {
   const handleOpenLink = async (url: string) => {
     try {
       await WebBrowser.openBrowserAsync(url);
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Failed to open with WebBrowser, trying Linking fallback:", error);
       try {
         await Linking.openURL(url);
-      } catch {
-        Alert.alert("Erreur", "Impossible d'ouvrir le lien dans le navigateur.");
+      } catch (linkingError: any) {
+        logError(linkingError, { feature: 'open_link', url });
+        Alert.alert("Action impossible", "Impossible d'ouvrir le lien dans le navigateur. Vérifiez votre connexion ou les restrictions de votre appareil.");
       }
     }
   };
@@ -490,6 +493,9 @@ export default function SettingsScreen() {
 
           {/* Spacer */}
           <View style={{ flex: 1, minHeight: 40 }} />
+
+          {/* Delete Account Button */}
+          <DeleteAccountButton />
 
           {/* Logout Button */}
           <TouchableOpacity

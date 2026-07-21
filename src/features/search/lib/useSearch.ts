@@ -32,7 +32,7 @@ export interface SearchResults {
  * Fonction utilitaire pour effectuer une recherche sur le serveur
  * Peut être utilisée depuis des services ou des contextes non-React
  */
-export const searchServer = async (query: string): Promise<SearchResults> => {
+export const searchServer = async (query: string, signal?: AbortSignal): Promise<SearchResults> => {
   const emptyResults = { 
     quotes: [], 
     authors: [], 
@@ -52,6 +52,7 @@ export const searchServer = async (query: string): Promise<SearchResults> => {
   // Effectuer la recherche sur le serveur
   const results = await httpClient.get<SearchResults>('/search', {
     params: { q: query },
+    signal, // Transmet l'AbortSignal pour annuler la requête réseau si query change
   });
 
   console.log(`[searchServer] Results: ${results.quotes.length} quotes, ${results.authors.length} local authors (${results.inventaireAuthors?.length || 0} ext), ${results.books.length} local books (${results.inventaireWorks?.length || 0} ext), ${results.prizes.length} local prizes (${results.inventairePrizes?.length || 0} ext)`);
@@ -68,7 +69,8 @@ export const useSearch = (query: string) => {
 
   return useQuery({
     queryKey: ['search', query, isOfflineStatus],
-    queryFn: () => searchServer(query),
+    // TanStack Query fournit `signal` dans la fonction queryFn
+    queryFn: ({ signal }) => searchServer(query, signal),
     enabled: !!query.trim() && !isOfflineStatus,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

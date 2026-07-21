@@ -43,6 +43,8 @@ export const BookCover: React.FC<BookCoverProps> = React.memo(({
       <Image
         source={{ uri }}
         style={[containerStyle, style]}
+        cachePolicy="disk"
+        transition={200}
       />
     );
   }

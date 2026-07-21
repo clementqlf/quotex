@@ -13,6 +13,7 @@ export interface RequestOptions extends RequestInit {
    * Useful for GET requests where missing resource is a valid state
    */
   ignore404?: boolean;
+  timeoutMs?: number; // Timeout configurable (par défaut: 15 000 ms)
 }
 
 /**
@@ -135,16 +136,34 @@ export class HttpClient {
    * Méthode générique pour effectuer une requête
    */
   public async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const url = this.buildUrl(path, options.params);
-    const headers = await this.buildHeaders(options);
+    const { timeoutMs = 15000, signal: externalSignal, ...restOptions } = options;
+    const url = this.buildUrl(path, restOptions.params);
+    const headers = await this.buildHeaders(restOptions);
+
+    // 1. Contrôleur d'annulation pour le Timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort(new Error(`Request timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    // 2. Synchronisation si un AbortSignal externe est aussi transmis (ex: React Query)
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort(externalSignal.reason);
+      } else {
+        externalSignal.addEventListener('abort', () => controller.abort(externalSignal.reason), { once: true });
+      }
+    }
 
     const fetchOptions: RequestInit = {
-      ...options,
+      ...restOptions,
       headers,
+      signal: controller.signal,
     };
 
     try {
       const response = await fetch(url, fetchOptions);
+      clearTimeout(timeoutId);
 
       // Si la réponse n'est pas OK, on lance une erreur avec le body si possible
       if (!response || !response.ok) {
@@ -183,11 +202,18 @@ export class HttpClient {
       const text = await response.text();
       return text as unknown as T;
     } catch (error: unknown) {
+      clearTimeout(timeoutId);
+
+      if ((error as Error)?.name === 'AbortError') {
+        console.warn(`[HttpClient] Request aborted/timed out (${timeoutMs}ms): ${url}`);
+        throw new Error(`[HttpClient] Requête annulée ou expirée (${timeoutMs}ms) : ${url}`);
+      }
+
       if (isNetworkError(error)) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.warn(`[HttpClient] Request failed due to network connectivity: ${options.method || 'GET'} ${url}`, errorMessage);
+        console.warn(`[HttpClient] Request failed due to network connectivity: ${restOptions.method || 'GET'} ${url}`, errorMessage);
       } else {
-        console.error(`[HttpClient] Request failed: ${options.method || 'GET'} ${url}`, error);
+        console.error(`[HttpClient] Request failed: ${restOptions.method || 'GET'} ${url}`, error);
       }
       throw error;
     }

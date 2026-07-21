@@ -13,6 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.quotex.app",
+      "buildNumber": "1",
       "icon": "./assets/icon.icon",
       "infoPlist": {
         "NSCameraUsageDescription": "Quotex a besoin d'accéder à votre appareil photo pour numériser (OCR) du texte de citations à partir de livres physiques.",
@@ -28,8 +29,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.quotex.app",
+      "versionCode": 1,
       "permissions": [
-        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
       ]
     },
@@ -89,7 +90,16 @@
       "expo-web-browser",
       "expo-font",
       "expo-image",
-      "./plugins/withSecureWebView"
+      "./plugins/withSecureWebView",
+      "expo-secure-store",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "quotex-yn"
+        }
+      ]
     ],
     "updates": {
       "url": "https://u.expo.dev/@quotex/quotex",
