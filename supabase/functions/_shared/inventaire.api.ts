@@ -29,6 +29,7 @@ export interface InventaireSearchResult {
     image?: string | null;
     authors?: string[];
     authorUris?: string[];
+    isbn?: string | null;
 }
 
 export interface InventaireEdition {

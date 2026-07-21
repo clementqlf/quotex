@@ -13,6 +13,7 @@ import {
 } from './inventaire.api.ts';
 import { searchGoogleBooks } from './googlebooks.ts';
 import { selectBestGoogleBookMatch, scoreBookCandidate } from './googlebooks.match.ts';
+import { normalizeTitle } from './inventaire.ts';
 
 export interface BookSearchResult {
   id: string; // The ID specific to the provider
@@ -402,28 +403,72 @@ export const bookSearchService = {
       })
     );
 
-    // Merge and deduplicate by title + author, prioritizing richer metadata
-    const mergedMap = new Map<string, BookSearchResult>();
+    // Pure ISBN or Title+Author merging and deduplication
+    const mergedList: BookSearchResult[] = [];
 
-    // Since providers are in priority order, we preserve that priority in merging
+    const getTitleBase = (t: string): string => {
+      const base = (t || '').split(/[:\-(]/)[0] || t || '';
+      return normalizeTitle(base);
+    };
+
     for (let i = 0; i < this.providers.length; i++) {
       const providerResults = resultsArray[i];
       for (const item of providerResults) {
-        const key = `${(item.title || '').toLowerCase()}:${(item.authors || []).join(',').toLowerCase()}`;
-        const existing = mergedMap.get(key);
-        if (!existing) {
-          mergedMap.set(key, item);
-        } else {
-          // If the new item has richer metadata, replace the existing one
-          const existingScore = scoreBookCandidate(existing);
-          const newScore = scoreBookCandidate(item);
-          if (newScore > existingScore) {
-            mergedMap.set(key, item);
+        if (!item.isbn || typeof item.isbn !== 'string' || item.isbn.trim().length === 0) {
+          continue;
+        }
+
+        const cleanIsbn = item.isbn.trim();
+        const normItemBase = getTitleBase(item.title || item.label || '');
+
+        // Match existing candidate by exact ISBN or by Title Base + Author
+        const existingIndex = mergedList.findIndex((existing) => {
+          if (existing.isbn && existing.isbn.trim() === cleanIsbn) {
+            return true;
           }
+          const normExistingBase = getTitleBase(existing.title || existing.label || '');
+          if (normItemBase && normExistingBase && normItemBase === normExistingBase) {
+            const existingAuthor = (existing.authors || []).join(' ');
+            const itemAuthor = (item.authors || []).join(' ');
+            if (!existingAuthor || !itemAuthor || compareAuthorNames(existingAuthor, itemAuthor)) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        if (existingIndex === -1) {
+          mergedList.push({ ...item, isbn: cleanIsbn });
+        } else {
+          // Merge metadata from both providers into existing candidate, prioritizing richest cover/info
+          const existing = mergedList[existingIndex];
+          const bestCover = existing.cover || item.cover || null;
+          const bestTitle = (existing.title && existing.title.length >= (item.title?.length || 0)) ? existing.title : (item.title || existing.title);
+          const bestLabel = (existing.label && existing.label.length >= (item.label?.length || 0)) ? existing.label : (item.label || existing.label);
+
+          mergedList[existingIndex] = {
+            ...existing,
+            title: bestTitle,
+            label: bestLabel,
+            inventaireUri: existing.inventaireUri || item.inventaireUri,
+            googleId: existing.googleId || item.googleId,
+            cover: bestCover,
+            image: bestCover,
+            description: (existing.description && existing.description.length > 30) ? existing.description : (item.description || existing.description),
+            authors: (existing.authors && existing.authors.length > 0) ? existing.authors : (item.authors || []),
+            isbn: existing.isbn || cleanIsbn,
+            year: existing.year || item.year || null,
+            pages: existing.pages || item.pages || null,
+            genre: existing.genre || item.genre || null,
+            metadataSources: {
+              ...(existing.metadataSources || {}),
+              ...(item.metadataSources || {}),
+            }
+          };
         }
       }
     }
 
-    return { results: Array.from(mergedMap.values()), apiFailed };
+    return { results: mergedList, apiFailed };
   }
 };

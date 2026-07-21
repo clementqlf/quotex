@@ -44,17 +44,15 @@ function calculateRelevance(text: string, query: string): number {
 function isRealBookSearchResult(r: any): boolean {
   if (!r) return false;
 
+  // Enforce mandatory ISBN requirement for all external search results
+  if (!r.isbn || typeof r.isbn !== 'string' || r.isbn.trim().length === 0) {
+    return false;
+  }
+
   const genre = String(r.genre || '').toLowerCase();
   const nonBookGenres = ["periodicals", "magazines", "newspapers", "directories", "serials", "government publications"];
   if (nonBookGenres.some((nb) => genre.includes(nb))) {
     return false;
-  }
-
-  const source = r.source || (r.uri?.startsWith('googlebooks:') ? 'Google Books' : '');
-  if (source === 'Google Books' || r.uri?.startsWith('googlebooks:')) {
-    if (!r.isbn) {
-      return false;
-    }
   }
 
   return true;
