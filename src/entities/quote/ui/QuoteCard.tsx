@@ -6,16 +6,14 @@ import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useHaptics } from '@/src/shared/platform';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
-import { TypingText } from '@/src/shared/ui/TypingText';
+import { AppText, IconButton, TypingText } from '@/src/shared/ui';
 import { useRouter } from '@/src/shared/navigation/useRouter';
-import { IconButton } from '@/src/shared/ui';
 import { Heart, MoreVertical, Share2 } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {
   Pressable,
   Share,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -73,8 +71,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
     onToggleLike(quote.id);
   }, 500, [onToggleLike, quote.id]);
 
-  const handleMenuPress = useSinglePress((e: any) => {
-    e?.stopPropagation?.();
+  const handleMenuPress = useSinglePress(() => {
     onOpenMenu(quote);
   }, 500, [onOpenMenu, quote]);
 
@@ -127,7 +124,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
           </Svg>
 
           {/* Quote Text */}
-          <Text style={styles.quoteText}>{quote.text}</Text>
+          <AppText style={styles.quoteText}>{quote.text}</AppText>
 
           {/* Book Info */}
           <View style={styles.bookInfo}>
@@ -156,7 +153,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
                 />
               )}
             </View>
-            <Text style={styles.dateText}>{formatRelativeDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</Text>
+            <AppText style={styles.dateText}>{formatRelativeDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</AppText>
           </View>
         </Pressable>
 
@@ -175,9 +172,9 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
               color={quote.isLiked ? colors.primary : colors.textTertiary}
               fill={quote.isLiked ? colors.primary : 'none'}
             />
-            <Text style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
+            <AppText style={[styles.actionText, quote.isLiked && styles.actionTextActive]}>
               {quote.likesCount}
-            </Text>
+            </AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
@@ -188,7 +185,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
             testID="quote-share-button"
           >
             <Share2 size={20} color={colors.textTertiary} />
-            <Text style={styles.actionText}>Partager</Text>
+            <AppText style={styles.actionText}>Partager</AppText>
           </TouchableOpacity>
         </View>
       </View>
@@ -205,7 +202,7 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   quoteCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
     borderRadius: tokens.radii.lg,
     padding: tokens.spacing.md + 4,
     marginBottom: tokens.spacing.md,

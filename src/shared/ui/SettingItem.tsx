@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { tokens as defaultTokens } from '@/src/shared/theme';
+import { ChevronLeft } from 'lucide-react-native';
 import { AppText } from './AppText';
 import { IconButton } from './IconButton';
 import { Switch, SwitchProps } from './Switch';
@@ -40,7 +40,7 @@ export const SettingItem: React.FC<SettingItemProps> = React.memo(({
   containerStyle,
   ...rest
 }) => {
-  const { colors, tokens = defaultTokens } = useTheme();
+  const { colors } = useTheme();
 
   const handlePress = () => {
     if (type === 'switch' || disabled) return;
@@ -107,16 +107,14 @@ export const SettingItem: React.FC<SettingItemProps> = React.memo(({
 
 SettingItem.displayName = 'SettingItem';
 
-// Import ChevronLeft from lucide-react-native for the chevron icon
-import { ChevronLeft } from 'lucide-react-native';
-
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
   },
   leftContainer: {
     flexDirection: 'row',

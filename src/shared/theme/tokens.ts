@@ -37,6 +37,15 @@ export const animation = {
     },
 } as const;
 
+export const sizes = {
+    xs: 32,
+    sm: 40,
+    md: 48,
+    lg: 56,
+    xl: 84,
+    xxl: 110,
+} as const;
+
 export const typography = {
     fontFamily: {
         body: undefined as string | undefined,
@@ -65,6 +74,12 @@ export const typography = {
         medium: '500' as const,
         semibold: '600' as const,
         bold: '700' as const,
+        extraBold: '800' as const,
+    },
+    letterSpacing: {
+        xs: 0.5,
+        sm: 1,
+        md: 1.5,
     },
 } as const;
 
@@ -95,6 +110,7 @@ export const shadows = {
 export const tokens = {
     spacing,
     radii,
+    sizes,
     iconSize,
     animation,
     typography,
@@ -104,6 +120,7 @@ export const tokens = {
 export type Tokens = typeof tokens;
 export type Spacing = typeof spacing;
 export type Radii = typeof radii;
+export type Sizes = typeof sizes;
 export type IconSize = typeof iconSize;
 export type Animation = typeof animation;
 export type Typography = typeof typography;

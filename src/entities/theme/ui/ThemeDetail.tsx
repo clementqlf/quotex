@@ -1,4 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText } from '@/src/shared/ui';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
@@ -9,7 +10,6 @@ import React, { useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -28,7 +28,7 @@ export default function ThemeDetailScreen() {
     return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <Text style={styles.errorText}>Thème non trouvé.</Text>
+          <AppText style={styles.errorText}>Thème non trouvé.</AppText>
         </View>
       </SafeAreaView>
     );
@@ -62,7 +62,7 @@ export default function ThemeDetailScreen() {
           >
             <ChevronLeft size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{themeName}</Text>
+          <AppText style={styles.headerTitle} numberOfLines={1}>{themeName}</AppText>
           <View style={styles.placeholder} />
         </View>
 
@@ -74,11 +74,11 @@ export default function ThemeDetailScreen() {
           {/* Theme Info */}
           <View style={styles.themeInfoSection}>
             <View style={styles.themeIconContainer}>
-              <Text style={styles.themeIcon}>{themeName[0]?.toUpperCase()}</Text>
+              <AppText style={styles.themeIcon}>{themeName[0]?.toUpperCase()}</AppText>
             </View>
             <View style={styles.themeInfoContent}>
-              <Text style={styles.themeNameText}>{themeName}</Text>
-              <Text style={styles.themeCountText}>{themeQuotes.length} citation{themeQuotes.length !== 1 ? 's' : ''} trouvée{themeQuotes.length !== 1 ? 's' : ''}</Text>
+              <AppText style={styles.themeNameText}>{themeName}</AppText>
+              <AppText style={styles.themeCountText}>{themeQuotes.length} citation{themeQuotes.length !== 1 ? 's' : ''} trouvée{themeQuotes.length !== 1 ? 's' : ''}</AppText>
             </View>
           </View>
 
@@ -87,7 +87,7 @@ export default function ThemeDetailScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <QuoteIcon size={16} color={colors.primary} />
-                <Text style={styles.sectionTitle}>Citations du thème</Text>
+                <AppText style={styles.sectionTitle}>Citations du thème</AppText>
               </View>
               <View style={styles.quotesList}>
                 {themeQuotes.map(quote => (
@@ -97,11 +97,11 @@ export default function ThemeDetailScreen() {
                     activeOpacity={0.85}
                     onPress={() => openQuoteDetail(quote)}
                   >
-                    <Text style={styles.quoteText}>{`"${quote.text}"`}</Text>
+                    <AppText style={styles.quoteText}>{`"${quote.text}"`}</AppText>
                     <View style={styles.quoteMeta}>
                       <View style={styles.quoteMetaLeft}>
-                        <Text style={styles.quoteAuthor}>{getAuthorName(quote.author)}</Text>
-                        <Text style={styles.quoteBook}>{getBookTitle(quote.book)}</Text>
+                        <AppText style={styles.quoteAuthor}>{getAuthorName(quote.author)}</AppText>
+                        <AppText style={styles.quoteBook}>{getBookTitle(quote.book)}</AppText>
                       </View>
                       <View style={styles.quoteMetaRight}>
                         <TouchableOpacity
@@ -113,7 +113,7 @@ export default function ThemeDetailScreen() {
                             color={quote.isLiked ? colors.warning : colors.textTertiary}
                             fill={quote.isLiked ? colors.warning : "none"}
                           />
-                          <Text style={styles.likeCount}>{quote.likesCount}</Text>
+                          <AppText style={styles.likeCount}>{quote.likesCount}</AppText>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -122,7 +122,7 @@ export default function ThemeDetailScreen() {
               </View>
             </View>
           ) : (
-            <Text style={styles.emptyStateText}>Aucune citation trouvée pour ce thème.</Text>
+            <AppText style={styles.emptyStateText}>Aucune citation trouvée pour ce thème.</AppText>
           )}
         </ScrollView>
       </View>

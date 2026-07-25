@@ -12,6 +12,7 @@ import { X } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useRouter } from '@/src/shared/navigation/useRouter';
 import { Avatar } from '@/src/shared/ui/Avatar';
+import { TabBar } from '@/src/shared/ui/TabBar';
 import { ThemeColors } from '@/src/shared/theme';
 
 export interface UserTabOption<T = string> {
@@ -77,31 +78,13 @@ export function UserListModal<T = string>({
         >
           {/* Header */}
           <View style={styles.modalHeader}>
-            {tabs && tabs.length > 0 ? (
-              <View style={styles.modalTabs}>
-                {tabs.map((tab) => {
-                  const isActive = activeTab === tab.key;
-                  return (
-                    <TouchableOpacity
-                      key={String(tab.key)}
-                      style={[
-                        styles.modalTabButton,
-                        isActive && styles.modalTabButtonActive,
-                      ]}
-                      onPress={() => onTabChange && onTabChange(tab.key)}
-                    >
-                      <Text
-                        style={[
-                          styles.modalTabText,
-                          isActive && styles.modalTabTextActive,
-                        ]}
-                      >
-                        {tab.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            {tabs && tabs.length > 0 && activeTab && onTabChange ? (
+              <TabBar
+                tabs={tabs.map(t => ({ id: String(t.key), label: t.label }))}
+                activeTab={String(activeTab)}
+                onTabPress={(tabId) => onTabChange(tabId as unknown as T)}
+                style={{ flex: 1, paddingHorizontal: 0, paddingBottom: 0, borderBottomWidth: 0, backgroundColor: 'transparent' }}
+              />
             ) : (
               <View style={styles.titleContainer}>
                 {icon && <View style={styles.iconWrapper}>{icon}</View>}

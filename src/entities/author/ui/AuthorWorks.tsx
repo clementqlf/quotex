@@ -4,7 +4,6 @@ import {
   Alert,
   Platform,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   ActionSheetIOS,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
+import { AppText } from '@/src/shared/ui';
 import { useQuery } from '@tanstack/react-query';
 import { FlashList } from '@shopify/flash-list';
 import { AlertTriangle, ChevronLeft } from 'lucide-react-native';
@@ -604,7 +604,7 @@ export default function AuthorWorksScreen() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.modalTitle}>Toutes les œuvres</Text>
+        <AppText style={styles.modalTitle}>Toutes les œuvres</AppText>
         <View style={{ width: 24 }} />
       </View>
 
@@ -631,7 +631,7 @@ export default function AuthorWorksScreen() {
             if (item.type === 'header') {
               return (
                 <View style={styles.modalSectionHeader}>
-                  <Text style={styles.modalSectionHeaderTitle}>{item.title}</Text>
+                  <AppText style={styles.modalSectionHeaderTitle}>{item.title}</AppText>
                 </View>
               );
             }
@@ -648,11 +648,11 @@ export default function AuthorWorksScreen() {
               return (
                 <View style={styles.modalErrorContainer}>
                   <AlertTriangle size={20} color={colors.warning} style={{ marginRight: 8 }} />
-                  <Text style={[styles.modalErrorText, { color: colors.textSecondary }]}>
+                  <AppText style={[styles.modalErrorText, { color: colors.textSecondary }]}>
                     Impossible de charger les œuvres de Google Books
-                  </Text>
+                  </AppText>
                   <TouchableOpacity onPress={() => refetchExternalBooks()} style={styles.modalErrorRetryButton}>
-                    <Text style={styles.modalErrorRetryText}>Réessayer</Text>
+                    <AppText style={styles.modalErrorRetryText}>Réessayer</AppText>
                   </TouchableOpacity>
                 </View>
               );

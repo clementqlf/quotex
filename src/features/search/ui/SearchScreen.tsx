@@ -1,4 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText, Avatar, BookCover, DebugBadge, Input, TabBar } from '@/src/shared/ui';
 import { SearchResults, InventairePrize } from '@/src/features/search/api/SearchService';
 import { InventaireEntity, getInventaireImageUrl } from '@/src/shared/api/InventaireService';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -7,17 +8,15 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { Image } from 'expo-image';
-import { BookCover, Avatar, Input, TabBar } from '@/src/shared/ui';
 import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import { preventDoublePress } from '@/src/shared/lib/pressUtils';
 import { ArrowLeft, Award, Hash, Quote as QuoteIcon, Scan, Search, X } from 'lucide-react-native';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearch } from '@/src/features/search/lib/useSearch';
 import {
   ActivityIndicator,
   SectionList,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -59,13 +58,15 @@ export default function SearchScreen() {
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
     const [query, setQuery] = useState(q || '');
+    const [prevTab, setPrevTab] = useState(tab);
     const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes' | 'users'>(tab || 'all');
 
-    useEffect(() => {
+    if (tab !== prevTab) {
+        setPrevTab(tab);
         if (tab) {
             setActiveTab(tab);
         }
-    }, [tab]);
+    }
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const inputRef = useRef<any>(null);
 
@@ -182,8 +183,8 @@ export default function SearchScreen() {
                         <QuoteIcon size={16} color={colors.primary} fill={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text numberOfLines={2} style={styles.quoteText}>{`"${quote.text}"`}</Text>
-                        <Text style={styles.subText}>{getAuthorName(quote.author)} • {getBookTitle(quote.book)}</Text>
+                        <AppText numberOfLines={2} style={styles.quoteText}>{`"${quote.text}"`}</AppText>
+                        <AppText style={styles.subText}>{getAuthorName(quote.author)} • {getBookTitle(quote.book)}</AppText>
                     </View>
                 </TouchableOpacity>
             );
@@ -207,14 +208,10 @@ export default function SearchScreen() {
                         />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{book.title}</Text>
-                                {__DEV__ && (
-                                    <View style={styles.dbBadge}>
-                                        <Text style={styles.dbBadgeText}>DB</Text>
-                                    </View>
-                                )}
+                                <AppText style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{book.title}</AppText>
+                                {__DEV__ && <DebugBadge label="DB" color="error" />}
                             </View>
-                            <Text style={styles.subText}>{getAuthorName(book.author)}</Text>
+                            <AppText style={styles.subText}>{getAuthorName(book.author)}</AppText>
                         </View>
                     </TouchableOpacity>
                 );
@@ -237,14 +234,10 @@ export default function SearchScreen() {
                         />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invBook.label}</Text>
-                                {__DEV__ && invBook.source && (
-                                    <View style={styles.debugBadge}>
-                                        <Text style={styles.debugBadgeText}>{invBook.source}</Text>
-                                    </View>
-                                )}
+                                <AppText style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invBook.label}</AppText>
+                                {__DEV__ && invBook.source && <DebugBadge label={invBook.source} color="info" />}
                             </View>
-                            <Text style={styles.subText} numberOfLines={1}>{invBook.authors && invBook.authors.length > 0 ? invBook.authors.join(', ') : 'Auteur inconnu'}</Text>
+                            <AppText style={styles.subText} numberOfLines={1}>{invBook.authors && invBook.authors.length > 0 ? invBook.authors.join(', ') : 'Auteur inconnu'}</AppText>
                         </View>
                     </TouchableOpacity>
                 );
@@ -261,14 +254,10 @@ export default function SearchScreen() {
                         <Avatar uri={author.image} name={author.name} size={40} style={styles.iconContainer} />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{author.name}</Text>
-                                {__DEV__ && (
-                                    <View style={styles.dbBadge}>
-                                        <Text style={styles.dbBadgeText}>DB</Text>
-                                    </View>
-                                )}
+                                <AppText style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{author.name}</AppText>
+                                {__DEV__ && <DebugBadge label="DB" color="error" />}
                             </View>
-                            <Text style={styles.subText} numberOfLines={2}>{author.description || 'Mon auteur'}</Text>
+                            <AppText style={styles.subText} numberOfLines={2}>{author.description || 'Mon auteur'}</AppText>
                         </View>
                     </TouchableOpacity>
                 );
@@ -283,14 +272,10 @@ export default function SearchScreen() {
                         <Avatar uri={imageUrl} name={invAuthor.label} size={40} style={styles.iconContainer} />
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invAuthor.label}</Text>
-                                {__DEV__ && invAuthor.source && (
-                                    <View style={styles.debugBadge}>
-                                        <Text style={styles.debugBadgeText}>{invAuthor.source}</Text>
-                                    </View>
-                                )}
+                                <AppText style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{invAuthor.label}</AppText>
+                                {__DEV__ && invAuthor.source && <DebugBadge label={invAuthor.source} color="info" />}
                             </View>
-                            <Text style={styles.subText} numberOfLines={2}>{invAuthor.description || 'Auteur'}</Text>
+                            <AppText style={styles.subText} numberOfLines={2}>{invAuthor.description || 'Auteur'}</AppText>
                         </View>
                     </TouchableOpacity>
                 );
@@ -302,10 +287,10 @@ export default function SearchScreen() {
                     style={styles.resultItem}
                     onPress={() => router.push({ pathname: '/theme-detail', params: { themeName: theme } })}
                 >
-                    <View style={[styles.iconContainer, { backgroundColor: 'rgba(236, 72, 153, 0.1)' }]}>
-                        <Hash size={20} color="#EC4899" />
+                    <View style={[styles.iconContainer, { backgroundColor: colors.accent ? `${colors.accent}1F` : 'rgba(236, 72, 153, 0.1)' }]}>
+                        <Hash size={20} color={colors.accent || '#EC4899'} />
                     </View>
-                    <Text style={styles.itemTitle}>{theme}</Text>
+                    <AppText style={styles.itemTitle}>{theme}</AppText>
                 </TouchableOpacity>
             );
         } else if (section.type === 'prize') {
@@ -317,23 +302,19 @@ export default function SearchScreen() {
                         style={styles.resultItem}
                         onPress={() => router.push({ pathname: '/prize-detail', params: { prizeId: prize.id } })}
                     >
-                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                        <View style={[styles.iconContainer, { backgroundColor: colors.warning ? `${colors.warning}1F` : 'rgba(245, 158, 11, 0.1)' }]}>
                             {prize.image ? (
                                 <Image source={{ uri: prize.image }} style={styles.authorImage} />
                             ) : (
-                                <Award size={20} color="#F59E0B" />
+                                <Award size={20} color={colors.warning || '#F59E0B'} />
                             )}
                         </View>
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Text style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{prize.name}</Text>
-                                {__DEV__ && (
-                                    <View style={styles.dbBadge}>
-                                        <Text style={styles.dbBadgeText}>DB</Text>
-                                    </View>
-                                )}
+                                <AppText style={[styles.itemTitle, { flex: 1 }]} numberOfLines={1}>{prize.name}</AppText>
+                                {__DEV__ && <DebugBadge label="DB" color="error" />}
                             </View>
-                            <Text style={styles.subText} numberOfLines={2}>{prize.description || 'Prix Littéraire'}</Text>
+                            <AppText style={styles.subText} numberOfLines={2}>{prize.description || 'Prix Littéraire'}</AppText>
                         </View>
                     </TouchableOpacity>
                 );
@@ -344,16 +325,16 @@ export default function SearchScreen() {
                         style={styles.resultItem}
                         onPress={() => handleImportPrize(invPrize)}
                     >
-                        <View style={[styles.iconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                        <View style={[styles.iconContainer, { backgroundColor: colors.warning ? `${colors.warning}1F` : 'rgba(245, 158, 11, 0.1)' }]}>
                             {invPrize.image ? (
                                 <Image source={{ uri: invPrize.image }} style={styles.authorImage} />
                             ) : (
-                                <Award size={20} color="#F59E0B" />
+                                <Award size={20} color={colors.warning || '#F59E0B'} />
                             )}
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.itemTitle}>{invPrize.label}</Text>
-                            <Text style={styles.subText} numberOfLines={2}>{invPrize.description || 'Importer ce prix'}</Text>
+                            <AppText style={styles.itemTitle}>{invPrize.label}</AppText>
+                            <AppText style={styles.subText} numberOfLines={2}>{invPrize.description || 'Importer ce prix'}</AppText>
                         </View>
                     </TouchableOpacity>
                 );
@@ -367,8 +348,8 @@ export default function SearchScreen() {
                 >
                     <Avatar user={profile} size={40} style={styles.iconContainer} />
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{profile.name || `@${profile.username}`}</Text>
-                        <Text style={styles.subText}>{profile.name ? `@${profile.username}` : 'Utilisateur'}</Text>
+                        <AppText style={styles.itemTitle}>{profile.name || `@${profile.username}`}</AppText>
+                        <AppText style={styles.subText}>{profile.name ? `@${profile.username}` : 'Utilisateur'}</AppText>
                     </View>
                 </TouchableOpacity>
             );
@@ -436,6 +417,7 @@ export default function SearchScreen() {
                   tabs={SEARCH_TABS}
                   activeTab={activeTab}
                   onTabPress={(tabId) => setActiveTab(tabId as 'all' | 'books' | 'authors' | 'prizes' | 'users')}
+                  scrollable={true}
                 />
             )}
 
@@ -450,7 +432,7 @@ export default function SearchScreen() {
                     renderItem={renderItem}
                     renderSectionHeader={({ section: { title } }) => (
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>{title}</Text>
+                            <AppText style={styles.sectionTitle}>{title}</AppText>
                         </View>
                     )}
                     contentContainerStyle={styles.listContent}
@@ -458,7 +440,7 @@ export default function SearchScreen() {
                     ListEmptyComponent={
                         query.length > 1 ? (
                             <View style={styles.centerContainer}>
-                                <Text style={styles.emptyText}>Aucun résultat trouvé.</Text>
+                                <AppText style={styles.emptyText}>Aucun résultat trouvé.</AppText>
                             </View>
                         ) : null
                     }
@@ -595,32 +577,4 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         height: 40,
         borderRadius: 20,
     },
-    debugBadge: {
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderColor: 'rgba(59, 130, 246, 0.3)',
-        borderWidth: 1,
-        borderRadius: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        marginLeft: 8,
-    },
-    debugBadgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: '#2563EB',
-    },
-    dbBadge: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderColor: 'rgba(239, 68, 68, 0.3)',
-        borderWidth: 1,
-        borderRadius: 4,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        marginLeft: 8,
-    },
-    dbBadgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: '#EF4444',
-    }
 });

@@ -10,6 +10,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { BlockWrapper } from './BlockWrapper';
+import { TabBar } from '../TabBar';
 
 interface SavedQuotesBlockProps {
     quotes: Quote[];
@@ -77,32 +78,16 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
 
     return (
         <BlockWrapper blockKey="savedQuotes" onRemove={onRemove} rightElement={rightElement} title={title}>
-            <View style={styles.tabsContainer}>
-                <TouchableOpacity
-                    onPress={() => setQuoteSubFilter('ALL')}
-                    style={[styles.tab, quoteSubFilter === 'ALL' && styles.activeTab]}
-                >
-                    <Text style={[styles.tabText, quoteSubFilter === 'ALL' && styles.activeTabText]}>
-                        Tout
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => setQuoteSubFilter('PUBLISHED')}
-                    style={[styles.tab, quoteSubFilter === 'PUBLISHED' && styles.activeTab]}
-                >
-                    <Text style={[styles.tabText, quoteSubFilter === 'PUBLISHED' && styles.activeTabText]}>
-                        Publiés
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => setQuoteSubFilter('SAVED')}
-                    style={[styles.tab, quoteSubFilter === 'SAVED' && styles.activeTab]}
-                >
-                    <Text style={[styles.tabText, quoteSubFilter === 'SAVED' && styles.activeTabText]}>
-                        Partagées
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            <TabBar
+                tabs={[
+                    { id: 'ALL', label: 'Tout' },
+                    { id: 'PUBLISHED', label: 'Publiées' },
+                    { id: 'SAVED', label: 'Partagées' },
+                ]}
+                activeTab={quoteSubFilter}
+                onTabPress={(tabId) => setQuoteSubFilter(tabId as any)}
+                style={{ paddingHorizontal: 0, paddingBottom: 0, marginBottom: 16, backgroundColor: 'transparent' }}
+            />
 
             {displayedQuotes.length === 0 ? (
                 <Text style={styles.fallbackText}>
@@ -173,56 +158,16 @@ const SavedQuotesBlockUI: React.FC<SavedQuotesBlockProps> = ({
             >
                 <View style={styles.quotesModalContainer}>
                     <View style={styles.quotesModalHeader}>
-                        <View style={styles.modalTabs}>
-                            <TouchableOpacity
-                                style={[
-                                    styles.modalTabButton,
-                                    modalQuoteFilter === 'ALL' && styles.modalTabButtonActive,
-                                ]}
-                                onPress={() => setModalQuoteFilter('ALL')}
-                            >
-                                <Text
-                                    style={[
-                                        styles.modalTabText,
-                                        modalQuoteFilter === 'ALL' && styles.modalTabTextActive,
-                                    ]}
-                                >
-                                    Tout
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.modalTabButton,
-                                    modalQuoteFilter === 'PUBLISHED' && styles.modalTabButtonActive,
-                                ]}
-                                onPress={() => setModalQuoteFilter('PUBLISHED')}
-                            >
-                                <Text
-                                    style={[
-                                        styles.modalTabText,
-                                        modalQuoteFilter === 'PUBLISHED' && styles.modalTabTextActive,
-                                    ]}
-                                >
-                                    Publiés
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[
-                                    styles.modalTabButton,
-                                    modalQuoteFilter === 'SAVED' && styles.modalTabButtonActive,
-                                ]}
-                                onPress={() => setModalQuoteFilter('SAVED')}
-                            >
-                                <Text
-                                    style={[
-                                        styles.modalTabText,
-                                        modalQuoteFilter === 'SAVED' && styles.modalTabTextActive,
-                                    ]}
-                                >
-                                    Partagées
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                        <TabBar
+                            tabs={[
+                                { id: 'ALL', label: 'Tout' },
+                                { id: 'PUBLISHED', label: 'Publiées' },
+                                { id: 'SAVED', label: 'Partagées' },
+                            ]}
+                            activeTab={modalQuoteFilter}
+                            onTabPress={(tabId) => setModalQuoteFilter(tabId as any)}
+                            style={{ flex: 1, paddingHorizontal: 0, paddingBottom: 0, borderBottomWidth: 0, backgroundColor: 'transparent' }}
+                        />
                         <TouchableOpacity 
                             style={styles.modalCloseButton} 
                             onPress={() => setShowAllQuotesModal(false)}

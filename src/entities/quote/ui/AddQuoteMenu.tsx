@@ -1,4 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText } from '@/src/shared/ui';
 import { ThemeColors } from '@/src/shared/theme';
 import { Camera, Edit3 } from 'lucide-react-native';
 import React, { useMemo } from 'react';
@@ -7,7 +8,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -71,7 +71,7 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
             testID="scan-quote-option"
           >
             <Camera size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Scanner une citation</Text>
+            <AppText style={styles.actionMenuText}>Scanner une citation</AppText>
           </TouchableOpacity>
 
           {/* Manual Add Option */}
@@ -84,7 +84,7 @@ const AddQuoteMenu = React.memo(({ visible, onClose, onScanPress, onManualAddPre
             testID="manual-entry-button"
           >
             <Edit3 size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Ajouter une citation</Text>
+            <AppText style={styles.actionMenuText}>Ajouter une citation</AppText>
           </TouchableOpacity>
         </View>
       </Pressable>

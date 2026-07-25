@@ -1,11 +1,11 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText } from '@/src/shared/ui';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { useRouter } from '@/src/shared/navigation/useRouter';
 import React, { useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
@@ -40,11 +40,11 @@ const ThemeCardItem = React.memo(({ theme }: ThemeCardItemProps) => {
     >
       <View style={[styles.cardContent, { alignItems: 'center' }]}>
         <View style={styles.themeIconContainer}>
-          <Text style={styles.themeIconText}>{theme.theme[0]}</Text>
+          <AppText style={styles.themeIconText}>{theme.theme[0]}</AppText>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.themeTitle}>{theme.theme}</Text>
-          <Text style={styles.themeSubText}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</Text>
+          <AppText style={styles.themeTitle}>{theme.theme}</AppText>
+          <AppText style={styles.themeSubText}>{theme.books.length} livre{theme.books.length > 1 ? 's' : ''} • {theme.quoteCount} citation{theme.quoteCount > 1 ? 's' : ''}</AppText>
         </View>
       </View>
     </Pressable>
@@ -59,7 +59,7 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     borderRadius: tokens.radii.md,
     marginBottom: tokens.spacing.sm + 4,
     borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   cardContent: {

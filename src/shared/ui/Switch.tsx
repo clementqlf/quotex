@@ -1,7 +1,6 @@
 import React from 'react';
 import { Switch as RNSwitch, SwitchProps as RNSwitchProps, ViewStyle } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { tokens as defaultTokens } from '@/src/shared/theme';
 import { useHaptics } from '@/src/shared/platform';
 
 export interface SwitchProps extends RNSwitchProps {
@@ -19,7 +18,7 @@ export const Switch: React.FC<SwitchProps> = React.memo(({
   thumbColor,
   ...rest
 }) => {
-  const { colors, tokens = defaultTokens } = useTheme();
+  const { colors } = useTheme();
   const haptics = useHaptics();
 
   const handleValueChange = async (newValue: boolean) => {
@@ -28,7 +27,7 @@ export const Switch: React.FC<SwitchProps> = React.memo(({
     if (enableHaptics) {
       try {
         await haptics.impactAsync('light');
-      } catch (err) {
+      } catch {
         // Ignore haptics errors on unsupported platforms
       }
     }

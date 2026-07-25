@@ -1,9 +1,10 @@
+import { AppText, CounterTab, IconButton, TabBar } from '@/src/shared/ui';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { FlashList, FlashListRef } from '@shopify/flash-list';
 import { useRouter } from '@/src/shared/navigation/useRouter';
-import { Book as BookIcon, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
+import { Book as BookIcon, Bookmark, Filter, Hash, Plus, Quote as QuoteIcon, Search, Users, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -12,7 +13,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   Modal
@@ -136,12 +136,12 @@ const AnimatedHeaderTitle = ({ viewMode, colors, styles }: AnimatedHeaderTitlePr
         {mode === 'books' && <BookIcon size={24} color={colors.text} />}
         {mode === 'authors' && <Users size={24} color={colors.text} />}
         {mode === 'themes' && <Hash size={24} color={colors.text} />}
-        <Text style={styles.headerTitle}>
+        <AppText style={styles.headerTitle}>
           {mode === 'quotes' && 'Mes Citations'}
           {mode === 'books' && 'Mes Livres'}
           {mode === 'authors' && 'Mes Auteurs'}
           {mode === 'themes' && 'Mes Thèmes'}
-        </Text>
+        </AppText>
       </>
     );
   };
@@ -193,18 +193,18 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
       <View key="filters" style={styles.filterContainer}>
         {activeFilters.map((filter, index) => (
           <TouchableOpacity key={`${filter.type}-${filter.value}-${index}`} style={styles.filterBadge} onPress={() => removeFilter(filter)}>
-            <Text style={styles.filterBadgeText}>
+            <AppText style={styles.filterBadgeText}>
               {filter.type === 'author' ? 'Auteur' :
                 filter.type === 'book' ? 'Livre' :
                   filter.type === 'year' ? 'Année' : 'Statut'}: {
                 filter.type === 'status' ? getStatusLabel(filter.value as string) : filter.value
               }
-            </Text>
+            </AppText>
             <X size={12} color={colors.primary} />
           </TouchableOpacity>
         ))}
         <TouchableOpacity onPress={resetFilters} style={styles.clearFilterButton}>
-          <Text style={styles.clearFilterButtonText}>Tout effacer</Text>
+          <AppText style={styles.clearFilterButtonText}>Tout effacer</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -226,10 +226,10 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
               selectedStatus === 'ALL' && styles.statusFilterBadgeActive
             ]}
           >
-            <Text style={[
+            <AppText style={[
               styles.statusFilterText,
               selectedStatus === 'ALL' && styles.statusFilterTextActive
-            ]}>Tout</Text>
+            ]}>Tout</AppText>
           </TouchableOpacity>
           {STATUS_OPTIONS.map(opt => (
             <TouchableOpacity
@@ -240,10 +240,10 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
                 selectedStatus === opt.value && { backgroundColor: opt.color + '15', borderColor: opt.color }
               ]}
             >
-              <Text style={[
+              <AppText style={[
                 styles.statusFilterText,
                 selectedStatus === opt.value && { color: opt.color }
-              ]}>{opt.label}</Text>
+              ]}>{opt.label}</AppText>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -253,32 +253,17 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
 
   if (viewMode === 'quotes') {
     elements.push(
-      <View key="quote-sub-pills" style={styles.tabsContainer}>
-        <TouchableOpacity
-          onPress={() => setQuoteSubFilter?.('ALL')}
-          style={[styles.tab, quoteSubFilter === 'ALL' && styles.activeTab]}
-        >
-          <Text style={[styles.tabText, quoteSubFilter === 'ALL' && styles.activeTabText]}>
-            Tout
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setQuoteSubFilter?.('PUBLISHED')}
-          style={[styles.tab, quoteSubFilter === 'PUBLISHED' && styles.activeTab]}
-        >
-          <Text style={[styles.tabText, quoteSubFilter === 'PUBLISHED' && styles.activeTabText]}>
-            Publiés
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setQuoteSubFilter?.('SAVED')}
-          style={[styles.tab, quoteSubFilter === 'SAVED' && styles.activeTab]}
-        >
-          <Text style={[styles.tabText, quoteSubFilter === 'SAVED' && styles.activeTabText]}>
-            Enregistré
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TabBar
+        key="quote-sub-pills"
+        tabs={[
+          { id: 'ALL', label: 'Tout' },
+          { id: 'PUBLISHED', label: 'Publiées' },
+          { id: 'SAVED', label: 'Enregistrées' },
+        ]}
+        activeTab={quoteSubFilter || 'ALL'}
+        onTabPress={(tabId) => setQuoteSubFilter?.(tabId as any)}
+        style={{ paddingHorizontal: 0, paddingBottom: 0, marginBottom: 16, backgroundColor: 'transparent' }}
+      />
     );
   }
 
@@ -305,11 +290,11 @@ const EmptyStateView = React.memo(function EmptyStateView({
   return (
     <View style={styles.emptyStateContainer}>
       <View style={styles.emptyStateIconContainer}>{icon}</View>
-      <Text style={styles.emptyStateTitle}>{title}</Text>
-      <Text style={styles.emptyStateDescription}>{description}</Text>
+      <AppText style={styles.emptyStateTitle}>{title}</AppText>
+      <AppText style={styles.emptyStateDescription}>{description}</AppText>
       {buttonLabel && onButtonPress && (
         <TouchableOpacity style={styles.emptyStateButton} onPress={onButtonPress} activeOpacity={0.8}>
-          <Text style={styles.emptyStateButtonText}>{buttonLabel}</Text>
+          <AppText style={styles.emptyStateButtonText}>{buttonLabel}</AppText>
         </TouchableOpacity>
       )}
     </View>
@@ -336,7 +321,7 @@ const AddFooterCard = React.memo(function AddFooterCard({
       activeOpacity={0.75}
     >
       <View style={styles.addFooterIconContainer}>{icon}</View>
-      <Text style={styles.addFooterLabel}>{label}</Text>
+      <AppText style={styles.addFooterLabel}>{label}</AppText>
     </TouchableOpacity>
   );
 });
@@ -754,8 +739,10 @@ export default function MyQuotesScreen() {
   const themeKeyExtractor = useCallback((item: ThemeCardData) => item.theme, []);
   const statsContent = (
     <>
-      <TouchableOpacity
-        style={[styles.statItem, viewMode === 'quotes' && styles.statItemActive]}
+      <CounterTab
+        value={myQuotes.length}
+        label="Citations"
+        isActive={viewMode === 'quotes'}
         onPress={() => setViewMode('quotes')}
         activeOpacity={0.8}
         accessible={true}
@@ -763,13 +750,11 @@ export default function MyQuotesScreen() {
         accessibilityState={{ selected: viewMode === 'quotes' }}
         accessibilityLabel={`Onglet Citations, ${myQuotes.length} citations`}
         testID="tab-quotes"
-      >
-        <Text style={styles.statValue}>{myQuotes.length}</Text>
-        <Text style={styles.statLabel}>Citations</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.statItem, viewMode === 'books' && styles.statItemActive]}
+      />
+      <CounterTab
+        value={bookCount}
+        label="Livres"
+        isActive={viewMode === 'books'}
         onPress={() => setViewMode('books')}
         activeOpacity={0.8}
         accessible={true}
@@ -777,12 +762,11 @@ export default function MyQuotesScreen() {
         accessibilityState={{ selected: viewMode === 'books' }}
         accessibilityLabel={`Onglet Livres, ${bookCount} livres`}
         testID="tab-books"
-      >
-        <Text style={styles.statValue}>{bookCount}</Text>
-        <Text style={styles.statLabel}>Livres</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.statItem, viewMode === 'authors' && styles.statItemActive]}
+      />
+      <CounterTab
+        value={authorsData.length}
+        label="Auteurs"
+        isActive={viewMode === 'authors'}
         onPress={() => setViewMode('authors')}
         activeOpacity={0.8}
         accessible={true}
@@ -790,12 +774,11 @@ export default function MyQuotesScreen() {
         accessibilityState={{ selected: viewMode === 'authors' }}
         accessibilityLabel={`Onglet Auteurs, ${authorsData.length} auteurs`}
         testID="tab-authors"
-      >
-        <Text style={styles.statValue}>{authorsData.length}</Text>
-        <Text style={styles.statLabel}>Auteurs</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.statItem, viewMode === 'themes' && styles.statItemActive]}
+      />
+      <CounterTab
+        value={themes.length}
+        label="Thèmes"
+        isActive={viewMode === 'themes'}
         onPress={() => setViewMode('themes')}
         activeOpacity={0.8}
         accessible={true}
@@ -803,10 +786,7 @@ export default function MyQuotesScreen() {
         accessibilityState={{ selected: viewMode === 'themes' }}
         accessibilityLabel={`Onglet Thèmes, ${themes.length} thèmes`}
         testID="tab-themes"
-      >
-        <Text style={styles.statValue}>{themes.length}</Text>
-        <Text style={styles.statLabel}>Thèmes</Text>
-      </TouchableOpacity>
+      />
     </>
   );
 
@@ -821,43 +801,40 @@ export default function MyQuotesScreen() {
             stepName="addQuoteButton"
             placement="bottom"
           >
-            <TouchableOpacity
-              style={styles.headerButton}
+            <IconButton
+              icon={<Plus size={20} color={colors.primary} />}
+              variant="outline"
+              size="md"
               onPress={() => setShowAddMenu(true)}
-              accessible={true}
+              style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: colors.surface }}
               accessibilityLabel="Ajouter une citation"
-              accessibilityRole="button"
               testID="add-quote-btn"
-            >
-              <Plus size={20} color={colors.primary} />
-            </TouchableOpacity>
+            />
           </InteractiveTooltip>
           <InteractiveTooltip
             text="Vous pouvez rechercher les œuvres/auteurs de votre choix et les ajouter à votre bibliothèque."
             stepName="searchButton"
             placement="bottom"
           >
-            <TouchableOpacity
-              style={styles.headerButton}
+            <IconButton
+              icon={<Search size={20} color={colors.textSecondary} />}
+              variant="outline"
+              size="md"
               onPress={() => router.navigate('/search')}
-              accessible={true}
+              style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: colors.surface }}
               accessibilityLabel="Rechercher"
-              accessibilityRole="button"
               testID="search-btn"
-            >
-              <Search size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
+            />
           </InteractiveTooltip>
-          <TouchableOpacity
-            style={styles.headerButton}
+          <IconButton
+            icon={<Filter size={20} color={activeFilters.length > 0 ? colors.primary : colors.textSecondary} />}
+            variant="outline"
+            size="md"
             onPress={() => { setTempFilters([...activeFilters]); setFilterModalVisible(true); }}
-            accessible={true}
+            style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: colors.surface }}
             accessibilityLabel="Filtrer"
-            accessibilityRole="button"
             testID="filter-btn"
-          >
-            <Filter size={20} color={activeFilters.length > 0 ? colors.primary : colors.textSecondary} />
-          </TouchableOpacity>
+          />
         </View>
       </View>
 
@@ -1066,22 +1043,55 @@ export default function MyQuotesScreen() {
               />
             }
             ListEmptyComponent={
-              <EmptyStateView
-                icon={hasActiveQuoteFilters ? <Filter size={32} color={colors.primary} /> : <QuoteIcon size={32} color={colors.primary} />}
-                title={hasActiveQuoteFilters ? "Aucune citation trouvée" : "Votre carnet est encore vierge"}
-                description={
-                  hasActiveQuoteFilters
-                    ? "Aucune citation ne correspond à cet onglet ou aux filtres sélectionnés."
-                    : "Scannez un extrait de livre ou créez manuellement votre première citation pour lancer votre collection."
+              (() => {
+                if (activeFilters.length > 0) {
+                  return (
+                    <EmptyStateView
+                      icon={<Filter size={32} color={colors.primary} />}
+                      title="Aucune citation trouvée"
+                      description="Aucune citation ne correspond aux filtres sélectionnés."
+                      buttonLabel="Réinitialiser les filtres"
+                      onButtonPress={() => resetFilters()}
+                      styles={styles}
+                    />
+                  );
                 }
-                buttonLabel={hasActiveQuoteFilters ? "Réinitialiser les filtres" : "+ Ajouter une citation"}
-                onButtonPress={
-                  hasActiveQuoteFilters
-                    ? () => { resetFilters(); setQuoteSubFilter('ALL'); }
-                    : () => setShowAddMenu(true)
+
+                if (quoteSubFilter === 'SAVED') {
+                  return (
+                    <EmptyStateView
+                      icon={<Bookmark size={32} color={colors.primary} />}
+                      title="Aucune citation enregistrée"
+                      description="Enregistrez des citations partagées par d'autres utilisateurs depuis le fil d'actualités pour les retrouver ici."
+                      styles={styles}
+                    />
+                  );
                 }
-                styles={styles}
-              />
+
+                if (quoteSubFilter === 'PUBLISHED') {
+                  return (
+                    <EmptyStateView
+                      icon={<QuoteIcon size={32} color={colors.primary} />}
+                      title="Aucune citation publiée"
+                      description="Vous n'avez pas encore publié de citations. Scannez ou ajoutez vos propres citations pour créer votre collection."
+                      buttonLabel="+ Ajouter une citation"
+                      onButtonPress={() => setShowAddMenu(true)}
+                      styles={styles}
+                    />
+                  );
+                }
+
+                return (
+                  <EmptyStateView
+                    icon={<QuoteIcon size={32} color={colors.primary} />}
+                    title="Votre carnet est encore vierge"
+                    description="Scannez un extrait de livre ou créez manuellement votre première citation pour lancer votre collection."
+                    buttonLabel="+ Ajouter une citation"
+                    onButtonPress={() => setShowAddMenu(true)}
+                    styles={styles}
+                  />
+                );
+              })()
             }
             ListFooterComponent={
               quotesToDisplay.length > 0 ? (
@@ -1288,37 +1298,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stats: {
     flexDirection: 'row',
-    padding: 16,
-    paddingBottom: 4,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
     gap: 12,
-  },
-  statItem: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statItemActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
-  },
-  statValue: {
-    fontSize: 18,
-    color: colors.primary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 0,
   },
   scrollView: {
     flex: 1,

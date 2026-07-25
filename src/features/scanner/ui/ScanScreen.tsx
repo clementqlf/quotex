@@ -1,3 +1,4 @@
+import { AppText, Button, CircleButton, IconButton, LoadingOverlay, QuotexLogo } from '@/src/shared/ui';
 import { useAppTour } from '@/src/features/app-tour';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useSinglePress } from '@/src/shared/lib/pressUtils';
@@ -5,12 +6,9 @@ import { usePathname } from 'expo-router'; import { useRouter } from '@/src/shar
 import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, {
@@ -37,8 +35,6 @@ import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
-import QuotexLogo from '@/src/shared/ui/QuotexLogo';
-import { Button, IconButton } from '@/src/shared/ui';
 
 // Debug flag
 const DEBUG_SCAN_AREA = false;
@@ -232,7 +228,7 @@ export default function ScanScreen() {
   if (!hasPermission) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
-        <Text style={styles.permissionText}>{"Quotex a besoin de l'accès à la caméra."}</Text>
+        <AppText style={styles.permissionText}>{"Quotex a besoin de l'accès à la caméra."}</AppText>
         <Button
           title="Autoriser"
           variant="primary"
@@ -255,7 +251,7 @@ export default function ScanScreen() {
       {!photo && (
         <View style={styles.header}>
           <IconButton
-            icon={<Settings size={24} color="#E5E7EB" />}
+            icon={<Settings size={22} color={colors.text} />}
             variant="ghost"
             size="md"
             onPress={handleSettingsPress}
@@ -266,24 +262,24 @@ export default function ScanScreen() {
 
           {__DEV__ && (
             <IconButton
-              icon={<RefreshCw size={22} color="#EF4444" />}
+              icon={<RefreshCw size={22} color={colors.warning} />}
               variant="ghost"
               size="md"
               onPress={async () => {
                 await resetTour();
                 Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
               }}
-              style={[styles.headerButtonLeft, { left: 70 }]}
+              style={[styles.headerButtonLeft, { left: 74 }]}
               accessibilityLabel="Réinitialiser le tutoriel"
             />
           )}
 
           <View style={styles.logoContainer}>
-            <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />
+            <QuotexLogo width={320} height={120} color={colors.text || '#FFFFFF'} style={styles.logoImage} />
           </View>
 
           <IconButton
-            icon={<User size={24} color="#E5E7EB" />}
+            icon={<User size={22} color={colors.text} />}
             variant="ghost"
             size="md"
             onPress={handleProfilePress}
@@ -334,11 +330,7 @@ export default function ScanScreen() {
         )}
       </Modal>
 
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      )}
+      <LoadingOverlay visible={isLoading} />
 
       {!photo && (
         <>
@@ -368,15 +360,15 @@ export default function ScanScreen() {
                   pointerEvents="none"
                 >
                   <View style={styles.iconShadowWrapper}>
-                    <BookOpen size={48} color="#FFFFFF" />
+                    <BookOpen size={48} color={colors.text || '#FFFFFF'} />
                   </View>
-                  <Text style={styles.instructionTextShadow}>
+                  <AppText style={styles.instructionTextShadow}>
                     {isLoading
                       ? 'Analyse en cours...'
                       : !device
                       ? 'Caméra indisponible.\nImportez une image de la galerie.'
                       : 'Placez une citation ou un code-barre dans le cadre'}
-                  </Text>
+                  </AppText>
                 </Animated.View>
               </View>
             </View>
@@ -472,8 +464,8 @@ export default function ScanScreen() {
                 placement="top"
               >
                 <IconButton
-                  icon={<ImageIcon size={24} />}
-                  variant="ghost"
+                  icon={<ImageIcon size={22} color={colors.text} />}
+                  variant="filled"
                   size="md"
                   onPress={handlePickImage}
                   style={styles.iconButton}
@@ -488,31 +480,22 @@ export default function ScanScreen() {
                   stepName="scanButton"
                   placement="top"
                 >
-                  <TouchableOpacity
-                    style={[
-                      styles.scanButton,
-                      isLoading && styles.scanButtonActive,
-                      !device && styles.scanButtonDisabled,
-                      (!isTextDetectedLive && device) && { borderColor: 'rgba(229, 231, 235, 0.4)', shadowColor: '#E5E7EB', shadowOpacity: 0.3 }
-                    ]}
+                  <CircleButton
+                    icon={<ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : colors.text} />}
                     onPress={handleTakePhoto}
+                    size="md"
                     disabled={isLoading || !device}
-                    activeOpacity={0.9}
-                    accessible={true}
+                    active={isTextDetectedLive && !!device}
+                    inactiveColor={colors.textSecondary}
                     accessibilityLabel="Prendre une photo de la citation"
-                    accessibilityRole="button"
                     testID="capture-button"
-                  >
-                    <View>
-                      <ScanLine size={28} color={(isTextDetectedLive && device) ? colors.primary : "#E5E7EB"} />
-                    </View>
-                  </TouchableOpacity>
+                  />
                 </InteractiveTooltip>
               </View>
 
               <IconButton
-                icon={<Sparkles size={24} />}
-                variant="ghost"
+                icon={<Sparkles size={22} color={colors.text} />}
+                variant="filled"
                 size="md"
                 onPress={handleRandomQuotePress}
                 style={styles.iconButton}
@@ -637,10 +620,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    width: 45,
-    height: 45,
+    width: 48,
+    height: 48,
     borderRadius: 12,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: colors.surfaceHighlight || 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: colors.border || 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -650,32 +635,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-  },
-  scanButton: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: 'transparent',
-    borderWidth: 3,
-    borderColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 15,
-    elevation: 8,
-    zIndex: 10,
-  },
-  scanButtonActive: {
-    backgroundColor: 'rgba(32, 184, 205, 0.2)',
-    borderColor: '#FFFFFF',
-  },
-  scanButtonDisabled: {
-    opacity: 0.4,
-    borderColor: '#444',
-    shadowOpacity: 0,
-    elevation: 0,
   },
   permissionText: {
     color: colors.text,
@@ -687,13 +646,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 8,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: colors.backdrop,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 99,
   },
   iconShadowWrapper: {
     shadowColor: colors.primary,

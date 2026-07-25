@@ -3,10 +3,8 @@ import {
   TouchableOpacity,
   TouchableOpacityProps,
   ViewStyle,
-  StyleSheet,
 } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { tokens as defaultTokens } from '@/src/shared/theme';
 import { useHaptics } from '@/src/shared/platform';
 
 export type IconButtonVariant = 'ghost' | 'filled' | 'outline';
@@ -30,7 +28,7 @@ export const IconButton: React.FC<IconButtonProps> = React.memo(({
   style,
   ...rest
 }) => {
-  const { colors, tokens = defaultTokens } = useTheme();
+  const { colors } = useTheme();
   const haptics = useHaptics();
 
   const handlePress = async (e: any) => {
@@ -38,7 +36,7 @@ export const IconButton: React.FC<IconButtonProps> = React.memo(({
     if (enableHaptics) {
       try {
         await haptics.impactAsync('light');
-      } catch (err) {
+      } catch {
         // Ignore haptics errors on unsupported platforms
       }
     }

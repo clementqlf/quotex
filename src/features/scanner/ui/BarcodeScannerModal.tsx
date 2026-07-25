@@ -1,4 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText } from '@/src/shared/ui';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
 import * as ExpoImagePicker from 'expo-image-picker';
@@ -9,7 +10,6 @@ import {
   Dimensions,
   Modal,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -177,14 +177,14 @@ export default function BarcodeScannerModal({
                 {!hasPermission ? (
                     <View style={styles.permissionContainer}>
                         <CameraIcon size={48} color={colors.primary} style={{ marginBottom: 16 }} />
-                        <Text style={[styles.permissionText, { color: colors.text }]}>
+                        <AppText style={[styles.permissionText, { color: colors.text }]}>
                             {"Quotex a besoin de l'accès à la caméra pour scanner les codes-barres."}
-                        </Text>
+                        </AppText>
                         <TouchableOpacity
                             style={[styles.permissionButton, { backgroundColor: colors.primary }]}
                             onPress={requestPermission}
                         >
-                            <Text style={styles.permissionButtonText}>{"Autoriser l'accès"}</Text>
+                            <AppText style={styles.permissionButtonText}>{"Autoriser l'accès"}</AppText>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                             <X size={24} color={colors.textSecondary} />
@@ -192,9 +192,9 @@ export default function BarcodeScannerModal({
                     </View>
                 ) : !device ? (
                     <View style={styles.permissionContainer}>
-                        <Text style={[styles.permissionText, { color: colors.text }]}>
+                        <AppText style={[styles.permissionText, { color: colors.text }]}>
                             {"Aucun appareil photo n'a été détecté sur votre appareil."}
-                        </Text>
+                        </AppText>
                         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                             <X size={24} color={colors.textSecondary} />
                         </TouchableOpacity>
@@ -217,12 +217,12 @@ export default function BarcodeScannerModal({
                         {/* Custom Dark Mask Overlay */}
                         <View style={styles.overlayContainer}>
                             <View style={styles.overlayTop}>
-                                <Text style={styles.scanInstruction}>
+                                <AppText style={styles.scanInstruction}>
                                     Scannez le code-barres (ISBN)
-                                </Text>
-                                <Text style={styles.scanSubInstruction}>
+                                </AppText>
+                                <AppText style={styles.scanSubInstruction}>
                                     Placez le code EAN-13 du livre dans le cadre
-                                </Text>
+                                </AppText>
                             </View>
 
                             <View style={styles.overlayMiddle}>
@@ -244,7 +244,7 @@ export default function BarcodeScannerModal({
                                 <View style={styles.controlsRow}>
                                     <TouchableOpacity style={styles.controlButton} onPress={handlePickImage}>
                                         <ImageIcon size={22} color="#FFF" />
-                                        <Text style={styles.controlText}>Importer</Text>
+                                        <AppText style={styles.controlText}>Importer</AppText>
                                     </TouchableOpacity>
 
                                     <TouchableOpacity 
@@ -252,7 +252,7 @@ export default function BarcodeScannerModal({
                                         onPress={() => setTorch(t => t === 'off' ? 'on' : 'off')}
                                     >
                                         <Zap size={22} color={torch === 'on' ? colors.primary : '#FFF'} />
-                                        <Text style={[styles.controlText, torch === 'on' && { color: colors.primary }]}>Flash</Text>
+                                        <AppText style={[styles.controlText, torch === 'on' && { color: colors.primary }]}>Flash</AppText>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -267,7 +267,7 @@ export default function BarcodeScannerModal({
                         {isLoading && (
                             <View style={styles.loadingContainer}>
                                 <ActivityIndicator size="large" color={colors.primary} />
-                                <Text style={styles.loadingText}>Importation...</Text>
+                                <AppText style={styles.loadingText}>Importation...</AppText>
                             </View>
                         )}
                     </>

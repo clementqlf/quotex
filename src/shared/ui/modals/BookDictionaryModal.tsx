@@ -230,7 +230,7 @@ export default function BookDictionaryModal({
                                                 accessibilityLabel={`Supprimer la définition pour ${item.term}`}
                                                 accessibilityRole="button"
                                             >
-                                                <Trash2 size={18} color={colors.warning} />
+                                                <Trash2 size={18} color={colors.error} />
                                             </TouchableOpacity>
                                         )}
                                     </View>

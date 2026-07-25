@@ -1,12 +1,12 @@
 import React from 'react';
 import {
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   ViewStyle,
   useWindowDimensions,
 } from 'react-native';
+import { AppText } from '@/src/shared/ui';
 import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
 import { useRouter } from '@/src/shared/navigation/useRouter';
 import Svg, { Mask, Rect } from 'react-native-svg';
@@ -345,15 +345,15 @@ export function AppTourOverlay({ isInsideModalContainer = false }: AppTourOverla
         ]}
       >
         <View style={styles.header}>
-          <Text style={[styles.stepBadge, { color: colors.primary, backgroundColor: colors.primaryLight }]}>
+          <AppText style={[styles.stepBadge, { color: colors.primary, backgroundColor: colors.primaryLight }]}>
             Étape {currentStepIndex + 1} / {TOUR_STEPS.length}
-          </Text>
+          </AppText>
           <TouchableOpacity onPress={stopTour} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={[styles.skipText, { color: colors.textSecondary }]}>Passer</Text>
+            <AppText style={[styles.skipText, { color: colors.textSecondary }]}>Passer</AppText>
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.message, { color: colors.text }]}>{currentStepMessage}</Text>
+        <AppText style={[styles.message, { color: colors.text }]}>{currentStepMessage}</AppText>
 
         <View style={styles.footer}>
           {currentStepIndex > 0 && (
@@ -361,16 +361,16 @@ export function AppTourOverlay({ isInsideModalContainer = false }: AppTourOverla
               style={[styles.button, styles.backButton, { borderColor: colors.border }]}
               onPress={handlePrev}
             >
-              <Text style={[styles.backButtonText, { color: colors.text }]}>Retour</Text>
+              <AppText style={[styles.backButtonText, { color: colors.text }]}>Retour</AppText>
             </TouchableOpacity>
           )}
           <TouchableOpacity
             style={[styles.button, styles.nextButton, { backgroundColor: colors.primary }]}
             onPress={handleNext}
           >
-            <Text style={[styles.nextButtonText, { color: colors.buttonText }]}>
+            <AppText style={[styles.nextButtonText, { color: colors.buttonText }]}>
               {currentStepIndex === TOUR_STEPS.length - 1 ? 'Terminer' : 'Suivant'}
-            </Text>
+            </AppText>
           </TouchableOpacity>
         </View>
       </View>

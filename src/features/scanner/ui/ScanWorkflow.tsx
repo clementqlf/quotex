@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/refs */
 import { TextBlock, TextElement } from '@react-native-ml-kit/text-recognition';
+import { AppText } from '@/src/shared/ui';
 import { Bug, Eraser, RotateCcw } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -9,7 +10,6 @@ import {
   PanResponder,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -540,7 +540,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
                   alignItems: 'center',
                 }}
               >
-                <Text style={{ fontSize: 9, color: 'white', fontWeight: 'bold', backgroundColor: 'rgba(255,0,0,0.5)', padding: 1 }}>{w.index}</Text>
+                <AppText style={{ fontSize: 9, color: 'white', fontWeight: 'bold', backgroundColor: 'rgba(255,0,0,0.5)', padding: 1 }}>{w.index}</AppText>
               </View>
             ))}
 
@@ -675,12 +675,12 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
       {/* --- Dev Mode Overlay --- */}
       {isDevMode && (
         <View style={styles.devOverlay}>
-          <Text style={styles.devText}>=== DEV MODE ===</Text>
-          <Text style={styles.devText}>Photo: {props.photo.width}x{props.photo.height}</Text>
-          <Text style={styles.devText}>Scale: {imageDisplayInfo.scale.toFixed(3)}</Text>
-          <Text style={styles.devText}>Touch: {debugTouch ? `${Math.round(debugTouch.x)}, ${Math.round(debugTouch.y)}` : 'None'}</Text>
-          <Text style={styles.devText}>Selection: {selectionRange ? `[${selectionRange.start}, ${selectionRange.end}]` : 'None'}</Text>
-          <Text style={styles.devText}>Words Total: {words.length}</Text>
+          <AppText style={styles.devText}>=== DEV MODE ===</AppText>
+          <AppText style={styles.devText}>Photo: {props.photo.width}x{props.photo.height}</AppText>
+          <AppText style={styles.devText}>Scale: {imageDisplayInfo.scale.toFixed(3)}</AppText>
+          <AppText style={styles.devText}>Touch: {debugTouch ? `${Math.round(debugTouch.x)}, ${Math.round(debugTouch.y)}` : 'None'}</AppText>
+          <AppText style={styles.devText}>Selection: {selectionRange ? `[${selectionRange.start}, ${selectionRange.end}]` : 'None'}</AppText>
+          <AppText style={styles.devText}>Words Total: {words.length}</AppText>
         </View>
       )}
 
@@ -697,13 +697,13 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
       {/* Basic Prod UI */}
       {!isDevMode && (
         <View style={styles.resultInfoContainer}>
-          <Text style={styles.instructionText}>
+          <AppText style={styles.instructionText}>
             {isEraserMode
               ? "Touchez un mot sélectionné pour l'enlever"
               : scannedText
                 ? 'Ajustez avec les poignées'
                 : 'Appuyez sur un mot pour sélectionner'}
-          </Text>
+          </AppText>
         </View>
       )}
 
@@ -724,9 +724,9 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
               }}
               scrollEventThrottle={16}
             >
-              <Text style={styles.livePreviewText}>
+              <AppText style={styles.livePreviewText}>
                 {scannedText}
-              </Text>
+              </AppText>
             </ScrollView>
           ) : (
             <TouchableOpacity
@@ -734,13 +734,13 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
               onPress={expandCard}
               style={styles.expandedTextScrollView}
             >
-              <Text style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
+              <AppText style={styles.livePreviewText} numberOfLines={3} ellipsizeMode="tail">
                 {scannedText}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           )}
           <View style={styles.miniActionBar}>
-            <TouchableOpacity onPress={handleSelectAll}><Text style={styles.actionText}>Tout Sélectionner</Text></TouchableOpacity>
+            <TouchableOpacity onPress={handleSelectAll}><AppText style={styles.actionText}>Tout Sélectionner</AppText></TouchableOpacity>
           </View>
         </Animated.View>
       ) : null}
@@ -755,7 +755,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             accessibilityRole="button"
             testID="cancel-ocr-button"
           >
-            <Text style={styles.cancelButtonText}>Annuler</Text>
+            <AppText style={styles.cancelButtonText}>Annuler</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.resetButton}
@@ -791,7 +791,7 @@ const ScanWorkflow: React.FC<ScanWorkflowProps> = (props) => {
             accessibilityRole="button"
             testID="save-ocr-button"
           >
-            <Text style={styles.saveButtonText}>Enregistrer</Text>
+            <AppText style={styles.saveButtonText}>Enregistrer</AppText>
           </TouchableOpacity>
         </View>
       </View>

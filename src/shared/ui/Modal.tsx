@@ -10,7 +10,6 @@ import {
   ScrollView,
 } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { tokens as defaultTokens } from '@/src/shared/theme';
 
 export interface ModalProps extends RNModalProps {
   children: React.ReactNode;
@@ -34,7 +33,7 @@ export const Modal: React.FC<ModalProps> = React.memo(({
   children,
   ...rest
 }) => {
-  const { colors, tokens = defaultTokens } = useTheme();
+  const { colors } = useTheme();
 
   const handleClose = React.useCallback(() => {
     if (onClose) {

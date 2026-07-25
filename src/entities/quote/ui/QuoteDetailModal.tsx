@@ -1,4 +1,6 @@
 import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
+import { AppText, Avatar } from '@/src/shared/ui';
+import { DetailSectionGroup } from '@/src/shared/ui/details';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Image } from 'expo-image';
@@ -16,7 +18,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
@@ -45,7 +46,6 @@ import { authorService } from '@/src/entities/author/api/AuthorService';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { Avatar } from '@/src/shared/ui/Avatar';
 import { fetchDefinition } from '@/src/shared/api/WiktionaryService';
 import WordSelectionModal from '@/src/shared/ui/modals/WordSelectionModal';
 import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
@@ -352,7 +352,7 @@ function QuoteDetailContent() {
     console.log('[Client] parsed parts:', JSON.stringify(parts));
 
     return (
-      <Text style={styles.aiText}>
+      <AppText style={styles.aiText}>
         {parts.map((part, index) => {
           if (typeof part === 'string') {
             return part;
@@ -361,7 +361,7 @@ function QuoteDetailContent() {
           const isBook = part.type.toLowerCase() === 'livre';
           
           return (
-            <Text
+            <AppText
               key={index}
               style={[
                 styles.aiText,
@@ -382,10 +382,10 @@ function QuoteDetailContent() {
               }}
             >
               {part.name}
-            </Text>
+            </AppText>
           );
         })}
-      </Text>
+      </AppText>
     );
   }, [isDark, styles.aiText, navigateToBook, navigateToAuthor]);
   const { quote: quoteParam, quoteId, showSavedDate } = useLocalSearchParams<{ quote?: string; quoteId?: string; showSavedDate?: string }>();
@@ -1022,7 +1022,7 @@ function QuoteDetailContent() {
       return (
         <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
           <Plus size={20} color={colors.textTertiary} style={styles.placeholderIcon} />
-          <Text style={styles.placeholderText}>Ajouter un bloc</Text>
+          <AppText style={styles.placeholderText}>Ajouter un bloc</AppText>
         </TouchableOpacity>
       );
     }
@@ -1043,7 +1043,7 @@ function QuoteDetailContent() {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header} onTouchStart={Keyboard.dismiss}>
-          <Text style={styles.headerTitle}>Détails de la citation</Text>
+          <AppText style={styles.headerTitle}>Détails de la citation</AppText>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             {quote.user && quote.user?.id !== currentUser?.id ? (
               <TouchableOpacity style={styles.closeButton} onPress={handleToggleSave}>
@@ -1055,7 +1055,7 @@ function QuoteDetailContent() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.closeButton} onPress={handleDeleteQuote}>
-                <Trash2 size={20} color={colors.warning} />
+                <Trash2 size={20} color={colors.error} />
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowEditModal(true)}>
@@ -1108,7 +1108,7 @@ function QuoteDetailContent() {
                 opacity={0.2}
               />
             </Svg>
-            <Text style={styles.quoteText}>{quote.text}</Text>
+            <AppText style={styles.quoteText}>{quote.text}</AppText>
 
             <View style={styles.quoteMetaFooter}>
               <View style={{ flex: 1 }}>
@@ -1118,9 +1118,9 @@ function QuoteDetailContent() {
                   disabled={isBookNull}
                 >
                   <BookOpen size={16} color={colors.textTertiary} />
-                  <Text style={[styles.metaTextBook, isBookNull && { color: colors.textSecondary }]}>
+                  <AppText style={[styles.metaTextBook, isBookNull && { color: colors.textSecondary }]}>
                     {quoteBookTitle}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1129,7 +1129,7 @@ function QuoteDetailContent() {
                   disabled={isAuthorNull}
                 >
                   <UserIcon size={16} color={colors.textTertiary} />
-                  <Text style={styles.metaTextAuthor}>{quoteAuthorName}</Text>
+                  <AppText style={styles.metaTextAuthor}>{quoteAuthorName}</AppText>
                 </TouchableOpacity>
 
                 {quote.user && (
@@ -1139,14 +1139,14 @@ function QuoteDetailContent() {
                       size={16}
                       style={styles.publisherAvatar}
                     />
-                    <Text style={styles.metaTextPublisher}>Publié par <Text style={styles.publisherUsername}>@{quote.user.username}</Text></Text>
+                    <AppText style={styles.metaTextPublisher}>Publié par <AppText style={styles.publisherUsername}>@{quote.user.username}</AppText></AppText>
                   </TouchableOpacity>
                 )}
 
                 {(quote.date || quote.savedAt) && (
                   <View style={styles.metaRow}>
                     <Calendar size={16} color={colors.textTertiary} />
-                    <Text style={styles.metaTextDate}>{formatAbsoluteDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</Text>
+                    <AppText style={styles.metaTextDate}>{formatAbsoluteDate(showSavedDate && quote.savedAt ? quote.savedAt : quote.date)}</AppText>
                   </View>
                 )}
               </View>
@@ -1159,7 +1159,7 @@ function QuoteDetailContent() {
                     onPress={() => router.navigate({ pathname: '/theme-detail', params: { themeName: themeStr } })}
                     onLongPress={() => handleThemeLongPress(themeStr)}
                   >
-                    <Text style={styles.themeBadgeValue}>{themeStr}</Text>
+                    <AppText style={styles.themeBadgeValue}>{themeStr}</AppText>
                   </TouchableOpacity>
                 ))}
                 <TouchableOpacity
@@ -1189,14 +1189,14 @@ function QuoteDetailContent() {
                   color={quote.isLiked ? colors.primary : colors.textTertiary}
                   fill={quote.isLiked ? colors.primary : 'none'}
                 />
-                <Text
+                <AppText
                   style={[
                     styles.actionText,
                     quote.isLiked && styles.actionTextActive,
                   ]}
                 >
                   {quote.likesCount}
-                </Text>
+                </AppText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1205,7 +1205,7 @@ function QuoteDetailContent() {
                 activeOpacity={0.7}
               >
                 <Share2 size={18} color={colors.textTertiary} />
-                <Text style={styles.actionText}>Partager</Text>
+                <AppText style={styles.actionText}>Partager</AppText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1237,15 +1237,15 @@ function QuoteDetailContent() {
                 {isAnalyzing ? (
                   <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
                     <ActivityIndicator color={colors.primary} size="small" style={{ marginBottom: 10 }} />
-                    <Text style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
+                    <AppText style={[styles.aiText, { fontStyle: 'italic', color: colors.textSecondary }]}>
                       Analyse littéraire par {"l'IA"} en cours...
-                    </Text>
+                    </AppText>
                   </View>
                 ) : aiInterpretation ? (
                   <>
                     <View style={styles.aiHeader}>
                       <Sparkles size={16} color={colors.primary} />
-                      <Text style={styles.aiTitle}>Interprétation IA</Text>
+                      <AppText style={styles.aiTitle}>Interprétation IA</AppText>
                       {__DEV__ && (
                         <TouchableOpacity
                           onPress={(e) => {
@@ -1254,7 +1254,7 @@ function QuoteDetailContent() {
                           }}
                           style={{ marginLeft: 'auto', padding: 4 }}
                         >
-                          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</Text>
+                          <AppText style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>Régénérer</AppText>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1262,7 +1262,7 @@ function QuoteDetailContent() {
 
                     {recommendedBooks && recommendedBooks.length > 0 && (
                       <View style={styles.recContainer} onStartShouldSetResponder={() => true}>
-                        <Text style={styles.recHeaderTitle}>Lectures recommandées par {"l'IA"}</Text>
+                        <AppText style={styles.recHeaderTitle}>Lectures recommandées par {"l'IA"}</AppText>
                         <ScrollView
                           horizontal
                           scrollEnabled={!isScrollDisabled}
@@ -1300,17 +1300,17 @@ function QuoteDetailContent() {
                                 ) : (
                                   <View style={styles.recBookCoverFallback}>
                                     <BookOpen size={24} color={colors.primary} />
-                                    <Text numberOfLines={3} style={styles.fallbackCoverTitle}>
+                                    <AppText numberOfLines={3} style={styles.fallbackCoverTitle}>
                                       {bookItem.title}
-                                    </Text>
+                                    </AppText>
                                   </View>
                                 )}
-                                <Text numberOfLines={2} style={styles.recBookTitle}>
+                                <AppText numberOfLines={2} style={styles.recBookTitle}>
                                   {bookItem.title}
-                                </Text>
-                                <Text numberOfLines={1} style={styles.recBookAuthor}>
+                                </AppText>
+                                <AppText numberOfLines={1} style={styles.recBookAuthor}>
                                   {bookItem.author}
-                                </Text>
+                                </AppText>
                               </TouchableOpacity>
                             );
                           })}
@@ -1323,10 +1323,10 @@ function QuoteDetailContent() {
                 ) : (
                   <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
                     <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
-                    <Text style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par {"l'IA"}</Text>
-                    <Text style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
+                    <AppText style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par {"l'IA"}</AppText>
+                    <AppText style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
                       Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
-                    </Text>
+                    </AppText>
                     <TouchableOpacity
                       style={{
                         backgroundColor: colors.primary,
@@ -1348,7 +1348,7 @@ function QuoteDetailContent() {
                       }}
                     >
                       <Sparkles size={15} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</Text>
+                      <AppText style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 13 }}>Analyser la citation</AppText>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1359,29 +1359,15 @@ function QuoteDetailContent() {
 
 
           {/* TABS */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'description' && styles.activeTabButton]}
-              onPress={() => setActiveTab('description')}
-            >
-              <Text style={[styles.tabText, activeTab === 'description' && styles.activeTabText]}>Description</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === 'my_sheet' && styles.activeTabButton]}
-              onPress={() => setActiveTab('my_sheet')}
-            >
-              <Text style={[styles.tabText, activeTab === 'my_sheet' && styles.activeTabText]}>Ma fiche</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tab Content */}
-          <View style={styles.gridSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                {activeTab === 'description' ? 'Détails' : 'Mon espace personnel'}
-              </Text>
-            </View>
-
+          <DetailSectionGroup
+            tabs={[
+              { id: 'description', label: 'Description' },
+              { id: 'my_sheet', label: 'Ma fiche' },
+            ]}
+            activeTab={activeTab}
+            onTabChange={(tabId) => setActiveTab(tabId as any)}
+            onAddBlockPress={activeTab === 'my_sheet' ? openAddBlockModal : undefined}
+          >
             {activeTab === 'description' ? (
               <View style={{ gap: 6 }}>
                 {DESCRIPTION_BLOCKS.map(blockKey => (
@@ -1393,22 +1379,24 @@ function QuoteDetailContent() {
                 ))}
               </View>
             ) : (
-              <>
-                <Sortable.Grid
-                  columns={1}
-                  data={currentTabBlocks}
-                  renderItem={renderGridItem}
-                  rowGap={6}
-                  columnGap={6}
-                  scrollableRef={scrollableRef}
-                  autoScrollEnabled={true}
-                  autoScrollActivationOffset={75}
-                  onOrderChange={(params) => {
-                    const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                    handleOrderChange(fromIndex, toIndex);
-                  }}
-                />
-                <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />
+              <Sortable.Grid
+                columns={1}
+                data={currentTabBlocks}
+                renderItem={renderGridItem}
+                rowGap={6}
+                columnGap={6}
+                scrollableRef={scrollableRef}
+                autoScrollEnabled={true}
+                autoScrollActivationOffset={75}
+                onOrderChange={(params) => {
+                  const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
+                  handleOrderChange(fromIndex, toIndex);
+                }}
+              />
+            )}
+          </DetailSectionGroup>
+
+          <AddBlockModal visible={isAddBlockModalVisible} onClose={closeAddBlockModal} onSelect={handleAddBlock} options={filteredBlockOptions} />
 
                 <WordSelectionModal
                   visible={isWordSelectionModalVisible}
@@ -1423,9 +1411,6 @@ function QuoteDetailContent() {
                   onClose={() => setResourceSearchModalVisible(false)}
                   onSelect={handleResourceSelected}
                 />
-              </>
-            )}
-          </View>
             </View>
           </TouchableWithoutFeedback>
         </Animated.ScrollView>
@@ -1487,7 +1472,7 @@ function QuoteDetailContent() {
           >
             <View style={styles.themeSelectorContainer}>
               <View style={styles.themeSelectorHeader}>
-                <Text style={styles.themeSelectorTitle}>Changer le thème</Text>
+                <AppText style={styles.themeSelectorTitle}>Changer le thème</AppText>
                 <TouchableOpacity onPress={() => setThemeSelectorVisible(false)}>
                   <X size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
@@ -1545,7 +1530,7 @@ function QuoteDetailContent() {
                         }
                       }}
                     >
-                      <Text style={[styles.themeOptionText, isSelected && styles.themeOptionTextSelected]}>{theme}</Text>
+                      <AppText style={[styles.themeOptionText, isSelected && styles.themeOptionTextSelected]}>{theme}</AppText>
                       {isSelected && <CheckCircle2 size={18} color={colors.primary} />}
                     </TouchableOpacity>
                   );
@@ -1774,6 +1759,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
   },
   publisherUsername: {
     color: colors.text,
+    fontSize: 13,
     fontWeight: '500',
   },
   quoteCardActions: {

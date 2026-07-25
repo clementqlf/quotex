@@ -5,8 +5,10 @@ const commonColors = {
     accentLight: 'rgba(59, 130, 246, 0.1)',
     success: '#10B981',
     successLight: 'rgba(16, 185, 129, 0.1)',
-    warning: '#EC4899',
-    warningLight: 'rgba(236, 72, 153, 0.1)',
+    warning: '#F59E0B',
+    warningLight: 'rgba(245, 158, 11, 0.1)',
+    error: '#EF4444',
+    errorLight: 'rgba(239, 68, 68, 0.1)',
     iconSecondary: '#9CA3AF',
 };
 

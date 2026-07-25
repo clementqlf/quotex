@@ -1,5 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { Book } from '@/src/shared/api/types';
+import { ReadingStatus } from '@/src/entities/author/model/Author';
 import { AppText, BookCover } from '@/src/shared/ui';
 import { preventDoublePress } from '@/src/shared/lib/pressUtils';
 import { BlockWrapper } from './BlockWrapper';
@@ -27,7 +28,6 @@ interface LibraryBlockProps {
 }
 
 // Statuts de lecture possibles - aligné avec le type ReadingStatus du domaine
-import { ReadingStatus } from '@/src/entities/author/model/Author';
 
 const READING_STATUSES: ReadingStatus[] = ['READ', 'READING', 'TO_READ', 'DROPPED'];
 
@@ -176,7 +176,7 @@ export const LibraryBlock: React.FC<LibraryBlockProps> = ({
           color="tertiary"
           style={styles.placeholderText}
         >
-          Cet utilisateur n'a pas encore de livres dans sa bibliothèque.
+          {"Cet utilisateur n'a pas encore de livres dans sa bibliothèque."}
         </AppText>
       )}
     </BlockWrapper>

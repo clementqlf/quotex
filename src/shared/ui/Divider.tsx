@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ViewStyle, Text, TextStyle } from 'react-native';
+import { View, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { tokens as defaultTokens } from '@/src/shared/theme';
 import { AppText } from './AppText';

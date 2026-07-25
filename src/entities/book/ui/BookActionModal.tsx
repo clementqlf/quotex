@@ -1,12 +1,12 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { ThemeColors } from '@/src/shared/theme';
+import { AppText } from '@/src/shared/ui';
 import { Tag, Trash2, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -44,7 +44,7 @@ const BookActionModal = React.memo(({ visible, onClose, onChangeStatus, onDelete
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <View style={styles.actionMenuContainer}>
           <View style={styles.actionMenuHeader}>
-            <Text style={styles.actionMenuTitle}>Options du livre</Text>
+            <AppText style={styles.actionMenuTitle}>Options du livre</AppText>
             <TouchableOpacity onPress={onClose}>
               <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -54,14 +54,14 @@ const BookActionModal = React.memo(({ visible, onClose, onChangeStatus, onDelete
             onPress={handleChangeStatusPress}
           >
             <Tag size={20} color={colors.text} style={{ marginRight: 12 }} />
-            <Text style={styles.actionMenuText}>Modifier le statut</Text>
+            <AppText style={styles.actionMenuText}>Modifier le statut</AppText>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionMenuItem, { borderBottomWidth: 0 }]}
             onPress={handleDeletePress}
           >
-            <Trash2 size={20} color={colors.warning} style={{ marginRight: 12 }} />
-            <Text style={[styles.actionMenuText, { color: colors.warning }]}>Supprimer</Text>
+            <Trash2 size={20} color={colors.error} style={{ marginRight: 12 }} />
+            <AppText style={[styles.actionMenuText, { color: colors.error }]}>Supprimer</AppText>
           </TouchableOpacity>
         </View>
       </Pressable>

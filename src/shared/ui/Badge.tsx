@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   ViewStyle,
   TextStyle,
-  StyleSheet,
 } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { tokens as defaultTokens } from '@/src/shared/theme';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, ViewStyle } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { tokens as defaultTokens } from '@/src/shared/theme';
 
@@ -43,7 +43,7 @@ export const DetailStatGrid: React.FC<DetailStatGridProps> = React.memo(({
         ]}
       >
         {stats.map((stat) => {
-          const Wrapper: any = stat.onPress ? require('react-native').TouchableOpacity : View;
+          const Wrapper: any = stat.onPress ? TouchableOpacity : View;
           return (
             <Wrapper
               key={stat.key}

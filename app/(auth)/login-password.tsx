@@ -2,18 +2,16 @@ import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { AppText, Button, Input } from '@/src/shared/ui';
 import { ArrowLeft, ArrowRight, Lock, Mail } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Input } from '@/src/shared/ui';
 
 
 export default function LoginPasswordScreen() {
@@ -67,7 +65,7 @@ export default function LoginPasswordScreen() {
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Bon retour</Text>
+          <AppText style={[styles.title, { color: colors.text }]}>Bon retour</AppText>
         </View>
 
         <View style={styles.form}>
@@ -93,9 +91,9 @@ export default function LoginPasswordScreen() {
             style={styles.forgotPasswordContainer}
             onPress={handleForgotPassword}
           >
-            <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+            <AppText style={[styles.forgotPasswordText, { color: colors.primary }]}>
               Mot de passe oublié ?
-            </Text>
+            </AppText>
           </TouchableOpacity>
 
           <Button

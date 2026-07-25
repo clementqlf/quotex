@@ -104,4 +104,5 @@ const QuotexLogo: React.FC<QuotexLogoProps> = React.memo(({
 
 QuotexLogo.displayName = 'QuotexLogo';
 
+export { QuotexLogo };
 export default QuotexLogo;

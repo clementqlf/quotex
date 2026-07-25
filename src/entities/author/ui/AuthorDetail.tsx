@@ -9,15 +9,14 @@ import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
-import { Avatar } from '@/src/shared/ui/Avatar';
+import { AppText as Text, Avatar, CounterTab } from '@/src/shared/ui';
 import { Image } from 'expo-image';
-import { DetailHeaderBar } from '@/src/shared/ui/details';
+import { DetailHeaderBar, DetailSectionGroup } from '@/src/shared/ui/details';
 import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import * as WebBrowser from 'expo-web-browser';
-import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
+import { Bookmark, Calendar, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
@@ -34,7 +33,6 @@ import {
   ScrollView,
   Share,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -580,11 +578,8 @@ export default function AuthorDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.authorBlockWrapper}>
+          <DetailSectionGroup style={{ marginBottom: 16 }}>
             <AuthorBlock author={resolvedAuthorInfo} hideName={true} />
-          </View>
-
-          <View style={styles.detailContainerSection}>
             <View style={styles.detailsContainer}>
               <View style={styles.detailItem}>
                 <Calendar size={16} color={colors.textTertiary} />
@@ -597,30 +592,28 @@ export default function AuthorDetailScreen() {
                 <Text style={styles.detailValue}>{resolvedAuthorInfo?.nationality || 'Inconnue'}</Text>
               </View>
             </View>
-          </View>
+          </DetailSectionGroup>
 
-          <View style={styles.statsContainer}>
-            <TouchableOpacity
-              style={styles.statItem}
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+            <CounterTab
+              value={totalBooksCount}
+              label="Œuvres"
               onPress={fetchAllWorks}
+              containerStyle={{ paddingHorizontal: 20, paddingVertical: 8 }}
               activeOpacity={0.7}
-            >
-              <Text style={styles.statValue}>{totalBooksCount}</Text>
-              <Text style={styles.statLabel}>Œuvres</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.statItem}
+            />
+            <CounterTab
+              value={totalQuotes}
+              label="Citations"
               onPress={() => {
                 if (totalQuotes > 0) {
                   setHasRenderedQuotesModal(true);
                   setShowAllQuotesModal(true);
                 }
               }}
+              containerStyle={{ paddingHorizontal: 20, paddingVertical: 8 }}
               activeOpacity={0.7}
-            >
-              <Text style={styles.statValue}>{totalQuotes}</Text>
-              <Text style={styles.statLabel}>Citations</Text>
-            </TouchableOpacity>
+            />
           </View>
 
           <BlockWrapper blockKey="notableWorks">
@@ -881,7 +874,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   followButtonActive: {
     backgroundColor: colors.surface,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
   },
   followButtonText: {
     fontSize: 14,
@@ -901,13 +894,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
   },
   wikipediaLogoContainer: {
     width: 22,
@@ -927,31 +915,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  statItem: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 4,
   },
   section: {
     backgroundColor: colors.surface,

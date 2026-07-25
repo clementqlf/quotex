@@ -1,9 +1,8 @@
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ArrowLeft, ArrowRight, Lock, Mail } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   StyleSheet,
@@ -12,24 +11,22 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Animated,
-  Text,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
-import QuotexLogo from '@/src/shared/ui/QuotexLogo';
-import { Button, Input, Divider } from '@/src/shared/ui';
+import { AppText, Button, IconButton, Input, Divider, Link, QuotexLogo } from '@/src/shared/ui';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { colors, isDark } = useTheme();
+  const { colors, tokens } = useTheme();
   const insets = useSafeAreaInsets();
   const { login } = useAuth();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
 
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [anim] = useState(() => new Animated.Value(0));
@@ -190,10 +187,10 @@ export default function LoginScreen() {
           }
         ]}>
           {step === 'password' ? (
-            <Button
+            <IconButton
               variant="ghost"
               size="sm"
-              leftIcon={<ArrowLeft size={24} color={colors.text} />}
+              icon={<ArrowLeft size={24} color={colors.text} />}
               onPress={handleBack}
               style={styles.backButton}
             />
@@ -231,7 +228,7 @@ export default function LoginScreen() {
 
                 <Button
                   title="Continuer"
-                  rightIcon={<ArrowRight size={20} color="#FFF" />}
+                  rightIcon={<ArrowRight size={20} color={colors.buttonText} />}
                   isLoading={isLoading}
                   disabled={isLoading}
                   onPress={handleContinue}
@@ -242,26 +239,20 @@ export default function LoginScreen() {
 
                 <Button
                   title="Continuer avec Google"
-                  variant="secondary"
+                  variant="social"
                   onPress={() => handleSocialLogin('google')}
-                  style={[
-                    styles.socialButton,
-                    { 
-                      backgroundColor: isDark ? '#333' : '#F5F5F5', 
-                      borderColor: colors.border 
-                    }
-                  ]}
+                  style={styles.socialButton}
                 />
               </>
             ) : (
               <>
                 <View style={styles.passwordHeader}>
-                  <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 8 }]}>
+                  <AppText variant="h1" weight="bold" style={{ marginBottom: 8 }}>
                     Ravi de vous revoir !
-                  </Text>
-                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                  </AppText>
+                  <AppText variant="body" color="secondary">
                     Renseignez votre mot de passe pour continuer.
-                  </Text>
+                  </AppText>
                 </View>
 
                 <Input
@@ -282,18 +273,17 @@ export default function LoginScreen() {
                   containerStyle={styles.inputContainer}
                 />
 
-                <TouchableOpacity 
-                  style={styles.forgotPasswordContainer}
+                <Link
+                  text="Mot de passe oublié ?"
                   onPress={handleForgotPassword}
-                >
-                  <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
-                    Mot de passe oublié ?
-                  </Text>
-                </TouchableOpacity>
+                  style={styles.forgotPasswordContainer}
+                  testID="forgot-password-link"
+                  accessibilityLabel="Mot de passe oublié"
+                />
 
                 <Button
                   title="Se connecter"
-                  rightIcon={<ArrowRight size={20} color="#FFF" />}
+                  rightIcon={<ArrowRight size={20} color={colors.buttonText} />}
                   isLoading={isLoading}
                   disabled={isLoading}
                   onPress={handleLogin}
@@ -308,7 +298,7 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, tokens: any) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -317,11 +307,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backButton: {
-    padding: 8,
-    marginLeft: 16,
+    padding: tokens.spacing.sm,
+    marginLeft: tokens.spacing.md,
     alignSelf: 'flex-start',
-    width: 44,
-    height: 44,
+    width: tokens.sizes.md,
+    height: tokens.sizes.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -329,52 +319,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
   passwordHeader: {
-    marginBottom: 20,
+    marginBottom: tokens.spacing.lg,
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginBottom: 8,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: '600',
+    marginBottom: tokens.spacing.sm,
   },
   modalContainer: {
     flex: 1,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 8,
+    borderTopLeftRadius: tokens.radii.xl,
+    borderTopRightRadius: tokens.radii.xl,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingTop: tokens.spacing.xl,
+    borderTopWidth: 1,
+    borderColor: tokens.colors?.border || 'rgba(0,0,0,0.05)',
   },
   form: {
-    gap: 16,
+    gap: tokens.spacing.md,
   },
   inputContainer: {
     marginBottom: 0,
   },
   loginButton: {
-    marginTop: 8,
+    marginTop: tokens.spacing.sm,
   },
   dividerContainer: {
-    marginVertical: 20,
+    marginVertical: tokens.spacing.md,
   },
   socialButton: {
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
+    height: tokens.sizes.xl,
+    borderRadius: tokens.radii.lg,
   },
 });

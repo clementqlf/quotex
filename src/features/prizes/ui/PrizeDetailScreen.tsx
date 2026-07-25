@@ -1,5 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText, Badge, Button, IconButton } from '@/src/shared/ui';
+import { PrizeSkeleton } from '@/src/shared/ui/skeletons/PrizeSkeleton';
 import { httpClient } from '@/src/shared/api/HttpClient';
 import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
@@ -14,45 +16,13 @@ import {
   ActivityIndicator,
   Image,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export const PrizeSkeleton = ({ colors }: { colors: ThemeColors }) => {
-  const opacity = useSharedValue(0.3);
 
-  React.useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 1000 }),
-        withTiming(0.3, { duration: 1000 })
-      ),
-      -1,
-      true
-    );
-  }, [opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  return (
-    <View style={{ flex: 1, padding: 16 }}>
-       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
-          <Animated.View style={[{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
-          <Animated.View style={[{ width: '60%', height: 28, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 8 }, animatedStyle]} />
-       </View>
-       
-       <Animated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       
-       <Animated.View style={[{ width: '30%', height: 24, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 100, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-       <Animated.View style={[{ width: '100%', height: 100, borderRadius: 12, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-    </View>
-  );
-};
 
 interface PrizeDetailScreenProps {
     prizeId?: number;
@@ -230,17 +200,13 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity
+                    <IconButton
+                        icon={<ArrowLeft size={24} color={colors.text} />}
                         onPress={() => router.back()}
-                        style={styles.backButton}
-                        accessible={true}
                         accessibilityLabel="Retour"
-                        accessibilityRole="button"
                         testID="back-button"
-                    >
-                        <ArrowLeft size={24} color={colors.text} />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</Text>
+                    />
+                    <AppText style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</AppText>
                 </View>
                 <PrizeSkeleton colors={colors} />
             </SafeAreaView>
@@ -250,17 +216,12 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     if (!prize) {
         return (
             <View style={[styles.container, styles.centerContainer]}>
-                <Text style={styles.errorText}>Prix non trouvé.</Text>
-                <TouchableOpacity
+                <AppText style={styles.errorText}>Prix non trouvé.</AppText>
+                <Button
+                    title="Retour"
                     onPress={() => router.back()}
-                    style={styles.backButtonInline}
-                    accessible={true}
-                    accessibilityLabel="Retour"
-                    accessibilityRole="button"
                     testID="back-button"
-                >
-                    <Text style={styles.backButtonText}>Retour</Text>
-                </TouchableOpacity>
+                />
             </View>
         );
     }
@@ -304,17 +265,15 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                                         accessibilityRole="button"
                                         testID="laureate-book-title"
                                     >
-                                        <Text style={styles.laureateBookTitle} numberOfLines={2}>
+                                        <AppText style={styles.laureateBookTitle} numberOfLines={2}>
                                             {item.book.title}
-                                        </Text>
+                                        </AppText>
                                     </TouchableOpacity>
                                 ) : (
-                                    <Text style={styles.laureateBookTitle}>Œuvre non renseignée</Text>
+                                    <AppText style={styles.laureateBookTitle}>Œuvre non renseignée</AppText>
                                 )}
                             </View>
-                            <View style={styles.yearBadge}>
-                                <Text style={styles.yearBadgeText}>{item.year}</Text>
-                            </View>
+                            <Badge variant="secondary" label={item.year.toString()} />
                         </View>
 
                         <TouchableOpacity
@@ -324,7 +283,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                             accessibilityRole="button"
                             testID="laureate-author-name"
                         >
-                            <Text style={styles.laureateAuthorName}>{authorName}</Text>
+                            <AppText style={styles.laureateAuthorName}>{authorName}</AppText>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -335,17 +294,13 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity
+                <IconButton
+                    icon={<ArrowLeft size={24} color={colors.text} />}
                     onPress={() => router.back()}
-                    style={styles.backButton}
-                    accessible={true}
                     accessibilityLabel="Retour"
-                    accessibilityRole="button"
                     testID="back-button"
-                >
-                    <ArrowLeft size={24} color={colors.text} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</Text>
+                />
+                <AppText style={styles.headerTitle} numberOfLines={1}>Prix Littéraire</AppText>
             </View>
 
             <FlashList
@@ -372,7 +327,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                                     <Award size={48} color={colors.primary} />
                                 )}
                             </View>
-                            <Text style={styles.prizeName}>{prize.name}</Text>
+                            <AppText style={styles.prizeName}>{prize.name}</AppText>
                         </View>
 
                         <AboutBlock
@@ -381,7 +336,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
                         />
                         
                         <View style={styles.divider} />
-                        <Text style={styles.palmaresTitle}>Palmarès</Text>
+                        <AppText style={styles.palmaresTitle}>Palmarès</AppText>
                     </View>
                 }
                 contentContainerStyle={styles.listContent}

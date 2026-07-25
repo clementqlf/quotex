@@ -1,4 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText } from '@/src/shared/ui';
 import { STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { ThemeColors } from '@/src/shared/theme';
 import { useSinglePress } from '@/src/shared/lib/pressUtils';
@@ -9,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -68,69 +68,69 @@ const FilterModal = React.memo(({
     >
       <Pressable style={styles.modalBackdrop} onPress={handleClose}>
         <Pressable style={styles.modalView} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.modalTitle}>Filtrer par</Text>
+          <AppText style={styles.modalTitle}>Filtrer par</AppText>
           <ScrollView style={{ maxHeight: '80%' }}>
             {/* Section Auteur */}
             <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('author')}>
-              <Text style={styles.filterSectionTitle}>Auteur</Text>
+              <AppText style={styles.filterSectionTitle}>Auteur</AppText>
               <View style={{ transform: [{ rotate: expandedSection === 'author' ? '180deg' : '0deg' }] }}>
                 <ChevronDown size={20} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
             {expandedSection === 'author' && authors.map(author => (
               <TouchableOpacity key={author} style={styles.filterOption} onPress={() => onToggleTempFilter('author', author)}>
-                <Text style={[
+                <AppText style={[
                   styles.filterOptionText,
                   tempFilters.some(f => f.type === 'author' && f.value === author) && styles.filterOptionTextSelected
-                ]}>{author}</Text>
+                ]}>{author}</AppText>
               </TouchableOpacity>
             ))}
 
             {/* Section Livre */}
             <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('book')}>
-              <Text style={styles.filterSectionTitle}>Livre</Text>
+              <AppText style={styles.filterSectionTitle}>Livre</AppText>
               <View style={{ transform: [{ rotate: expandedSection === 'book' ? '180deg' : '0deg' }] }}>
                 <ChevronDown size={20} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
             {expandedSection === 'book' && books.map(book => (
               <TouchableOpacity key={book} style={styles.filterOption} onPress={() => onToggleTempFilter('book', book)}>
-                <Text style={[
+                <AppText style={[
                   styles.filterOptionText,
                   tempFilters.some(f => f.type === 'book' && f.value === book) && styles.filterOptionTextSelected
-                ]}>{book}</Text>
+                ]}>{book}</AppText>
               </TouchableOpacity>
             ))}
 
             {/* Section Statut */}
             <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('status')}>
-              <Text style={styles.filterSectionTitle}>Statut</Text>
+              <AppText style={styles.filterSectionTitle}>Statut</AppText>
               <View style={{ transform: [{ rotate: expandedSection === 'status' ? '180deg' : '0deg' }] }}>
                 <ChevronDown size={20} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
             {expandedSection === 'status' && STATUS_OPTIONS.map(opt => (
               <TouchableOpacity key={opt.value} style={styles.filterOption} onPress={() => onToggleTempFilter('status', opt.value)}>
-                <Text style={[
+                <AppText style={[
                   styles.filterOptionText,
                   tempFilters.some(f => f.type === 'status' && f.value === opt.value) && styles.filterOptionTextSelected
-                ]}>{opt.label}</Text>
+                ]}>{opt.label}</AppText>
               </TouchableOpacity>
             ))}
 
             {/* Section Année */}
             <TouchableOpacity style={styles.filterSectionHeader} onPress={() => toggleSection('year')}>
-              <Text style={styles.filterSectionTitle}>Année</Text>
+              <AppText style={styles.filterSectionTitle}>Année</AppText>
               <View style={{ transform: [{ rotate: expandedSection === 'year' ? '180deg' : '0deg' }] }}>
                 <ChevronDown size={20} color={colors.textSecondary} />
               </View>
             </TouchableOpacity>
             {expandedSection === 'year' && years.map(year => (
               <TouchableOpacity key={year} style={styles.filterOption} onPress={() => onToggleTempFilter('year', year)}>
-                <Text style={[
+                <AppText style={[
                   styles.filterOptionText,
                   tempFilters.some(f => f.type === 'year' && f.value === year) && styles.filterOptionTextSelected
-                ]}>{year}</Text>
+                ]}>{year}</AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -140,11 +140,11 @@ const FilterModal = React.memo(({
                 style={styles.resetButton}
                 onPress={handleResetPress}
               >
-                <Text style={styles.resetButtonText}>Réinitialiser</Text>
+                <AppText style={styles.resetButtonText}>Réinitialiser</AppText>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.applyButton} onPress={handleApplyPress}>
-              <Text style={styles.applyButtonText}>Appliquer</Text>
+              <AppText style={styles.applyButtonText}>Appliquer</AppText>
             </TouchableOpacity>
           </View>
         </Pressable>

@@ -3,7 +3,6 @@ import {
   TouchableOpacity,
   TouchableOpacityProps,
   ActivityIndicator,
-  StyleSheet,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -12,7 +11,7 @@ import { tokens as defaultTokens } from '@/src/shared/theme';
 import { useHaptics } from '@/src/shared/platform';
 import { AppText } from './AppText';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'social';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends Omit<TouchableOpacityProps, 'children'> {
@@ -51,7 +50,7 @@ export const Button: React.FC<ButtonProps> = React.memo(({
     if (enableHaptics) {
       try {
         await haptics.impactAsync('light');
-      } catch (err) {
+      } catch {
         // Ignore haptics errors on unsupported platforms
       }
     }
@@ -102,7 +101,12 @@ export const Button: React.FC<ButtonProps> = React.memo(({
         base.backgroundColor = 'transparent';
         break;
       case 'danger':
-        base.backgroundColor = colors.warning;
+        base.backgroundColor = colors.error;
+        break;
+      case 'social':
+        base.backgroundColor = colors.surfaceHighlight;
+        base.borderWidth = 1;
+        base.borderColor = colors.border;
         break;
       case 'primary':
       default:
@@ -127,6 +131,8 @@ export const Button: React.FC<ButtonProps> = React.memo(({
         return colors.primary;
       case 'danger':
         return '#FFFFFF';
+      case 'social':
+        return colors.text;
       case 'primary':
       default:
         return colors.buttonText || '#FFFFFF';

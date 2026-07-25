@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text as RNText, TextProps as RNTextProps, TextStyle, StyleSheet } from 'react-native';
+import { Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { tokens as defaultTokens } from '@/src/shared/theme';
 

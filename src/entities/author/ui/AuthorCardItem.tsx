@@ -1,16 +1,15 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
-import { TypingText } from '@/src/shared/ui/TypingText';
+import { AppText, TypingText } from '@/src/shared/ui';
+import { Avatar } from '@/src/shared/ui/Avatar';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
-import { Avatar } from '@/src/shared/ui/Avatar';
 
 import { useSinglePress } from '@/src/shared/lib/pressUtils';
 
@@ -46,7 +45,7 @@ const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
         <Avatar uri={author.image} name={author.name} size={60} style={styles.authorAvatar} />
         <View style={{ flex: 1 }}>
           <TypingText style={styles.bookCardTitle} text={author?.name || 'Auteur inconnu'} />
-          <Text style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</Text>
+          <AppText style={styles.bookCardCount}>{author.quoteCount} citation{author.quoteCount > 1 ? 's' : ''}</AppText>
         </View>
         <ChevronDown size={20} color={colors.textSecondary} style={{ transform: [{ rotate: '-90deg' }] }} />
       </View>
@@ -62,7 +61,7 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     borderRadius: tokens.radii.md,
     marginBottom: tokens.spacing.sm + 4,
     borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   bookCardContent: {

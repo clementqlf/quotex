@@ -3,18 +3,17 @@ import BookDictionaryModal from '@/src/shared/ui/modals/BookDictionaryModal';
 import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
 import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
+import { AppText } from '@/src/shared/ui';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { BookCover } from '@/src/shared/ui/BookCover';
-import { Badge } from '@/src/shared/ui/Badge';
-import { DetailHeaderBar, DetailHeroHeader, DetailStatGrid } from '@/src/shared/ui/details';
+import { DetailHeaderBar, DetailHeroHeader, DetailSectionGroup, DetailStatGrid } from '@/src/shared/ui/details';
 import { BookOpen, Calendar, Check, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
-import { Keyboard, RefreshControl, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Keyboard, RefreshControl, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { NotesKeyboardToolbar, useKeyboardToolbar } from '@/src/shared/ui/blocks/NotesBlock';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
-import { useHaptics } from '@/src/shared/platform';
 import { createStyles } from './BookDetail.styles';
 import { BookDetailSkeleton } from './BookDetailSkeleton';
 import { useBookDetailController } from './useBookDetailController';
@@ -22,7 +21,6 @@ import { useBookDetailController } from './useBookDetailController';
 export default function BookDetailScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const haptics = useHaptics();
   
   const {
     router,
@@ -36,7 +34,6 @@ export default function BookDetailScreen() {
     scrollableRef,
     isSaved,
     handleHeaderSavePress,
-    handleOpenStatusMenuWithId,
     handleShare,
     handleRemoveBlock,
     handleOrderChange,
@@ -106,7 +103,7 @@ export default function BookDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <Text style={styles.errorText}>Aucun livre spécifié.</Text>
+          <AppText style={styles.errorText}>Aucun livre spécifié.</AppText>
         </View>
       </SafeAreaView>
     );
@@ -117,7 +114,7 @@ export default function BookDetailScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <DetailHeaderBar title={bookTitle} onBack={() => router.back()} />
-          <Text style={styles.errorText}>Livre non trouvé sur le serveur.</Text>
+          <AppText style={styles.errorText}>Livre non trouvé sur le serveur.</AppText>
         </View>
       </SafeAreaView>
     );
@@ -150,9 +147,9 @@ export default function BookDetailScreen() {
         {bookInfo.isVerified === false && (
           <View style={styles.unverifiedBanner}>
             <Info size={14} color={colors.primary} />
-            <Text style={styles.unverifiedBannerText}>
+            <AppText style={styles.unverifiedBannerText}>
               {"Ce livre n'est pas encore vérifié."}
-            </Text>
+            </AppText>
           </View>
         )}
 
@@ -247,28 +244,16 @@ export default function BookDetailScreen() {
             />
           </View>
 
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === "description" && styles.activeTabButton]}
-              onPress={() => setActiveTab("description")}
-            >
-              <Text style={[styles.tabText, activeTab === "description" && styles.activeTabText]}>Description</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabButton, activeTab === "my_sheet" && styles.activeTabButton]}
-              onPress={() => setActiveTab("my_sheet")}
-            >
-              <Text style={[styles.tabText, activeTab === "my_sheet" && styles.activeTabText]}>Ma fiche</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.gridSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                {activeTab === "description" ? "Détails du livre" : "Mon espace personnel"}
-              </Text>
-            </View>
-            {activeTab === "description" ? (
+          <DetailSectionGroup
+            tabs={[
+              { id: 'description', label: 'Description' },
+              { id: 'my_sheet', label: 'Ma fiche' },
+            ]}
+            activeTab={activeTab}
+            onTabChange={(tabId) => setActiveTab(tabId as any)}
+            onAddBlockPress={activeTab === 'my_sheet' ? openAddBlockModal : undefined}
+          >
+            {activeTab === 'description' ? (
               <View style={{ gap: 6 }}>
                 {DESCRIPTION_BLOCKS.map(blockKey => (
                   <BlockDispatcher
@@ -279,34 +264,28 @@ export default function BookDetailScreen() {
                 ))}
               </View>
             ) : (
-              <>
-                <Sortable.Grid
-                  columns={1}
-                  data={currentTabBlocks}
-                  renderItem={renderGridItem as any}
-                  rowGap={6}
-                  columnGap={6}
-                  scrollableRef={scrollableRef}
-                  autoScrollEnabled={true}
-                  autoScrollActivationOffset={75}
-                  onOrderChange={(params) => {
-                    const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
-                    handleOrderChange(fromIndex, toIndex);
-                  }}
-                />
-                <TouchableOpacity style={styles.placeholderSection} onPress={openAddBlockModal}>
-                  <Plus size={20} color="#9CA3AF" style={styles.placeholderIcon} />
-                  <Text style={styles.placeholderText}>Ajouter un bloc</Text>
-                </TouchableOpacity>
-                <AddBlockModal
-                  visible={isAddBlockModalVisible}
-                  onClose={closeAddBlockModal}
-                  onSelect={handleAddBlock}
-                  options={filteredBlockOptions as any}
-                />
-              </>
+              <Sortable.Grid
+                columns={1}
+                data={currentTabBlocks}
+                renderItem={renderGridItem as any}
+                rowGap={6}
+                columnGap={6}
+                scrollableRef={scrollableRef}
+                autoScrollEnabled={true}
+                autoScrollActivationOffset={75}
+                onOrderChange={(params) => {
+                  const { fromIndex, toIndex } = params as { fromIndex: number; toIndex: number };
+                  handleOrderChange(fromIndex, toIndex);
+                }}
+              />
             )}
-          </View>
+          </DetailSectionGroup>
+          <AddBlockModal
+            visible={isAddBlockModalVisible}
+            onClose={closeAddBlockModal}
+            onSelect={handleAddBlock}
+            options={filteredBlockOptions as any}
+          />
           </View>
           </TouchableWithoutFeedback>
         </Animated.ScrollView>

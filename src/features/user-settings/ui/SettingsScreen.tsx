@@ -1,11 +1,10 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { logError } from '@/src/shared/infrastructure/monitoring/sentry';
-import { DeleteAccountButton } from './components/DeleteAccountButton';
+import { DeleteAccountButton } from '@/src/shared/ui/DeleteAccountButton';
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { STORAGE_KEYS, StorageService } from '@/src/shared/api/StorageService';
-import { ThemeColors } from '@/src/shared/theme';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from '@/src/shared/navigation/useRouter';
@@ -31,13 +30,9 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Switch as RNSwitch,
-  SwitchProps as RNSwitchProps,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -116,7 +111,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { logout, deleteAccount, user, updateProfile } = useAuth();
-  const { colors, themePreference, setThemePreference } = useTheme();
+  const { colors, themePreference } = useTheme();
   const { refreshQuotes } = useQuote();
   const { refreshAuthors, refreshBooks } = useAuthor();
 
@@ -379,7 +374,7 @@ export default function SettingsScreen() {
             <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
               Compte
             </AppText>
-            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
+            <Card variant="outlined" padding="none" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
                 icon={<User size={20} color={colors.primary} />}
                 title="Nom d'utilisateur"
@@ -404,7 +399,7 @@ export default function SettingsScreen() {
               />
               <Divider />
               <SettingItem
-                icon={<Trash2 size={20} color={colors.primary} />}
+                icon={<Trash2 size={20} color={colors.error} />}
                 title="Supprimer mon compte"
                 onPress={handleDeleteAccount}
               />
@@ -416,7 +411,7 @@ export default function SettingsScreen() {
             <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
               Application
             </AppText>
-            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
+            <Card variant="outlined" padding="none" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
                 icon={<Moon size={20} color={colors.primary} />}
                 title="Mode Sombre"
@@ -438,7 +433,7 @@ export default function SettingsScreen() {
             <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
               Stockage et Données
             </AppText>
-            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
+            <Card variant="outlined" padding="none" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
                 icon={<Trash2 size={20} color={colors.primary} />}
                 title="Vider le cache"
@@ -446,7 +441,7 @@ export default function SettingsScreen() {
               />
             </Card>
             <AppText variant="caption" color="tertiary" style={{ marginTop: 8, marginLeft: 4, lineHeight: 18 }}>
-              Libérez de l'espace en supprimant les images, données locales et fichiers temporaires.
+              {"Libérez de l'espace en supprimant les images, données locales et fichiers temporaires."}
             </AppText>
           </View>
 
@@ -455,7 +450,7 @@ export default function SettingsScreen() {
             <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
               Légal
             </AppText>
-            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
+            <Card variant="outlined" padding="none" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
                 icon={<FileText size={20} color={colors.primary} />}
                 title="Conditions Générales d'Utilisation"
@@ -474,7 +469,13 @@ export default function SettingsScreen() {
           <View style={{ flex: 1, minHeight: 40 }} />
 
           {/* Delete Account Button */}
-          <DeleteAccountButton />
+          <DeleteAccountButton
+            onPress={async () => {
+              await deleteAccount();
+              router.replace('/login');
+            }}
+            isLoading={isUpdating}
+          />
 
           {/* Logout Button */}
           <Button
@@ -594,7 +595,7 @@ export default function SettingsScreen() {
               Nouveaux Abonnements
             </AppText>
             <AppText variant="caption" color="tertiary" style={{ lineHeight: 16 }}>
-              Quand un utilisateur s'abonne à votre profil
+              {"Quand un utilisateur s'abonne à votre profil"}
             </AppText>
           </View>
           <Switch
@@ -608,10 +609,10 @@ export default function SettingsScreen() {
         <View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }, !globalNotificationsEnabled && { opacity: 0.5 }]}>
           <View style={{ flex: 1, paddingRight: 16 }}>
             <AppText variant="body" weight="semibold" style={{ marginBottom: 4 }}>
-              Mentions J'aime
+              {"Mentions J'aime"}
             </AppText>
             <AppText variant="caption" color="tertiary" style={{ lineHeight: 16 }}>
-              Quand un utilisateur aime l'une de vos citations
+              {"Quand un utilisateur aime l'une de vos citations"}
             </AppText>
           </View>
           <Switch
@@ -649,7 +650,7 @@ export default function SettingsScreen() {
         onClose={() => setIsThemeModalVisible(false)}
       >
         <AppText variant="h3" weight="bold" style={{ textAlign: 'center', marginBottom: 20 }}>
-          Mode d'affichage
+          {"Mode d'affichage"}
         </AppText>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 8 }}>

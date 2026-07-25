@@ -8,7 +8,6 @@ import {
   Pressable,
   RefreshControl,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   InteractionManager
@@ -17,9 +16,9 @@ import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { AppText, Avatar, Card, TabBar, Button, IconButton, Badge } from '@/src/shared/ui';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { Avatar, Card, TabBar } from '@/src/shared/ui';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Quote } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
@@ -82,10 +81,10 @@ export default function SocialFeedScreen() {
             style={styles.avatar}
           />
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{quote.user?.name}</Text>
-            <Text style={styles.userMeta}>
+            <AppText style={styles.userName}>{quote.user?.name}</AppText>
+            <AppText style={styles.userMeta}>
               @{quote.user?.username} · {quote.time || quote.date}
-            </Text>
+            </AppText>
           </View>
         </TouchableOpacity>
 
@@ -104,80 +103,68 @@ export default function SocialFeedScreen() {
                 opacity={0.2}
               />
             </Svg>
-            <Text style={styles.quoteText}>{quote.text}</Text>
+            <AppText style={styles.quoteText}>{quote.text}</AppText>
 
-            <View style={styles.bookTag}>
-              <Text style={styles.bookName}>{getBookTitle(quote.book)}</Text>
-              <Text style={styles.separator}>·</Text>
-              <Text style={styles.authorName}>{getAuthorName(quote.author)}</Text>
-            </View>
+            <Badge variant="outline">
+              <AppText style={styles.bookName}>{getBookTitle(quote.book)}</AppText>
+              <AppText style={styles.separator}>·</AppText>
+              <AppText style={styles.authorName}>{getAuthorName(quote.author)}</AppText>
+            </Badge>
           </View>
         </Pressable>
 
         <View style={styles.actions}>
           <View style={styles.actionsLeft}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              activeOpacity={0.7}
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={
+                <Heart
+                  size={20}
+                  fill={quote.isLiked ? colors.primary : 'transparent'}
+                  color={quote.isLiked ? colors.primary : colors.textTertiary}
+                />
+              }
               onPress={() => toggleLikeQuote(quote.id)}
-              accessible={true}
+              title={quote.likesCount.toString()}
+              textStyle={quote.isLiked ? styles.actionTextActive : styles.actionText}
               accessibilityLabel={`Aimer la citation de ${quote.user?.name}. Actuellement ${quote.likesCount} j'aime`}
-              accessibilityRole="button"
               testID={`like-button-${quote.id}`}
-            >
-              <Heart
-                size={20}
-                fill={quote.isLiked ? colors.primary : 'transparent'}
-                color={quote.isLiked ? colors.primary : colors.textTertiary}
-              />
-              <Text
-                style={[
-                  styles.actionText,
-                  quote.isLiked && styles.actionTextActive,
-                ]}
-              >
-                {quote.likesCount}
-              </Text>
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              activeOpacity={0.7}
-              accessible={true}
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<MessageCircle size={20} color={colors.textTertiary} />}
+              title={(quote.comments || 0).toString()}
+              textStyle={styles.actionText}
               accessibilityLabel={`Commenter la citation de ${quote.user?.name}. Actuellement ${quote.comments} commentaires`}
-              accessibilityRole="button"
               testID={`comment-button-${quote.id}`}
-            >
-              <MessageCircle size={20} color={colors.textTertiary} />
-              <Text style={styles.actionText}>{quote.comments}</Text>
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              activeOpacity={0.7}
-              accessible={true}
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={<Share2 size={20} color={colors.textTertiary} />}
               accessibilityLabel="Partager"
-              accessibilityRole="button"
               testID={`share-button-${quote.id}`}
-            >
-              <Share2 size={20} color={colors.textTertiary} />
-            </TouchableOpacity>
+            />
           </View>
 
-          <TouchableOpacity
+          <IconButton
+            variant="ghost"
+            size="sm"
+            icon={
+              <Bookmark
+                fill={quote.isSaved ? colors.primary : 'transparent'}
+                size={20}
+                color={quote.isSaved ? colors.primary : colors.textTertiary}
+              />
+            }
             onPress={() => toggleSaveQuote(quote.id)}
-            activeOpacity={0.7}
-            accessible={true}
             accessibilityLabel="Enregistrer dans ma collection"
-            accessibilityRole="button"
             testID={`save-button-${quote.id}`}
-          >
-            <Bookmark
-              fill={quote.isSaved ? colors.primary : 'transparent'}
-              size={20}
-              color={quote.isSaved ? colors.primary : colors.textTertiary}
-            />
-          </TouchableOpacity>
+          />
         </View>
       </Card>
     );
@@ -189,7 +176,7 @@ export default function SocialFeedScreen() {
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
             <TrendingUp size={24} color="#20B8CD" />
-            <Text style={styles.headerTitle}>Feed</Text>
+            <AppText style={styles.headerTitle}>Feed</AppText>
           </View>
         </View>
 
@@ -227,10 +214,10 @@ export default function SocialFeedScreen() {
                   <MessageCircle size={40} color={colors.primary} />
                   <Sparkles size={20} color={colors.primary} style={styles.miniSparkle} />
                 </View>
-                <Text style={styles.overlayTitle}>Bientôt disponible</Text>
-                <Text style={styles.overlaySubtitle}>
+                <AppText style={styles.overlayTitle}>Bientôt disponible</AppText>
+                <AppText style={styles.overlaySubtitle}>
                   {"Le flux social de Quotex arrive bientôt. Vous pourrez partager vos citations favorites, suivre d'autres lecteurs et échanger autour de vos lectures."}
-                </Text>
+                </AppText>
               </View>
             </View>
           </BlurView>
@@ -244,9 +231,9 @@ export default function SocialFeedScreen() {
           accessibilityLabel="Masquer ou afficher le voile bientôt disponible"
           accessibilityRole="button"
         >
-          <Text style={styles.devToggleText}>
+          <AppText style={styles.devToggleText}>
             {showOverlay ? "Masquer Voile" : "Afficher Voile"}
-          </Text>
+          </AppText>
         </TouchableOpacity>
       )}
     </SafeAreaView>
@@ -327,18 +314,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     color: colors.text,
     marginBottom: 12,
   },
-  bookTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
+
   bookName: {
     fontSize: 12,
     color: colors.primary,
@@ -361,11 +337,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     flexDirection: 'row',
     gap: 24,
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+
   actionText: {
     fontSize: 14,
     color: colors.textTertiary,

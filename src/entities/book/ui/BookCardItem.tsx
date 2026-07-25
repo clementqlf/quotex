@@ -2,13 +2,12 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { getStatusColor, getStatusLabel } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
-import { BookCover, TypingText, Badge, IconButton } from '@/src/shared/ui';
+import { AppText, BookCover, TypingText, Badge, IconButton } from '@/src/shared/ui';
 import { CheckCircle2, MoreVertical, PlusCircle } from 'lucide-react-native';
 import React, { useMemo, useRef, useCallback } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -48,14 +47,6 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
   const { navigateToBook } = useSmartNavigation();
   const haptics = useHaptics();
 
-  const statusStyle = useMemo(() => {
-    if (!book.readingStatus) return null;
-    return {
-      backgroundColor: getStatusColor(book.readingStatus) + '15',
-      borderColor: getStatusColor(book.readingStatus) + '40',
-    };
-  }, [book.readingStatus]);
-
   const isPressingRef = useRef(false);
 
   const handlePress = useCallback(() => {
@@ -72,15 +63,13 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
     }
   }, [onPress, navigateToBook, book.id, book.title, book.inventaireUri]);
 
-  const handleMenuPress = useSinglePress((e: any) => {
-    e?.stopPropagation?.();
+  const handleMenuPress = useSinglePress(() => {
     if (onOpenMenu) {
       onOpenMenu(book);
     }
   }, 500, [onOpenMenu, book]);
 
-  const handleAddPress = useSinglePress((e: any) => {
-    e?.stopPropagation?.();
+  const handleAddPress = useSinglePress(() => {
     if (onAddPress) {
       onAddPress();
     }
@@ -117,7 +106,7 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
         <View style={[styles.bookCardInfo, (onOpenMenu || showAddButton) ? { paddingRight: 28 } : null]}>
           <View style={styles.bookCardHeader}>
             <TypingText style={styles.bookCardTitle} text={book.title} resetKey={book.id} />
-            {typeof book.year === 'number' && <Text style={styles.bookCardYear}>{book.year}</Text>}
+            {typeof book.year === 'number' && <AppText style={styles.bookCardYear}>{book.year}</AppText>}
           </View>
           <View style={styles.authorRow}>
             <TypingText 
@@ -139,8 +128,8 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
               />
             )}
           </View>
-          {showDescription && book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
-          <Text style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</Text>
+          {showDescription && book.description && <AppText numberOfLines={3} style={styles.bookCardDescription}>{book.description}</AppText>}
+          <AppText style={styles.bookCardCount}>{book.quoteCount} citation{book.quoteCount > 1 ? 's' : ''}</AppText>
         </View>
       </View>
 
@@ -157,10 +146,18 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
       )}
 
       {showAddButton && (
-        <TouchableOpacity
-          style={styles.addButton}
+        <IconButton
+          icon={
+            book.isSaved ? (
+              <CheckCircle2 size={22} color={colors.success || '#4CAF50'} />
+            ) : (
+              <PlusCircle size={22} color={colors.primary} />
+            )
+          }
+          variant="ghost"
+          size="sm"
           onPress={handleAddPress}
-          onLongPress={async (e) => {
+          onLongPress={async (e: any) => {
             e.stopPropagation();
             try {
               await haptics.impactAsync('medium');
@@ -172,18 +169,10 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
             }
           }}
           delayLongPress={400}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessible={true}
+          style={styles.addButton}
           accessibilityLabel={book.isSaved ? "Retirer ce livre de ma bibliothèque" : "Ajouter ce livre à ma bibliothèque"}
-          accessibilityRole="button"
           testID="book-add-library"
-        >
-          {book.isSaved ? (
-            <CheckCircle2 size={22} color={colors.success || '#4CAF50'} />
-          ) : (
-            <PlusCircle size={22} color={colors.primary} />
-          )}
-        </TouchableOpacity>
+        />
       )}
     </Pressable>
   );
@@ -197,7 +186,7 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     borderRadius: tokens.radii.md,
     marginBottom: tokens.spacing.sm + 4,
     borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
+    borderColor: colors.border,
     overflow: 'hidden',
     position: 'relative', // ensure absolute positioning of menu button works relative to bookCard
   },
@@ -213,9 +202,9 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: '50%',
     right: tokens.spacing.sm + 4,
+    transform: [{ translateY: -16 }],
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

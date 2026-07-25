@@ -12,7 +12,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   Keyboard,
@@ -20,7 +19,7 @@ import {
   Animated
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Input } from '@/src/shared/ui';
+import { AppText, Button, Input } from '@/src/shared/ui';
 
 
 export default function RegisterDetailsScreen() {
@@ -209,10 +208,10 @@ export default function RegisterDetailsScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.header}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Bienvenue à bord !</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              <AppText style={[styles.modalTitle, { color: colors.text }]}>Bienvenue à bord !</AppText>
+              <AppText style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
                 Créons votre compte pour {email}
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.form}>

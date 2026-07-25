@@ -2,8 +2,8 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { quoteService } from '@/src/entities/quote/api/QuoteService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { AppText, BookCover } from '@/src/shared/ui';
 import { BookOpen, Send, Sparkles, User as UserIcon, X } from 'lucide-react-native';
-import { BookCover } from '@/src/shared/ui/BookCover';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +14,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -448,21 +447,21 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
                 textStyle={styles.fallbackTitleText}
               />
               <View style={styles.cardContent}>
-                <Text style={styles.cardQuoteLabel}>CITATION</Text>
-                <Text style={styles.cardQuoteText} numberOfLines={4}>
+                <AppText style={styles.cardQuoteLabel}>CITATION</AppText>
+                <AppText style={styles.cardQuoteText} numberOfLines={4}>
                   « {quote.text} »
-                </Text>
+                </AppText>
                 <View style={styles.cardMeta}>
                   <UserIcon size={12} color={colors.textSecondary} />
-                  <Text style={styles.cardAuthorText} numberOfLines={1}>
+                  <AppText style={styles.cardAuthorText} numberOfLines={1}>
                     {quoteAuthorName}
-                  </Text>
+                  </AppText>
                 </View>
                 <View style={styles.cardMetaBook}>
                   <BookOpen size={12} color={colors.textTertiary} />
-                  <Text style={styles.cardBookTitleText} numberOfLines={1}>
+                  <AppText style={styles.cardBookTitleText} numberOfLines={1}>
                     {quoteBookTitle}
-                  </Text>
+                  </AppText>
                 </View>
               </View>
             </View>
@@ -509,9 +508,9 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
             isUser ? styles.bubbleUser : styles.bubbleModel,
           ]}
         >
-          <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextModel]}>
+          <AppText style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextModel]}>
             {msg.content}
-          </Text>
+          </AppText>
         </TouchableOpacity>
       </View>
     );
@@ -537,10 +536,10 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
                 <Sparkles size={18} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Assistant Littéraire IA</Text>
-                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                <AppText style={styles.headerTitle}>Assistant Littéraire IA</AppText>
+                <AppText style={styles.headerSubtitle} numberOfLines={1}>
                   {quoteAuthorName} — {quoteBookTitle}
-                </Text>
+                </AppText>
               </View>
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -564,9 +563,9 @@ export default function AIChatModal({ visible, onClose, quote, book, author, onU
                 </View>
                 <View style={[styles.bubble, styles.bubbleModel, styles.typingBubble]}>
                   <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={[styles.bubbleTextModel, { fontSize: 13, fontStyle: 'italic' }]}>
+                  <AppText style={[styles.bubbleTextModel, { fontSize: 13, fontStyle: 'italic' }]}>
                     {"L'IA réfléchit..."}
-                  </Text>
+                  </AppText>
                 </View>
               </View>
             )}

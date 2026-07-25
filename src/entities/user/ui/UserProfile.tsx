@@ -4,12 +4,13 @@ import { useUserProfile } from '@/src/entities/user/api/useUserProfile';
 import { authService } from '@/src/entities/user/api/AuthService';
 import { Avatar } from '@/src/shared/ui/Avatar';
 import { supabase } from '@/src/shared/api/supabase';
-import { BookCover } from '@/src/shared/ui/BookCover';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ThemeColors } from '@/src/shared/theme';
-import { DetailHeaderBar, DetailStatGrid } from '@/src/shared/ui/details';
+import { CounterTab, AppText, AppText as Text, Input, UserProfileSkeleton, QuoteSkeleton, Button, TabBar } from '@/src/shared/ui';
+import { BlockWrapper } from '@/src/shared/ui/blocks/BlockWrapper';
+import { DetailHeaderBar } from '@/src/shared/ui/details';
 import { LibraryBlock } from '@/src/shared/ui/blocks/LibraryBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { UserListModal } from '@/src/shared/ui/modals/UserListModal';
@@ -18,130 +19,22 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
-import { preventDoublePress } from '@/src/shared/lib/pressUtils';
-import { Camera, ChevronLeft, Library, MoreHorizontal, Quote, X } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import { Camera, MoreHorizontal, Quote, X } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import AnimatedReanimated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 
-
-
-const BookSkeleton = ({ colors }: { colors: ThemeColors }) => {
-  const [pulseAnim] = useState(() => new Animated.Value(0.3));
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.8,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [pulseAnim]);
-
-  return (
-    <Animated.View
-      style={{
-        width: 90,
-        height: 135,
-        borderRadius: 8,
-        backgroundColor: colors.surfaceHighlight,
-        opacity: pulseAnim,
-      }}
-    />
-  );
-};
-
-const QuoteSkeleton = ({ colors }: { colors: ThemeColors }) => {
-  const [pulseAnim] = useState(() => new Animated.Value(0.3));
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.8,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [pulseAnim]);
-
-  return (
-    <Animated.View
-      style={{
-        width: '100%',
-        height: 100,
-        borderRadius: 12,
-        backgroundColor: colors.surfaceHighlight,
-        opacity: pulseAnim,
-      }}
-    />
-  );
-};
-
-export const UserProfileSkeleton = ({ colors }: { colors: ThemeColors }) => {
-  const opacity = useSharedValue(0.3);
-
-  React.useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 1000 }),
-        withTiming(0.3, { duration: 1000 })
-      ),
-      -1,
-      true
-    );
-  }, [opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  return (
-    <View style={{ flex: 1, padding: 16 }}>
-       <View style={{ alignItems: 'center', marginBottom: 24, marginTop: 16 }}>
-          <AnimatedReanimated.View style={[{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.surfaceHighlight, marginBottom: 12 }, animatedStyle]} />
-          <AnimatedReanimated.View style={[{ width: '50%', height: 26, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 4 }, animatedStyle]} />
-          <AnimatedReanimated.View style={[{ width: '30%', height: 16, borderRadius: 4, backgroundColor: colors.surfaceHighlight, marginBottom: 16 }, animatedStyle]} />
-          <AnimatedReanimated.View style={[{ width: '40%', height: 36, borderRadius: 8, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       </View>
-       
-       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-          <AnimatedReanimated.View style={[{ flex: 1, height: 60, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-          <AnimatedReanimated.View style={[{ flex: 1, height: 60, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-          <AnimatedReanimated.View style={[{ flex: 1, height: 60, borderRadius: 12, backgroundColor: colors.surfaceHighlight }, animatedStyle]} />
-       </View>
-       
-       <AnimatedReanimated.View style={[{ width: '100%', height: 80, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-       <AnimatedReanimated.View style={[{ width: '100%', height: 120, borderRadius: 16, backgroundColor: colors.surfaceHighlight, marginBottom: 24 }, animatedStyle]} />
-    </View>
-  );
-};
 
 
 
@@ -480,7 +373,7 @@ export default function UserProfileScreen() {
           title={username ? `@${username}` : 'Profil'}
           onBack={() => router.back()}
         />
-        <UserProfileSkeleton colors={colors} />
+        <UserProfileSkeleton />
       </SafeAreaView>
     );
   }
@@ -557,118 +450,95 @@ export default function UserProfileScreen() {
             {isMe ? (
               isEditing ? (
                 <View style={styles.editActionsContainer}>
-                  <TouchableOpacity
-                    style={[styles.editButton, styles.saveButton]}
+                  <Button
+                    title="Enregistrer"
+                    variant="primary"
                     onPress={handleSave}
+                    isLoading={isSaving}
                     disabled={isSaving}
-                    accessible={true}
                     accessibilityLabel="Enregistrer les modifications du profil"
-                    accessibilityRole="button"
                     testID="save-profile-button"
-                  >
-                    {isSaving ? (
-                      <ActivityIndicator size="small" color="#000" />
-                    ) : (
-                      <Text style={styles.saveButtonText}>Enregistrer</Text>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.editButton, styles.cancelButton]}
+                  />
+                  <Button
+                    title="Annuler"
+                    variant="outline"
                     onPress={handleCancel}
                     disabled={isSaving}
-                    accessible={true}
                     accessibilityLabel="Annuler les modifications du profil"
-                    accessibilityRole="button"
                     testID="cancel-profile-button"
-                  >
-                    <Text style={styles.cancelButtonText}>Annuler</Text>
-                  </TouchableOpacity>
+                  />
                 </View>
               ) : (
-                <TouchableOpacity
-                  style={styles.editButton}
+                <Button
+                  title="Modifier le profil"
+                  variant="outline"
                   onPress={handleEditToggle}
-                  accessible={true}
                   accessibilityLabel="Modifier le profil"
-                  accessibilityRole="button"
                   testID="edit-profile-button"
-                >
-                  <Text style={styles.editButtonText}>Modifier le profil</Text>
-                </TouchableOpacity>
+                />
               )
             ) : (
-              <TouchableOpacity
-                style={[
-                  styles.followButton,
-                  isFollowing && styles.followButtonActive
-                ]}
+              <Button
+                title={isFollowing ? 'Abonné' : "S'abonner"}
+                variant={isFollowing ? 'secondary' : 'primary'}
                 onPress={toggleFollow}
-                accessible={true}
                 accessibilityLabel={isFollowing ? "Se désabonner de l'utilisateur" : "S'abonner à l'utilisateur"}
-                accessibilityRole="button"
                 testID="follow-button"
-              >
-                <Text style={[
-                  styles.followButtonText,
-                  isFollowing && styles.followButtonTextActive
-                ]}>
-                  {isFollowing ? 'Abonné' : "S'abonner"}
-                </Text>
-              </TouchableOpacity>
+              />
             )}
           </View>
 
           {/* Stats */}
-          <DetailStatGrid
-            variant="inline"
-            stats={[
-              {
-                key: 'followers',
-                label: 'Abonnés',
-                value: profileData.followers || 0,
-                onPress: () => openFollowModal('followers')
-              },
-              {
-                key: 'following',
-                label: 'Abonnements',
-                value: profileData.following || 0,
-                onPress: () => openFollowModal('following')
-              },
-              {
-                key: 'quotes',
-                label: 'Citations',
-                value: userQuotes.length,
-                onPress: () => {
-                  if (userQuotes.length > 0) {
-                    setHasRenderedQuotesModal(true);
-                    setShowAllQuotesModal(true);
-                  }
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+            <CounterTab
+              value={profileData.followers || 0}
+              label="Abonnés"
+              onPress={() => openFollowModal('followers')}
+              accessibilityLabel="Voir la liste des abonnés"
+              accessibilityRole="button"
+            />
+            <CounterTab
+              value={profileData.following || 0}
+              label="Abonnements"
+              onPress={() => openFollowModal('following')}
+              accessibilityLabel="Voir la liste des abonnements"
+              accessibilityRole="button"
+            />
+            <CounterTab
+              value={userQuotes.length}
+              label="Citations"
+              onPress={() => {
+                if (userQuotes.length > 0) {
+                  setHasRenderedQuotesModal(true);
+                  setShowAllQuotesModal(true);
                 }
-              }
-            ]}
-          />
+              }}
+              accessibilityLabel="Voir la liste des citations"
+              accessibilityRole="button"
+            />
+          </View>
 
           {/* Bio */}
-          <View style={styles.section}>
+          <BlockWrapper blockKey="bio">
             {isEditing ? (
-              <View style={styles.editInputsContainer}>
-                <Text style={styles.inputLabel}>Bio</Text>
-                <TextInput
-                  style={styles.bioInput}
-                  value={editedBio}
-                  onChangeText={setEditedBio}
-                  placeholder="Décrivez-vous..."
-                  placeholderTextColor={colors.textTertiary}
-                  multiline
-                  accessible={true}
-                  accessibilityLabel="Description"
-                  testID="bio-input"
-                />
-              </View>
+              <Input
+                label="Bio"
+                value={editedBio}
+                onChangeText={setEditedBio}
+                placeholder="Décrivez-vous..."
+                multiline
+                inputContainerStyle={{ minHeight: 80, paddingVertical: 10 }}
+                containerStyle={{ marginBottom: 0 }}
+                accessible={true}
+                accessibilityLabel="Description"
+                testID="bio-input"
+              />
             ) : (
-              <Text style={styles.bioText}>{profileData.bio || "Aucune description"}</Text>
+              <AppText color={profileData.bio ? 'default' : 'tertiary'} align="center">
+                {profileData.bio || "Aucune description"}
+              </AppText>
             )}
-          </View>
+          </BlockWrapper>
 
           {/* Library Section */}
           <LibraryBlock
@@ -735,56 +605,16 @@ export default function UserProfileScreen() {
         >
           <View style={styles.quotesModalContainer}>
             <View style={styles.quotesModalHeader}>
-              <View style={styles.modalTabs}>
-                <TouchableOpacity
-                  style={[
-                    styles.modalTabButton,
-                    modalQuoteFilter === 'ALL' && styles.modalTabButtonActive,
-                  ]}
-                  onPress={() => setModalQuoteFilter('ALL')}
-                >
-                  <Text
-                    style={[
-                      styles.modalTabText,
-                      modalQuoteFilter === 'ALL' && styles.modalTabTextActive,
-                    ]}
-                  >
-                    Tout
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalTabButton,
-                    modalQuoteFilter === 'PUBLISHED' && styles.modalTabButtonActive,
-                  ]}
-                  onPress={() => setModalQuoteFilter('PUBLISHED')}
-                >
-                  <Text
-                    style={[
-                      styles.modalTabText,
-                      modalQuoteFilter === 'PUBLISHED' && styles.modalTabTextActive,
-                    ]}
-                  >
-                    Publiés
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalTabButton,
-                    modalQuoteFilter === 'SAVED' && styles.modalTabButtonActive,
-                  ]}
-                  onPress={() => setModalQuoteFilter('SAVED')}
-                >
-                  <Text
-                    style={[
-                      styles.modalTabText,
-                      modalQuoteFilter === 'SAVED' && styles.modalTabTextActive,
-                    ]}
-                  >
-                    Partagées
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TabBar
+                tabs={[
+                  { id: 'ALL', label: 'Tout' },
+                  { id: 'PUBLISHED', label: 'Publiées' },
+                  { id: 'SAVED', label: 'Partagées' }
+                ]}
+                activeTab={modalQuoteFilter}
+                onTabPress={(tabId) => setModalQuoteFilter(tabId as any)}
+                style={{ flex: 1, paddingHorizontal: 0, paddingBottom: 0, borderBottomWidth: 0, backgroundColor: 'transparent' }}
+              />
               <TouchableOpacity 
                 style={styles.modalCloseButton} 
                 onPress={() => setShowAllQuotesModal(false)}
@@ -940,12 +770,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  bioText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    textAlign: 'center',
-  },
+
   linksContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1004,24 +829,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   cancelButtonText: {
     color: colors.textSecondary,
   },
-  editInputsContainer: {
-    gap: 12,
-  },
-  inputLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: -4,
-  },
-  bioInput: {
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: 8,
-    padding: 12,
-    color: colors.text,
-    fontSize: 14,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
+
+
   websiteInput: {
     backgroundColor: colors.surfaceHighlight,
     borderRadius: 8,

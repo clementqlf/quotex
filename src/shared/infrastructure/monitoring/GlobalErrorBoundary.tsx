@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { AppText } from '@/src/shared/ui';
 import { logError } from './sentry';
 
 interface Props {
@@ -35,10 +36,10 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View style={styles.container}>
-          <Text style={styles.title}>Oups ! Une erreur inattendue est survenue.</Text>
-          <Text style={styles.subtitle}>Nous avons été alertés du problème.</Text>
+          <AppText style={styles.title}>Oups ! Une erreur inattendue est survenue.</AppText>
+          <AppText style={styles.subtitle}>Nous avons été alertés du problème.</AppText>
           <TouchableOpacity style={styles.button} onPress={this.handleReset}>
-            <Text style={styles.buttonText}>Rafraîchir</Text>
+            <AppText style={styles.buttonText}>Rafraîchir</AppText>
           </TouchableOpacity>
         </View>
       );

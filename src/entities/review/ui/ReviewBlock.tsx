@@ -1,7 +1,7 @@
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { AppText, Avatar } from '@/src/shared/ui';
 import { User as UserType } from '@/src/shared/api/types';
-import { Avatar } from '@/src/shared/ui/Avatar';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
@@ -14,7 +14,7 @@ import {
 import type { Review } from '../model/Review';
 import { MoreHorizontal, Send, Star, Trash2, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { BlockWrapper } from '@/src/shared/ui/blocks/BlockWrapper';
 
 interface ReviewBlockProps {
@@ -233,7 +233,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
         <>
             <BlockWrapper blockKey="reviews" onRemove={onRemove}>
                 <View style={styles.userRatingContainer}>
-                    <Text style={styles.subTitle}>Votre note</Text>
+                    <AppText style={styles.subTitle}>Votre note</AppText>
                     <View style={styles.starRow}>
                         {[1, 2, 3, 4, 5].map((star) => (
                             <TouchableOpacity
@@ -276,7 +276,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                             testID="publish-review-button"
                         >
                             <Send size={14} color="#FFF" />
-                            <Text style={styles.publishButtonText}>{myReview ? "Mettre à jour" : "Publier"}</Text>
+                            <AppText style={styles.publishButtonText}>{myReview ? "Mettre à jour" : "Publier"}</AppText>
                         </TouchableOpacity>
                         {myReview && (
                             <TouchableOpacity
@@ -287,7 +287,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                 accessibilityRole="button"
                                 testID="delete-review-button"
                             >
-                                <Trash2 size={16} color={colors.warning} />
+                                <Trash2 size={16} color={colors.error} />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -295,7 +295,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
 
                 {communityReviews.length > 0 && (
                     <View style={styles.reviewsList}>
-                        <Text style={styles.subTitle}>Avis de la communauté</Text>
+                        <AppText style={styles.subTitle}>Avis de la communauté</AppText>
                         {communityReviews.slice(0, 2).map((review) => (
                             <View key={review.id} style={styles.reviewItem}>
                                 <View style={styles.reviewHeader}>
@@ -312,8 +312,8 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                             style={styles.reviewerAvatar}
                                         />
                                         <View>
-                                            <Text style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</Text>
-                                            <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                                            <AppText style={styles.reviewerName}>{review.user?.name || 'Utilisateur'}</AppText>
+                                            <AppText style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</AppText>
                                         </View>
                                     </TouchableOpacity>
                                     <TouchableOpacity
@@ -331,7 +331,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                         <Star key={s} size={10} color={review.rating >= s ? colors.primary : colors.textTertiary} fill={review.rating >= s ? colors.primary : "none"} />
                                     ))}
                                 </View>
-                                {review.comment && <Text style={styles.reviewComment}>{review.comment}</Text>}
+                                {review.comment && <AppText style={styles.reviewComment}>{review.comment}</AppText>}
                             </View>
                         ))}
                         {communityReviews.length > 2 && (
@@ -343,7 +343,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                 accessibilityRole="button"
                                 testID="see-all-reviews-button"
                             >
-                                <Text style={styles.seeAllReviewsText}>Voir les {communityReviews.length} avis</Text>
+                                <AppText style={styles.seeAllReviewsText}>Voir les {communityReviews.length} avis</AppText>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -358,7 +358,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
             >
                 <View style={styles.modalContainer}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Avis ({communityReviews.length})</Text>
+                        <AppText style={styles.modalTitle}>Avis ({communityReviews.length})</AppText>
                         <TouchableOpacity
                             onPress={() => setAllReviewsVisible(false)}
                             style={styles.modalCloseButton}
@@ -381,8 +381,8 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                             style={styles.reviewerAvatarLarge}
                                         />
                                         <View>
-                                            <Text style={styles.reviewerNameLarge}>{review.user?.name || 'Utilisateur'}</Text>
-                                            <Text style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</Text>
+                                            <AppText style={styles.reviewerNameLarge}>{review.user?.name || 'Utilisateur'}</AppText>
+                                            <AppText style={styles.reviewDate}>{new Date(review.createdAt).toLocaleDateString()}</AppText>
                                         </View>
                                     </TouchableOpacity>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -396,7 +396,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                                         </TouchableOpacity>
                                     </View>
                                 </View>
-                                {review.comment && <Text style={styles.reviewCommentLarge}>{review.comment}</Text>}
+                                {review.comment && <AppText style={styles.reviewCommentLarge}>{review.comment}</AppText>}
                             </View>
                         ))}
                     </ScrollView>

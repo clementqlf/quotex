@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/refs */
+import { AppText } from '@/src/shared/ui';
 import { BookOpen, ChevronRight, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -6,7 +7,6 @@ import {
   Image,
   PanResponder,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -142,16 +142,16 @@ export default function AnimatedISBNPopup({
         {/* Infos du livre */}
         <View style={styles.infoContainer}>
           <View style={styles.isbnBadge}>
-            <Text style={styles.isbnBadgeText}>ISBN détecté</Text>
+            <AppText style={styles.isbnBadgeText}>ISBN détecté</AppText>
           </View>
-          <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
+          <AppText style={styles.title} numberOfLines={2} ellipsizeMode="tail">
             {bookData.title}
-          </Text>
-          <Text style={styles.author} numberOfLines={1} ellipsizeMode="tail">
+          </AppText>
+          <AppText style={styles.author} numberOfLines={1} ellipsizeMode="tail">
             {bookData.author}
-          </Text>
+          </AppText>
           <View style={styles.openRow}>
-            <Text style={styles.openText}>Voir le livre</Text>
+            <AppText style={styles.openText}>Voir le livre</AppText>
             <ChevronRight size={14} color="#20B8CD" />
           </View>
         </View>
