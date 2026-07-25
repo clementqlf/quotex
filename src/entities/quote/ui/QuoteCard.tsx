@@ -5,7 +5,7 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useHaptics } from '@/src/shared/platform';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { useRouter } from '@/src/shared/navigation/useRouter';
 import { Heart, MoreVertical, Share2 } from 'lucide-react-native';
@@ -37,8 +37,8 @@ const isEnriching = (item: any): boolean => {
 
 const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }: QuoteCardProps) => {
   const router = useRouter();
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, tokens = defaultTokens } = useTheme();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const { currentStepIndex, nextStep } = useAppTourState();
   const haptics = useHaptics();
 
@@ -199,7 +199,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
 
 QuoteCard.displayName = 'QuoteCard';
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   cardWrapper: {
     width: '100%',
   },
@@ -207,15 +207,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.surfaceHighlight,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: tokens.radii.lg,
+    padding: tokens.spacing.md + 4,
+    marginBottom: tokens.spacing.md,
     overflow: 'hidden',
   },
   menuButton: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: tokens.spacing.sm + 4,
+    right: tokens.spacing.sm + 4,
     zIndex: 10,
     width: 32,
     height: 32,
@@ -224,20 +224,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   quoteIcon: {
     color: 'rgba(32, 184, 205, 0.2)',
-    marginBottom: 8,
+    marginBottom: tokens.spacing.sm,
   },
   quoteText: {
-    fontSize: 18,
-    lineHeight: 28,
+    fontSize: tokens.typography.fontSize.lg,
+    lineHeight: tokens.typography.lineHeight.lg,
     color: colors.text,
-    marginBottom: 16,
-    fontFamily: 'Times New Roman',
+    marginBottom: tokens.spacing.md,
+    fontFamily: tokens.typography.fontFamily.quote,
     fontStyle: 'italic',
     fontWeight: '100',
   },
   bookInfo: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: tokens.spacing.sm + 4,
+    paddingTop: tokens.spacing.sm + 4,
     borderTopWidth: 1,
     borderTopColor: colors.surfaceHighlight,
     flexDirection: 'row',
@@ -246,39 +246,39 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   bookInfoLeft: {
     flex: 1,
-    marginRight: 12,
+    marginRight: tokens.spacing.sm + 4,
   },
   bookTitle: {
-    fontSize: 14,
+    fontSize: tokens.typography.fontSize.sm,
     color: colors.text,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: tokens.typography.fontWeight.semibold,
+    marginBottom: tokens.spacing.xs,
   },
   authorName: {
-    fontSize: 13,
+    fontSize: tokens.typography.fontSize.xs + 1,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: tokens.typography.fontWeight.medium,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: tokens.typography.fontSize.xs,
     color: colors.textTertiary,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    gap: 24,
-    marginTop: 16,
-    paddingTop: 16,
+    gap: tokens.spacing.lg,
+    marginTop: tokens.spacing.md,
+    paddingTop: tokens.spacing.md,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: tokens.spacing.xs + 2,
   },
   actionText: {
-    fontSize: 13,
+    fontSize: tokens.typography.fontSize.xs + 1,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: tokens.typography.fontWeight.medium,
   },
   actionTextActive: {
     color: colors.primary,

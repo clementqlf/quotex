@@ -10,6 +10,7 @@ import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHe
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ThemeColors } from '@/src/shared/theme';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
+import { UserListModal } from '@/src/shared/ui/modals/UserListModal';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -819,122 +820,26 @@ export default function UserProfileScreen() {
       </View>
 
       {/* Modal Abonnés / Abonnements */}
-      <Modal
+      <UserListModal<'followers' | 'following'>
         visible={isFollowModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsFollowModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <SafeAreaView style={styles.modalContainer}>
-            {/* Header / Tabs */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTabs}>
-                <TouchableOpacity
-                  style={[
-                    styles.modalTabButton,
-                    followModalTab === 'followers' && styles.modalTabButtonActive,
-                  ]}
-                  onPress={() => {
-                    setFollowModalTab('followers');
-                    fetchFollowList('followers');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.modalTabText,
-                      followModalTab === 'followers' && styles.modalTabTextActive,
-                    ]}
-                  >
-                    Abonnés
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalTabButton,
-                    followModalTab === 'following' && styles.modalTabButtonActive,
-                  ]}
-                  onPress={() => {
-                    setFollowModalTab('following');
-                    fetchFollowList('following');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.modalTabText,
-                      followModalTab === 'following' && styles.modalTabTextActive,
-                    ]}
-                  >
-                    Abonnements
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setIsFollowModalVisible(false)}
-                accessible={true}
-                accessibilityLabel="Fermer"
-                accessibilityRole="button"
-              >
-                <X size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* List / Content */}
-            <View style={styles.modalBody}>
-              {isFollowListLoading ? (
-                <View style={styles.modalLoaderContainer}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-              ) : followList.length > 0 ? (
-                <ScrollView
-                  contentContainerStyle={styles.modalListContent}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {followList.map((user: any) => (
-                    <TouchableOpacity
-                      key={user.id}
-                      style={styles.userRow}
-                      onPress={preventDoublePress(() => {
-                        setIsFollowModalVisible(false);
-                        // Redirect to profile
-                        router.push({
-                          pathname: '/user-profile',
-                          params: { username: user.username },
-                        });
-                      }, 500)}
-                    >
-                      <Avatar
-                        user={user}
-                        size={48}
-                        style={styles.userRowAvatar}
-                        textStyle={styles.userRowAvatarText}
-                      />
-                      <View style={styles.userRowInfo}>
-                        <Text style={styles.userRowName}>{user.name}</Text>
-                        <Text style={styles.userRowUsername}>@{user.username}</Text>
-                        {user.bio ? (
-                          <Text style={styles.userRowBio} numberOfLines={1}>
-                            {user.bio}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              ) : (
-                <View style={styles.modalEmptyContainer}>
-                  <Text style={styles.modalEmptyText}>
-                    {followModalTab === 'followers'
-                      ? "Aucun abonné pour le moment."
-                      : "Aucun abonnement pour le moment."}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </SafeAreaView>
-        </View>
-      </Modal>
+        onClose={() => setIsFollowModalVisible(false)}
+        tabs={[
+          { key: 'followers', label: 'Abonnés' },
+          { key: 'following', label: 'Abonnements' },
+        ]}
+        activeTab={followModalTab}
+        onTabChange={(tabKey) => {
+          setFollowModalTab(tabKey);
+          fetchFollowList(tabKey);
+        }}
+        users={followList}
+        isLoading={isFollowListLoading}
+        emptyText={
+          followModalTab === 'followers'
+            ? 'Aucun abonné pour le moment.'
+            : 'Aucun abonnement pour le moment.'
+        }
+      />
 
       {/* Modal de toutes les citations */}
       {hasRenderedQuotesModal && (

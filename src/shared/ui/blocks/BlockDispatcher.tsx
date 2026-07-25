@@ -3,6 +3,7 @@ import ReviewBlock from '@/src/entities/review/ui/ReviewBlock';
 import type { BlockData } from '@/src/shared/api/BlockService';
 import { Author, Book, Quote } from '@/src/shared/api/types';
 import { BlockKey } from '@/src/shared/config/blocks';
+import { getBlockDataArray } from '@/src/shared/lib/dataHelpers';
 import React from 'react';
 import { Text, View } from 'react-native';
 import type { Definition } from './DefinitionBlock';
@@ -151,7 +152,7 @@ export const BlockDispatcher: React.FC<BlockDispatcherProps> = ({ blockId, conte
             // Quote Mode
             // We need to resolve definitions.
             // If manually edited, they are in blockData. If not, maybe in quote.definitions?
-            const defs = (blockData?.[blockId] ?? quote?.blockData?.[blockId] ?? []) as Definition[];
+            const defs = getBlockDataArray<Definition>(blockData ?? quote?.blockData, blockId);
 
             return (
                 <DefinitionBlock

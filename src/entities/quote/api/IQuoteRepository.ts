@@ -59,6 +59,11 @@ export interface IQuoteRepository {
   toggleLike(id: number): Promise<{ isLiked: boolean; likesCount: number }>;
 
   /**
+   * Récupère la liste des utilisateurs ayant aimé la citation.
+   */
+  getQuoteLikers(id: number): Promise<any[]>;
+
+  /**
    * Bascule l'état 'Sauvegardé' (Favori) d'une citation.
    * @param id {number} L'ID de la citation.
    */

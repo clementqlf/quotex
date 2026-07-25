@@ -3,7 +3,7 @@ import { BLOCK_CONFIGS, BlockKey } from '@/src/shared/config/blocks';
 import { ThemeColors } from '@/src/shared/theme';
 import { X } from 'lucide-react-native';
 import React from 'react';
-import { Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface BlockWrapperProps {
     blockKey: BlockKey;
@@ -30,6 +30,18 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     const Icon = config?.icon || FallbackIcon;
     const displayTitle = title || config?.label || 'Block';
 
+    const handleRemove = () => {
+        if (!onRemove) return;
+        Alert.alert(
+            'Supprimer le bloc',
+            `Voulez-vous vraiment supprimer le bloc « ${displayTitle} » ?`,
+            [
+                { text: 'Annuler', style: 'cancel' },
+                { text: 'Supprimer', style: 'destructive', onPress: onRemove }
+            ]
+        );
+    };
+
     return (
         <View 
             style={fullWidth ? styles.wrapperFull : styles.section}
@@ -48,7 +60,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
             {children}
 
             {onRemove && (
-                <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
+                <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
                     <X size={16} color={colors.textTertiary} />
                 </TouchableOpacity>
             )}

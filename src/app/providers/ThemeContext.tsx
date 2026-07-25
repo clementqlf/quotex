@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
-import { colors, ThemeColors } from '../../shared/theme';
+import { colors, ThemeColors, tokens, Tokens } from '../../shared/theme';
 import { StorageService, STORAGE_KEYS } from '../../shared/api/StorageService';
 
 export type ThemePreference = 'light' | 'dark' | 'auto';
@@ -8,6 +8,7 @@ export type ThemePreference = 'light' | 'dark' | 'auto';
 type ThemeContextType = {
     theme: 'light' | 'dark';
     colors: ThemeColors;
+    tokens: Tokens;
     isDark: boolean;
     themePreference: ThemePreference;
     setThemePreference: (pref: ThemePreference) => Promise<void>;
@@ -51,6 +52,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const value = useMemo(() => ({
         theme,
         colors: themeColors,
+        tokens,
         isDark: theme === 'dark',
         themePreference,
         setThemePreference,

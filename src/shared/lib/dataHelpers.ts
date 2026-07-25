@@ -116,4 +116,17 @@ export const parseJsonField = <T>(value: string | T | undefined | null): T | nul
   return value as T;
 };
 
+/**
+ * Safely extracts an array from a BlockData object by blockId.
+ * Guarantees a valid Array output even if the block data is missing, undefined, or not an array.
+ */
+export const getBlockDataArray = <T>(
+  blockData?: Record<string, any> | null,
+  blockId?: string | null
+): T[] => {
+  if (!blockId || !blockData) return [];
+  const val = blockData[blockId];
+  return Array.isArray(val) ? (val as T[]) : [];
+};
+
 

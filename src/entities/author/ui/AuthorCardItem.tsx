@@ -1,6 +1,6 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { ChevronDown } from 'lucide-react-native';
 import React, { useMemo } from 'react';
@@ -26,8 +26,8 @@ interface AuthorCardItemProps {
 }
 
 const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, tokens = defaultTokens } = useTheme();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const { navigateToAuthor } = useSmartNavigation();
 
   const handlePress = useSinglePress(() => {
@@ -56,32 +56,32 @@ const AuthorCardItem = React.memo(({ author }: AuthorCardItemProps) => {
 
 AuthorCardItem.displayName = 'AuthorCardItem';
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   bookCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: tokens.radii.md,
+    marginBottom: tokens.spacing.sm + 4,
     borderWidth: 1,
     borderColor: colors.surfaceHighlight,
     overflow: 'hidden',
   },
   bookCardContent: {
     flexDirection: 'row',
-    padding: 12,
+    padding: tokens.spacing.sm + 4,
   },
   bookCardTitle: {
-    fontSize: 16,
+    fontSize: tokens.typography.fontSize.md,
     color: colors.text,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontWeight: tokens.typography.fontWeight.semibold,
+    marginBottom: tokens.spacing.xs,
   },
   bookCardCount: {
-    fontSize: 12,
+    fontSize: tokens.typography.fontSize.xs,
     color: colors.textTertiary,
     fontStyle: 'italic',
   },
   authorAvatar: {
-    marginRight: 16,
+    marginRight: tokens.spacing.md,
   },
 });
 

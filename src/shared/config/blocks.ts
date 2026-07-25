@@ -80,7 +80,7 @@ export const BLOCK_CONFIGS: Record<BlockKey, BlockConfig> = {
     },
     connection: {
         key: 'connection',
-        label: 'Connexion',
+        label: 'Relation',
         icon: Link,
     },
     editions: {

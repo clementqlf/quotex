@@ -5,7 +5,7 @@ import { PrizeService } from '@/src/shared/api/PrizeService';
 import { LiteraryPrize, LiteraryPrizeLaureate } from '@/src/shared/api/types';
 import { AboutBlock } from '@/src/shared/ui/blocks/AboutBlock';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { useFocusEffect } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import { ArrowLeft, Award, BookOpen } from 'lucide-react-native';
@@ -63,8 +63,8 @@ interface PrizeDetailScreenProps {
 
 export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScreenProps) {
     const router = useRouter();
-    const { colors } = useTheme();
-    const styles = React.useMemo(() => createStyles(colors), [colors]);
+    const { colors, tokens = defaultTokens } = useTheme();
+    const styles = React.useMemo(() => createStyles(colors, tokens), [colors, tokens]);
     const { navigateToAuthor, navigateToBook } = useSmartNavigation();
     const queryClient = useQueryClient();
     
@@ -390,7 +390,7 @@ export default function PrizeDetailScreen({ prizeId, prizeData }: PrizeDetailScr
     );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background,
@@ -402,27 +402,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        gap: 16,
+        padding: tokens.spacing.md,
+        gap: tokens.spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
     },
     backButton: {
-        padding: 4,
+        padding: tokens.spacing.xs,
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: tokens.typography.fontSize.lg,
+        fontWeight: tokens.typography.fontWeight.semibold,
         color: colors.text,
         flex: 1,
     },
     prizeHeaderContainer: {
-        paddingHorizontal: 16,
-        paddingTop: 8,
+        paddingHorizontal: tokens.spacing.md,
+        paddingTop: tokens.spacing.sm,
     },
     prizeHeader: {
         alignItems: 'center',
-        paddingVertical: 24,
+        paddingVertical: tokens.spacing.lg,
     },
     prizeImageContainer: {
         width: 100,
@@ -431,7 +431,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         backgroundColor: colors.primaryLight,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: tokens.spacing.md,
         overflow: 'hidden',
     },
     prizeImage: {
@@ -440,108 +440,108 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         resizeMode: 'cover',
     },
     prizeName: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontSize: tokens.typography.fontSize.xxl,
+        fontWeight: tokens.typography.fontWeight.bold,
         color: colors.text,
         textAlign: 'center',
-        marginBottom: 8,
+        marginBottom: tokens.spacing.sm,
     },
     section: {
         backgroundColor: colors.surface,
         borderWidth: 1,
         borderColor: colors.surfaceHighlight,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 24,
+        borderRadius: tokens.radii.lg,
+        padding: tokens.spacing.md,
+        marginBottom: tokens.spacing.lg,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginBottom: 12,
+        gap: tokens.spacing.sm,
+        marginBottom: tokens.spacing.sm + 4,
     },
     sectionTitle: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: tokens.typography.fontSize.sm,
+        fontWeight: tokens.typography.fontWeight.semibold,
         color: colors.text,
     },
     prizeDesc: {
-        fontSize: 14,
-        lineHeight: 22,
+        fontSize: tokens.typography.fontSize.sm,
+        lineHeight: tokens.typography.lineHeight.md - 2,
         color: colors.textSecondary,
     },
     detailContainerSection: {
         backgroundColor: colors.surface,
         borderWidth: 1,
         borderColor: colors.surfaceHighlight,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 24,
+        borderRadius: tokens.radii.lg,
+        padding: tokens.spacing.md,
+        marginBottom: tokens.spacing.lg,
     },
     detailsContainer: {
         flexDirection: 'row',
-        gap: 12,
+        gap: tokens.spacing.sm + 4,
     },
     detailItem: {
         flex: 1,
         alignItems: 'center',
-        gap: 6,
+        gap: tokens.spacing.xs + 2,
     },
     detailLabel: {
-        fontSize: 12,
+        fontSize: tokens.typography.fontSize.xs,
         color: colors.textTertiary,
-        fontWeight: '500',
+        fontWeight: tokens.typography.fontWeight.medium,
     },
     detailValue: {
-        fontSize: 13,
+        fontSize: tokens.typography.fontSize.xs + 1,
         color: colors.text,
-        fontWeight: '600',
+        fontWeight: tokens.typography.fontWeight.semibold,
         textAlign: 'center',
     },
     divider: {
         height: 1,
         backgroundColor: colors.border,
         width: '100%',
-        marginVertical: 24,
+        marginVertical: tokens.spacing.lg,
     },
     palmaresTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: tokens.typography.fontSize.lg,
+        fontWeight: tokens.typography.fontWeight.bold,
         color: colors.text,
         alignSelf: 'flex-start',
-        marginBottom: 16,
+        marginBottom: tokens.spacing.md,
     },
     listContent: {
-        paddingBottom: 40,
+        paddingBottom: tokens.spacing.xxl,
     },
     footerLoader: {
-        paddingVertical: 20,
+        paddingVertical: tokens.spacing.xl - 12,
         alignItems: 'center',
         justifyContent: 'center',
     },
     laureateCard: {
         backgroundColor: colors.surface,
-        borderRadius: 12,
-        marginHorizontal: 16,
-        marginBottom: 12,
+        borderRadius: tokens.radii.md,
+        marginHorizontal: tokens.spacing.md,
+        marginBottom: tokens.spacing.sm + 4,
         borderWidth: 1,
         borderColor: colors.surfaceHighlight,
         overflow: 'hidden',
     },
     laureateCardContent: {
         flexDirection: 'row',
-        padding: 12,
+        padding: tokens.spacing.sm + 4,
     },
     laureateCover: {
         width: 60,
         height: 90,
-        borderRadius: 4,
+        borderRadius: tokens.radii.xs,
         backgroundColor: colors.surfaceHighlight,
     },
     laureateCoverPlaceholder: {
         width: 60,
         height: 90,
-        borderRadius: 4,
+        borderRadius: tokens.radii.xs,
         backgroundColor: colors.surfaceHighlight,
         justifyContent: 'center',
         alignItems: 'center',
@@ -550,49 +550,49 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     },
     laureateCardInfo: {
         flex: 1,
-        marginLeft: 16,
+        marginLeft: tokens.spacing.md,
         justifyContent: 'center',
     },
     laureateCardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 4,
+        marginBottom: tokens.spacing.xs,
     },
     laureateAuthorName: {
-        fontSize: 14,
+        fontSize: tokens.typography.fontSize.sm,
         color: colors.primary,
         marginTop: 2,
     },
     yearBadge: {
         backgroundColor: colors.surfaceHighlight,
-        paddingHorizontal: 8,
+        paddingHorizontal: tokens.spacing.sm,
         paddingVertical: 2,
-        borderRadius: 4,
+        borderRadius: tokens.radii.xs,
     },
     yearBadgeText: {
-        fontSize: 12,
-        fontWeight: '700',
+        fontSize: tokens.typography.fontSize.xs,
+        fontWeight: tokens.typography.fontWeight.bold,
         color: colors.textTertiary,
     },
     laureateBookTitle: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: tokens.typography.fontSize.md,
+        fontWeight: tokens.typography.fontWeight.semibold,
         color: colors.text,
     },
     errorText: {
-        fontSize: 16,
+        fontSize: tokens.typography.fontSize.md,
         color: colors.textSecondary,
-        marginBottom: 16,
+        marginBottom: tokens.spacing.md,
     },
     backButtonInline: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
+        paddingVertical: tokens.spacing.sm,
+        paddingHorizontal: tokens.spacing.md,
         backgroundColor: colors.primary,
-        borderRadius: 8,
+        borderRadius: tokens.radii.sm,
     },
     backButtonText: {
         color: '#FFFFFF',
-        fontWeight: '600',
+        fontWeight: tokens.typography.fontWeight.semibold,
     }
 });

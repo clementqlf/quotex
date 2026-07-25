@@ -3,6 +3,7 @@ import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
+import * as Haptics from 'expo-haptics';
 import { BookOpen, Bookmark, Calendar, CheckCircle2, Edit3, Heart, Plus, Share2, Sparkles, Trash2, User as UserIcon, X } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -50,10 +51,11 @@ import WordSelectionModal from '@/src/shared/ui/modals/WordSelectionModal';
 import AddBlockModal from '@/src/shared/ui/modals/AddBlockModal';
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
+import { UserListModal } from '@/src/shared/ui/modals/UserListModal';
 import { BlockService } from '@/src/shared/api/BlockService';
 import { Quote } from '@/src/shared/api/types';
 import { BlockKey, getBlockOptions } from '@/src/shared/config/blocks';
-import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, getBlockDataArray } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { ThemeColors } from '@/src/shared/theme';
@@ -809,13 +811,33 @@ function QuoteDetailContent() {
     onNotesFocusChange: setIsNotesFocused,
   }), [quote, resolvedFetchedBook, resolvedFetchedAuthor, handleUpdateBlockData, navigateToBook, navigateToAuthor, notesEditorRef, setIsNotesFocused]);
 
+  const [isLikersModalVisible, setIsLikersModalVisible] = React.useState(false);
+  const [likers, setLikers] = React.useState<any[]>([]);
+  const [isLoadingLikers, setIsLoadingLikers] = React.useState(false);
+
   const handleToggleLike = () => {
     if (!quote) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setQuote((currentQuote: Quote | undefined) => {
       if (!currentQuote) return currentQuote;
       return { ...currentQuote, isLiked: !currentQuote.isLiked, likesCount: currentQuote.isLiked ? currentQuote.likesCount - 1 : currentQuote.likesCount + 1 };
     });
     toggleLikeQuote(quote.id);
+  };
+
+  const handleLongPressHeart = async () => {
+    if (!quote) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsLikersModalVisible(true);
+    setIsLoadingLikers(true);
+    try {
+      const data = await quoteService.getQuoteLikers(quote.id);
+      setLikers(data);
+    } catch (err) {
+      console.log('Error fetching likers:', err);
+    } finally {
+      setIsLoadingLikers(false);
+    }
   };
 
   const handleShare = async () => {
@@ -864,13 +886,13 @@ function QuoteDetailContent() {
   const [showEditModal, setShowEditModal] = React.useState(false);
 
   const currentDefinitions = useMemo(() => {
-    return currentDefinitionBlockId && quote?.blockData
-      ? (quote.blockData[currentDefinitionBlockId] as unknown as Definition[])
-      : [];
+    return getBlockDataArray<Definition>(quote?.blockData, currentDefinitionBlockId);
   }, [currentDefinitionBlockId, quote?.blockData]);
 
   const currentTerms = useMemo(() => {
-    return currentDefinitions.map(d => d.term.toLowerCase());
+    return currentDefinitions
+      .filter((d): d is Definition => Boolean(d && typeof d.term === 'string'))
+      .map(d => d.term.toLowerCase());
   }, [currentDefinitions]);
 
   const handleWordsSelected = async (words: string[]) => {
@@ -1152,32 +1174,40 @@ function QuoteDetailContent() {
                 </TouchableOpacity>
               </View>
             </View>
-          </View>
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleToggleLike}
-            >
-              <Heart
-                size={20}
-                color={quote.isLiked ? colors.primary : colors.textTertiary}
-                fill={quote.isLiked ? colors.primary : 'none'}
-              />
-              <Text
-                style={[
-                  styles.actionText,
-                  quote.isLiked && styles.actionTextActive,
-                ]}
+            {/* Actions intégrées dans la card */}
+            <View style={styles.quoteCardActions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleToggleLike}
+                onLongPress={handleLongPressHeart}
+                delayLongPress={250}
+                activeOpacity={0.7}
               >
-                {quote.likesCount}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-              <Share2 size={20} color={colors.textTertiary} />
-              <Text style={styles.actionText}>Partager</Text>
-            </TouchableOpacity>
+                <Heart
+                  size={18}
+                  color={quote.isLiked ? colors.primary : colors.textTertiary}
+                  fill={quote.isLiked ? colors.primary : 'none'}
+                />
+                <Text
+                  style={[
+                    styles.actionText,
+                    quote.isLiked && styles.actionTextActive,
+                  ]}
+                >
+                  {quote.likesCount}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleShare}
+                activeOpacity={0.7}
+              >
+                <Share2 size={18} color={colors.textTertiary} />
+                <Text style={styles.actionText}>Partager</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* AI Interpretation */}
@@ -1525,6 +1555,17 @@ function QuoteDetailContent() {
           </TouchableOpacity>
         </Modal>
 
+        {/* Likers Modal */}
+        <UserListModal
+          visible={isLikersModalVisible}
+          onClose={() => setIsLikersModalVisible(false)}
+          title={`Aimé par ${quote?.likesCount ? `(${quote.likesCount})` : ''}`}
+          icon={<Heart size={20} color={colors.primary} fill={colors.primary} />}
+          users={likers}
+          isLoading={isLoadingLikers}
+          emptyText="Personne n'a encore aimé cette citation."
+        />
+
         <AppTourOverlay isInsideModalContainer={true} />
       </View>
     </SafeAreaView>
@@ -1624,6 +1665,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     alignItems: 'center',
     padding: 24,
   },
+
   themeSelectorContainer: {
     width: '100%',
     maxHeight: '80%',
@@ -1734,29 +1776,30 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     color: colors.text,
     fontWeight: '500',
   },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  actionButton: {
-    flex: 1,
+  quoteCardActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    borderRadius: 12,
+    justifyContent: 'flex-start',
+    gap: 20,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceHighlight,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
   },
   actionText: {
     fontSize: 13,
+    fontWeight: '500',
     color: colors.textSecondary,
   },
   actionTextActive: {
     color: colors.primary,
+    fontWeight: '600',
   },
   aiSectionWrapper: {
     position: 'relative',

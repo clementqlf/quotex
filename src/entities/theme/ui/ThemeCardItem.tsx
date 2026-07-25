@@ -1,5 +1,5 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { useRouter } from '@/src/shared/navigation/useRouter';
 import React, { useMemo } from 'react';
 import {
@@ -23,8 +23,8 @@ interface ThemeCardItemProps {
 
 const ThemeCardItem = React.memo(({ theme }: ThemeCardItemProps) => {
   const router = useRouter();
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, tokens = defaultTokens } = useTheme();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
 
   const handlePress = useSinglePress(() => {
     router.navigate({ pathname: '/theme-detail', params: { themeName: theme.theme } });
@@ -53,18 +53,18 @@ const ThemeCardItem = React.memo(({ theme }: ThemeCardItemProps) => {
 
 ThemeCardItem.displayName = 'ThemeCardItem';
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: tokens.radii.md,
+    marginBottom: tokens.spacing.sm + 4,
     borderWidth: 1,
     borderColor: colors.surfaceHighlight,
     overflow: 'hidden',
   },
   cardContent: {
     flexDirection: 'row',
-    padding: 12,
+    padding: tokens.spacing.sm + 4,
   },
   themeIconContainer: {
     width: 60,
@@ -73,21 +73,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: tokens.spacing.md,
   },
   themeIconText: {
     color: colors.primary,
-    fontWeight: 'bold',
-    fontSize: 24,
+    fontWeight: tokens.typography.fontWeight.bold,
+    fontSize: tokens.typography.fontSize.xxl,
   },
   themeTitle: {
     color: colors.text,
-    fontWeight: '600',
-    fontSize: 16,
+    fontWeight: tokens.typography.fontWeight.semibold,
+    fontSize: tokens.typography.fontSize.md,
   },
   themeSubText: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: tokens.typography.fontSize.xs + 1,
   },
 });
 

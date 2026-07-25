@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { getStatusColor, getStatusLabel } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { BookCover } from '@/src/shared/ui/BookCover';
 import { CheckCircle2, MoreVertical, PlusCircle } from 'lucide-react-native';
@@ -44,8 +44,8 @@ interface BookCardItemProps {
 }
 
 const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = true, showAddButton, onAddPress, onAddLongPress }: BookCardItemProps) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, tokens = defaultTokens } = useTheme();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const { navigateToBook } = useSmartNavigation();
   const haptics = useHaptics();
 
@@ -189,11 +189,11 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
 
 BookCardItem.displayName = 'BookCardItem';
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   bookCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: tokens.radii.md,
+    marginBottom: tokens.spacing.sm + 4,
     borderWidth: 1,
     borderColor: colors.surfaceHighlight,
     overflow: 'hidden',
@@ -201,8 +201,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   menuButton: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: tokens.spacing.sm + 4,
+    right: tokens.spacing.sm + 4,
     zIndex: 10,
     width: 32,
     height: 32,
@@ -213,27 +213,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    right: 12,
+    right: tokens.spacing.sm + 4,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
   },
   bookCardContent: {
     flexDirection: 'row',
-    padding: 12,
+    padding: tokens.spacing.sm + 4,
   },
   bookCardCover: {
     width: 60,
     height: 90,
-    borderRadius: 4,
-    marginRight: 12,
+    borderRadius: tokens.radii.xs,
+    marginRight: tokens.spacing.sm + 4,
     backgroundColor: colors.surfaceHighlight,
   },
   bookCardCoverPlaceholder: {
     width: 60,
     height: 90,
-    borderRadius: 4,
-    marginRight: 12,
+    borderRadius: tokens.radii.xs,
+    marginRight: tokens.spacing.sm + 4,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surfaceHighlight,
@@ -246,59 +246,59 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 4,
-    gap: 8,
+    marginBottom: tokens.spacing.xs,
+    gap: tokens.spacing.sm,
   },
   bookCardTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: tokens.typography.fontSize.md,
     color: colors.text,
-    fontWeight: '600',
+    fontWeight: tokens.typography.fontWeight.semibold,
   },
   bookCardYear: {
-    fontSize: 12,
+    fontSize: tokens.typography.fontSize.xs,
     color: colors.textTertiary,
     backgroundColor: colors.surfaceHighlight,
-    paddingHorizontal: 6,
+    paddingHorizontal: tokens.spacing.xs + 2,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: tokens.radii.xs,
     overflow: 'hidden',
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
-    gap: 8,
+    marginBottom: tokens.spacing.xs + 2,
+    gap: tokens.spacing.sm,
     height: 22,
   },
   bookCardAuthor: {
-    fontSize: 14,
+    fontSize: tokens.typography.fontSize.sm,
     color: colors.primary,
     flex: 1,
   },
   bookCardDescription: {
-    fontSize: 13,
+    fontSize: tokens.typography.fontSize.xs + 1,
     color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 8,
+    lineHeight: tokens.typography.lineHeight.xs + 2,
+    marginBottom: tokens.spacing.sm,
   },
   bookCardCount: {
-    fontSize: 12,
+    fontSize: tokens.typography.fontSize.xs,
     color: colors.textTertiary,
     fontStyle: 'italic',
-    marginTop: 8,
+    marginTop: tokens.spacing.sm,
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: tokens.spacing.sm,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: tokens.radii.xs + 2,
     borderWidth: 1,
     alignSelf: 'center',
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: tokens.typography.fontWeight.semibold,
   },
 });
 

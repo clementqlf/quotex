@@ -33,6 +33,10 @@ class QuoteService {
         return result.isLiked;
     }
 
+    async getQuoteLikers(id: number): Promise<any[]> {
+        return this.repository.getQuoteLikers(id);
+    }
+
     async toggleSave(id: number): Promise<boolean> {
         const result = await this.repository.toggleSave(id);
         return result.isSaved;

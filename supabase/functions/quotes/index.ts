@@ -816,6 +816,18 @@ serve(async (req: Request) => {
       }
     }
 
+    // GET /quotes/:id/likes or /quotes/:id/likers
+    if (req.method === 'GET' && idParam && (subAction === 'likes' || subAction === 'likers')) {
+      const likers = await sql`
+        SELECT p.id, p.name, p.username, p.image
+        FROM "Like" l
+        JOIN "Profile" p ON p.id = l."userId"
+        WHERE l."quoteId" = ${idParam}
+        ORDER BY l."createdAt" DESC
+      `;
+      return json(likers);
+    }
+
     // PATCH /quotes/:id
     if (req.method === 'PATCH' && idParam && !subAction) {
       const authUser = await requireAuth(req);

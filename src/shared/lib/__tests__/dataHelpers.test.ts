@@ -1,4 +1,4 @@
-import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, decodeBase64 } from '../dataHelpers';
+import { getAuthorName, getBookTitle, getStatusColor, getStatusLabel, decodeBase64, getBlockDataArray } from '../dataHelpers';
 
 describe('dataHelpers', () => {
   describe('getBookTitle', () => {
@@ -92,6 +92,21 @@ describe('dataHelpers', () => {
       const base64WithUri = 'data:image/png;base64, YQ = =';
       const buffer = decodeBase64(base64WithUri);
       expect(String.fromCharCode(...new Uint8Array(buffer))).toBe('a');
+    });
+  });
+
+  describe('getBlockDataArray', () => {
+    test('retourne un tableau vide pour des entrées null, undefined ou invalides', () => {
+      expect(getBlockDataArray(null, 'def')).toEqual([]);
+      expect(getBlockDataArray(undefined, 'def')).toEqual([]);
+      expect(getBlockDataArray({}, null)).toEqual([]);
+      expect(getBlockDataArray({}, 'def')).toEqual([]);
+      expect(getBlockDataArray({ def: 'not-an-array' }, 'def')).toEqual([]);
+    });
+
+    test('retourne le tableau si le blockId existe et contient un tableau', () => {
+      const sample = [{ term: 'test', definition: 'def' }];
+      expect(getBlockDataArray({ def: sample }, 'def')).toEqual(sample);
     });
   });
 });

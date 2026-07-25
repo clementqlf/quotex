@@ -4,7 +4,7 @@ import { User as UserType } from '@/src/shared/api/types';
 import { Avatar } from '@/src/shared/ui/Avatar';
 import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { useSmartNavigation } from '@/src/shared/navigation/useSmartNavigation';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import {
   useReviewsByBookId,
   useCreateReview,
@@ -23,8 +23,8 @@ interface ReviewBlockProps {
 }
 
 const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewAdded }) => {
-    const { colors } = useTheme();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const { colors, tokens = defaultTokens } = useTheme();
+    const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
 
     const { data: fetchedReviews, refetch } = useReviewsByBookId(bookId);
     const createReviewMutation = useCreateReview();
@@ -428,24 +428,24 @@ const ReviewBlock = React.memo(ReviewBlockUI, (prevProps, nextProps) => {
 
 export default ReviewBlock;
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     section: {
         backgroundColor: colors.surface,
         borderWidth: 1,
         borderColor: colors.surfaceHighlight,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
+        borderRadius: tokens.radii.lg,
+        padding: tokens.spacing.md,
+        marginBottom: tokens.spacing.md,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginBottom: 12,
+        gap: tokens.spacing.sm,
+        marginBottom: tokens.spacing.sm + 4,
     },
     sectionTitle: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: tokens.typography.fontSize.sm,
+        fontWeight: tokens.typography.fontWeight.semibold,
         color: colors.text,
     },
     removableWrapper: {
@@ -453,8 +453,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     },
     removeButton: {
         position: 'absolute',
-        top: 8,
-        right: 8,
+        top: tokens.spacing.sm,
+        right: tokens.spacing.sm,
         width: 28,
         height: 28,
         borderRadius: 14,
@@ -464,28 +464,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         zIndex: 10,
     },
     userRatingContainer: {
-        marginBottom: 16,
+        marginBottom: tokens.spacing.md,
     },
     subTitle: {
-        fontSize: 12,
+        fontSize: tokens.typography.fontSize.xs,
         color: colors.textSecondary,
-        marginBottom: 8,
-        fontWeight: '500',
+        marginBottom: tokens.spacing.sm,
+        fontWeight: tokens.typography.fontWeight.medium,
     },
     starRow: {
         flexDirection: 'row',
-        gap: 12,
+        gap: tokens.spacing.sm + 4,
     },
     commentInputContainer: {
-        gap: 12,
-        marginBottom: 16,
+        gap: tokens.spacing.sm + 4,
+        marginBottom: tokens.spacing.md,
     },
     commentInput: {
         backgroundColor: colors.inputBackground,
         borderWidth: 1,
         borderColor: colors.surfaceHighlight,
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: tokens.radii.md,
+        padding: tokens.spacing.sm + 4,
         color: colors.inputText,
         minHeight: 80,
         textAlignVertical: 'top',
@@ -495,36 +495,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 12,
-        borderRadius: 8,
-        gap: 8,
+        padding: tokens.spacing.sm + 4,
+        borderRadius: tokens.radii.sm,
+        gap: tokens.spacing.sm,
     },
     publishButtonText: {
-        color: '#FFF', // Primary button text usually white
-        fontWeight: '600',
-        fontSize: 14,
+        color: '#FFF',
+        fontWeight: tokens.typography.fontWeight.semibold,
+        fontSize: tokens.typography.fontSize.sm,
     },
     reviewsList: {
-        gap: 12,
+        gap: tokens.spacing.sm + 4,
         borderTopWidth: 1,
         borderTopColor: colors.surfaceHighlight,
-        paddingTop: 16,
+        paddingTop: tokens.spacing.md,
     },
     reviewItem: {
         backgroundColor: colors.surfaceHighlight,
-        borderRadius: 12,
-        padding: 12,
+        borderRadius: tokens.radii.md,
+        padding: tokens.spacing.sm + 4,
     },
     reviewHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 8,
+        marginBottom: tokens.spacing.sm,
     },
     reviewerInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: tokens.spacing.sm,
     },
     reviewerAvatar: {
         width: 24,
@@ -532,12 +532,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         borderRadius: 12,
     },
     reviewerName: {
-        fontSize: 13,
+        fontSize: tokens.typography.fontSize.xs + 1,
         color: colors.text,
-        fontWeight: '500',
+        fontWeight: tokens.typography.fontWeight.medium,
     },
     reviewDate: {
-        fontSize: 11,
+        fontSize: tokens.typography.fontSize.xs - 1,
         color: colors.textTertiary,
     },
     reviewRating: {
@@ -545,18 +545,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         gap: 2,
     },
     reviewComment: {
-        fontSize: 13,
+        fontSize: tokens.typography.fontSize.xs + 1,
         color: colors.textSecondary,
-        lineHeight: 20,
+        lineHeight: tokens.typography.lineHeight.sm,
     },
     seeAllReviewsButton: {
         alignItems: 'center',
-        marginTop: 8,
+        marginTop: tokens.spacing.sm,
     },
     seeAllReviewsText: {
         color: colors.primary,
-        fontSize: 13,
-        fontWeight: '500',
+        fontSize: tokens.typography.fontSize.xs + 1,
+        fontWeight: tokens.typography.fontWeight.medium,
     },
     modalContainer: {
         flex: 1,
@@ -566,26 +566,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        padding: tokens.spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
     },
     modalTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+        fontSize: tokens.typography.fontSize.lg,
+        fontWeight: tokens.typography.fontWeight.semibold,
         color: colors.text,
     },
     modalCloseButton: {
-        padding: 4,
+        padding: tokens.spacing.xs,
     },
     modalContent: {
-        padding: 16,
-        gap: 16,
+        padding: tokens.spacing.md,
+        gap: tokens.spacing.md,
     },
     modalReviewItem: {
         backgroundColor: colors.surfaceHighlight,
-        borderRadius: 12,
-        padding: 16,
+        borderRadius: tokens.radii.md,
+        padding: tokens.spacing.md,
     },
     reviewerAvatarLarge: {
         width: 32,
@@ -593,14 +593,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         borderRadius: 16,
     },
     reviewerNameLarge: {
-        fontSize: 14,
+        fontSize: tokens.typography.fontSize.sm,
         color: colors.text,
-        fontWeight: '500',
+        fontWeight: tokens.typography.fontWeight.medium,
     },
     reviewCommentLarge: {
-        fontSize: 14,
+        fontSize: tokens.typography.fontSize.sm,
         color: colors.textSecondary,
-        lineHeight: 22,
-        marginTop: 8,
+        lineHeight: tokens.typography.lineHeight.md - 2,
+        marginTop: tokens.spacing.sm,
     },
 });

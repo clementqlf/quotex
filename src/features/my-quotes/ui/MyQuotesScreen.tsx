@@ -283,7 +283,64 @@ const ListHeaderMemo = React.memo(function ListHeaderMemo({
   }
 
   return elements.length > 0 ? <>{elements}</> : null;
-})
+});
+
+interface EmptyStateViewProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  buttonLabel?: string;
+  onButtonPress?: () => void;
+  styles: any;
+}
+
+const EmptyStateView = React.memo(function EmptyStateView({
+  icon,
+  title,
+  description,
+  buttonLabel,
+  onButtonPress,
+  styles,
+}: EmptyStateViewProps) {
+  return (
+    <View style={styles.emptyStateContainer}>
+      <View style={styles.emptyStateIconContainer}>{icon}</View>
+      <Text style={styles.emptyStateTitle}>{title}</Text>
+      <Text style={styles.emptyStateDescription}>{description}</Text>
+      {buttonLabel && onButtonPress && (
+        <TouchableOpacity style={styles.emptyStateButton} onPress={onButtonPress} activeOpacity={0.8}>
+          <Text style={styles.emptyStateButtonText}>{buttonLabel}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
+
+interface AddFooterCardProps {
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  styles: any;
+}
+
+const AddFooterCard = React.memo(function AddFooterCard({
+  label,
+  icon,
+  onPress,
+  styles,
+}: AddFooterCardProps) {
+  return (
+    <TouchableOpacity
+      style={styles.addFooterCard}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <View style={styles.addFooterIconContainer}>{icon}</View>
+      <Text style={styles.addFooterLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+});
+
 export default function MyQuotesScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -536,6 +593,11 @@ export default function MyQuotesScreen() {
     if (selectedStatus === 'ALL') return books;
     return books.filter(b => b.readingStatus === selectedStatus);
   }, [books, selectedStatus]);
+
+  const hasActiveBookFilters = activeFilters.length > 0 || selectedStatus !== 'ALL';
+  const hasActiveQuoteFilters = myQuotes.length > 0 && (activeFilters.length > 0 || quoteSubFilter !== 'ALL');
+  const hasActiveAuthorFilters = activeFilters.length > 0;
+  const hasActiveThemeFilters = activeFilters.length > 0;
 
   const [prevActiveFilters, setPrevActiveFilters] = useState<FilterType[]>([]);
   if (activeFilters !== prevActiveFilters) {
@@ -847,7 +909,30 @@ export default function MyQuotesScreen() {
                 setSelectedStatus={setSelectedStatus}
               />
             }
-            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun livre à afficher avec ces filtres.</Text>}
+            ListEmptyComponent={
+              <EmptyStateView
+                icon={hasActiveBookFilters ? <Filter size={32} color={colors.primary} /> : <BookIcon size={32} color={colors.primary} />}
+                title={hasActiveBookFilters ? "Aucun livre trouvé" : "Vos étagères sont vides"}
+                description={
+                  hasActiveBookFilters
+                    ? "Aucun livre ne correspond aux filtres ou au statut de lecture sélectionné."
+                    : "Ajoutez un livre ou une première citation pour créer votre bibliothèque numérique."
+                }
+                buttonLabel={hasActiveBookFilters ? "Réinitialiser les filtres" : "+ Ajouter un livre"}
+                onButtonPress={hasActiveBookFilters ? () => { resetFilters(); setSelectedStatus('ALL'); } : () => router.push({ pathname: '/search', params: { tab: 'books' } })}
+                styles={styles}
+              />
+            }
+            ListFooterComponent={
+              filteredBooksByStatus.length > 0 ? (
+                <AddFooterCard
+                  label="Ajouter un livre"
+                  icon={<Plus size={22} color={colors.primary} />}
+                  onPress={() => router.push({ pathname: '/search', params: { tab: 'books' } })}
+                  styles={styles}
+                />
+              ) : null
+            }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
@@ -875,7 +960,30 @@ export default function MyQuotesScreen() {
                 setSelectedStatus={setSelectedStatus}
               />
             }
-            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun auteur à afficher avec ces filtres.</Text>}
+            ListEmptyComponent={
+              <EmptyStateView
+                icon={hasActiveAuthorFilters ? <Filter size={32} color={colors.primary} /> : <Users size={32} color={colors.primary} />}
+                title={hasActiveAuthorFilters ? "Aucun auteur trouvé" : "Votre panthéon d'auteurs est vide"}
+                description={
+                  hasActiveAuthorFilters
+                    ? "Aucun auteur ne correspond à vos critères de filtre actuels."
+                    : "Vos auteurs favoris s'afficheront automatiquement ici dès que vous ajouterez des livres et des citations."
+                }
+                buttonLabel={hasActiveAuthorFilters ? "Réinitialiser les filtres" : "+ Ajouter un auteur"}
+                onButtonPress={hasActiveAuthorFilters ? resetFilters : () => router.push({ pathname: '/search', params: { tab: 'authors' } })}
+                styles={styles}
+              />
+            }
+            ListFooterComponent={
+              authorsData.length > 0 ? (
+                <AddFooterCard
+                  label="Ajouter un auteur"
+                  icon={<Plus size={22} color={colors.primary} />}
+                  onPress={() => router.push({ pathname: '/search', params: { tab: 'authors' } })}
+                  styles={styles}
+                />
+              ) : null
+            }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
@@ -903,7 +1011,30 @@ export default function MyQuotesScreen() {
                 setSelectedStatus={setSelectedStatus}
               />
             }
-            ListEmptyComponent={<Text style={styles.emptyStateText}>Aucun thème à afficher avec ces filtres.</Text>}
+            ListEmptyComponent={
+              <EmptyStateView
+                icon={hasActiveThemeFilters ? <Filter size={32} color={colors.primary} /> : <Hash size={32} color={colors.primary} />}
+                title={hasActiveThemeFilters ? "Aucun thème trouvé" : "Aucun thème répertorié"}
+                description={
+                  hasActiveThemeFilters
+                    ? "Aucun thème ne correspond aux filtres sélectionnés."
+                    : "Associez des thèmes à vos citations (philosophie, amour, science...) pour les retrouver facilement regroupées ici."
+                }
+                buttonLabel={hasActiveThemeFilters ? "Réinitialiser les filtres" : "+ Ajouter une citation"}
+                onButtonPress={hasActiveThemeFilters ? resetFilters : () => setShowAddMenu(true)}
+                styles={styles}
+              />
+            }
+            ListFooterComponent={
+              themes.length > 0 ? (
+                <AddFooterCard
+                  label="Ajouter une citation"
+                  icon={<Plus size={22} color={colors.primary} />}
+                  onPress={() => setShowAddMenu(true)}
+                  styles={styles}
+                />
+              ) : null
+            }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
             }
@@ -935,11 +1066,32 @@ export default function MyQuotesScreen() {
               />
             }
             ListEmptyComponent={
-              <Text style={styles.emptyStateText}>
-                {myQuotes.length === 0
-                  ? "Ajoute une citation pour la voir ici."
-                  : "Aucune citation à afficher avec ces filtres."}
-              </Text>
+              <EmptyStateView
+                icon={hasActiveQuoteFilters ? <Filter size={32} color={colors.primary} /> : <QuoteIcon size={32} color={colors.primary} />}
+                title={hasActiveQuoteFilters ? "Aucune citation trouvée" : "Votre carnet est encore vierge"}
+                description={
+                  hasActiveQuoteFilters
+                    ? "Aucune citation ne correspond à cet onglet ou aux filtres sélectionnés."
+                    : "Scannez un extrait de livre ou créez manuellement votre première citation pour lancer votre collection."
+                }
+                buttonLabel={hasActiveQuoteFilters ? "Réinitialiser les filtres" : "+ Ajouter une citation"}
+                onButtonPress={
+                  hasActiveQuoteFilters
+                    ? () => { resetFilters(); setQuoteSubFilter('ALL'); }
+                    : () => setShowAddMenu(true)
+                }
+                styles={styles}
+              />
+            }
+            ListFooterComponent={
+              quotesToDisplay.length > 0 ? (
+                <AddFooterCard
+                  label="Ajouter une citation"
+                  icon={<Plus size={22} color={colors.primary} />}
+                  onPress={() => setShowAddMenu(true)}
+                  styles={styles}
+                />
+              ) : null
             }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -1227,6 +1379,77 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   statusFilterTextActive: {
     color: colors.primary,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+    marginTop: 20,
+  },
+  emptyStateIconContainer: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  emptyStateButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+  },
+  emptyStateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  addFooterCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 40,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    minHeight: 76,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addFooterIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  addFooterLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   emptyStateText: {
     color: colors.textSecondary,

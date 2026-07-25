@@ -47,13 +47,19 @@ type SearchSection =
 
 export default function SearchScreen() {
     const router = useRouter();
-    const { q } = useLocalSearchParams<{ q?: string }>();
+    const { q, tab } = useLocalSearchParams<{ q?: string; tab?: 'all' | 'books' | 'authors' | 'prizes' | 'users' }>();
     const { navigateToBook, navigateToAuthor, navigateToUserProfile } = useSmartNavigation();
     const { colors } = useTheme();
     const styles = React.useMemo(() => createStyles(colors), [colors]);
 
     const [query, setQuery] = useState(q || '');
-    const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes' | 'users'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'books' | 'authors' | 'prizes' | 'users'>(tab || 'all');
+
+    useEffect(() => {
+        if (tab) {
+            setActiveTab(tab);
+        }
+    }, [tab]);
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const inputRef = useRef<TextInput>(null);
 

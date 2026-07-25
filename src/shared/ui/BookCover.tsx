@@ -3,6 +3,7 @@ import { Text, View, StyleProp, TextStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Book, BookOpen, BookCopy } from 'lucide-react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { radii } from '@/src/shared/theme';
 
 interface BookCoverProps {
   uri?: string | null;
@@ -22,7 +23,7 @@ export const BookCover: React.FC<BookCoverProps> = React.memo(({
   title,
   width = 60,
   height = 90,
-  borderRadius = 4,
+  borderRadius = radii.xs,
   showTitleFallback = false,
   fallbackIcon = 'bookOpen',
   fallbackIconColor,

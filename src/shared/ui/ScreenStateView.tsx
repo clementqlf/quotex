@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { tokens as defaultTokens } from '@/src/shared/theme';
 
 interface ScreenStateViewProps {
   isLoading?: boolean;
@@ -25,7 +26,8 @@ export const ScreenStateView: React.FC<ScreenStateViewProps> = ({
   onRetry,
   children,
 }) => {
-  const { colors } = useTheme();
+  const { colors, tokens = defaultTokens } = useTheme();
+  const styles = React.useMemo(() => createStyles(tokens), [tokens]);
 
   // 1. État Chargement
   if (isLoading) {
@@ -71,32 +73,32 @@ export const ScreenStateView: React.FC<ScreenStateViewProps> = ({
   return <>{children}</>;
 };
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: any) => StyleSheet.create({
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: tokens.spacing.lg,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: tokens.typography.fontSize.lg,
+    fontWeight: tokens.typography.fontWeight.semibold,
+    marginBottom: tokens.spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: tokens.typography.fontSize.sm,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: tokens.spacing.md,
   },
   button: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: tokens.spacing.lg,
+    paddingVertical: tokens.spacing.sm,
+    borderRadius: tokens.radii.sm,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
+    fontWeight: tokens.typography.fontWeight.semibold,
+    fontSize: tokens.typography.fontSize.sm,
   },
 });

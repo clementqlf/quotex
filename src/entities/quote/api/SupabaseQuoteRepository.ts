@@ -399,6 +399,16 @@ export class SupabaseQuoteRepository implements IQuoteRepository {
     );
   }
 
+  async getQuoteLikers(id: number): Promise<any[]> {
+    try {
+      const res = await httpClient.get<any[]>(`/quotes/${id}/likes`);
+      return res || [];
+    } catch (error) {
+      console.error('Error fetching quote likers:', error);
+      return [];
+    }
+  }
+
   async toggleSave(id: number): Promise<{ isSaved: boolean; savedAt?: string | null }> {
     return this.executeToggleOperation(
       id,

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, NativeSyntheticEvent, TextLayoutEventData, TextStyle } from 'react-native';
 import { useTheme } from '@/src/app/providers/ThemeContext';
+import { tokens as defaultTokens } from '@/src/shared/theme';
 
 interface ExpandableTextProps {
     text: string;
@@ -11,7 +12,7 @@ interface ExpandableTextProps {
 const isTestEnv = typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
 
 export const ExpandableText: React.FC<ExpandableTextProps> = ({ text, maxLines = 10, style }) => {
-    const { colors } = useTheme();
+    const { colors, tokens = defaultTokens } = useTheme();
     const [isMeasured, setIsMeasured] = useState(isTestEnv);
     const [showMoreButton, setShowMoreButton] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -32,6 +33,8 @@ export const ExpandableText: React.FC<ExpandableTextProps> = ({ text, maxLines =
             setIsMeasured(true);
         }
     }, [isMeasured, maxLines]);
+
+    const styles = React.useMemo(() => createStyles(tokens), [tokens]);
 
     return (
         <View pointerEvents="box-none">
@@ -64,13 +67,13 @@ export const ExpandableText: React.FC<ExpandableTextProps> = ({ text, maxLines =
     );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (tokens: any) => StyleSheet.create({
     showMoreButton: {
-        marginTop: 8,
+        marginTop: tokens.spacing.sm,
         alignSelf: 'flex-start',
     },
     showMoreText: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: tokens.typography.fontSize.sm,
+        fontWeight: tokens.typography.fontWeight.semibold,
     },
 });

@@ -41,3 +41,4 @@ android/app/.cxx/
 /supabase/migrations/.env.local
 
 .env.local
+sentry.properties
