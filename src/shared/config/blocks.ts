@@ -13,7 +13,9 @@ export type BlockKey =
     | 'definition'
     | 'editions'    // Inventaire.io editions block
     | 'connection'  // Connection to another resource
-    | 'bookInfo'; // bookInfo is usually for QuoteDetail to show book, whereas bookDescription is for BookDetail
+    | 'bookInfo'    // bookInfo is usually for QuoteDetail to show book, whereas bookDescription is for BookDetail
+    | 'notableWorks' // Notable works section on Author page
+    | 'library';    // User's book library
 
 export interface BlockConfig {
     key: BlockKey;
@@ -86,6 +88,16 @@ export const BLOCK_CONFIGS: Record<BlockKey, BlockConfig> = {
     editions: {
         key: 'editions',
         label: 'Éditions',
+        icon: Library,
+    },
+    notableWorks: {
+        key: 'notableWorks',
+        label: 'Œuvres Notables',
+        icon: BookOpen,
+    },
+    library: {
+        key: 'library',
+        label: 'Bibliothèque',
         icon: Library,
     },
 };

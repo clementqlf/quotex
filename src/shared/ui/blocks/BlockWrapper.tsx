@@ -1,9 +1,11 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { BLOCK_CONFIGS, BlockKey } from '@/src/shared/config/blocks';
-import { ThemeColors } from '@/src/shared/theme';
+import { Card } from '../Card';
+import { IconButton } from '../IconButton';
 import { X } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Keyboard, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Keyboard, StyleSheet, Text, View } from 'react-native';
+import { tokens as defaultTokens } from '@/src/shared/theme';
 
 interface BlockWrapperProps {
     blockKey: BlockKey;
@@ -24,8 +26,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
     fullWidth = false,
     rightElement
 }) => {
-    const { colors } = useTheme();
-    const styles = createStyles(colors);
+    const { colors, tokens = defaultTokens } = useTheme();
     const config = BLOCK_CONFIGS[blockKey];
     const Icon = config?.icon || FallbackIcon;
     const displayTitle = title || config?.label || 'Block';
@@ -42,50 +43,69 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = ({
         );
     };
 
+    // Mode fullWidth : pas de carte, juste un conteneur simple avec marge basse
+    if (fullWidth) {
+        return (
+            <View
+                style={{ marginBottom: 10 }}
+                onTouchStart={blockKey !== 'notes' ? Keyboard.dismiss : undefined}
+            >
+                {children}
+            </View>
+        );
+    }
+
     return (
-        <View 
-            style={fullWidth ? styles.wrapperFull : styles.section}
+        <Card
+            variant="outlined"
+            padding="none"
+            style={{ marginBottom: 10, position: 'relative' }}
+            // @ts-ignore – onTouchStart is valid on View, Card wraps a View
             onTouchStart={blockKey !== 'notes' ? Keyboard.dismiss : undefined}
         >
-            {!fullWidth && (
+            {/* Padding interne géré manuellement pour garder le bouton X en absolu */}
+            <View style={{ padding: tokens.spacing.md }}>
+                {/* En-tête : icône + titre + élément optionnel à droite */}
                 <View style={styles.sectionHeader}>
                     <View style={styles.headerLeft}>
                         <Icon size={16} color={colors.primary} />
-                        <Text style={styles.sectionTitle}>{displayTitle}</Text>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                            {displayTitle}
+                        </Text>
                     </View>
                     {rightElement}
                 </View>
-            )}
 
-            {children}
+                {children}
+            </View>
 
+            {/* Bouton de suppression — positionné en absolu sur la carte */}
             {onRemove && (
-                <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
-                    <X size={16} color={colors.textTertiary} />
-                </TouchableOpacity>
+                <IconButton
+                    icon={<X size={16} color={colors.textTertiary} />}
+                    variant="filled"
+                    size="sm"
+                    onPress={handleRemove}
+                    enableHaptics={false}
+                    style={{
+                        position: 'absolute',
+                        top: tokens.spacing.sm + 2,
+                        right: tokens.spacing.sm + 2,
+                        zIndex: 10,
+                    }}
+                    accessibilityLabel={`Supprimer le bloc ${displayTitle}`}
+                />
             )}
-        </View>
+        </Card>
     );
 };
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-    wrapperFull: {
-        marginBottom: 10,
-    },
-    section: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.surfaceHighlight,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 10,
-        position: 'relative'
-    },
+const styles = StyleSheet.create({
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 16,
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
     },
     headerLeft: {
         flexDirection: 'row',
@@ -95,15 +115,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     sectionTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: colors.text,
     },
-    removeButton: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        backgroundColor: colors.surfaceHighlight,
-        borderRadius: 14,
-        padding: 6,
-        zIndex: 10,
-    }
 });

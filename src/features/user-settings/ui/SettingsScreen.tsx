@@ -29,22 +29,29 @@ import {
   User,
   XCircle
 } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
+  Switch as RNSwitch,
+  SwitchProps as RNSwitchProps,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  AppText,
+  Button,
+  Card,
+  Divider,
+  IconButton,
+  Input,
+  Modal,
+  SettingItem,
+  Switch,
+} from '@/src/shared/ui';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -105,57 +112,6 @@ async function registerForPushNotificationsAsync() {
   }
 }
 
-interface SettingItemProps {
-  icon: React.FC<{ size?: number; color?: string }>;
-  title: string;
-  value?: boolean;
-  type?: 'chevron' | 'switch';
-  onPress?: () => void;
-  rightText?: string;
-}
-
-const SettingItem = ({ icon: Icon, title, value, type = 'chevron', onPress, rightText }: SettingItemProps) => {
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
-  return (
-    <TouchableOpacity
-      style={styles.settingItem}
-      onPress={onPress}
-      disabled={type === 'switch'}
-      accessible={true}
-      accessibilityLabel={title}
-      accessibilityRole={type === 'switch' ? 'none' : 'button'}
-      testID={`setting-item-${title.toLowerCase().replace(/\s+/g, '-')}`}
-    >
-      <View style={styles.settingItemLeft}>
-        <View style={styles.iconContainer}>
-          <Icon size={20} color={colors.primary} />
-        </View>
-        <Text style={styles.settingItemTitle}>{title}</Text>
-      </View>
-
-      {type === 'chevron' && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {rightText && <Text style={{ color: colors.textTertiary, fontSize: 14 }}>{rightText}</Text>}
-          <ChevronLeft size={20} color={colors.textTertiary} style={{ transform: [{ rotate: '180deg' }] }} />
-        </View>
-      )}
-      {type === 'switch' && (
-        <Switch
-          value={value}
-          onValueChange={onPress}
-          trackColor={{ false: '#767577', true: colors.primary }}
-          thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
-          accessible={true}
-          accessibilityLabel={title}
-          accessibilityRole="switch"
-        />
-      )}
-    </TouchableOpacity>
-  );
-};
-
 export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -163,7 +119,6 @@ export default function SettingsScreen() {
   const { colors, themePreference, setThemePreference } = useTheme();
   const { refreshQuotes } = useQuote();
   const { refreshAuthors, refreshBooks } = useAuthor();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = React.useState(false);
@@ -385,42 +340,60 @@ export default function SettingsScreen() {
     );
   };
 
+  const getThemeLabel = () => {
+    switch (themePreference) {
+      case 'auto': return 'Auto';
+      case 'dark': return 'Sombre';
+      case 'light': return 'Clair';
+      default: return 'Auto';
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
+      <View style={{ flex: 1 }}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}>
+          <IconButton
+            icon={<ChevronLeft size={24} color={colors.text} />}
+            variant="ghost"
             onPress={() => router.back()}
-            accessible={true}
             accessibilityLabel="Retour"
-            accessibilityRole="button"
             testID="back-button"
-          >
-            <ChevronLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Paramètres</Text>
-          <View style={styles.placeholder} />
+          />
+          <AppText variant="h3">Paramètres</AppText>
+          <View style={{ width: 28 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
           {/* Account Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Compte</Text>
-            <View style={styles.sectionCard}>
+          <View style={{ marginBottom: 24 }}>
+            <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
+              Compte
+            </AppText>
+            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
-                icon={User}
+                icon={<User size={20} color={colors.primary} />}
                 title="Nom d'utilisateur"
                 onPress={handleUpdateUsername}
               />
+              <Divider />
               <SettingItem
-                icon={Lock}
+                icon={<Lock size={20} color={colors.primary} />}
                 title="Mot de passe"
                 onPress={() => setIsPasswordModalVisible(true)}
               />
+              <Divider />
               <SettingItem
-                icon={Bell}
+                icon={<Bell size={20} color={colors.primary} />}
                 title="Notifications"
                 onPress={() => {
                   setGlobalNotificationsEnabled(!!user?.expoPushToken);
@@ -429,66 +402,72 @@ export default function SettingsScreen() {
                   setIsNotificationsModalVisible(true);
                 }}
               />
+              <Divider />
               <SettingItem
-                icon={Trash2}
+                icon={<Trash2 size={20} color={colors.primary} />}
                 title="Supprimer mon compte"
                 onPress={handleDeleteAccount}
               />
-            </View>
+            </Card>
           </View>
 
           {/* App Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Application</Text>
-            <View style={styles.sectionCard}>
+          <View style={{ marginBottom: 24 }}>
+            <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
+              Application
+            </AppText>
+            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
-                icon={Moon}
+                icon={<Moon size={20} color={colors.primary} />}
                 title="Mode Sombre"
                 type="chevron"
-                rightText={
-                  themePreference === 'auto' ? 'Auto' :
-                  themePreference === 'dark' ? 'Sombre' : 'Clair'
-                }
+                rightText={getThemeLabel()}
                 onPress={() => setIsThemeModalVisible(true)}
               />
+              <Divider />
               <SettingItem
-                icon={CircleHelp}
+                icon={<CircleHelp size={20} color={colors.primary} />}
                 title="Aide & Support"
                 onPress={() => { }}
               />
-            </View>
+            </Card>
           </View>
 
           {/* Storage Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Stockage et Données</Text>
-            <View style={styles.sectionCard}>
+          <View style={{ marginBottom: 24 }}>
+            <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
+              Stockage et Données
+            </AppText>
+            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
-                icon={Trash2}
+                icon={<Trash2 size={20} color={colors.primary} />}
                 title="Vider le cache"
                 onPress={handleClearCache}
               />
-            </View>
-            <Text style={styles.sectionFooter}>
-              {"Libérez de l'espace en supprimant les images, données locales et fichiers temporaires."}
-            </Text>
+            </Card>
+            <AppText variant="caption" color="tertiary" style={{ marginTop: 8, marginLeft: 4, lineHeight: 18 }}>
+              Libérez de l'espace en supprimant les images, données locales et fichiers temporaires.
+            </AppText>
           </View>
 
           {/* Legal Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Légal</Text>
-            <View style={styles.sectionCard}>
+          <View style={{ marginBottom: 24 }}>
+            <AppText variant="caption" weight="semibold" color="tertiary" style={{ marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' }}>
+              Légal
+            </AppText>
+            <Card variant="outlined" style={{ borderRadius: 16, overflow: 'hidden' }}>
               <SettingItem
-                icon={FileText}
+                icon={<FileText size={20} color={colors.primary} />}
                 title="Conditions Générales d'Utilisation"
                 onPress={() => handleOpenLink('https://clementqlf.github.io/quotex/cgu/')}
               />
+              <Divider />
               <SettingItem
-                icon={Shield}
+                icon={<Shield size={20} color={colors.primary} />}
                 title="Politique de Confidentialité"
                 onPress={() => handleOpenLink('https://clementqlf.github.io/quotex/confidentialite/')}
               />
-            </View>
+            </Card>
           </View>
 
           {/* Spacer */}
@@ -498,530 +477,222 @@ export default function SettingsScreen() {
           <DeleteAccountButton />
 
           {/* Logout Button */}
-          <TouchableOpacity
-            style={styles.logoutButton}
+          <Button
+            title="Déconnexion"
+            variant="danger"
+            size="md"
+            leftIcon={<LogOut size={20} color="#FFFFFF" />}
             onPress={handleLogout}
-            accessible={true}
             accessibilityLabel="Déconnexion"
-            accessibilityRole="button"
             testID="logout-button"
-          >
-            <LogOut size={20} color="#FF4B4B" />
-            <Text style={styles.logoutText}>Déconnexion</Text>
-          </TouchableOpacity>
+            style={{ marginTop: 20 }}
+          />
 
-          <Text style={styles.versionText}>Version 1.0.0</Text>
+          <AppText variant="caption" color="tertiary" style={{ textAlign: 'center', marginTop: 24 }}>
+            Version 1.0.0
+          </AppText>
         </ScrollView>
       </View>
 
       {/* Password Change Modal */}
       <Modal
         visible={isPasswordModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsPasswordModalVisible(false)}
+        onClose={() => {
+          setIsPasswordModalVisible(false);
+          setNewPassword('');
+          setConfirmPassword('');
+        }}
+        avoidKeyboard={true}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Changer le mot de passe</Text>
+        <AppText variant="h3" weight="bold" style={{ textAlign: 'center', marginBottom: 20 }}>
+          Changer le mot de passe
+        </AppText>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Au moins 6 caractères"
-                  placeholderTextColor={colors.textTertiary}
-                  secureTextEntry
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                />
-              </View>
-            </View>
+        <Input
+          label="Nouveau mot de passe"
+          placeholder="Au moins 6 caractères"
+          secureTextEntry
+          value={newPassword}
+          onChangeText={setNewPassword}
+          containerStyle={{ marginBottom: 16 }}
+        />
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirmer le mot de passe</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    newPassword.length > 0 && confirmPassword.length > 0 && {
-                      borderColor: newPassword === confirmPassword ? '#10B981' : '#EF4444'
-                    }
-                  ]}
-                  placeholder="Répétez le mot de passe"
-                  placeholderTextColor={colors.textTertiary}
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                />
-                {newPassword.length > 0 && confirmPassword.length > 0 && (
-                  <View style={styles.inputIcon}>
-                    {newPassword === confirmPassword ? (
-                      <CheckCircle2 size={18} color="#10B981" />
-                    ) : (
-                      <XCircle size={18} color="#EF4444" />
-                    )}
-                  </View>
-                )}
-              </View>
-              {newPassword.length > 0 && confirmPassword.length > 0 && newPassword !== confirmPassword && (
-                <Text style={styles.errorText}>Les mots de passe ne correspondent pas</Text>
-              )}
-            </View>
+        <Input
+          label="Confirmer le mot de passe"
+          placeholder="Répétez le mot de passe"
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          error={newPassword.length > 0 && confirmPassword.length > 0 && newPassword !== confirmPassword ? 'Les mots de passe ne correspondent pas' : undefined}
+          rightIcon={newPassword.length > 0 && confirmPassword.length > 0 ? (
+            newPassword === confirmPassword ? (
+              <CheckCircle2 size={18} color="#10B981" />
+            ) : (
+              <XCircle size={18} color="#EF4444" />
+            )
+          ) : undefined}
+          containerStyle={{ marginBottom: 16 }}
+        />
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => {
-                  setIsPasswordModalVisible(false);
-                  setNewPassword('');
-                  setConfirmPassword('');
-                }}
-                accessible={true}
-                accessibilityLabel="Annuler"
-                accessibilityRole="button"
-                testID="modal-cancel-button"
-              >
-                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.modalButtonSave,
-                  (isUpdating || !newPassword || newPassword !== confirmPassword || newPassword.length < 6) && styles.modalButtonDisabled
-                ]}
-                onPress={handleSavePassword}
-                disabled={isUpdating || !newPassword || newPassword !== confirmPassword || newPassword.length < 6}
-                accessible={true}
-                accessibilityLabel="Enregistrer le mot de passe"
-                accessibilityRole="button"
-                testID="modal-save-button"
-              >
-                {isUpdating ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={[
-                    styles.modalButtonTextSave,
-                    (isUpdating || !newPassword || newPassword !== confirmPassword || newPassword.length < 6) && { opacity: 0.5 }
-                  ]}>
-                    Enregistrer
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+          <Button
+            title="Annuler"
+            variant="outline"
+            onPress={() => {
+              setIsPasswordModalVisible(false);
+              setNewPassword('');
+              setConfirmPassword('');
+            }}
+            accessibilityLabel="Annuler"
+            testID="modal-cancel-button"
+            style={{ flex: 1 }}
+          />
+          <Button
+            title="Enregistrer"
+            variant="primary"
+            onPress={handleSavePassword}
+            disabled={isUpdating || !newPassword || newPassword !== confirmPassword || newPassword.length < 6}
+            isLoading={isUpdating}
+            accessibilityLabel="Enregistrer le mot de passe"
+            testID="modal-save-button"
+            style={{ flex: 1 }}
+          />
+        </View>
       </Modal>
 
       {/* Notifications Preferences Modal */}
       <Modal
         visible={isNotificationsModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsNotificationsModalVisible(false)}
+        onClose={() => setIsNotificationsModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Préférences de Notifications</Text>
+        <AppText variant="h3" weight="bold" style={{ textAlign: 'center', marginBottom: 20 }}>
+          Préférences de Notifications
+        </AppText>
 
-            {/* Global Switch */}
-            <View style={styles.notificationPrefRow}>
-              <View style={styles.notificationPrefLeft}>
-                <Text style={styles.notificationPrefTitle}>Notifications Push</Text>
-                <Text style={styles.notificationPrefDesc}>Activer ou désactiver globalement</Text>
-              </View>
-              <Switch
-                value={globalNotificationsEnabled}
-                onValueChange={setGlobalNotificationsEnabled}
-                trackColor={{ false: '#767577', true: colors.primary }}
-                thumbColor={globalNotificationsEnabled ? '#FFFFFF' : '#f4f3f4'}
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            {/* Notify On Follow */}
-            <View style={[styles.notificationPrefRow, !globalNotificationsEnabled && { opacity: 0.5 }]}>
-              <View style={styles.notificationPrefLeft}>
-                <Text style={styles.notificationPrefTitle}>Nouveaux Abonnements</Text>
-                <Text style={styles.notificationPrefDesc}>{"Quand un utilisateur s'abonne à votre profil"}</Text>
-              </View>
-              <Switch
-                value={notifyOnFollow}
-                onValueChange={setNotifyOnFollow}
-                disabled={!globalNotificationsEnabled}
-                trackColor={{ false: '#767577', true: colors.primary }}
-                thumbColor={notifyOnFollow ? '#FFFFFF' : '#f4f3f4'}
-              />
-            </View>
-
-            {/* Notify On Like */}
-            <View style={[styles.notificationPrefRow, !globalNotificationsEnabled && { opacity: 0.5 }]}>
-              <View style={styles.notificationPrefLeft}>
-                <Text style={styles.notificationPrefTitle}>{"Mentions J'aime"}</Text>
-                <Text style={styles.notificationPrefDesc}>{"Quand un utilisateur aime l'une de vos citations"}</Text>
-              </View>
-              <Switch
-                value={notifyOnLike}
-                onValueChange={setNotifyOnLike}
-                disabled={!globalNotificationsEnabled}
-                trackColor={{ false: '#767577', true: colors.primary }}
-                thumbColor={notifyOnLike ? '#FFFFFF' : '#f4f3f4'}
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setIsNotificationsModalVisible(false)}
-                accessible={true}
-                accessibilityLabel="Annuler"
-                accessibilityRole="button"
-                testID="notif-modal-cancel-button"
-              >
-                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.modalButtonSave,
-                  isSavingNotifications && styles.modalButtonDisabled
-                ]}
-                onPress={handleSaveNotifications}
-                disabled={isSavingNotifications}
-                accessible={true}
-                accessibilityLabel="Enregistrer les préférences"
-                accessibilityRole="button"
-                testID="notif-modal-save-button"
-              >
-                {isSavingNotifications ? (
-                  <ActivityIndicator size="small" color="#000" />
-                ) : (
-                  <Text style={styles.modalButtonTextSave}>Enregistrer</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+        {/* Global Switch */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }}>
+          <View style={{ flex: 1, paddingRight: 16 }}>
+            <AppText variant="body" weight="semibold" style={{ marginBottom: 4 }}>
+              Notifications Push
+            </AppText>
+            <AppText variant="caption" color="tertiary" style={{ lineHeight: 16 }}>
+              Activer ou désactiver globalement
+            </AppText>
           </View>
+          <Switch
+            value={globalNotificationsEnabled}
+            onValueChange={setGlobalNotificationsEnabled}
+          />
+        </View>
+
+        <Divider spacing="md" />
+
+        {/* Notify On Follow */}
+        <View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }, !globalNotificationsEnabled && { opacity: 0.5 }]}>
+          <View style={{ flex: 1, paddingRight: 16 }}>
+            <AppText variant="body" weight="semibold" style={{ marginBottom: 4 }}>
+              Nouveaux Abonnements
+            </AppText>
+            <AppText variant="caption" color="tertiary" style={{ lineHeight: 16 }}>
+              Quand un utilisateur s'abonne à votre profil
+            </AppText>
+          </View>
+          <Switch
+            value={notifyOnFollow}
+            onValueChange={setNotifyOnFollow}
+            disabled={!globalNotificationsEnabled}
+          />
+        </View>
+
+        {/* Notify On Like */}
+        <View style={[{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 }, !globalNotificationsEnabled && { opacity: 0.5 }]}>
+          <View style={{ flex: 1, paddingRight: 16 }}>
+            <AppText variant="body" weight="semibold" style={{ marginBottom: 4 }}>
+              Mentions J'aime
+            </AppText>
+            <AppText variant="caption" color="tertiary" style={{ lineHeight: 16 }}>
+              Quand un utilisateur aime l'une de vos citations
+            </AppText>
+          </View>
+          <Switch
+            value={notifyOnLike}
+            onValueChange={setNotifyOnLike}
+            disabled={!globalNotificationsEnabled}
+          />
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+          <Button
+            title="Annuler"
+            variant="outline"
+            onPress={() => setIsNotificationsModalVisible(false)}
+            accessibilityLabel="Annuler"
+            testID="notif-modal-cancel-button"
+            style={{ flex: 1 }}
+          />
+          <Button
+            title="Enregistrer"
+            variant="primary"
+            onPress={handleSaveNotifications}
+            disabled={isSavingNotifications}
+            isLoading={isSavingNotifications}
+            accessibilityLabel="Enregistrer les préférences"
+            testID="notif-modal-save-button"
+            style={{ flex: 1 }}
+          />
         </View>
       </Modal>
 
       {/* Theme Selection Modal */}
       <Modal
         visible={isThemeModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsThemeModalVisible(false)}
+        onClose={() => setIsThemeModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{"Mode d'affichage"}</Text>
+        <AppText variant="h3" weight="bold" style={{ textAlign: 'center', marginBottom: 20 }}>
+          Mode d'affichage
+        </AppText>
 
-            <TouchableOpacity
-              style={styles.themeOptionRow}
-              onPress={async () => {
-                await setThemePreference('light');
-                setIsThemeModalVisible(false);
-              }}
-            >
-              <Text style={[styles.themeOptionText, themePreference === 'light' && styles.themeOptionTextSelected]}>Clair</Text>
-              {themePreference === 'light' && <CheckCircle2 size={20} color={colors.primary} />}
-            </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 8 }}>
+          <AppText variant="body" weight={themePreference === 'light' ? 'semibold' : 'regular'} style={{ color: themePreference === 'light' ? colors.primary : colors.text }}>
+            Clair
+          </AppText>
+          {themePreference === 'light' && <CheckCircle2 size={20} color={colors.primary} />}
+        </View>
 
-            <View style={styles.divider} />
+        <Divider spacing="sm" />
 
-            <TouchableOpacity
-              style={styles.themeOptionRow}
-              onPress={async () => {
-                await setThemePreference('dark');
-                setIsThemeModalVisible(false);
-              }}
-            >
-              <Text style={[styles.themeOptionText, themePreference === 'dark' && styles.themeOptionTextSelected]}>Sombre</Text>
-              {themePreference === 'dark' && <CheckCircle2 size={20} color={colors.primary} />}
-            </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 8 }}>
+          <AppText variant="body" weight={themePreference === 'dark' ? 'semibold' : 'regular'} style={{ color: themePreference === 'dark' ? colors.primary : colors.text }}>
+            Sombre
+          </AppText>
+          {themePreference === 'dark' && <CheckCircle2 size={20} color={colors.primary} />}
+        </View>
 
-            <View style={styles.divider} />
+        <Divider spacing="sm" />
 
-            <TouchableOpacity
-              style={styles.themeOptionRow}
-              onPress={async () => {
-                await setThemePreference('auto');
-                setIsThemeModalVisible(false);
-              }}
-            >
-              <View>
-                <Text style={[styles.themeOptionText, themePreference === 'auto' && styles.themeOptionTextSelected]}>Automatique</Text>
-                <Text style={styles.themeOptionDesc}>Utilise les paramètres du système</Text>
-              </View>
-              {themePreference === 'auto' && <CheckCircle2 size={20} color={colors.primary} />}
-            </TouchableOpacity>
-
-            <View style={{ height: 20 }} />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setIsThemeModalVisible(false)}
-              >
-                <Text style={styles.modalButtonTextCancel}>Annuler</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 8 }}>
+          <View>
+            <AppText variant="body" weight={themePreference === 'auto' ? 'semibold' : 'regular'} style={{ color: themePreference === 'auto' ? colors.primary : colors.text }}>
+              Automatique
+            </AppText>
+            <AppText variant="caption" color="tertiary" style={{ marginTop: 2 }}>
+              Utilise les paramètres du système
+            </AppText>
           </View>
+          {themePreference === 'auto' && <CheckCircle2 size={20} color={colors.primary} />}
+        </View>
+
+        <View style={{ height: 20 }} />
+
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Button
+            title="Annuler"
+            variant="outline"
+            onPress={() => setIsThemeModalVisible(false)}
+            style={{ flex: 1 }}
+          />
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
-
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: colors.text,
-    fontWeight: 'bold',
-  },
-  placeholder: {
-    width: 28,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    color: colors.textTertiary,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 12,
-    marginLeft: 4,
-  },
-  sectionFooter: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 8,
-    marginLeft: 4,
-    lineHeight: 18,
-  },
-  sectionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceHighlight,
-  },
-  settingItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingItemTitle: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255, 75, 75, 0.1)',
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 75, 75, 0.2)',
-  },
-  logoutText: {
-    color: '#FF4B4B',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  versionText: {
-    textAlign: 'center',
-    color: colors.textTertiary,
-    fontSize: 12,
-    marginTop: 24,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  input: {
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: 12,
-    padding: 14,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-    fontSize: 16,
-    width: '100%',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-  },
-  inputIcon: {
-    position: 'absolute',
-    right: 14,
-    zIndex: 1,
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalButtonCancel: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalButtonSave: {
-    backgroundColor: colors.primary,
-  },
-  modalButtonDisabled: {
-    backgroundColor: colors.border,
-    opacity: 0.6,
-  },
-  modalButtonTextCancel: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalButtonTextSave: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  notificationPrefRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  notificationPrefLeft: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  notificationPrefTitle: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  notificationPrefDesc: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    lineHeight: 16,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 12,
-  },
-  themeOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-  },
-  themeOptionText: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  themeOptionTextSelected: {
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  themeOptionDesc: {
-    fontSize: 12,
-    color: colors.textTertiary,
-    marginTop: 2,
-  },
-});

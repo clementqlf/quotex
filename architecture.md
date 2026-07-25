@@ -20,7 +20,12 @@ Le projet suit une approche modulaire. Chaque fonctionnalité est co-localisée 
 *   `app/` : Routage et pages uniquement (Expo Router). Aucune logique métier ici.
 *   `src/entities/` : Modèles de domaine et logique pure des données (ex: `Book`, `Quote`).
 *   `src/features/` : Logique métier spécifique (ex: `scanner`, `moderation`). C'est ici que réside la complexité.
-*   `src/shared/` : Utilitaires transverses, `lib` (formatage, parsers), composants UI atomiques.
+*   `src/shared/` : Utilitaires transverses, `lib` (formatage, parsers), et composants UI atomiques.
+
+### 🧩 Gestion des Composants Atomiques (`src/shared/ui/`)
+*   **Réutilisation avant création** : Avant de développer un nouveau composant visuel (bouton, input, badge, modale, etc.), l'IA doit impérativement vérifier s'il existe déjà dans `src/shared/ui/`.
+*   **Agnosticisme métier** : Un composant dans `shared/ui` doit être purement présentiel et générique (aucune dépendance métier ou base de données).
+*   **Refactorisation opportuniste** : Si un composant UI est dupliqué ou pertinent pour toute l'application, il doit être remonté et factorisé dans `src/shared/ui/`.
 
 ---
 

@@ -2,8 +2,7 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { getStatusColor, getStatusLabel } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
-import { TypingText } from '@/src/shared/ui/TypingText';
-import { BookCover } from '@/src/shared/ui/BookCover';
+import { BookCover, TypingText, Badge, IconButton } from '@/src/shared/ui';
 import { CheckCircle2, MoreVertical, PlusCircle } from 'lucide-react-native';
 import React, { useMemo, useRef, useCallback } from 'react';
 import {
@@ -127,12 +126,17 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
               text={book.authors.length > 0 ? book.authors.join(', ') : 'Auteur inconnu'}
               resetKey={book.id}
             />
-            {book.readingStatus && statusStyle && (
-              <View style={[styles.statusBadge, statusStyle]}>
-                <Text style={[styles.statusText, { color: getStatusColor(book.readingStatus) }]}>
-                  {getStatusLabel(book.readingStatus)}
-                </Text>
-              </View>
+            {book.readingStatus && (
+              <Badge
+                label={getStatusLabel(book.readingStatus)}
+                size="sm"
+                variant="outline"
+                style={{
+                  backgroundColor: getStatusColor(book.readingStatus) + '15',
+                  borderColor: getStatusColor(book.readingStatus) + '40',
+                }}
+                textStyle={{ color: getStatusColor(book.readingStatus) }}
+              />
             )}
           </View>
           {showDescription && book.description && <Text numberOfLines={3} style={styles.bookCardDescription}>{book.description}</Text>}
@@ -141,17 +145,15 @@ const BookCardItem = React.memo(({ book, onOpenMenu, onPress, showDescription = 
       </View>
 
       {onOpenMenu && (
-        <TouchableOpacity
-          style={styles.menuButton}
+        <IconButton
+          icon={<MoreVertical size={20} color={colors.textTertiary} />}
+          variant="ghost"
+          size="sm"
           onPress={handleMenuPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessible={true}
+          style={styles.menuButton}
           accessibilityLabel="Plus d'options pour ce livre"
-          accessibilityRole="button"
           testID="book-more-options"
-        >
-          <MoreVertical size={20} color={colors.textTertiary} />
-        </TouchableOpacity>
+        />
       )}
 
       {showAddButton && (

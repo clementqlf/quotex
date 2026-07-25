@@ -15,6 +15,7 @@ import type { Review } from '../model/Review';
 import { MoreHorizontal, Send, Star, Trash2, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { BlockWrapper } from '@/src/shared/ui/blocks/BlockWrapper';
 
 interface ReviewBlockProps {
     bookId: number;
@@ -229,13 +230,8 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
     };
 
     return (
-        <View style={styles.removableWrapper}>
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Star size={16} color={colors.primary} />
-                    <Text style={styles.sectionTitle}>Avis & Commentaires</Text>
-                </View>
-
+        <>
+            <BlockWrapper blockKey="reviews" onRemove={onRemove}>
                 <View style={styles.userRatingContainer}>
                     <Text style={styles.subTitle}>Votre note</Text>
                     <View style={styles.starRow}>
@@ -352,19 +348,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                         )}
                     </View>
                 )}
-            </View>
-            {onRemove && (
-                <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={onRemove}
-                    accessible={true}
-                    accessibilityLabel="Enlever le bloc d'avis"
-                    accessibilityRole="button"
-                    testID="remove-review-block-button"
-                >
-                    <X size={14} color={colors.warning} />
-                </TouchableOpacity>
-            )}
+            </BlockWrapper>
 
             <Modal
                 visible={isAllReviewsVisible}
@@ -418,7 +402,7 @@ const ReviewBlockUI: React.FC<ReviewBlockProps> = ({ bookId, onRemove, onReviewA
                     </ScrollView>
                 </View>
             </Modal>
-        </View>
+        </>
     );
 };
 
@@ -429,40 +413,6 @@ const ReviewBlock = React.memo(ReviewBlockUI, (prevProps, nextProps) => {
 export default ReviewBlock;
 
 const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
-    section: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.surfaceHighlight,
-        borderRadius: tokens.radii.lg,
-        padding: tokens.spacing.md,
-        marginBottom: tokens.spacing.md,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: tokens.spacing.sm,
-        marginBottom: tokens.spacing.sm + 4,
-    },
-    sectionTitle: {
-        fontSize: tokens.typography.fontSize.sm,
-        fontWeight: tokens.typography.fontWeight.semibold,
-        color: colors.text,
-    },
-    removableWrapper: {
-        position: 'relative',
-    },
-    removeButton: {
-        position: 'absolute',
-        top: tokens.spacing.sm,
-        right: tokens.spacing.sm,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: colors.surfaceHighlight,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 10,
-    },
     userRatingContainer: {
         marginBottom: tokens.spacing.md,
     },

@@ -7,20 +7,20 @@ import {
   Alert,
   Dimensions,
   StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
   TouchableWithoutFeedback,
-  Animated
+  Animated,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { authService } from '@/src/entities/user/api/AuthService';
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
+import { Button, Input, Divider } from '@/src/shared/ui';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -63,7 +63,6 @@ export default function LoginScreen() {
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Erreur', 'Veuillez entrer un email valide');
@@ -118,7 +117,6 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       await login(email, password);
-      // Navigation handled by auth redirect in layout
     } catch (error: any) {
       Alert.alert('Erreur de connexion', error.message || 'Identifiants incorrects');
     } finally {
@@ -136,7 +134,7 @@ export default function LoginScreen() {
       await authService.resetPassword(email);
       Alert.alert('Succès', 'Un email de réinitialisation a été envoyé.');
     } catch (error: any) {
-      Alert.alert('Erreur', error.message || 'Impossible d\'envoyer l\'email de réinitialisation');
+      Alert.alert('Erreur', error.message || "Impossible d'envoyer l'email de réinitialisation");
     }
   };
 
@@ -162,9 +160,7 @@ export default function LoginScreen() {
     try {
       if (platform === 'google') {
         await authService.signInWithGoogleNative();
-        // Navigation handled by auth redirect in layout
       } else {
-        // Apple est désactivé pour le moment
         Alert.alert('Information', 'La connexion avec Apple nécessite un compte développeur payant.');
       }
     } catch (error: any) {
@@ -183,47 +179,45 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-      <Animated.View style={[
-        styles.topArea, 
-        {
-          height: anim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [220 + insets.top, 56 + insets.top]
-          }),
-          paddingTop: insets.top,
-        }
-      ]}>
-        {step === 'password' ? (
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={handleBack}
-          >
-            <ArrowLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.header}>
-            <QuotexLogo width={SCREEN_WIDTH * 1.2} height={SCREEN_WIDTH * 1.2 * (150 / 400)} />
-          </View>
-        )}
-      </Animated.View>
+        <Animated.View style={[
+          styles.topArea, 
+          {
+            height: anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [220 + insets.top, 56 + insets.top]
+            }),
+            paddingTop: insets.top,
+          }
+        ]}>
+          {step === 'password' ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<ArrowLeft size={24} color={colors.text} />}
+              onPress={handleBack}
+              style={styles.backButton}
+            />
+          ) : (
+            <View style={styles.header}>
+              <QuotexLogo width={SCREEN_WIDTH * 1.2} height={SCREEN_WIDTH * 1.2 * (150 / 400)} />
+            </View>
+          )}
+        </Animated.View>
 
-      <Animated.View style={[
-        styles.modalContainer, 
-        { 
-          backgroundColor: colors.surface,
-          paddingBottom: Math.max(insets.bottom, 24) + 16,
-          transform: [{ translateY: slideAnim }],
-        }
-      ]}>
-        <View style={styles.form}>
-          {step === 'email' ? (
-            <>
-              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <Mail size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
+        <Animated.View style={[
+          styles.modalContainer, 
+          { 
+            backgroundColor: colors.surface,
+            paddingBottom: Math.max(insets.bottom, 24) + 16,
+            transform: [{ translateY: slideAnim }],
+          }
+        ]}>
+          <View style={styles.form}>
+            {step === 'email' ? (
+              <>
+                <Input
+                  leftIcon={<Mail size={20} color={colors.textTertiary} />}
                   placeholder="Email"
-                  placeholderTextColor={colors.textTertiary}
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
@@ -232,96 +226,84 @@ export default function LoginScreen() {
                   onSubmitEditing={handleContinue}
                   autoCorrect={false}
                   spellCheck={false}
+                  containerStyle={styles.inputContainer}
                 />
-              </View>
 
-              <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: colors.primary }]}
-                onPress={handleContinue}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <>
-                    <Text style={styles.loginButtonText}>Continuer</Text>
-                    <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
-                  </>
-                )}
-              </TouchableOpacity>
+                <Button
+                  title="Continuer"
+                  rightIcon={<ArrowRight size={20} color="#FFF" />}
+                  isLoading={isLoading}
+                  disabled={isLoading}
+                  onPress={handleContinue}
+                  style={styles.loginButton}
+                />
 
-              <View style={styles.dividerContainer}>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>ou</Text>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-              </View>
+                <Divider text="ou" spacing="md" style={styles.dividerContainer} />
 
-              <View style={styles.socialButtons}>
-                <TouchableOpacity
-                  style={[styles.socialButton, { backgroundColor: isDark ? '#333' : '#F5F5F5', borderColor: colors.border }]}
+                <Button
+                  title="Continuer avec Google"
+                  variant="secondary"
                   onPress={() => handleSocialLogin('google')}
-                >
-                  <Text style={[styles.socialButtonText, { color: colors.text }]}>Continuer avec Google</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 8 }]}>Ravi de vous revoir !</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                Renseignez votre mot de passe pour continuer.
-              </Text>
+                  style={[
+                    styles.socialButton,
+                    { 
+                      backgroundColor: isDark ? '#333' : '#F5F5F5', 
+                      borderColor: colors.border 
+                    }
+                  ]}
+                />
+              </>
+            ) : (
+              <>
+                <View style={styles.passwordHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 8 }]}>
+                    Ravi de vous revoir !
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                    Renseignez votre mot de passe pour continuer.
+                  </Text>
+                </View>
 
-              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border, opacity: 0.6 }]}>
-                <Mail size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.textSecondary }]}
+                <Input
+                  leftIcon={<Mail size={20} color={colors.textTertiary} />}
                   value={email}
                   editable={false}
+                  containerStyle={styles.inputContainer}
+                  inputContainerStyle={{ opacity: 0.6 }}
                 />
-              </View>
 
-              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                <Input
+                  leftIcon={<Lock size={20} color={colors.textTertiary} />}
                   placeholder="Mot de passe"
-                  placeholderTextColor={colors.textTertiary}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
                   onSubmitEditing={handleLogin}
+                  containerStyle={styles.inputContainer}
                 />
-              </View>
 
-              <TouchableOpacity 
-                style={styles.forgotPasswordContainer}
-                onPress={handleForgotPassword}
-              >
-                <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
-                  Mot de passe oublié ?
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.forgotPasswordContainer}
+                  onPress={handleForgotPassword}
+                >
+                  <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+                    Mot de passe oublié ?
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.loginButton, { backgroundColor: colors.primary }]}
-                onPress={handleLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <>
-                    <Text style={styles.loginButtonText}>Se connecter</Text>
-                    <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
-                  </>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </Animated.View>
-    </KeyboardAvoidingView>
+                <Button
+                  title="Se connecter"
+                  rightIcon={<ArrowRight size={20} color="#FFF" />}
+                  isLoading={isLoading}
+                  disabled={isLoading}
+                  onPress={handleLogin}
+                  style={styles.loginButton}
+                />
+              </>
+            )}
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
 }
@@ -338,6 +320,10 @@ const styles = StyleSheet.create({
     padding: 8,
     marginLeft: 16,
     alignSelf: 'flex-start',
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     alignItems: 'center',
@@ -346,12 +332,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 28,
     fontWeight: '800',
-    marginBottom: 20,
   },
   modalSubtitle: {
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 0,
+  },
+  passwordHeader: {
+    marginBottom: 20,
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
@@ -367,81 +354,27 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
     paddingTop: 32,
-    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    // Elevation for Android
     elevation: 8,
   },
   form: {
     gap: 16,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    height: '100%',
+    marginBottom: 0,
   },
   loginButton: {
-    height: 56,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  loginButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  buttonIcon: {
-    marginLeft: 8,
   },
   dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginVertical: 20,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  socialButtons: {
-    gap: 12,
   },
   socialButton: {
     height: 56,
     borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     borderWidth: 1,
-  },
-  socialButtonText: {
-    marginLeft: 12,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

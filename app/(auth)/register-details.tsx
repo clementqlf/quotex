@@ -5,7 +5,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, CheckCircle2, Lock, User as UserIcon, XCircle } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import { DEFAULT_HIT_SLOP } from '@/src/shared/lib/pressUtils';
-
 import {
   ActivityIndicator,
   Alert,
@@ -14,14 +13,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
-  Keyboard,
   TouchableWithoutFeedback,
+  Keyboard,
+  View,
   Animated
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button, Input } from '@/src/shared/ui';
 
 
 export default function RegisterDetailsScreen() {
@@ -123,7 +122,6 @@ export default function RegisterDetailsScreen() {
 
     setIsLoading(true);
     try {
-      // Vérification de l'unicité du nom d'utilisateur
       if (usernameAvailable !== true) {
         Alert.alert('Erreur', "Ce nom d'utilisateur n'est pas disponible. Veuillez en choisir un autre.");
         setIsLoading(false);
@@ -133,10 +131,8 @@ export default function RegisterDetailsScreen() {
       const response = await register(username, email!, password, name);
       
       if (response && response.token) {
-        // Automatically signed in
         router.replace('/');
       } else {
-        // Email confirmation is required, or no session returned
         Alert.alert(
           "Compte créé !",
           "Votre compte a été créé avec succès. Un e-mail de confirmation vous a été envoyé. Veuillez confirmer votre adresse e-mail avant de vous connecter.",
@@ -154,6 +150,33 @@ export default function RegisterDetailsScreen() {
       setIsLoading(false);
     }
   };
+
+  const renderUsernameRightIcon = () => {
+    if (isCheckingUsername) {
+      return <ActivityIndicator size="small" color={colors.primary} />;
+    }
+    if (usernameAvailable !== null && !isCheckingUsername) {
+      return usernameAvailable ? (
+        <CheckCircle2 size={18} color="#10B981" />
+      ) : (
+        <XCircle size={18} color="#EF4444" />
+      );
+    }
+    return null;
+  };
+
+  const renderPasswordRightIcon = () => {
+    if (password.length > 0 && confirmPassword.length > 0) {
+      return passwordsMatch ? (
+        <CheckCircle2 size={18} color="#10B981" />
+      ) : (
+        <XCircle size={18} color="#EF4444" />
+      );
+    }
+    return null;
+  };
+
+  const isRegisterDisabled = !name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true || isLoading;
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -193,115 +216,54 @@ export default function RegisterDetailsScreen() {
             </View>
 
             <View style={styles.form}>
-              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Nom et prénom (ex: Jean Dupont)"
-                  placeholderTextColor={colors.textTertiary}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                />
-              </View>
+              <Input
+                leftIcon={<UserIcon size={20} color={colors.textTertiary} />}
+                placeholder="Nom et prénom (ex: Jean Dupont)"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
 
-              <View style={[
-                styles.inputContainer, 
-                { backgroundColor: colors.background, borderColor: colors.border },
-                usernameAvailable === true && { borderColor: '#10B981' },
-                usernameAvailable === false && { borderColor: '#EF4444' }
-              ]}>
-                <UserIcon size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Nom d'utilisateur (ex: @jean)"
-                  placeholderTextColor={colors.textTertiary}
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
-                {isCheckingUsername && (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                )}
-                {usernameAvailable !== null && !isCheckingUsername && (
-                  <View style={styles.validationIcon}>
-                    {usernameAvailable ? (
-                      <CheckCircle2 size={18} color="#10B981" />
-                    ) : (
-                      <XCircle size={18} color="#EF4444" />
-                    )}
-                  </View>
-                )}
-              </View>
-
-              {usernameAvailable === false && (
-                <Text style={styles.errorText}>
-                  {username.startsWith('@') && username.slice(1).length < 3 || username.length < 3 
+              <Input
+                leftIcon={<UserIcon size={20} color={colors.textTertiary} />}
+                rightIcon={renderUsernameRightIcon()}
+                placeholder="Nom d'utilisateur (ex: @jean)"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                error={usernameAvailable === false ? 
+                  (username.startsWith('@') && username.slice(1).length < 3 || username.length < 3 
                     ? "Le nom d'utilisateur doit contenir au moins 3 caractères"
-                    : "Ce nom d'utilisateur est déjà utilisé"}
-                </Text>
-              )}
+                    : "Ce nom d'utilisateur est déjà utilisé") : undefined
+                }
+              />
 
-              <View style={[styles.inputContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Mot de passe (6+ caractères)"
-                  placeholderTextColor={colors.textTertiary}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
-              </View>
+              <Input
+                leftIcon={<Lock size={20} color={colors.textTertiary} />}
+                placeholder="Mot de passe (6+ caractères)"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
 
-              <View style={[
-                styles.inputContainer, 
-                { backgroundColor: colors.background, borderColor: colors.border },
-                passwordsMatch && { borderColor: '#10B981' },
-                passwordsMismatch && { borderColor: '#EF4444' }
-              ]}>
-                <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Confirmer le mot de passe"
-                  placeholderTextColor={colors.textTertiary}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                />
-                {password.length > 0 && confirmPassword.length > 0 && (
-                  <View style={styles.validationIcon}>
-                    {passwordsMatch ? (
-                      <CheckCircle2 size={18} color="#10B981" />
-                    ) : (
-                      <XCircle size={18} color="#EF4444" />
-                    )}
-                  </View>
-                )}
-              </View>
+              <Input
+                leftIcon={<Lock size={20} color={colors.textTertiary} />}
+                rightIcon={renderPasswordRightIcon()}
+                placeholder="Confirmer le mot de passe"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                error={passwordsMismatch ? "Les mots de passe ne correspondent pas" : undefined}
+              />
 
-              {passwordsMismatch && (
-                <Text style={styles.errorText}>Les mots de passe ne correspondent pas</Text>
-              )}
-
-              <TouchableOpacity
-                style={[
-                  styles.registerButton, 
-                  { backgroundColor: colors.primary },
-                  (!name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true) && { opacity: 0.6 }
-                ]}
+              <Button
+                title="Créer mon compte"
+                rightIcon={<ArrowRight size={20} color="#FFF" />}
+                isLoading={isLoading}
+                disabled={isRegisterDisabled}
                 onPress={handleRegister}
-                disabled={isLoading || !name || !username || !passwordsMatch || password.length < 6 || usernameAvailable !== true}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <>
-                    <Text style={styles.registerButtonText}>Créer mon compte</Text>
-                    <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
-                  </>
-                )}
-              </TouchableOpacity>
+                style={isRegisterDisabled ? [styles.registerButton, { opacity: 0.6 }] : styles.registerButton}
+              />
             </View>
           </ScrollView>
         </Animated.View>
@@ -353,60 +315,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingTop: 32,
-    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    // Elevation for Android
     elevation: 8,
   },
   form: {
     gap: 16,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    height: '100%',
-  },
-  validationIcon: {
-    marginLeft: 8,
-  },
-  errorText: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: -8,
-    marginLeft: 4,
-  },
   registerButton: {
-    height: 56,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  registerButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  buttonIcon: {
-    marginLeft: 8,
   },
 });

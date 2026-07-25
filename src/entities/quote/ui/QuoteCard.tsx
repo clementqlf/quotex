@@ -8,6 +8,7 @@ import { useHaptics } from '@/src/shared/platform';
 import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { TypingText } from '@/src/shared/ui/TypingText';
 import { useRouter } from '@/src/shared/navigation/useRouter';
+import { IconButton } from '@/src/shared/ui';
 import { Heart, MoreVertical, Share2 } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -94,17 +95,15 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
     <View style={styles.cardWrapper}>
       <View style={styles.quoteCard}>
         {/* 3-Dots Menu Button - Top Left */}
-        <TouchableOpacity
-          style={styles.menuButton}
+        <IconButton
+          icon={<MoreVertical size={20} color={colors.textTertiary} />}
+          variant="ghost"
+          size="sm"
           onPress={handleMenuPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessible={true}
+          style={styles.menuButton}
           accessibilityLabel="Plus d'options pour cette citation"
-          accessibilityRole="button"
           testID="quote-more-options"
-        >
-          <MoreVertical size={20} color={colors.textTertiary} />
-        </TouchableOpacity>
+        />
 
         <Pressable
           onPress={handleCardPress}

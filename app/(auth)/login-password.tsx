@@ -9,11 +9,11 @@ import {
   Alert,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, Input } from '@/src/shared/ui';
 
 
 export default function LoginPasswordScreen() {
@@ -35,7 +35,6 @@ export default function LoginPasswordScreen() {
     setIsLoading(true);
     try {
       await login(userEmail, password);
-      // Navigation handled by auth redirect in layout
     } catch (error: any) {
       Alert.alert('Erreur de connexion', error.message || 'Identifiants incorrects');
     } finally {
@@ -53,7 +52,7 @@ export default function LoginPasswordScreen() {
       await authService.resetPassword(userEmail);
       Alert.alert('Succès', 'Un email de réinitialisation a été envoyé.');
     } catch (error: any) {
-      Alert.alert('Erreur', error.message || 'Impossible d\'envoyer l\'email de réinitialisation');
+      Alert.alert('Erreur', error.message || 'Impossible de envoyer l\'email de réinitialisation');
     }
   };
 
@@ -72,31 +71,23 @@ export default function LoginPasswordScreen() {
         </View>
 
         <View style={styles.form}>
-          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Mail size={20} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Email"
-              placeholderTextColor={colors.textTertiary}
-              value={userEmail}
-              onChangeText={setUserEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
+          <Input
+            leftIcon={<Mail size={20} color={colors.textTertiary} />}
+            placeholder="Email"
+            value={userEmail}
+            onChangeText={setUserEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
 
-          <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Lock size={20} color={colors.textTertiary} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Mot de passe"
-              placeholderTextColor={colors.textTertiary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoFocus
-            />
-          </View>
+          <Input
+            leftIcon={<Lock size={20} color={colors.textTertiary} />}
+            placeholder="Mot de passe"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoFocus
+          />
 
           <TouchableOpacity 
             style={styles.forgotPasswordContainer}
@@ -107,20 +98,14 @@ export default function LoginPasswordScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.loginButton, { backgroundColor: colors.primary }]}
-            onPress={handleLogin}
+          <Button
+            title="Se connecter"
+            rightIcon={<ArrowRight size={20} color="#FFF" />}
+            isLoading={isLoading}
             disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <>
-                <Text style={styles.loginButtonText}>Se connecter</Text>
-                <ArrowRight size={20} color="#FFF" style={styles.buttonIcon} />
-              </>
-            )}
-          </TouchableOpacity>
+            onPress={handleLogin}
+            style={styles.loginButton}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -138,7 +123,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 80, // Push content from top
+    paddingTop: 80,
   },
   header: {
     alignItems: 'flex-start',
@@ -157,22 +142,6 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    height: '100%',
-  },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
     marginBottom: 8,
@@ -182,23 +151,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   loginButton: {
-    height: 56,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  loginButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  buttonIcon: {
-    marginLeft: 8,
   },
 });

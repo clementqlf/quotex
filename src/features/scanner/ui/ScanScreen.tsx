@@ -35,25 +35,15 @@ import AnimatedISBNPopup from '@/src/features/scanner/ui/AnimatedISBNPopup';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 
-// Removed CopilotTouchable
-
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import QuotexLogo from '@/src/shared/ui/QuotexLogo';
+import { Button, IconButton } from '@/src/shared/ui';
 
-interface CameraContainerProps {
-  device: CameraDevice | null;
-  cameraRef: React.RefObject<Camera | null>;
-  codeScanner: CodeScanner;
-  showIsbnPopup: boolean;
-  isSearchingIsbn: boolean;
-  isLoading: boolean;
-  photo: PhotoFile | null;
-  isFocused: boolean;
-  onTextDetectedChange: (detected: boolean) => void;
-  format?: CameraDeviceFormat | null;
-}
+// Debug flag
+const DEBUG_SCAN_AREA = false;
 
+// CameraContainer must be defined before it's used
 const CameraContainer = React.memo(({
   device,
   cameraRef,
@@ -65,7 +55,18 @@ const CameraContainer = React.memo(({
   isFocused,
   onTextDetectedChange,
   format,
-}: CameraContainerProps) => {
+}: {
+  device: CameraDevice | null;
+  cameraRef: React.RefObject<Camera | null>;
+  codeScanner: CodeScanner;
+  showIsbnPopup: boolean;
+  isSearchingIsbn: boolean;
+  isLoading: boolean;
+  photo: PhotoFile | null;
+  isFocused: boolean;
+  onTextDetectedChange: (detected: boolean) => void;
+  format?: CameraDeviceFormat | null;
+}) => {
   const { frameProcessor } = useLiveOCR({
     cameraRef,
     isFocused,
@@ -105,9 +106,6 @@ const CameraContainer = React.memo(({
 
 CameraContainer.displayName = 'CameraContainer';
 
-// Debug flag
-const DEBUG_SCAN_AREA = false;
-
 export default function ScanScreen() {
   const { colors } = useTheme();
   const { user: currentUser } = useAuth();
@@ -137,7 +135,6 @@ export default function ScanScreen() {
   }, 500, [router, currentUser?.username]);
 
   // ========== SCAN CONTROLLER ==========
-  // Gère toute la logique de scan via un hook centralisé
   const [containerSize, setContainerSize] = React.useState({ width: 0, height: 0 });
   const [scanAreaY, setScanAreaY] = React.useState(0);
   const [scanFrameLayout, setScanFrameLayout] = React.useState<{
@@ -147,7 +144,6 @@ export default function ScanScreen() {
     height: number;
   } | null>(null);
 
-  // Injection de dépendances pour respecter la Clean Architecture
   const tabController: ITabController = useMemo(() => ({
     setTabIndex,
     setSwipeEnabled,
@@ -164,14 +160,11 @@ export default function ScanScreen() {
   });
 
   const {
-    // Camera state
     hasPermission,
     device,
     format,
     cameraRef,
     requestPermission,
-    
-    // Scan state
     photo,
     ocrElements,
     ocrBlocks,
@@ -179,28 +172,18 @@ export default function ScanScreen() {
     isFromGallery,
     isLoading,
     isPickerActive,
-    
-    // ISBN state
     showIsbnPopup,
     isbnBookData,
     isSearchingIsbn,
     handleIsbnPopupPress,
     handleIsbnPopupDismiss,
-    
-    // Random quote state
     randomQuote,
     showRandomQuoteModal,
     setShowRandomQuoteModal,
     handleRandomQuotePress,
-    
-    // OCR Live state
     isTextDetectedLive,
     handleTextDetectedChange,
-    
-    // Code scanner
     codeScanner,
-    
-    // Actions
     handleTakePhoto,
     handleResetCapture,
     handlePickImage,
@@ -220,10 +203,7 @@ export default function ScanScreen() {
     opacity: fadeAnim.value,
   }));
 
-
-
   // ========== EFFETS ==========
-  // Cleanup au unmount
   useEffect(() => {
     return () => {
       console.log('[ScanScreen] Unmounting component, releasing locks and cleaning up.');
@@ -231,14 +211,12 @@ export default function ScanScreen() {
     };
   }, [cleanup]);
 
-  // Permission check
   useEffect(() => {
     if (!hasPermission) {
       requestPermission();
     }
   }, [hasPermission, requestPermission]);
 
-  // Tab index sync
   useEffect(() => {
     if (isFocused) {
       setTabIndex(1);
@@ -247,21 +225,20 @@ export default function ScanScreen() {
     }
   }, [isFocused, setTabIndex]);
 
-  // Swipe enabled sync
   useEffect(() => {
     setSwipeEnabled(!(photo && ocrElements));
   }, [photo, ocrElements, setSwipeEnabled]);
 
-
-
-  // ========== RENDER ==========
   if (!hasPermission) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
         <Text style={styles.permissionText}>{"Quotex a besoin de l'accès à la caméra."}</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Autoriser</Text>
-        </TouchableOpacity>
+        <Button
+          title="Autoriser"
+          variant="primary"
+          onPress={requestPermission}
+          style={styles.permissionButton}
+        />
       </SafeAreaView>
     );
   }
@@ -277,47 +254,43 @@ export default function ScanScreen() {
     >
       {!photo && (
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerButtonLeft}
+          <IconButton
+            icon={<Settings size={24} color="#E5E7EB" />}
+            variant="ghost"
+            size="md"
             onPress={handleSettingsPress}
-            accessible={true}
+            style={styles.headerButtonLeft}
             accessibilityLabel="Paramètres"
-            accessibilityRole="button"
             testID="settings-button"
-          >
-            <Settings size={24} color="#E5E7EB" />
-          </TouchableOpacity>
+          />
 
-          {/* Bouton de debug temporaire pour réinitialiser l'onboarding */}
           {__DEV__ && (
-            <TouchableOpacity
-              style={[styles.headerButtonLeft, { left: 70 }]}
+            <IconButton
+              icon={<RefreshCw size={22} color="#EF4444" />}
+              variant="ghost"
+              size="md"
               onPress={async () => {
                 await resetTour();
                 Alert.alert('Debug', 'Onboarding réinitialisé ! Relancez l\'application pour voir le tour.');
               }}
-              accessible={true}
+              style={[styles.headerButtonLeft, { left: 70 }]}
               accessibilityLabel="Réinitialiser le tutoriel"
-              accessibilityRole="button"
-            >
-              <RefreshCw size={22} color="#EF4444" />
-            </TouchableOpacity>
+            />
           )}
 
           <View style={styles.logoContainer}>
             <QuotexLogo width={320} height={120} color="#FFFFFF" style={styles.logoImage} />
           </View>
 
-          <TouchableOpacity
-            style={styles.headerButtonRight}
+          <IconButton
+            icon={<User size={24} color="#E5E7EB" />}
+            variant="ghost"
+            size="md"
             onPress={handleProfilePress}
-            accessible={true}
+            style={styles.headerButtonRight}
             accessibilityLabel="Profil utilisateur"
-            accessibilityRole="button"
             testID="profile-button"
-          >
-            <User size={24} color="#E5E7EB" />
-          </TouchableOpacity>
+          />
         </View>
       )}
 
@@ -383,7 +356,6 @@ export default function ScanScreen() {
                 setScanFrameLayout({ x, y, width, height });
               }}
             >
-              {/* Animation des coins vers cadre complet */}
               <ScanFrameOverlay
                 isTextDetectedLive={isTextDetectedLive}
                 scanFrameLayout={scanFrameLayout}
@@ -440,7 +412,6 @@ export default function ScanScreen() {
             </Svg>
           )}
 
-          {/* Debugging Barcode Scan Area Outline */}
           {DEBUG_SCAN_AREA && scanFrameLayout && (
             <View
               style={{
@@ -459,7 +430,6 @@ export default function ScanScreen() {
             />
           )}
 
-          {/* ISBN Popup */}
           {showIsbnPopup && isbnBookData && (
             <AnimatedISBNPopup
               bookData={isbnBookData}
@@ -468,7 +438,6 @@ export default function ScanScreen() {
             />
           )}
 
-          {/* Random Quote Preview Modal */}
           {showRandomQuoteModal && randomQuote && (
             <ScanPreviewModal
               visible={showRandomQuoteModal}
@@ -477,14 +446,9 @@ export default function ScanScreen() {
               onConfirm={async (text, book, author) => {
                 try {
                   console.log('[ScanScreen] onConfirm called for random quote');
-
-                  // Fire and forget the save operation. The hook's implementation
-                  // now handles the optimistic updates (both RAM cache and persistent storage).
                   saveRandomQuoteToCollection(randomQuote.id).catch(e => {
                     console.error('[ScanScreen] Background save failed:', e);
                   });
-
-                  // Instant UI feedback and navigation
                   PlatformServices.haptics.notificationAsync("success");
                   setShowRandomQuoteModal(false);
                   navigateToMyQuotesTop();
@@ -507,16 +471,15 @@ export default function ScanScreen() {
                 stepName="scanGalleryButton"
                 placement="top"
               >
-                <TouchableOpacity
-                  style={styles.iconButton}
+                <IconButton
+                  icon={<ImageIcon size={24} />}
+                  variant="ghost"
+                  size="md"
                   onPress={handlePickImage}
-                  accessible={true}
+                  style={styles.iconButton}
                   accessibilityLabel="Sélectionner une image dans la galerie"
-                  accessibilityRole="button"
                   testID="gallery-button"
-                >
-                  <ImageIcon size={24} color="#E5E7EB" />
-                </TouchableOpacity>
+                />
               </InteractiveTooltip>
 
               <View style={styles.scanButtonContainer}>
@@ -547,16 +510,15 @@ export default function ScanScreen() {
                 </InteractiveTooltip>
               </View>
 
-              <TouchableOpacity
-                style={styles.iconButton}
+              <IconButton
+                icon={<Sparkles size={24} />}
+                variant="ghost"
+                size="md"
                 onPress={handleRandomQuotePress}
-                accessible={true}
+                style={styles.iconButton}
                 accessibilityLabel="Générer une citation aléatoire"
-                accessibilityRole="button"
                 testID="random-quote-button"
-              >
-                <Sparkles size={24} color="#E5E7EB" />
-              </TouchableOpacity>
+              />
             </View>
           </View>
         </>
@@ -637,27 +599,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     overflow: 'visible',
     zIndex: 3,
   },
-  corner: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    zIndex: 10,
-  },
-  scanLine: {
-    position: 'absolute',
-    width: '100%',
-    height: 2,
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-  },
   content: {
     alignItems: 'center',
     padding: 24,
@@ -667,24 +608,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   fadeContainer: {
     alignItems: 'center',
     width: '100%',
-  },
-  instructionText: {
-    fontSize: 15,
-    color: '#555',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  iconShadowWrapper: {
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
-    elevation: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconShadow: {
-    // Pour compatibilité, mais l'ombre est sur le wrapper
   },
   instructionTextShadow: {
     fontSize: 15,
@@ -744,15 +667,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     elevation: 8,
     zIndex: 10,
   },
-  scanInnerShadow: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    right: 6,
-    bottom: 6,
-    borderRadius: 28,
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
   scanButtonActive: {
     backgroundColor: 'rgba(32, 184, 205, 0.2)',
     borderColor: '#FFFFFF',
@@ -770,15 +684,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 20,
   },
   permissionButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
     paddingHorizontal: 32,
+    paddingVertical: 12,
     borderRadius: 8,
-  },
-  permissionButtonText: {
-    color: '#0F0F0F',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -786,5 +694,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 99,
+  },
+  iconShadowWrapper: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

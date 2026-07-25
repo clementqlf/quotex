@@ -9,6 +9,8 @@ import { UGCModerationService } from '@/src/shared/api/UGCModerationService';
 import { getBookTitle, decodeBase64, isUserQuote } from '@/src/shared/lib/dataHelpers';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ThemeColors } from '@/src/shared/theme';
+import { DetailHeaderBar, DetailStatGrid } from '@/src/shared/ui/details';
+import { LibraryBlock } from '@/src/shared/ui/blocks/LibraryBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { UserListModal } from '@/src/shared/ui/modals/UserListModal';
 import { useQueryClient } from '@tanstack/react-query';
@@ -247,25 +249,6 @@ export default function UserProfileScreen() {
   };
 
 
-  const groupedBooks = useMemo(() => {
-    const groups: Record<string, any[]> = {
-      'READING': [],
-      'FINISHED': [],
-      'TO_READ': [],
-      'DROPPED': []
-    };
-    userBooks.forEach((ub: any) => {
-      const status = ub.status || 'TO_READ';
-      if (groups[status]) {
-        groups[status].push(ub.book);
-      } else {
-        if (!groups['TO_READ']) groups['TO_READ'] = [];
-        groups['TO_READ'].push(ub.book);
-      }
-    });
-    return groups;
-  }, [userBooks]);
-
   const toggleFollow = async () => {
     if (!profileData || !currentUser) return;
 
@@ -493,20 +476,10 @@ export default function UserProfileScreen() {
   if (!profileData && isProfileLoading) {
     return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            accessible={true}
-            accessibilityLabel="Retour"
-            accessibilityRole="button"
-            testID="back-button"
-          >
-            <ChevronLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{username ? `@${username}` : 'Profil'}</Text>
-          <View style={styles.placeholder} />
-        </View>
+        <DetailHeaderBar
+          title={username ? `@${username}` : 'Profil'}
+          onBack={() => router.back()}
+        />
         <UserProfileSkeleton colors={colors} />
       </SafeAreaView>
     );
@@ -515,20 +488,10 @@ export default function UserProfileScreen() {
   if (!profileData) {
     return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            accessible={true}
-            accessibilityLabel="Retour"
-            accessibilityRole="button"
-            testID="back-button"
-          >
-            <ChevronLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profil introuvable</Text>
-          <View style={styles.placeholder} />
-        </View>
+        <DetailHeaderBar
+          title="Profil introuvable"
+          onBack={() => router.back()}
+        />
         <View style={styles.loaderContainer}>
           <Text style={{ color: colors.text }}>Utilisateur non trouvé</Text>
         </View>
@@ -540,33 +503,15 @@ export default function UserProfileScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            accessible={true}
-            accessibilityLabel="Retour"
-            accessibilityRole="button"
-            testID="back-button"
-          >
-            <ChevronLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>@{profileData?.username || username}</Text>
-          {!isMe && profileData ? (
-            <TouchableOpacity
-              onPress={handleProfileOptions}
-              style={styles.headerAction}
-              accessible={true}
-              accessibilityLabel="Options du profil"
-              accessibilityRole="button"
-              testID="profile-options-button"
-            >
-              <MoreHorizontal size={24} color={colors.text} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.placeholder} />
-          )}
-        </View>
+        <DetailHeaderBar
+          title={`@${profileData?.username || username}`}
+          onBack={() => router.back()}
+          actions={!isMe && profileData ? [{
+            key: 'options',
+            icon: <MoreHorizontal size={24} color={colors.text} />,
+            onPress: handleProfileOptions,
+          }] : []}
+        />
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Profile Section */}
@@ -674,44 +619,34 @@ export default function UserProfileScreen() {
           </View>
 
           {/* Stats */}
-          <View style={styles.statsContainer}>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => openFollowModal('followers')}
-              accessible={true}
-              accessibilityLabel="Voir la liste des abonnés"
-              accessibilityRole="button"
-            >
-              <Text style={styles.statValue}>{profileData.followers || 0}</Text>
-              <Text style={styles.statLabel}>Abonnés</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => openFollowModal('following')}
-              accessible={true}
-              accessibilityLabel="Voir la liste des abonnements"
-              accessibilityRole="button"
-            >
-              <Text style={styles.statValue}>{profileData.following || 0}</Text>
-              <Text style={styles.statLabel}>Abonnements</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.statItem}
-              onPress={() => {
-                if (userQuotes.length > 0) {
-                  setHasRenderedQuotesModal(true);
-                  setShowAllQuotesModal(true);
+          <DetailStatGrid
+            variant="inline"
+            stats={[
+              {
+                key: 'followers',
+                label: 'Abonnés',
+                value: profileData.followers || 0,
+                onPress: () => openFollowModal('followers')
+              },
+              {
+                key: 'following',
+                label: 'Abonnements',
+                value: profileData.following || 0,
+                onPress: () => openFollowModal('following')
+              },
+              {
+                key: 'quotes',
+                label: 'Citations',
+                value: userQuotes.length,
+                onPress: () => {
+                  if (userQuotes.length > 0) {
+                    setHasRenderedQuotesModal(true);
+                    setShowAllQuotesModal(true);
+                  }
                 }
-              }}
-              accessible={true}
-              accessibilityLabel="Voir la liste des citations"
-              accessibilityRole="button"
-              activeOpacity={0.7}
-            >
-              <Text style={styles.statValue}>{userQuotes.length}</Text>
-              <Text style={styles.statLabel}>Citations</Text>
-            </TouchableOpacity>
-          </View>
+              }
+            ]}
+          />
 
           {/* Bio */}
           <View style={styles.section}>
@@ -736,61 +671,10 @@ export default function UserProfileScreen() {
           </View>
 
           {/* Library Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Library size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Bibliothèque</Text>
-            </View>
-
-            {userBooks.length > 0 ? (
-              <View style={styles.libraryContainer}>
-                {['READING', 'FINISHED', 'TO_READ', 'DROPPED'].map((status) => {
-                  const books = groupedBooks[status];
-                  if (!books || books.length === 0) return null;
-
-                  const statusLabels: Record<string, string> = {
-                    'READING': 'En cours',
-                    'FINISHED': 'Terminé',
-                    'TO_READ': 'À lire',
-                    'DROPPED': 'Abandonné'
-                  };
-
-                  return (
-                    <View key={status} style={styles.libraryStatusSection}>
-                      <Text style={styles.libraryStatusTitle}>{statusLabels[status]}</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {books.map((book: any) => (
-                          <TouchableOpacity
-                            key={book.id}
-                            style={styles.bookItem}
-                            onPress={preventDoublePress(() => router.push({ pathname: '/book-detail', params: { bookId: book.id.toString(), bookTitle: book.title } }), 500)}
-                          >
-                            <BookCover
-                              uri={book.cover}
-                              width={90}
-                              height={135}
-                              borderRadius={8}
-                              fallbackIcon="bookOpen"
-                              style={styles.bookCover}
-                            />
-                            <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (isProfileLoading || isFetching) ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                <BookSkeleton colors={colors} />
-                <BookSkeleton colors={colors} />
-                <BookSkeleton colors={colors} />
-              </ScrollView>
-            ) : (
-              <Text style={styles.placeholderText}>Cet utilisateur n&apos;a pas encore de livres dans sa bibliothèque.</Text>
-            )}
-          </View>
+          <LibraryBlock
+            books={userBooks}
+            isLoading={isProfileLoading || isFetching}
+          />
 
           {/* User's Quotes */}
           {(isProfileLoading || isFetching) ? (
@@ -963,34 +847,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    color: colors.text,
-    flex: 1,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  placeholder: {
-    width: 32,
-  },
-  headerAction: {
-    padding: 4,
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1104,30 +960,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  statItem: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    color: colors.primary,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
   sectionTitle: {
     fontSize: 14,
     color: colors.text,
@@ -1144,42 +976,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textTertiary,
     textAlign: 'center',
     paddingVertical: 24,
-  },
-
-  libraryContainer: {
-    gap: 16,
-  },
-  libraryStatusSection: {
-    marginBottom: 4,
-  },
-  libraryStatusTitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  bookItem: {
-    width: 90,
-    marginRight: 12,
-  },
-  bookCover: {
-    width: 90,
-    height: 135,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceHighlight,
-    marginBottom: 6,
-  },
-  placeholderCover: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bookTitle: {
-    fontSize: 11,
-    color: colors.text,
-    textAlign: 'center',
-    lineHeight: 14,
   },
   userNameInput: {
     borderBottomWidth: 1,

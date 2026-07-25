@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useAuth } from '@/src/app/providers/AuthContext';
 import { logError } from '@/src/shared/infrastructure/monitoring/sentry';
+import { Button } from '@/src/shared/ui';
 import { Trash2 } from 'lucide-react-native';
 
 export const DeleteAccountButton = () => {
@@ -35,41 +36,23 @@ export const DeleteAccountButton = () => {
   };
 
   return (
-    <TouchableOpacity 
-      style={styles.button} 
-      onPress={confirmDeletion}
+    <Button
+      title="Supprimer mon compte"
+      variant="danger"
+      leftIcon={<Trash2 size={20} />}
+      isLoading={isDeleting}
       disabled={isDeleting}
-      accessibilityRole="button"
+      onPress={confirmDeletion}
+      style={styles.button}
       accessibilityLabel="Supprimer définitivement mon compte"
       testID="delete-account-button"
-    >
-      {isDeleting ? (
-        <ActivityIndicator color="#FF4B4B" />
-      ) : (
-        <>
-          <Trash2 size={20} color="#FF4B4B" />
-          <Text style={styles.text}>Supprimer mon compte</Text>
-        </>
-      )}
-    </TouchableOpacity>
+    />
   );
 };
 
 const styles = StyleSheet.create({
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 75, 75, 0.1)',
     marginHorizontal: 16,
     marginTop: 16,
-  },
-  text: {
-    color: '#FF4B4B',
-    fontWeight: '600',
-    fontSize: 16,
   },
 });

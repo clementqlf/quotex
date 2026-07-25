@@ -19,10 +19,15 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
-import { Avatar } from '@/src/shared/ui/Avatar';
+import { Avatar, Card, TabBar } from '@/src/shared/ui';
 import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { Quote } from '@/src/shared/api/types';
 import { ThemeColors } from '@/src/shared/theme';
+
+const FEED_TABS = [
+  { id: 'trends', label: 'Tendances' },
+  { id: 'following', label: 'Suivis' }
+];
 
 export default function SocialFeedScreen() {
   const router = useRouter();
@@ -34,6 +39,7 @@ export default function SocialFeedScreen() {
   const { tabIndex } = useTabIndex();
   const isFocused = tabIndex === 2;
 
+  const [activeTab, setActiveTab] = useState<'trends' | 'following'>('trends');
   const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
@@ -45,14 +51,12 @@ export default function SocialFeedScreen() {
     }
   }, [isFocused, refreshQuotes]);
 
-
-
   const FeedQuoteCard = ({ quote }: { quote: Quote }) => {
     const handleUserPress = useSinglePress(() => {
       router.push({ 
         pathname: '/user-profile', 
         params: { 
-          username: quote.user?.username
+          username: quote.user?.username 
         } 
       });
     }, 500, [quote.user?.username]);
@@ -62,8 +66,7 @@ export default function SocialFeedScreen() {
     }, 500, [quote.id]);
 
     return (
-      <View style={styles.quoteCard}>
-        {/* User Info - Cliquable */}
+      <Card variant="flat" padding="md" style={styles.quoteCard}>
         <TouchableOpacity
           style={styles.userInfo}
           activeOpacity={0.7}
@@ -86,7 +89,6 @@ export default function SocialFeedScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Quote content - clickable */}
         <Pressable
           onPress={handleQuotePress}
           style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
@@ -104,7 +106,6 @@ export default function SocialFeedScreen() {
             </Svg>
             <Text style={styles.quoteText}>{quote.text}</Text>
 
-            {/* Book Tag */}
             <View style={styles.bookTag}>
               <Text style={styles.bookName}>{getBookTitle(quote.book)}</Text>
               <Text style={styles.separator}>·</Text>
@@ -113,7 +114,6 @@ export default function SocialFeedScreen() {
           </View>
         </Pressable>
 
-        {/* Actions */}
         <View style={styles.actions}>
           <View style={styles.actionsLeft}>
             <TouchableOpacity
@@ -179,13 +179,12 @@ export default function SocialFeedScreen() {
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </Card>
     );
   };
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
@@ -194,39 +193,19 @@ export default function SocialFeedScreen() {
           </View>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            style={styles.tabActive}
-            accessible={true}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: true }}
-            accessibilityLabel="Tendances"
-            testID="tab-trends"
-          >
-            <Text style={styles.tabTextActive}>Tendances</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.tabInactive}
-            accessible={true}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: false }}
-            accessibilityLabel="Suivis"
-            testID="tab-following"
-          >
-            <Text style={styles.tabTextInactive}>Suivis</Text>
-          </TouchableOpacity>
-        </View>
+        <TabBar
+          tabs={FEED_TABS}
+          activeTab={activeTab}
+          onTabPress={(tabId) => setActiveTab(tabId as 'trends' | 'following')}
+          style={styles.tabs}
+        />
       </View>
 
-      {/* Feed */}
       <View style={styles.scrollView}>
         <FlashList
           data={feedQuotes}
           renderItem={({ item }) => <FeedQuoteCard quote={item} />}
           keyExtractor={(item) => item.id.toString()}
-          // @ts-ignore - FlashList props type issues
-          estimatedItemSize={200}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -300,50 +279,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     fontSize: 20,
     color: colors.text,
   },
-  headerButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabs: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  tabActive: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: 'rgba(32, 184, 205, 0.2)',
-    alignItems: 'center',
-  },
-  tabInactive: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceHighlight,
-    alignItems: 'center',
-  },
-  tabTextActive: {
-    fontSize: 14,
-    color: colors.primary,
-  },
-  tabTextInactive: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
   scrollView: {
     flex: 1,
   },
@@ -353,7 +288,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   quoteCard: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    padding: 16,
+    borderWidth: 0,
   },
   userInfo: {
     flexDirection: 'row',
@@ -372,15 +307,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     alignItems: 'center',
     overflow: 'hidden',
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 20,
-  },
-  avatarText: {
-    fontSize: 14,
-    color: colors.primary,
-  },
   userDetails: {
     flex: 1,
   },
@@ -394,11 +320,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   quoteContent: {
     marginBottom: 12,
-  },
-  quoteIcon: {
-    fontSize: 24,
-    color: 'rgba(32, 184, 205, 0.2)',
-    marginBottom: 4,
   },
   quoteText: {
     fontSize: 16,
@@ -451,6 +372,10 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
   },
   actionTextActive: {
     color: colors.primary,
+  },
+  tabs: {
+    marginBottom: 0,
+    borderBottomWidth: 0,
   },
   overlayContainer: {
     ...StyleSheet.absoluteFill,

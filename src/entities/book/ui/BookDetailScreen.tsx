@@ -5,11 +5,12 @@ import ResourceSearchModal from '@/src/shared/ui/modals/ResourceSearchModal';
 import { getAuthorName } from '@/src/shared/lib/dataHelpers';
 import { BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import { BookCover } from '@/src/shared/ui/BookCover';
-import { BookOpen, Calendar, Check, ChevronLeft, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
+import { Badge } from '@/src/shared/ui/Badge';
+import { DetailHeaderBar, DetailHeroHeader, DetailStatGrid } from '@/src/shared/ui/details';
+import { BookOpen, Calendar, Check, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
 import { Keyboard, RefreshControl, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { NotesKeyboardToolbar, useKeyboardToolbar } from '@/src/shared/ui/blocks/NotesBlock';
-import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Sortable from 'react-native-sortables';
@@ -92,30 +93,9 @@ export default function BookDetailScreen() {
 
   if (isLoadingMetadata) {
     return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-              <ChevronLeft size={24} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
-                {bookTitle || "Chargement..."}
-              </Text>
-              <View style={styles.fadeOverlayContainer} pointerEvents="none">
-                <Svg width={32} height="100%">
-                  <Defs>
-                    <LinearGradient id="loadingHeaderTitleFade" x1="0" y1="0" x2="1" y2="0">
-                      <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
-                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect width={32} height="100%" fill="url(#loadingHeaderTitleFade)" />
-                </Svg>
-              </View>
-            </View>
-            <View style={styles.saveButton} />
-          </View>
+          <DetailHeaderBar title={bookTitle || 'Chargement...'} onBack={() => router.back()} />
           <BookDetailSkeleton colors={colors} />
         </View>
       </SafeAreaView>
@@ -124,7 +104,7 @@ export default function BookDetailScreen() {
 
   if (!bookTitle) {
     return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
           <Text style={styles.errorText}>Aucun livre spécifié.</Text>
         </View>
@@ -134,30 +114,9 @@ export default function BookDetailScreen() {
 
   if (!bookInfo) {
     return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-              <ChevronLeft size={24} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
-                {bookTitle}
-              </Text>
-              <View style={styles.fadeOverlayContainer} pointerEvents="none">
-                <Svg width={32} height="100%">
-                  <Defs>
-                    <LinearGradient id="errorHeaderTitleFade" x1="0" y1="0" x2="1" y2="0">
-                      <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
-                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect width={32} height="100%" fill="url(#errorHeaderTitleFade)" />
-                </Svg>
-              </View>
-            </View>
-            <View style={styles.saveButton} />
-          </View>
+          <DetailHeaderBar title={bookTitle} onBack={() => router.back()} />
           <Text style={styles.errorText}>Livre non trouvé sur le serveur.</Text>
         </View>
       </SafeAreaView>
@@ -169,35 +128,24 @@ export default function BookDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ChevronLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
-              {bookTitle}
-            </Text>
-            <View style={styles.fadeOverlayContainer} pointerEvents="none">
-              <Svg width={32} height="100%">
-                <Defs>
-                  <LinearGradient id="headerTitleFade" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
-                    <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width={32} height="100%" fill="url(#headerTitleFade)" />
-              </Svg>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
-              <ShareIcon size={22} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.headerButton} onPress={handleHeaderSavePress}>
-              {isSaved ? <Check size={24} color={colors.primary} /> : <Plus size={24} color={colors.text} />}
-            </TouchableOpacity>
-          </View>
-        </View>
+        <DetailHeaderBar
+          title={bookTitle}
+          onBack={() => router.back()}
+          actions={[
+            {
+              key: 'share',
+              icon: <ShareIcon size={22} color={colors.text} />,
+              onPress: handleShare,
+            },
+            {
+              key: 'save',
+              icon: isSaved
+                ? <Check size={24} color={colors.primary} />
+                : <Plus size={24} color={colors.text} />,
+              onPress: handleHeaderSavePress,
+            },
+          ]}
+        />
 
         {bookInfo.isVerified === false && (
           <View style={styles.unverifiedBanner}>
@@ -232,95 +180,71 @@ export default function BookDetailScreen() {
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
             <View style={{ flex: 1 }}>
               <View style={styles.section}>
-            <View style={styles.bookContainer}>
-              <BookCover
-                uri={bookInfo.cover}
-                title={bookTitle}
-                width={100}
-                height={150}
-                borderRadius={8}
-                showTitleFallback={true}
-                fallbackIcon="book"
-                style={styles.bookCoverImage}
-              />
-              <View style={styles.bookInfo}>
-                <Text style={styles.bookTitleText}>{bookTitle}</Text>
-                <TouchableOpacity
-                  disabled={!bookInfo?.author || getAuthorName(bookInfo?.author) === "Auteur inconnu"}
-                  onPress={() => {
-                    const authorName = getAuthorName(bookInfo?.author);
-                    const inventaireUri = typeof bookInfo?.author === 'object' && bookInfo?.author !== null ? (bookInfo?.author as any).inventaireUri : undefined;
-                    navigateToAuthor(authorName, inventaireUri);
-                  }}
-                >
-                  <Text style={styles.bookAuthorText}>{getAuthorName(bookInfo?.author)}</Text>
-                </TouchableOpacity>
-
-                <View style={styles.bookMeta}>
-                  <View style={styles.metaItem}>
-                    <Calendar size={14} color={colors.textTertiary} />
-                    <Text style={styles.metaText}>{bookInfo.year}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <BookOpen size={14} color={colors.textTertiary} />
-                    <Text style={styles.metaText}>{bookInfo.pages} p.</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Star size={14} color={colors.primary} fill={colors.primary} />
-                    <Text style={styles.metaText}>{averageRating}/5</Text>
-                  </View>
-                </View>
-
-                <View style={styles.badgeContainer}>
-                  {bookInfo.genre && bookInfo.genre !== 'Unknown' && bookInfo.genre !== '' && (
-                    <View style={styles.genreBadge}>
-                      <Text style={styles.genreText}>{bookInfo.genre}</Text>
-                    </View>
-                  )}
-
-                  {bookInfo.readingStatus && (
-                    <TouchableOpacity
-                      style={[styles.statusBadge, {
-                        backgroundColor: getStatusColor(bookInfo.readingStatus) + '15',
-                        borderColor: getStatusColor(bookInfo.readingStatus) + '40'
-                      }]}
-                      onLongPress={async () => {
-                        if (bookInfo.id) {
-                          try {
-                            await haptics.impactAsync('medium');
-                          } catch (err) {
-                            console.warn('Haptics failed', err);
-                          }
-                          handleOpenStatusMenuWithId(bookInfo.id);
-                        }
-                      }}
-                      delayLongPress={400}
-                    >
-                      <Text style={[styles.statusText, { color: getStatusColor(bookInfo.readingStatus) }]}>
-                        {getStatusLabel(bookInfo.readingStatus)}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {bookInfo.laureates?.map(laureate => (
-                    <TouchableOpacity
-                      key={`prize-${laureate.id}`}
-                      onPress={() => {
-                        // Navigate to prize if available
-                      }}
-                      style={[styles.statusBadge, {
-                        backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                        borderColor: 'rgba(239, 68, 68, 0.4)'
-                      }]}
-                    >
-                      <Text style={[styles.statusText, { color: '#EF4444' }]}>
-                        {laureate.prizeName} {laureate.year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
+            <DetailHeroHeader
+              style={{ padding: 0 }}
+              visual={
+                <BookCover
+                  uri={bookInfo.cover}
+                  title={bookTitle}
+                  width={100}
+                  height={150}
+                  borderRadius={8}
+                  showTitleFallback={true}
+                  fallbackIcon="book"
+                />
+              }
+              title={bookTitle}
+              subtitle={getAuthorName(bookInfo?.author)}
+              onSubtitlePress={() => {
+                const authorName = getAuthorName(bookInfo?.author);
+                const inventaireUri = typeof bookInfo?.author === 'object' && bookInfo?.author !== null
+                  ? (bookInfo?.author as any).inventaireUri
+                  : undefined;
+                navigateToAuthor(authorName, inventaireUri);
+              }}
+              stats={
+                <DetailStatGrid
+                  variant="inline"
+                  stats={[
+                    {
+                      key: 'year',
+                      icon: <Calendar size={14} color={colors.textTertiary} />,
+                      label: 'Année',
+                      value: bookInfo.year,
+                    },
+                    {
+                      key: 'pages',
+                      icon: <BookOpen size={14} color={colors.textTertiary} />,
+                      label: 'Pages',
+                      value: bookInfo.pages ? `${bookInfo.pages} p.` : null,
+                    },
+                    {
+                      key: 'rating',
+                      icon: <Star size={14} color={colors.primary} fill={colors.primary} />,
+                      label: 'Note',
+                      value: averageRating ? `${averageRating}/5` : null,
+                    },
+                  ]}
+                />
+              }
+              badges={[
+                ...(bookInfo.genre && bookInfo.genre !== 'Unknown' && bookInfo.genre !== ''
+                  ? [{ key: 'genre', label: bookInfo.genre }]
+                  : []),
+                ...(bookInfo.readingStatus
+                  ? [{
+                      key: 'status',
+                      label: getStatusLabel(bookInfo.readingStatus),
+                      color: getStatusColor(bookInfo.readingStatus),
+                    }]
+                  : []),
+                ...(bookInfo.laureates?.map(laureate => ({
+                  key: `prize-${laureate.id}`,
+                  label: `${laureate.prizeName} ${laureate.year}`,
+                  color: '#EF4444',
+                })) ?? []),
+              ]}
+            />
           </View>
 
           <View style={styles.tabContainer}>

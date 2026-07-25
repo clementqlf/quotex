@@ -11,6 +11,7 @@ import { ThemeColors } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { Avatar } from '@/src/shared/ui/Avatar';
 import { Image } from 'expo-image';
+import { DetailHeaderBar } from '@/src/shared/ui/details';
 import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import * as WebBrowser from 'expo-web-browser';
 import { Bookmark, BookOpen, Calendar, ChevronLeft, Globe, Share as ShareIcon, UserCheck, UserPlus, X } from 'lucide-react-native';
@@ -21,6 +22,7 @@ import { authorService } from '@/src/entities/author/api/AuthorService';
 import { AuthorBlock } from '@/src/shared/ui/blocks/AuthorBlock';
 import { SavedQuotesBlock } from '@/src/shared/ui/blocks/SavedQuotesBlock';
 import { SimilarBlock } from '@/src/shared/ui/blocks/SimilarBlock';
+import { BlockWrapper } from '@/src/shared/ui/blocks/BlockWrapper';
 import { useQuoteCreationFlow } from '@/src/entities/quote/lib';
 import { useRealtimeAuthors } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import {
@@ -481,33 +483,9 @@ export default function AuthorDetailScreen() {
 
   if (isLoadingAuthor) {
     return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <ChevronLeft size={24} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
-                {authorName}
-              </Text>
-              <View style={styles.fadeOverlayContainer} pointerEvents="none">
-                <Svg width={32} height="100%">
-                  <Defs>
-                    <LinearGradient id="loadingAuthorTitleFade" x1="0" y1="0" x2="1" y2="0">
-                      <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
-                      <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect width={32} height="100%" fill="url(#loadingAuthorTitleFade)" />
-                </Svg>
-              </View>
-            </View>
-            <View style={styles.headerActions} />
-          </View>
+          <DetailHeaderBar title={authorName || 'Chargement...'} onBack={() => router.back()} />
           <AuthorSkeleton colors={colors} />
         </View>
       </SafeAreaView>
@@ -517,46 +495,23 @@ export default function AuthorDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <ChevronLeft size={24} color={colors.text} />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="clip">
-              {authorName}
-            </Text>
-            <View style={styles.fadeOverlayContainer} pointerEvents="none">
-              <Svg width={32} height="100%">
-                <Defs>
-                  <LinearGradient id="authorTitleFade" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0" stopColor={colors.background} stopOpacity={0} />
-                    <Stop offset="1" stopColor={colors.background} stopOpacity={1} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width={32} height="100%" fill="url(#authorTitleFade)" />
-              </Svg>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
-              <ShareIcon size={22} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.saveButton, !canToggleSave && { opacity: 0.8 }]}
-              onPress={handleToggleSave}
-              disabled={!canToggleSave}
-            >
-              <Bookmark
-                size={24}
-                color={isSaved ? colors.primary : colors.text}
-                fill={isSaved ? colors.primary : 'none'}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+        <DetailHeaderBar
+          title={authorName}
+          onBack={() => router.back()}
+          actions={[
+            {
+              key: 'share',
+              icon: <ShareIcon size={22} color={colors.text} />,
+              onPress: handleShare,
+            },
+            {
+              key: 'save',
+              icon: <Bookmark size={24} color={isSaved ? colors.primary : colors.text} fill={isSaved ? colors.primary : 'none'} />,
+              onPress: handleToggleSave,
+              disabled: !canToggleSave,
+            },
+          ]}
+        />
 
         <ScrollView
           style={styles.content}
@@ -668,12 +623,7 @@ export default function AuthorDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <BookOpen size={16} color={colors.primary} />
-              <Text style={styles.sectionTitle}>Œuvres Notables</Text>
-            </View>
-
+          <BlockWrapper blockKey="notableWorks">
             {notableWorks.length === 0 && !isLoadingAuthor && !isLoadingAllWorks && (
               <Text style={styles.emptyText}>Aucune œuvre notable trouvée.</Text>
             )}
@@ -734,7 +684,7 @@ export default function AuthorDetailScreen() {
                 <Text style={styles.showAllButtonText}>Afficher toutes les œuvres</Text>
               </TouchableOpacity>
             )}
-          </View>
+          </BlockWrapper>
 
           <View style={styles.blockWrapper}>
             {(() => {

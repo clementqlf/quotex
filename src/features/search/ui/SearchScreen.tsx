@@ -7,23 +7,21 @@ import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
 import { ThemeColors } from '@/src/shared/theme';
 import { Image } from 'expo-image';
-import { BookCover } from '@/src/shared/ui/BookCover';
+import { BookCover, Avatar, Input, TabBar } from '@/src/shared/ui';
 import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import { preventDoublePress } from '@/src/shared/lib/pressUtils';
 import { ArrowLeft, Award, Hash, Quote as QuoteIcon, Scan, Search, X } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useSearch } from '@/src/features/search/lib/useSearch';
 import {
   ActivityIndicator,
   SectionList,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Avatar } from '@/src/shared/ui/Avatar';
 
 // Types étendus pour les items de recherche
 interface InventaireBookItem extends Omit<Partial<InventaireEntity>, 'authors'> {
@@ -45,6 +43,14 @@ type SearchSection =
     | { title: string; data: (LiteraryPrize & { inDb: boolean; searchType: 'prize' } | InventairePrize & { inDb: boolean; searchType: 'inventaire_prize' })[]; type: 'prize' }
     | { title: string; data: UserType[]; type: 'user' };
 
+const SEARCH_TABS = [
+  { id: 'all', label: 'Tout' },
+  { id: 'books', label: 'Livres' },
+  { id: 'authors', label: 'Auteurs' },
+  { id: 'prizes', label: 'Prix' },
+  { id: 'users', label: 'Utilisateurs' }
+];
+
 export default function SearchScreen() {
     const router = useRouter();
     const { q, tab } = useLocalSearchParams<{ q?: string; tab?: 'all' | 'books' | 'authors' | 'prizes' | 'users' }>();
@@ -61,7 +67,7 @@ export default function SearchScreen() {
         }
     }, [tab]);
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const inputRef = useRef<TextInput>(null);
+    const inputRef = useRef<any>(null);
 
     const netInfo = useNetInfo();
     const isOffline = netInfo.isConnected === false;
@@ -176,7 +182,7 @@ export default function SearchScreen() {
                         <QuoteIcon size={16} color={colors.primary} fill={colors.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                        <Text numberOfLines={2} style={styles.quoteText}>{"\"" + quote.text + "\""}</Text>
+                        <Text numberOfLines={2} style={styles.quoteText}>{`"${quote.text}"`}</Text>
                         <Text style={styles.subText}>{getAuthorName(quote.author)} • {getBookTitle(quote.book)}</Text>
                     </View>
                 </TouchableOpacity>
@@ -385,71 +391,54 @@ export default function SearchScreen() {
                     <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
                 <View style={styles.searchBar}>
-                    <Search size={20} color={colors.textSecondary} />
-                    <TextInput
-                        ref={inputRef}
-                        style={styles.input}
-                        placeholder="Rechercher citations, livres..."
-                        placeholderTextColor={colors.textSecondary}
-                        value={query}
-                        onChangeText={setQuery}
-                        returnKeyType="search"
-                        accessible={true}
-                        accessibilityLabel="Rechercher"
-                        testID="search-input"
-                    />
-                    {query.length > 0 ? (
-                        <TouchableOpacity
-                            onPress={() => { setQuery(''); inputRef.current?.focus(); }}
-                            accessible={true}
-                            accessibilityLabel="Effacer la recherche"
-                            accessibilityRole="button"
-                            testID="clear-search-button"
-                        >
-                            <X size={18} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity
-                            onPress={() => router.push('/scan')}
-                            style={{ padding: 4 }}
-                            accessible={true}
-                            accessibilityLabel="Ouvrir le scanner"
-                            accessibilityRole="button"
-                            testID="scan-button"
-                        >
-                            <Scan size={20} color={colors.primary} />
-                        </TouchableOpacity>
-                    )}
+                  <Search size={20} color={colors.textSecondary} />
+                  <Input
+                    ref={inputRef}
+                    placeholder="Rechercher citations, livres..."
+                    value={query}
+                    onChangeText={setQuery}
+                    returnKeyType="search"
+                    accessible={true}
+                    accessibilityLabel="Rechercher"
+                    testID="search-input"
+                    containerStyle={styles.inputContainer}
+                    inputContainerStyle={styles.inputWrapper}
+                    inputStyle={styles.inputText}
+                  />
+                  {query.length > 0 ? (
+                    <TouchableOpacity
+                      onPress={() => { setQuery(''); inputRef.current?.focus(); }}
+                      accessible={true}
+                      accessibilityLabel="Effacer la recherche"
+                      accessibilityRole="button"
+                      testID="clear-search-button"
+                    >
+                      <X size={18} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => router.push('/scan')}
+                      style={{ padding: 4 }}
+                      accessible={true}
+                      accessibilityLabel="Ouvrir le scanner"
+                      accessibilityRole="button"
+                      testID="scan-button"
+                    >
+                      <Scan size={20} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
                 </View>
             </View>
 
             {/* Tabs */}
             {query.trim().length > 0 && (
-                <View style={styles.tabsContainer}>
-                    {[
-                        { id: 'all', label: 'Tout' },
-                        { id: 'books', label: 'Livres' },
-                        { id: 'authors', label: 'Auteurs' },
-                        { id: 'prizes', label: 'Prix' },
-                        { id: 'users', label: 'Utilisateurs' }
-                    ].map((tab) => (
-                        <TouchableOpacity
-                            key={tab.id}
-                            style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-                            onPress={() => setActiveTab(tab.id as 'all' | 'books' | 'authors' | 'prizes' | 'users')}
-                            accessible={true}
-                            accessibilityRole="tab"
-                            accessibilityState={{ selected: activeTab === tab.id }}
-                            accessibilityLabel={`Filtrer par ${tab.label}`}
-                            testID={`search-tab-${tab.id}`}
-                        >
-                            <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
-                                {tab.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                <TabBar
+                  tabs={SEARCH_TABS}
+                  activeTab={activeTab}
+                  onTabPress={(tabId) => setActiveTab(tabId as 'all' | 'books' | 'authors' | 'prizes' | 'users')}
+                />
             )}
+
             {isLoading ? (
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
@@ -505,37 +494,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         height: 48,
         gap: 10,
     },
-    input: {
+    inputContainer: {
         flex: 1,
+        marginBottom: 0,
+    },
+    inputWrapper: {
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        paddingHorizontal: 0,
+        height: '100%',
+    },
+    inputText: {
         color: colors.inputText,
         fontSize: 16,
         height: '100%',
-    },
-    tabsContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        backgroundColor: colors.background,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-    },
-    tab: {
-        paddingVertical: 12,
-        paddingHorizontal: 4,
-        marginRight: 24,
-        borderBottomWidth: 2,
-        borderBottomColor: 'transparent',
-    },
-    activeTab: {
-        borderBottomColor: colors.primary,
-    },
-    tabText: {
-        fontSize: 15,
-        fontWeight: '500',
-        color: colors.textSecondary,
-    },
-    activeTabText: {
-        color: colors.primary,
-        fontWeight: '600',
+        paddingVertical: 0,
     },
     listContent: {
         paddingBottom: 40,
@@ -543,7 +516,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     sectionHeader: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: colors.background, // sticky header background
+        backgroundColor: colors.background,
     },
     sectionTitle: {
         color: colors.primary,
