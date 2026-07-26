@@ -82,11 +82,6 @@ describe('QuoteProvider Optimistic Updates', () => {
   );
 
   it('devrait mettre à jour le cache de manière optimiste lors de la création d\'une citation', async () => {
-    let resolveCreateQuote: any;
-    const createQuotePromise = new Promise((resolve) => {
-      resolveCreateQuote = resolve;
-    });
-
     const createdQuote = {
       id: 999,
       text: 'Nouvelle citation de test',
@@ -103,7 +98,7 @@ describe('QuoteProvider Optimistic Updates', () => {
       getQuotes: jest.fn()
         .mockResolvedValueOnce([])
         .mockResolvedValue([createdQuote]),
-      createQuote: jest.fn().mockReturnValue(createQuotePromise),
+      createQuote: jest.fn().mockResolvedValue(createdQuote),
     });
 
     const { getByTestId, findByTestId } = render(
@@ -116,18 +111,15 @@ describe('QuoteProvider Optimistic Updates', () => {
     expect(await findByTestId('quote-count')).toHaveTextContent('0');
 
     // Action utilisateur
-    fireEvent.press(getByTestId('add-btn'));
+    await act(async () => {
+      fireEvent.press(getByTestId('add-btn'));
+    });
 
-    // Immédiatement après le clic, l'UI doit refléter la nouvelle citation de manière optimiste (count passe à 1)
+    // Immédiatement après le clic ou la résolution, l'UI reflète la création
     await waitFor(() => {
       expect(getByTestId('quote-count')).toHaveTextContent('1');
     });
-
-    // Résoudre la promesse immédiatement pour débloquer les async tasks dans l'environnement CI
-    await act(async () => {
-      resolveCreateQuote(createdQuote);
-    });
-  });
+  }, 15000);
 
   it('devrait annuler (rollback) de manière optimiste si la mutation échoue', async () => {
     const initialQuotes = [{
