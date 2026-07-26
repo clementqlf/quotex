@@ -6,7 +6,7 @@ import { BlockWrapper } from './BlockWrapper';
 import { ExpandableText } from '../ExpandableText';
 import { BookOpen, Calendar, Star, User, Award } from 'lucide-react-native';
 import { Author, Book, LiteraryPrize } from '@/src/shared/api/types';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 
 export interface AboutBlockProps {
     type: 'author' | 'book' | 'prize';
@@ -213,7 +213,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
         marginTop: 8
     },
     title: {
-        fontSize: 18,
+        fontSize: defaultTokens.typography.fontSize.xxl,
+        fontFamily: defaultTokens.typography.fontFamily.display,
         fontWeight: '700',
         color: colors.text,
         marginBottom: 8,

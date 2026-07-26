@@ -17,7 +17,6 @@ import * as Linking from 'expo-linking';
 import {
   Bell,
   CheckCircle2,
-  ChevronLeft,
   CircleHelp,
   FileText,
   Lock,
@@ -47,6 +46,7 @@ import {
   SettingItem,
   Switch,
 } from '@/src/shared/ui';
+import { DetailHeaderBar } from '@/src/shared/ui/details';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -348,25 +348,14 @@ export default function SettingsScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       <View style={{ flex: 1 }}>
         {/* Header */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        }}>
-          <IconButton
-            icon={<ChevronLeft size={24} color={colors.text} />}
-            variant="ghost"
-            onPress={() => router.back()}
-            accessibilityLabel="Retour"
-            testID="back-button"
-          />
-          <AppText variant="h3">Paramètres</AppText>
-          <View style={{ width: 28 }} />
-        </View>
+        <DetailHeaderBar
+          title="Paramètres"
+          onBack={() => router.back()}
+          style={{
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          }}
+        />
 
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
           {/* Account Section */}

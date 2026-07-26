@@ -129,4 +129,45 @@ export const getBlockDataArray = <T>(
   return Array.isArray(val) ? (val as T[]) : [];
 };
 
+/**
+ * Computes dynamic font size and line height according to text length
+ * so short quotes (or single words) fill space nicely and read prominently.
+ */
+export const getDynamicQuoteFontSize = (text?: string, isModal: boolean = false) => {
+  const len = text ? text.trim().length : 0;
+
+  if (len <= 20) {
+    // Single word / extremely short phrase (very large)
+    return {
+      fontSize: isModal ? 32 : 28,
+      lineHeight: isModal ? 40 : 36,
+    };
+  } else if (len <= 50) {
+    // Short quote
+    return {
+      fontSize: isModal ? 26 : 22,
+      lineHeight: isModal ? 34 : 30,
+    };
+  } else if (len <= 120) {
+    // Medium length quote
+    return {
+      fontSize: isModal ? 21 : 18,
+      lineHeight: isModal ? 29 : 25,
+    };
+  } else if (len <= 250) {
+    // Long quote
+    return {
+      fontSize: isModal ? 17 : 15,
+      lineHeight: isModal ? 24 : 21,
+    };
+  } else {
+    // Very long quote
+    return {
+      fontSize: isModal ? 15 : 13,
+      lineHeight: isModal ? 21 : 18,
+    };
+  }
+};
+
+
 

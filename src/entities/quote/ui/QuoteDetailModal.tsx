@@ -55,10 +55,10 @@ import { UserListModal } from '@/src/shared/ui/modals/UserListModal';
 import { BlockService } from '@/src/shared/api/BlockService';
 import { Quote } from '@/src/shared/api/types';
 import { BlockKey, getBlockOptions } from '@/src/shared/config/blocks';
-import { getAuthorName, getBookTitle, getBlockDataArray } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, getBlockDataArray, getDynamicQuoteFontSize } from '@/src/shared/lib/dataHelpers';
 import { formatAbsoluteDate } from '@/src/shared/lib/dateUtils';
 import { useRealtimeBooks } from '@/src/shared/lib/hooks/useRealtimeEntity';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { BlockContext, BlockDispatcher } from '@/src/shared/ui/blocks/BlockDispatcher';
 import AIChatModal from './AIChatModal';
 import type { Definition } from '@/src/shared/ui/blocks/DefinitionBlock';
@@ -174,8 +174,8 @@ const isBlockInTab = (blockKey: string, tab: TabType) => {
 
 // Composant interne : a accès au CopilotProvider local
 function QuoteDetailContent() {
-  const { colors, isDark } = useTheme();
-  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const { colors, isDark, tokens = defaultTokens } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark, tokens), [colors, isDark, tokens]);
   const router = useRouter();
   const { isActive, currentStepIndex } = useAppTourState();
 
@@ -1108,7 +1108,7 @@ function QuoteDetailContent() {
                 opacity={0.2}
               />
             </Svg>
-            <AppText style={styles.quoteText}>{quote.text}</AppText>
+            <AppText style={[styles.quoteText, getDynamicQuoteFontSize(quote.text, true)]}>{quote.text}</AppText>
 
             <View style={styles.quoteMetaFooter}>
               <View style={{ flex: 1 }}>
@@ -1245,7 +1245,7 @@ function QuoteDetailContent() {
                   <>
                     <View style={styles.aiHeader}>
                       <Sparkles size={16} color={colors.primary} />
-                      <AppText style={styles.aiTitle}>Interprétation IA</AppText>
+                      <AppText variant="h3" style={styles.aiTitle}>Interprétation IA</AppText>
                       {__DEV__ && (
                         <TouchableOpacity
                           onPress={(e) => {
@@ -1262,7 +1262,7 @@ function QuoteDetailContent() {
 
                     {recommendedBooks && recommendedBooks.length > 0 && (
                       <View style={styles.recContainer} onStartShouldSetResponder={() => true}>
-                        <AppText style={styles.recHeaderTitle}>Lectures recommandées par {"l'IA"}</AppText>
+                        <AppText variant="h3" style={styles.recHeaderTitle}>Lectures recommandées par {"l'IA"}</AppText>
                         <ScrollView
                           horizontal
                           scrollEnabled={!isScrollDisabled}
@@ -1323,7 +1323,7 @@ function QuoteDetailContent() {
                 ) : (
                   <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
                     <Sparkles size={28} color={colors.primary} style={{ marginBottom: 8, opacity: 0.8 }} />
-                    <AppText style={[styles.aiTitle, { marginBottom: 6, fontSize: 15 }]}>Analyse Littéraire par {"l'IA"}</AppText>
+                    <AppText variant="h2" style={[styles.aiTitle, { marginBottom: 6 }]}>Analyse Littéraire par {"l'IA"}</AppText>
                     <AppText style={[styles.aiText, { textAlign: 'center', color: colors.textSecondary, marginBottom: 14, fontSize: 13, lineHeight: 18 }]}>
                       Laissez notre IA analyser la profondeur de cette citation et extraire ses thèmes clés.
                     </AppText>
@@ -1562,7 +1562,7 @@ export default function QuoteDetailModal() {
   return <QuoteDetailContent />;
 }
 
-const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, isDark: boolean, tokens: any = defaultTokens) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1725,11 +1725,13 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     marginTop: 4,
   },
   metaTextBook: {
-    color: colors.primary,
-    fontSize: 13,
+    color: colors.text,
+    fontFamily: tokens.typography.fontFamily.display,
+    fontSize: 16,
+    fontWeight: '600',
   },
   metaTextAuthor: {
-    color: colors.textSecondary,
+    color: colors.primary,
     fontSize: 13,
   },
   metaTextDate: {
@@ -1816,8 +1818,7 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     marginBottom: 12,
   },
   aiTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
   },
   aiText: {
@@ -1832,11 +1833,10 @@ const createStyles = (colors: ThemeColors, isDark?: boolean) => StyleSheet.creat
     paddingTop: 12,
   },
   recHeaderTitle: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textSecondary,
     marginBottom: 8,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   recScrollView: {

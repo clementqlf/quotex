@@ -81,13 +81,16 @@ const createStyles = (tokens: any) => StyleSheet.create({
     padding: tokens.spacing.lg,
   },
   title: {
-    fontSize: tokens.typography.fontSize.lg,
-    fontWeight: tokens.typography.fontWeight.semibold,
+    fontSize: tokens.typography.fontSize.heading,
+    lineHeight: tokens.typography.lineHeight.heading,
+    fontFamily: tokens.typography.fontFamily.display,
+    fontWeight: tokens.typography.fontWeight.bold,
     marginBottom: tokens.spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: tokens.typography.fontSize.sm,
+    fontFamily: tokens.typography.fontFamily.body,
     textAlign: 'center',
     marginBottom: tokens.spacing.md,
   },

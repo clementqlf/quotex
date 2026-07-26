@@ -69,10 +69,11 @@ export const DetailHeroHeader: React.FC<DetailHeroHeaderProps> = React.memo(({
         {/* Titre */}
         <Text
           style={{
-            fontSize: tokens.typography.fontSize.lg,
-            fontWeight: tokens.typography.fontWeight.bold,
+            fontSize: tokens.typography.fontSize.lg + 4,
+            lineHeight: tokens.typography.lineHeight.lg + 4,
+            fontWeight: tokens.typography.fontWeight.semibold,
             color: colors.text,
-            fontFamily: tokens.typography.fontFamily.body,
+            fontFamily: tokens.typography.fontFamily.display,
           }}
         >
           {title}

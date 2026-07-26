@@ -5,6 +5,7 @@ import { useSinglePress } from '@/src/shared/lib/pressUtils';
 import { usePathname } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
 import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
+import { ThemeColors, tokens as defaultTokens, tokens } from '@/src/shared/theme';
 import {
   Alert,
   Modal,
@@ -26,7 +27,6 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { ITabController, useScanController } from '@/src/features/scanner/model/useScanController';
 import { PlatformServices } from '@/src/shared/platform';
-import { ThemeColors } from '@/src/shared/theme';
 
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import AnimatedISBNPopup from '@/src/features/scanner/ui/AnimatedISBNPopup';
@@ -363,11 +363,15 @@ export default function ScanScreen() {
                     <BookOpen size={48} color={colors.text || '#FFFFFF'} />
                   </View>
                   <AppText style={styles.instructionTextShadow}>
-                    {isLoading
-                      ? 'Analyse en cours...'
-                      : !device
-                      ? 'Caméra indisponible.\nImportez une image de la galerie.'
-                      : 'Placez une citation ou un code-barre dans le cadre'}
+                    {isLoading ? (
+                      'Analyse en cours...'
+                    ) : !device ? (
+                      'Caméra indisponible.\nImportez une image de la galerie.'
+                    ) : (
+                      <>
+                        Placez une <AppText style={styles.italicText}>citation</AppText> ou un <AppText style={styles.italicText}>code-barre</AppText> dans le cadre
+                      </>
+                    )}
                   </AppText>
                 </Animated.View>
               </View>
@@ -593,7 +597,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
   },
   instructionTextShadow: {
-    fontSize: 15,
+    fontSize: tokens.typography.fontSize.xl,
     color: '#FFFFFF',
     marginTop: 20,
     textAlign: 'center',
@@ -601,6 +605,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 15,
     overflow: 'visible',
+    fontFamily: tokens.typography.fontFamily.display,
+  },
+  italicText: {
+    fontFamily: tokens.typography.fontFamily.quote,
+    fontSize: tokens.typography.fontSize.xl,
+    fontStyle: 'italic',
   },
   darkOverlay: {
     ...StyleSheet.absoluteFill,

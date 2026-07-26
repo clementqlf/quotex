@@ -22,7 +22,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens } from '@/src/shared/theme';
+import { AppText } from '@/src/shared/ui';
 
 export interface SimpleScanResult {
   photo: PhotoFile;
@@ -210,9 +211,9 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
                 <View style={styles.iconShadowWrapper}>
                   <BookOpen size={48} color="#FFFFFF" />
                 </View>
-                <Text style={styles.instructionTextShadow}>
-                  Placez la citation dans le cadre
-                </Text>
+                <AppText style={styles.instructionTextShadow}>
+                  Placez la <AppText style={styles.italicText}>citation</AppText> dans le cadre
+                </AppText>
               </Animated.View>
             </View>
           </View>
@@ -391,7 +392,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '100%',
   },
   instructionTextShadow: {
-    fontSize: 15,
+    fontSize: tokens.typography.fontSize.xl,
     color: '#FFFFFF',
     marginTop: 20,
     textAlign: 'center',
@@ -399,6 +400,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 15,
     overflow: 'visible',
+    fontFamily: tokens.typography.fontFamily.display,
+  },
+  italicText: {
+    fontFamily: tokens.typography.fontFamily.quote,
+    fontSize: tokens.typography.fontSize.xl,
+    fontStyle: 'italic',
   },
   iconShadowWrapper: {
     shadowColor: colors.primary,

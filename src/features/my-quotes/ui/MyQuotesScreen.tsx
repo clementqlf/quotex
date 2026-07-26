@@ -38,7 +38,7 @@ import { useQuoteActions } from '@/src/entities/quote/lib';
 import { useQuote } from '@/src/entities/quote/providers/QuoteProvider';
 import { Quote } from '@/src/shared/api/types';
 import { getAuthorName, getBookTitle, getStatusLabel, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 
 // Entity components - OK to import from entities per FSD
 import { useAuthor } from '@/src/entities/author/providers/AuthorProvider';
@@ -1389,7 +1389,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: defaultTokens.typography.fontSize.heading,
+    lineHeight: defaultTokens.typography.lineHeight.heading,
+    fontFamily: defaultTokens.typography.fontFamily.display,
     fontWeight: '700',
     color: colors.text,
     textAlign: 'center',

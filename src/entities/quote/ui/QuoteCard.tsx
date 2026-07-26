@@ -1,7 +1,7 @@
 import { useTheme } from '@/src/app/providers/ThemeContext';
 import { TOUR_STEPS, useAppTourState } from '@/src/shared/stores/appTourStore';
 import { Quote } from '@/src/shared/api/types';
-import { getAuthorName, getBookTitle } from '@/src/shared/lib/dataHelpers';
+import { getAuthorName, getBookTitle, getDynamicQuoteFontSize } from '@/src/shared/lib/dataHelpers';
 import { formatRelativeDate } from '@/src/shared/lib/dateUtils';
 import { useAuthorRealtime, useBookRealtime } from '@/src/shared/lib/hooks/useRealtimeEntity';
 import { useHaptics } from '@/src/shared/platform';
@@ -124,7 +124,7 @@ const QuoteCard = React.memo(({ quote, onToggleLike, onOpenMenu, showSavedDate }
           </Svg>
 
           {/* Quote Text */}
-          <AppText style={styles.quoteText}>{quote.text}</AppText>
+          <AppText style={[styles.quoteText, getDynamicQuoteFontSize(quote.text, false)]}>{quote.text}</AppText>
 
           {/* Book Info */}
           <View style={styles.bookInfo}>
@@ -245,14 +245,17 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     marginRight: tokens.spacing.sm + 4,
   },
   bookTitle: {
-    fontSize: tokens.typography.fontSize.sm,
+    fontSize: tokens.typography.fontSize.xl,
+    lineHeight: tokens.typography.lineHeight.lg,
     color: colors.text,
+    fontFamily: tokens.typography.fontFamily.display,
     fontWeight: tokens.typography.fontWeight.semibold,
-    marginBottom: tokens.spacing.xs,
+    marginBottom: 2,
   },
   authorName: {
-    fontSize: tokens.typography.fontSize.xs + 1,
-    color: colors.primary,
+    fontSize: tokens.typography.fontSize.sm,
+    color: colors.textSecondary,
+    fontFamily: tokens.typography.fontFamily.body,
     fontWeight: tokens.typography.fontWeight.medium,
   },
   dateText: {

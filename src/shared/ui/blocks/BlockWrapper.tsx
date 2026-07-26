@@ -113,7 +113,8 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 20,
+        fontFamily: defaultTokens.typography.fontFamily.display,
         fontWeight: '700',
     },
 });

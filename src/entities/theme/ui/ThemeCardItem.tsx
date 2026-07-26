@@ -83,7 +83,8 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   themeTitle: {
     color: colors.text,
     fontWeight: tokens.typography.fontWeight.semibold,
-    fontSize: tokens.typography.fontSize.md,
+    fontSize: tokens.typography.fontSize.xl,
+    fontFamily: tokens.typography.fontFamily.display,
   },
   themeSubText: {
     color: colors.textSecondary,

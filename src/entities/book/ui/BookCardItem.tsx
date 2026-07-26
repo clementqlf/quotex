@@ -242,8 +242,10 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   },
   bookCardTitle: {
     flex: 1,
-    fontSize: tokens.typography.fontSize.md,
+    fontSize: tokens.typography.fontSize.xl,
+    lineHeight: tokens.typography.lineHeight.lg,
     color: colors.text,
+    fontFamily: tokens.typography.fontFamily.display,
     fontWeight: tokens.typography.fontWeight.semibold,
   },
   bookCardYear: {
@@ -266,6 +268,7 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
   bookCardAuthor: {
     fontSize: tokens.typography.fontSize.sm,
     color: colors.primary,
+    fontFamily: tokens.typography.fontFamily.body,
     flex: 1,
   },
   bookCardDescription: {

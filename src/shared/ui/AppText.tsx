@@ -49,18 +49,21 @@ export const AppText: React.FC<AppTextProps> = React.memo(({
         return {
           fontSize: fontSize.heading,
           lineHeight: lineHeight.heading,
+          fontFamily: fontFamily.display,
           fontWeight: weight ? fontWeight[weight] : fontWeight.bold,
         };
       case 'h2':
         return {
           fontSize: fontSize.xxl,
           lineHeight: lineHeight.xl,
+          fontFamily: fontFamily.display,
           fontWeight: weight ? fontWeight[weight] : fontWeight.bold,
         };
       case 'h3':
         return {
           fontSize: fontSize.lg,
           lineHeight: lineHeight.lg,
+          fontFamily: fontFamily.display,
           fontWeight: weight ? fontWeight[weight] : fontWeight.semibold,
         };
       case 'bodySmall':

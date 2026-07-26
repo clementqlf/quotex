@@ -7,7 +7,7 @@ import BookCardItem from '@/src/entities/book/ui/BookCardItem';
 import { getAuthorName, getBookTitle, isUserQuote, STATUS_OPTIONS } from '@/src/shared/lib/dataHelpers';
 import { formatFlexibleDate } from '@/src/shared/lib/dateUtils';
 import { useSmartNavigation } from '@/src/shared/lib/hooks/useSmartNavigation';
-import { ThemeColors } from '@/src/shared/theme';
+import { ThemeColors, tokens as defaultTokens } from '@/src/shared/theme';
 import { FlashList } from '@shopify/flash-list';
 import { AppText as Text, Avatar, CounterTab } from '@/src/shared/ui';
 import { Image } from 'expo-image';
@@ -80,8 +80,8 @@ export const AuthorSkeleton = ({ colors }: { colors: ThemeColors }) => {
 
 export default function AuthorDetailScreen() {
   const { user: currentUser } = useAuth();
-  const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { colors, tokens = defaultTokens } = useTheme();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const router = useRouter();
   const { navigateToAuthor, navigateToAuthorWorks } = useSmartNavigation();
   const params = useLocalSearchParams<{ author?: string; authorName?: string; authorId?: string; inventaireUri?: string }>();
@@ -775,7 +775,7 @@ export default function AuthorDetailScreen() {
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
+const createStyles = (colors: ThemeColors, tokens: any = defaultTokens) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
@@ -841,8 +841,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 12,
   },
   authorName: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontFamily: tokens.typography.fontFamily.display,
+    fontWeight: '600',
     color: colors.text,
     marginBottom: 8,
   },

@@ -214,7 +214,7 @@ export default function SocialFeedScreen() {
                   <MessageCircle size={40} color={colors.primary} />
                   <Sparkles size={20} color={colors.primary} style={styles.miniSparkle} />
                 </View>
-                <AppText style={styles.overlayTitle}>Bientôt disponible</AppText>
+                <AppText variant="h1" style={styles.overlayTitle}>Bientôt disponible</AppText>
                 <AppText style={styles.overlaySubtitle}>
                   {"Le flux social de Quotex arrive bientôt. Vous pourrez partager vos citations favorites, suivre d'autres lecteurs et échanger autour de vos lectures."}
                 </AppText>
@@ -413,7 +413,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create
     right: 15,
   },
   overlayTitle: {
-    fontSize: 22,
     fontWeight: 'bold',
     color: colors.text,
     textAlign: 'center',

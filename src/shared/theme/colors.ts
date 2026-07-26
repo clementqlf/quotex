@@ -15,20 +15,21 @@ const commonColors = {
 export const colors = {
     dark: {
         ...commonColors,
-        background: '#0F0F0F',
-        surface: '#1A1A1A',
-        surfaceHighlight: '#2A2A2A',
-        text: '#FFFFFF',
-        textSecondary: '#9CA3AF', // Gray-400
-        textTertiary: '#6B7280', // Gray-500
-        border: '#1F1F1F',
-        icon: '#FFFFFF',
-        inputBackground: '#1A1A1A',
-        inputText: '#FFFFFF',
-        inputPlaceholder: '#6B7280',
-        cardBackground: '#1A1A1A',
-        buttonText: '#05252C',
-        backdrop: 'rgba(0, 0, 0, 0.45)',
+        background: '#08080a', // Obsidian
+        surface: '#101013', // Graphite (Atmosphere cards & primary surfaces)
+        surfaceHighlight: '#17171c', // Slate (Sidebars & inputs)
+        text: '#e8e5dc', // Beacon
+        textSecondary: '#a0a0a5',
+        textTertiary: '#6B7280',
+        border: '#23232a', // Hairline
+        icon: '#e8e5dc',
+        inputBackground: '#17171c',
+        inputText: '#e8e5dc',
+        inputPlaceholder: '#a0a0a5',
+        cardBackground: '#101013',
+        buttonText: '#08080a',
+        backdrop: 'rgba(8, 8, 10, 0.75)',
+        accent: '#e8e5dc', // Beacon accent
     },
 
     light: {

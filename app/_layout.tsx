@@ -43,6 +43,14 @@ Sentry.init({
   // spotlight: __DEV__,
 });
 
+import { useFonts, InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif';
+import { 
+  PlayfairDisplay_400Regular, 
+  PlayfairDisplay_400Regular_Italic,
+  PlayfairDisplay_500Medium_Italic 
+} from '@expo-google-fonts/playfair-display';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
@@ -53,6 +61,22 @@ initMonitoring();
 const queryClient = new QueryClient();
 
 export default Sentry.wrap(function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_400Regular_Italic,
+    PlayfairDisplay_500Medium_Italic,
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>

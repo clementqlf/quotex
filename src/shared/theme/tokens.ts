@@ -48,9 +48,10 @@ export const sizes = {
 
 export const typography = {
     fontFamily: {
-        body: undefined as string | undefined,
-        quote: Platform.OS === 'ios' ? 'Times New Roman' : 'serif',
-        mono: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        body: 'Inter_400Regular',
+        display: 'PlayfairDisplay_400Regular',
+        quote: 'PlayfairDisplay_500Medium_Italic',
+        mono: Platform.OS === 'ios' ? 'JetBrains Mono' : 'monospace',
     },
     fontSize: {
         xs: 12,

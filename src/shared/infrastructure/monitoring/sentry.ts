@@ -1,8 +1,11 @@
 import * as Sentry from '@sentry/react-native';
+import { logger } from './logger';
+
+export { logger };
 
 export const initMonitoring = () => {
   if (!process.env.EXPO_PUBLIC_SENTRY_DSN) {
-    console.warn("Sentry DSN manquant. Monitoring désactivé.");
+    logger.warn("Sentry DSN manquant. Monitoring désactivé.", undefined, 'Sentry');
     return;
   }
 
@@ -18,13 +21,7 @@ export const initMonitoring = () => {
  * Fonction unifiée pour logger des erreurs de manière explicite 
  * (ex: dans les blocs catch de ton domaine métier)
  */
-export const logError = (error: Error, context?: Record<string, any>) => {
-  if (__DEV__) {
-    console.error("🚨 ERREUR:", error, context);
-  } else {
-    Sentry.withScope((scope) => {
-      if (context) scope.setExtras(context);
-      Sentry.captureException(error);
-    });
-  }
+export const logError = (error: Error | string, context?: Record<string, any>, category?: string) => {
+  logger.error(error, context, category);
 };
+

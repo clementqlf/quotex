@@ -76,7 +76,8 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "16.4",
+            "useFrameworks": "static"
           }
         }
       ],
@@ -99,7 +100,9 @@
           "project": "react-native",
           "organization": "quotex-yn"
         }
-      ]
+      ],
+      "@sentry/react-native",
+      "expo-status-bar"
     ],
     "updates": {
       "url": "https://u.expo.dev/@quotex/quotex",

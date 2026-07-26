@@ -69,8 +69,9 @@ const createStyles = (colors: ThemeColors, tokens: any) => StyleSheet.create({
     padding: tokens.spacing.sm + 4,
   },
   bookCardTitle: {
-    fontSize: tokens.typography.fontSize.md,
+    fontSize: tokens.typography.fontSize.xl,
     color: colors.text,
+    fontFamily: tokens.typography.fontFamily.display,
     fontWeight: tokens.typography.fontWeight.semibold,
     marginBottom: tokens.spacing.xs,
   },
