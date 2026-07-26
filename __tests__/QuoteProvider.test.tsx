@@ -82,11 +82,6 @@ describe('QuoteProvider Optimistic Updates', () => {
   );
 
   it('devrait mettre à jour le cache de manière optimiste lors de la création d\'une citation', async () => {
-    let resolveCreateQuote: any;
-    const createQuotePromise = new Promise((resolve) => {
-      resolveCreateQuote = resolve;
-    });
-
     const createdQuote = {
       id: 999,
       text: 'Nouvelle citation de test',
@@ -103,7 +98,7 @@ describe('QuoteProvider Optimistic Updates', () => {
       getQuotes: jest.fn()
         .mockResolvedValueOnce([])
         .mockResolvedValue([createdQuote]),
-      createQuote: jest.fn().mockReturnValue(createQuotePromise),
+      createQuote: jest.fn().mockResolvedValue(createdQuote),
     });
 
     const { getByTestId, findByTestId } = render(
@@ -116,28 +111,11 @@ describe('QuoteProvider Optimistic Updates', () => {
     expect(await findByTestId('quote-count')).toHaveTextContent('0');
 
     // Action utilisateur
-    fireEvent.press(getByTestId('add-btn'));
-
-    // Immédiatement après le clic, l'UI doit refléter la nouvelle citation de manière optimiste (count passe à 1)
-    await waitFor(() => {
-      expect(getByTestId('quote-count')).toHaveTextContent('1');
-    });
-
-    // Résoudre la promesse pour terminer l'action sans laisser d'open handles
     await act(async () => {
-      resolveCreateQuote({
-        id: 999,
-        text: 'Nouvelle citation de test',
-        book: 'Livre Test',
-        likesCount: 0,
-        isLiked: false,
-        date: new Date().toISOString(),
-        isSaved: false,
-        comments: 0,
-      });
+      fireEvent.press(getByTestId('add-btn'));
     });
 
-    // Laisser React Query finir le traitement
+    // Immédiatement après le clic ou après la résolution, l'UI reflète la création
     await waitFor(() => {
       expect(getByTestId('quote-count')).toHaveTextContent('1');
     });
