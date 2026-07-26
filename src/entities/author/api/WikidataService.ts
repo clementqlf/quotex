@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 const SparqlResultSchema = z.object({
   results: z.object({
-    bindings: z.array(z.record(z.any()))
+    bindings: z.array(z.record(z.string(), z.any()))
   })
 });
 

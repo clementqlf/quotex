@@ -111,7 +111,7 @@ describe('SavedQuotesBlock UI Component', () => {
     );
 
     expect(getByText('Tout')).toBeTruthy();
-    expect(getByText('Publiés')).toBeTruthy();
+    expect(getByText('Publiées')).toBeTruthy();
     expect(getByText('Partagées')).toBeTruthy();
   });
 });

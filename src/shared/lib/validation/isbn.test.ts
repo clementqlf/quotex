@@ -55,7 +55,7 @@ describe('isbn validation & extraction', () => {
       const result = IsbnSchema.safeParse('invalid-isbn-format');
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toBe('Invalid ISBN format. Must be valid ISBN-10 or ISBN-13');
+        expect(result.error.issues[0].message).toBe('Invalid ISBN format. Must be valid ISBN-10 or ISBN-13');
       }
     });
   });

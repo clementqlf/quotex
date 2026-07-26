@@ -31,12 +31,13 @@ jest.mock('react-native-reanimated', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: { View, Text: require('react-native').Text },
+    default: { View, Text: require('react-native').Text, createAnimatedComponent: (c: any) => c },
     useSharedValue: (v: any) => ({ value: v }),
     useAnimatedStyle: () => ({}),
     withSpring: (v: any) => v,
     withSequence: (v: any) => v,
     withTiming: (v: any) => v,
+    createAnimatedComponent: (c: any) => c,
   };
 });
 
