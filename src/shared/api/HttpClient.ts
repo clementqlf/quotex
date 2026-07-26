@@ -211,7 +211,10 @@ export class HttpClient {
 
       if (isNetworkError(error)) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.warn(`[HttpClient] Request failed due to network connectivity: ${restOptions.method || 'GET'} ${url}`, errorMessage);
+        const isCanceled = (fetchOptions.signal as AbortSignal | undefined)?.aborted || errorMessage.toLowerCase().includes('canceled');
+        if (!isCanceled) {
+          console.warn(`[HttpClient] Request failed due to network connectivity: ${restOptions.method || 'GET'} ${url}`, errorMessage);
+        }
       } else {
         console.error(`[HttpClient] Request failed: ${restOptions.method || 'GET'} ${url}`, error);
       }
