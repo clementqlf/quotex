@@ -3,22 +3,16 @@ import { useAppTour } from '@/src/features/app-tour';
 import { InteractiveTooltip } from '@/src/shared/ui/modals/InteractiveTooltip';
 import { useSinglePress } from '@/src/shared/lib/pressUtils';
 import { usePathname } from 'expo-router'; import { useRouter } from '@/src/shared/navigation/useRouter';
-import { BookOpen, Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
+import { Image as ImageIcon, RefreshCw, ScanLine, Settings, Sparkles, User } from 'lucide-react-native';
 import React, { useEffect, useMemo } from 'react';
-import { ThemeColors, tokens as defaultTokens, tokens } from '@/src/shared/theme';
+import { ThemeColors, tokens } from '@/src/shared/theme';
 import {
   Alert,
   Modal,
   StyleSheet,
   View,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Camera, CameraDevice, CameraDeviceFormat, CodeScanner, PhotoFile } from 'react-native-vision-camera';
 
 import { useAuth } from '@/src/app/providers/AuthContext';
@@ -30,7 +24,7 @@ import { PlatformServices } from '@/src/shared/platform';
 
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
 import AnimatedISBNPopup from '@/src/features/scanner/ui/AnimatedISBNPopup';
-import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
+import ScanViewport from '@/src/features/scanner/ui/ScanViewport';
 import ScanWorkflow from '@/src/features/scanner/ui/ScanWorkflow';
 
 import ScanPreviewModal from '@/src/shared/ui/modals/ScanPreviewModal';
@@ -188,16 +182,7 @@ export default function ScanScreen() {
     cleanup,
   } = scanController;
 
-  // ========== ANIMATIONS ==========
-  const fadeAnim = useSharedValue(1);
 
-  React.useEffect(() => {
-    fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
-  }, [isTextDetectedLive, fadeAnim]);
-
-  const fadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeAnim.value,
-  }));
 
   // ========== EFFETS ==========
   useEffect(() => {
@@ -334,79 +319,25 @@ export default function ScanScreen() {
 
       {!photo && (
         <>
-          <View
-            style={styles.scanArea}
-            onLayout={(event) => {
-              const { y } = event.nativeEvent.layout;
-              setScanAreaY(y);
-            }}
-          >
-            <View
-              style={styles.scanFrame}
-              onLayout={(event) => {
-                const { x, y, width, height } = event.nativeEvent.layout;
-                setScanFrameLayout({ x, y, width, height });
-              }}
-            >
-              <ScanFrameOverlay
-                isTextDetectedLive={isTextDetectedLive}
-                scanFrameLayout={scanFrameLayout}
-                colors={colors}
-              />
-
-              <View style={styles.content}>
-                <Animated.View
-                  style={[styles.fadeContainer, fadeStyle]}
-                  pointerEvents="none"
-                >
-                  <View style={styles.iconShadowWrapper}>
-                    <BookOpen size={48} color={colors.text || '#FFFFFF'} />
-                  </View>
-                  <AppText style={styles.instructionTextShadow}>
-                    {isLoading ? (
-                      'Analyse en cours...'
-                    ) : !device ? (
-                      'Caméra indisponible.\nImportez une image de la galerie.'
-                    ) : (
-                      <>
-                        Placez une <AppText style={styles.italicText}>citation</AppText> ou un <AppText style={styles.italicText}>code-barre</AppText> dans le cadre
-                      </>
-                    )}
-                  </AppText>
-                </Animated.View>
-              </View>
-            </View>
-          </View>
-
-          {scanFrameLayout && containerSize.width > 0 && (
-            <Svg
-              width={containerSize.width}
-              height={containerSize.height}
-              style={styles.darkOverlay}
-              viewBox={`0 0 ${containerSize.width} ${containerSize.height}`}
-            >
-              <Defs>
-                <Mask id="scanMask">
-                  <Rect width={containerSize.width} height={containerSize.height} fill="white" />
-                  <Rect
-                    x={scanFrameLayout.x}
-                    y={scanAreaY + scanFrameLayout.y}
-                    width={scanFrameLayout.width}
-                    height={scanFrameLayout.height}
-                    rx="24"
-                    ry="24"
-                    fill="black"
-                  />
-                </Mask>
-              </Defs>
-              <Rect
-                width={containerSize.width}
-                height={containerSize.height}
-                fill={colors.backdrop}
-                mask="url(#scanMask)"
-              />
-            </Svg>
-          )}
+          <ScanViewport
+            containerSize={containerSize}
+            isTextDetectedLive={isTextDetectedLive}
+            colors={colors}
+            maskColor={colors.backdrop}
+            onScanAreaYChange={setScanAreaY}
+            onScanFrameLayoutChange={setScanFrameLayout}
+            instructionText={
+              isLoading ? (
+                'Analyse en cours...'
+              ) : !device ? (
+                'Caméra indisponible.\nImportez une image de la galerie.'
+              ) : (
+                <>
+                  Placez une <AppText style={styles.italicText}>citation</AppText> ou un <AppText style={styles.italicText}>code-barre</AppText> dans le cadre
+                </>
+              )
+            }
+          />
 
           {DEBUG_SCAN_AREA && scanFrameLayout && (
             <View

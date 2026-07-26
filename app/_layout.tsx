@@ -19,6 +19,13 @@ import AnimatedSplashScreen from '@/src/shared/ui/AnimatedSplashScreen';
 import * as SplashScreen from 'expo-splash-screen';
 import MaskedView from '@react-native-masked-view/masked-view';
 import * as SystemUI from 'expo-system-ui';
+import { useFonts, InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif';
+import { 
+  PlayfairDisplay_400Regular, 
+  PlayfairDisplay_400Regular_Italic,
+  PlayfairDisplay_500Medium_Italic 
+} from '@expo-google-fonts/playfair-display';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { AppTourOverlay } from '@/src/features/app-tour/ui/AppTourOverlay';
 import { GlobalErrorBoundary } from '@/src/shared/infrastructure/monitoring/GlobalErrorBoundary';
 import { initMonitoring } from '@/src/shared/infrastructure/monitoring/sentry';
@@ -42,14 +49,6 @@ Sentry.init({
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
 });
-
-import { useFonts, InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic } from '@expo-google-fonts/instrument-serif';
-import { 
-  PlayfairDisplay_400Regular, 
-  PlayfairDisplay_400Regular_Italic,
-  PlayfairDisplay_500Medium_Italic 
-} from '@expo-google-fonts/playfair-display';
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -78,29 +77,29 @@ export default Sentry.wrap(function RootLayout() {
   }
 
   return (
-    <GlobalErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <ThemeProvider>
-            <AuthProvider>
-              <TabProvider>
-                <RepositoriesProvider>
-                  <NavigationProvider>
-                    <QuoteProvider>
-                      <AuthorProvider>
-                        <RootLayoutNav />
-                      </AuthorProvider>
-                    </QuoteProvider>
-                  </NavigationProvider>
-                </RepositoriesProvider>
-              </TabProvider>
-            </AuthProvider>
+            <GlobalErrorBoundary>
+              <AuthProvider>
+                <TabProvider>
+                  <RepositoriesProvider>
+                    <NavigationProvider>
+                      <QuoteProvider>
+                        <AuthorProvider>
+                          <RootLayoutNav />
+                        </AuthorProvider>
+                      </QuoteProvider>
+                    </NavigationProvider>
+                  </RepositoriesProvider>
+                </TabProvider>
+              </AuthProvider>
+            </GlobalErrorBoundary>
           </ThemeProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
-    </GlobalErrorBoundary>
   );
 });
 

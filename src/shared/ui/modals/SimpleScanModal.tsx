@@ -2,8 +2,8 @@ import { useTheme } from '@/src/app/providers/ThemeContext';
 import { scanService } from '@/src/features/scanner/api/ScanService';
 import { Camera, useCameraDevice, useCameraPermission, PhotoFile } from 'react-native-vision-camera';
 import { TextElement, TextBlock } from '@react-native-ml-kit/text-recognition';
-import { X, ScanLine, BookOpen } from 'lucide-react-native';
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { X, ScanLine } from 'lucide-react-native';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,15 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { useLiveOCR } from '@/src/features/scanner/model/useLiveOCR';
-import ScanFrameOverlay from '@/src/features/scanner/ui/ScanFrameOverlay';
+import ScanViewport from '@/src/features/scanner/ui/ScanViewport';
 import { ThemeColors, tokens } from '@/src/shared/theme';
 import { AppText } from '@/src/shared/ui';
 
@@ -64,24 +58,9 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
     onTextDetectedChange: handleTextDetectedChange,
   });
 
-  const fadeAnim = useSharedValue(1);
 
-  useEffect(() => {
-    fadeAnim.value = withTiming(isTextDetectedLive ? 0 : 1, { duration: 400 });
-  }, [isTextDetectedLive, fadeAnim]);
-
-  const fadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeAnim.value,
-  }));
 
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [scanAreaY, setScanAreaY] = useState(0);
-  const [scanFrameLayout, setScanFrameLayout] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
 
   const handleCapture = async () => {
     if (!cameraRef.current || isLoading) return;
@@ -180,75 +159,17 @@ export default function SimpleScanModal({ visible, onClose, onSuccess }: SimpleS
           </TouchableOpacity>
         </View>
 
-        {/* Scan Area Frame wrapper */}
-        <View
-          style={styles.scanArea}
-          onLayout={(event) => {
-            const { y } = event.nativeEvent.layout;
-            setScanAreaY(y);
-          }}
-        >
-          <View
-            style={styles.scanFrame}
-            onLayout={(event) => {
-              const { x, y, width, height } = event.nativeEvent.layout;
-              setScanFrameLayout({ x, y, width, height });
-            }}
-          >
-            {scanFrameLayout && (
-              <ScanFrameOverlay
-                isTextDetectedLive={isTextDetectedLive}
-                scanFrameLayout={scanFrameLayout}
-                colors={colors}
-              />
-            )}
-
-            <View style={styles.content}>
-              <Animated.View
-                style={[styles.fadeContainer, fadeStyle]}
-                pointerEvents="none"
-              >
-                <View style={styles.iconShadowWrapper}>
-                  <BookOpen size={48} color="#FFFFFF" />
-                </View>
-                <AppText style={styles.instructionTextShadow}>
-                  Placez la <AppText style={styles.italicText}>citation</AppText> dans le cadre
-                </AppText>
-              </Animated.View>
-            </View>
-          </View>
-        </View>
-
-        {/* Overlay Assombrissant avec Découpe SVG */}
-        {scanFrameLayout && containerSize.width > 0 && (
-          <Svg
-            width={containerSize.width}
-            height={containerSize.height}
-            style={styles.darkOverlay}
-            viewBox={`0 0 ${containerSize.width} ${containerSize.height}`}
-          >
-            <Defs>
-              <Mask id="scanMask">
-                <Rect width={containerSize.width} height={containerSize.height} fill="white" />
-                <Rect
-                  x={scanFrameLayout.x}
-                  y={scanAreaY + scanFrameLayout.y}
-                  width={scanFrameLayout.width}
-                  height={scanFrameLayout.height}
-                  rx="24"
-                  ry="24"
-                  fill="black"
-                />
-              </Mask>
-            </Defs>
-            <Rect
-              width={containerSize.width}
-              height={containerSize.height}
-              fill="rgba(0, 0, 0, 0.6)"
-              mask="url(#scanMask)"
-            />
-          </Svg>
-        )}
+        <ScanViewport
+          containerSize={containerSize}
+          isTextDetectedLive={isTextDetectedLive}
+          colors={colors}
+          maskColor="rgba(0, 0, 0, 0.6)"
+          instructionText={
+            <>
+              Placez la <AppText style={styles.italicText}>citation</AppText> dans le cadre
+            </>
+          }
+        />
 
         {/* Contrôles en bas */}
         <View style={styles.controls}>

@@ -770,36 +770,22 @@ export default function ScanPreviewModal({
                             ref={cannonConfettiRef}
                             autoplay={false}
                             gravity={3}
-                            infinite={false}
                             colors={['#20B8CD', '#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6']}
                             onAnimationEnd={() => cannonConfettiRef.current?.reset()}
-                            containerStyle={StyleSheet.absoluteFill}
                         >
                             <CannonConfetti.Origin
                                 position="bottom-left"
-                                count={100}
+                                count={150}
                                 initialSpeed={3}
-                                spread={Math.PI / 4}
                             >
                                 <CannonConfetti.Flake size={12} radius={6} />
                             </CannonConfetti.Origin>
-
-                            <CannonConfetti.Origin
-                                position="bottom-center"
-                                count={100}
-                                initialSpeed={4}
-                                spread={Math.PI / 3}
-                            >
-                                <CannonConfetti.Flake size={10} />
-                            </CannonConfetti.Origin>
-
                             <CannonConfetti.Origin
                                 position="bottom-right"
-                                count={100}
+                                count={150}
                                 initialSpeed={3}
-                                spread={Math.PI / 4}
                             >
-                                <CannonConfetti.Flake size={14} radius={4} />
+                                <CannonConfetti.Flake size={12} />
                             </CannonConfetti.Origin>
                         </CannonConfetti>
                     </View>

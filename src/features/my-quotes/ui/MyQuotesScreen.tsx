@@ -580,7 +580,6 @@ export default function MyQuotesScreen() {
   }, [books, selectedStatus]);
 
   const hasActiveBookFilters = activeFilters.length > 0 || selectedStatus !== 'ALL';
-  const hasActiveQuoteFilters = myQuotes.length > 0 && (activeFilters.length > 0 || quoteSubFilter !== 'ALL');
   const hasActiveAuthorFilters = activeFilters.length > 0;
   const hasActiveThemeFilters = activeFilters.length > 0;
 

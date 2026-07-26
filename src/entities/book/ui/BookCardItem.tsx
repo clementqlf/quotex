@@ -8,7 +8,6 @@ import React, { useMemo, useRef, useCallback } from 'react';
 import {
   Pressable,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useHaptics } from '@/src/shared/platform';

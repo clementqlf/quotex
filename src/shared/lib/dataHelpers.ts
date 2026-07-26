@@ -133,6 +133,7 @@ export const getBlockDataArray = <T>(
  * Computes dynamic font size and line height according to text length
  * so short quotes (or single words) fill space nicely and read prominently.
  */
+/* eslint-disable @typescript-eslint/no-magic-numbers */
 export const getDynamicQuoteFontSize = (text?: string, isModal: boolean = false) => {
   const len = text ? text.trim().length : 0;
 

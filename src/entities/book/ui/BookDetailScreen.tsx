@@ -9,7 +9,7 @@ import { BookCover } from '@/src/shared/ui/BookCover';
 import { DetailHeaderBar, DetailHeroHeader, DetailSectionGroup, DetailStatGrid } from '@/src/shared/ui/details';
 import { BookOpen, Calendar, Check, Info, Plus, Share as ShareIcon, Star } from 'lucide-react-native';
 import React, { useCallback, useMemo } from 'react';
-import { Keyboard, RefreshControl, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Keyboard, RefreshControl, TouchableWithoutFeedback, View } from 'react-native';
 import { NotesKeyboardToolbar, useKeyboardToolbar } from '@/src/shared/ui/blocks/NotesBlock';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';

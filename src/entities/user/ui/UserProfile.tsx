@@ -22,7 +22,6 @@ import { useLocalSearchParams } from 'expo-router'; import { useRouter } from '@
 import { Camera, MoreHorizontal, Quote, X } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,

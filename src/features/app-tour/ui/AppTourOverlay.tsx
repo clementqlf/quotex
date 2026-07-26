@@ -34,16 +34,17 @@ const STEP_MESSAGES: Record<TourStep, string> = {
   addQuoteButton: "Le bouton + permet de rajouter une citation manuellement.",
 };
 
+/* eslint-disable @typescript-eslint/no-magic-numbers */
 const STEP_TARGET_BUILDERS: Record<
   TourStep,
   (screenWidth: number, screenHeight: number, insets: EdgeInsets) => TargetGeometry
 > = {
   scanButton: (w, h, insets) => ({
-    x: Math.round(w / 2 - 32),
-    y: Math.round(h - Math.max(insets.bottom, 16) - 94),
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    x: Math.round(w / 2 - 42),
+    y: Math.round(h - Math.max(insets.bottom, 16) - 104),
+    width: 84,
+    height: 84,
+    borderRadius: 42,
   }),
   scanGalleryButton: (w, h, insets) => ({
     x: Math.round(w / 2 - 96),
@@ -81,10 +82,10 @@ const STEP_TARGET_BUILDERS: Record<
     borderRadius: 18,
   }),
   filterTabs: (w, _, insets) => ({
-    x: 0,
-    y: Math.round(insets.top + 68),
-    width: w,
-    height: 64,
+    x: 12,
+    y: Math.round(insets.top + 60),
+    width: w - 24,
+    height: 58,
     borderRadius: 14,
   }),
   searchButton: (w, _, insets) => ({
@@ -151,7 +152,19 @@ export function AppTourOverlay({ isInsideModalContainer = false }: AppTourOverla
     : fallbackTarget;
 
   // Ajustements specifiques de decoupe selon les etapes
-  if (activeStepName === 'scanGalleryButton') {
+  if (activeStepName === 'scanButton') {
+    // Bouton Scan principal : cercle parfait (CircleButton size="md" -> diamètre 84)
+    const size = Math.max(84, Math.max(target.width, target.height));
+    const centerX = target.x + target.width / 2;
+    const centerY = target.y + target.height / 2;
+    target = {
+      x: Math.round(centerX - size / 2),
+      y: Math.round(centerY - size / 2),
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+    };
+  } else if (activeStepName === 'scanGalleryButton') {
     // Bouton Galerie : carre 45x45 a coins arrondis (borderRadius: 12)
     target = {
       ...target,
@@ -167,10 +180,10 @@ export function AppTourOverlay({ isInsideModalContainer = false }: AppTourOverla
     };
   } else if (activeStepName === 'filterTabs') {
     target = {
-      x: 0,
-      y: target.y + 16,
-      width: width,
-      height: Math.max(50, target.height - 20),
+      x: 12,
+      y: target.y + 4,
+      width: width - 24,
+      height: Math.max(50, target.height - 8),
       borderRadius: 14,
     };
   } else if (activeStepName === 'searchButton' || activeStepName === 'addQuoteButton') {
